@@ -37,12 +37,10 @@
         <span>Jaringan Toko Online Mitra SR12</span>
       </div>
       <div class="platform-store-tools">
-        <!-- Switcher demo antar toko terdaftar -->
-        <div class="active-store-chip" title="Pilih toko mitra untuk beralih tampilan toko">
-          <span style="font-size: 0.72rem; color: #94a3b8;">🏪 Toko:</span>
-          <select id="activeStoreSelect" class="store-select-dropdown" onchange="switchPartnerStore(this.value)">
-            <!-- Populated dynamically via JS -->
-          </select>
+        <!-- Badge Toko Resmi Aktif (Eksklusif tanpa dropdown ke kompetitor) -->
+        <div class="active-store-chip" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18); padding: 5px 12px; border-radius: 9999px; display: inline-flex; align-items: center; gap: 6px;" title="Toko Resmi SR12 Terverifikasi">
+          <span style="font-size: 0.72rem; color: #94a3b8;">🏪 Toko Resmi:</span>
+          <span id="activeStorePublicBadge" style="font-size: 0.76rem; font-weight: 800; color: #38bdf8;">SR12 Official Central Hub</span>
         </div>
         <!-- Tombol Bagikan Link Toko -->
         <button class="btn-topbar-action" onclick="openShareStoreModal()" title="Salin link toko ini untuk disebarkan ke pembeli">
@@ -2194,6 +2192,23 @@
             <button onclick="changeDevMasterPin()" style="background: #0284c7; color: #fff; border: none; padding: 7px 14px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; cursor: pointer;">
               🔑 Ganti Master PIN
             </button>
+          </div>
+        </div>
+
+        <!-- Switcher Toko Khusus Developer & Master Admin -->
+        <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border: 1.5px solid #0284c7; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+          <div>
+            <div style="font-size: 0.85rem; font-weight: 800; color: #38bdf8; display: flex; align-items: center; gap: 6px;">
+              <span>🏪</span> Beralih Pratinjau Toko (Khusus Developer):
+            </div>
+            <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 2px;">
+              Pilih toko untuk berpindah tampilan etalase (Hanya dapat diakses melalui Developer Portal)
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <select id="devStoreSelect" style="background: #090d16; color: #38bdf8; border: 1.5px solid #0284c7; padding: 8px 14px; border-radius: 6px; font-size: 0.82rem; font-weight: 800; cursor: pointer; outline: none;" onchange="switchPartnerStore(this.value); closeModal('modalDevPortal');">
+              <!-- Populated dynamically via JS -->
+            </select>
           </div>
         </div>
 

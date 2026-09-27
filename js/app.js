@@ -732,6 +732,9 @@ function loadStoreBySlug(slug) {
   }
   const select = document.getElementById('activeStoreSelect');
   if (select) select.value = found.slug;
+  const devSelect = document.getElementById('devStoreSelect');
+  if (devSelect) devSelect.value = found.slug;
+  renderStoreDropdown();
   updateStoreQuotaUI();
 }
 
@@ -743,11 +746,31 @@ function switchPartnerStore(slug) {
 }
 
 function renderStoreDropdown() {
+  const curStore = appState.storeSettings || {};
+  const tierObj = SR12_TIERS[curStore.partnerTier] || SR12_TIERS.distributor;
+
+  // Update public exclusive store badge
+  const publicBadge = document.getElementById('activeStorePublicBadge');
+  if (publicBadge) {
+    publicBadge.innerHTML = `<span style="color: #38bdf8; font-weight: 800;">${curStore.storeName || 'SR12 Store'}</span> <span style="color: #94a3b8; font-size: 0.7rem; font-weight: 600;">(${curStore.storeCity || 'Mitra'}) &middot; ${tierObj.name}</span>`;
+  }
+
+  // Update Dev Portal Store Switcher
+  const devSelect = document.getElementById('devStoreSelect');
+  if (devSelect) {
+    devSelect.innerHTML = appState.partnerStores.map(s => {
+      const t = SR12_TIERS[s.partnerTier]?.name || 'Mitra';
+      return `<option value="${s.slug}" ${s.slug === appState.currentStoreSlug ? 'selected' : ''}>${s.storeName} (${t} - ${s.storeCity})</option>`;
+    }).join('');
+  }
+
+  // Update legacy activeStoreSelect if present
   const select = document.getElementById('activeStoreSelect');
-  if (!select) return;
-  select.innerHTML = appState.partnerStores.map(s => {
-    return `<option value="${s.slug}" ${s.slug === appState.currentStoreSlug ? 'selected' : ''}>${s.storeName} (${SR12_TIERS[s.partnerTier]?.name || 'Mitra'})</option>`;
-  }).join('');
+  if (select) {
+    select.innerHTML = appState.partnerStores.map(s => {
+      return `<option value="${s.slug}" ${s.slug === appState.currentStoreSlug ? 'selected' : ''}>${s.storeName} (${SR12_TIERS[s.partnerTier]?.name || 'Mitra'})</option>`;
+    }).join('');
+  }
 }
 
 function autoGenerateSlug(name) {
