@@ -1864,39 +1864,6 @@
     </div>
   </div>
 
-  <!-- 13B-3. MODAL: LIHAT / PREVIEW DOKUMEN SK DISTRIBUTOR (KHUSUS DEVELOPER / ADMIN) -->
-  <div class="modal-backdrop" id="modalPreviewSkDoc">
-    <div class="modal-dialog" style="max-width: 580px;">
-      <div class="modal-header" style="background: #0f172a; color: #fff; border-bottom: 1px solid #334155;">
-        <h3 id="previewSkTitle" style="color: #38bdf8; margin: 0; font-size: 1rem; display: flex; align-items: center; gap: 8px;">
-          <span>📄</span> Verifikasi Dokumen SK Distributor
-        </h3>
-        <button class="btn-close-modal" style="color: #94a3b8;" onclick="closeModal('modalPreviewSkDoc')">&times;</button>
-      </div>
-      <div class="modal-body" style="padding: 20px; background: #0f172a; color: #e2e8f0;">
-        <div id="previewSkDetails" style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 12px; font-size: 0.78rem; margin-bottom: 14px; line-height: 1.6;">
-          <!-- Populated dynamically via JS -->
-        </div>
-
-        <div id="previewSkContainer" style="text-align: center; margin-bottom: 18px; min-height: 200px; display: flex; align-items: center; justify-content: center;">
-          <!-- Document preview image or digital certificate -->
-        </div>
-
-        <div style="display: flex; gap: 10px;">
-          <button type="button" id="btnPreviewApproveSk" style="flex: 1; background: #10b981; color: #fff; border: none; padding: 11px; border-radius: 6px; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
-            <span>✅</span> Setujui & Aktifkan Toko
-          </button>
-          <button type="button" id="btnPreviewRejectSk" style="background: #ef4444; color: #fff; border: none; padding: 11px 16px; border-radius: 6px; font-weight: 700; font-size: 0.85rem; cursor: pointer;">
-            ❌ Tolak
-          </button>
-          <button type="button" onclick="closeModal('modalPreviewSkDoc')" style="background: #334155; color: #cbd5e1; border: none; padding: 11px 16px; border-radius: 6px; font-weight: 600; font-size: 0.85rem; cursor: pointer;">
-            Tutup
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- 13C. MODAL: BAGIKAN LINK TOKO MITRA (SHARE LINK TOKO) -->
   <div class="modal-backdrop" id="modalShareStore">
     <div class="modal-dialog" style="max-width: 480px;">
@@ -2323,6 +2290,38 @@
               </button>
             </div>
           </form>
+        </div>
+      </div>
+  </div>
+
+  <!-- 13B-3. MODAL: LIHAT / PREVIEW DOKUMEN SK DISTRIBUTOR (KHUSUS DEVELOPER / ADMIN) -->
+  <div class="modal-backdrop" id="modalPreviewSkDoc" style="z-index: 10000;">
+    <div class="modal-dialog" style="max-width: 580px; z-index: 10001; position: relative;">
+      <div class="modal-header" style="background: #0f172a; color: #fff; border-bottom: 1px solid #334155;">
+        <h3 id="previewSkTitle" style="color: #38bdf8; margin: 0; font-size: 1rem; display: flex; align-items: center; gap: 8px;">
+          <span>📄</span> Verifikasi Dokumen SK Distributor
+        </h3>
+        <button class="btn-close-modal" style="color: #94a3b8;" onclick="closeModal('modalPreviewSkDoc')">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 20px; background: #0f172a; color: #e2e8f0;">
+        <div id="previewSkDetails" style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 12px; font-size: 0.78rem; margin-bottom: 14px; line-height: 1.6;">
+          <!-- Populated dynamically via JS -->
+        </div>
+
+        <div id="previewSkContainer" style="text-align: center; margin-bottom: 18px; min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+          <!-- Document preview image or digital certificate -->
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+          <button type="button" id="btnPreviewApproveSk" style="flex: 1; background: #10b981; color: #fff; border: none; padding: 11px; border-radius: 6px; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <span>✅</span> Setujui & Aktifkan Toko
+          </button>
+          <button type="button" id="btnPreviewRejectSk" style="background: #ef4444; color: #fff; border: none; padding: 11px 16px; border-radius: 6px; font-weight: 700; font-size: 0.85rem; cursor: pointer;">
+            ❌ Tolak
+          </button>
+          <button type="button" onclick="closeModal('modalPreviewSkDoc')" style="background: #334155; color: #cbd5e1; border: none; padding: 11px 16px; border-radius: 6px; font-weight: 600; font-size: 0.85rem; cursor: pointer;">
+            Tutup
+          </button>
         </div>
       </div>
     </div>

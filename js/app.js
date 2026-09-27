@@ -656,6 +656,14 @@ function previewSkDocument(appId) {
   }
 
   const modal = document.getElementById('modalPreviewSkDoc');
+  if (!modal) {
+    alert('Modal preview dokumen SK belum dimuat!');
+    return;
+  }
+
+  // Force top stacking context
+  modal.style.zIndex = '10000';
+
   const titleEl = document.getElementById('previewSkTitle');
   const detailsEl = document.getElementById('previewSkDetails');
   const containerEl = document.getElementById('previewSkContainer');
@@ -663,10 +671,15 @@ function previewSkDocument(appId) {
   const btnReject = document.getElementById('btnPreviewRejectSk');
 
   const tierObj = SR12_TIERS[app.partnerTier] || SR12_TIERS.distributor;
-  const dateFormatted = new Date(app.submittedAt).toLocaleString('id-ID', {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  });
+  let dateFormatted = '-';
+  try {
+    dateFormatted = app.submittedAt ? new Date(app.submittedAt).toLocaleString('id-ID', {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    }) : new Date().toLocaleDateString('id-ID');
+  } catch (e) {
+    dateFormatted = String(app.submittedAt || '-');
+  }
 
   if (titleEl) {
     titleEl.innerHTML = `<span>📄</span> Verifikasi SK: ${app.storeName} <small style="color: #94a3b8; font-size: 0.75rem;">(#${app.id})</small>`;
@@ -700,7 +713,7 @@ function previewSkDocument(appId) {
   if (containerEl) {
     if (app.skDocUrl && app.skDocUrl.startsWith('data:image')) {
       containerEl.innerHTML = `
-        <div style="border: 2px solid #334155; border-radius: 8px; overflow: hidden; background: #000; max-height: 280px; display: flex; justify-content: center; align-items: center;">
+        <div style="border: 2px solid #334155; border-radius: 8px; overflow: hidden; background: #000; max-height: 280px; display: flex; justify-content: center; align-items: center; width: 100%;">
           <img src="${app.skDocUrl}" alt="Dokumen SK" style="max-width: 100%; max-height: 280px; object-fit: contain; cursor: zoom-in;" onclick="window.open('${app.skDocUrl}', '_blank')" title="Klik untuk perbesar gambar SK">
         </div>
         <small style="color: #94a3b8; font-size: 0.7rem; margin-top: 6px; display: block;">Dokumen gambar terlampir (Klik gambar untuk ukuran penuh)</small>
@@ -731,7 +744,8 @@ function previewSkDocument(appId) {
     btnReject.onclick = () => rejectPendingStore(app.id);
   }
 
-  if (modal) modal.classList.add('open');
+  modal.classList.add('open');
+  showToast('📄 Membuka dokumen SK Distributor...');
 }
 
 function approvePendingStore(appId) {
@@ -2878,27 +2892,30 @@ function updateDevPortalMetrics() {
                 ${tierObj.name}
               </span>
             </td>
-            <td style="padding: 8px 10px;">
-              <button onclick="previewSkDocument('${app.id}')" style="background: #1e293b; border: 1px solid #f59e0b; color: #fbbf24; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px;">
-                <span>📄</span> ${app.skNumber || 'Lihat SK'}
+            <td style="padding: 8px 10px; white-space: nowrap;">
+              <button type="button" onclick="event.stopPropagation(); previewSkDocument('${app.id}')" title="Klik untuk memeriksa dokumen SK resmi" style="background: #1e293b; border: 1.5px solid #f59e0b; color: #fbbf24; padding: 6px 12px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.3); transition: all 0.2s ease;">
+                <span>📄</span> <span>${app.skNumber || 'Lihat Dokumen SK'}</span> <span style="font-size: 0.68rem; opacity: 0.8;">↗️</span>
               </button>
             </td>
             <td style="padding: 8px 10px;">
-              <button onclick="contactApplicantWA('${app.id}')" style="background: rgba(37, 211, 102, 0.15); border: 1px solid #25d366; color: #4ade80; padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+              <button type="button" onclick="contactApplicantWA('${app.id}')" style="background: rgba(37, 211, 102, 0.15); border: 1px solid #25d366; color: #4ade80; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; white-space: nowrap;">
                 <span>📱</span> +${app.storeWaNumber}
               </button>
             </td>
             <td style="padding: 8px 10px; text-align: center;">
-              <span style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; padding: 2px 8px; border-radius: 9999px; font-weight: 800; font-size: 0.68rem;">
+              <span style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; padding: 2px 8px; border-radius: 9999px; font-weight: 800; font-size: 0.68rem; white-space: nowrap;">
                 ⏳ PENDING
               </span>
             </td>
-            <td style="padding: 8px 10px; text-align: center;">
-              <div style="display: flex; gap: 6px; justify-content: center;">
-                <button onclick="approvePendingStore('${app.id}')" title="Setujui dan Aktifkan Toko" style="background: #10b981; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer;">
+            <td style="padding: 8px 10px; text-align: center; white-space: nowrap;">
+              <div style="display: inline-flex; gap: 6px; justify-content: center; align-items: center;">
+                <button type="button" onclick="event.stopPropagation(); previewSkDocument('${app.id}')" title="Buka & Verifikasi Berkas SK" style="background: #0284c7; color: #fff; border: none; padding: 5px 9px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+                  <span>📄</span> Cek SK
+                </button>
+                <button type="button" onclick="approvePendingStore('${app.id}')" title="Setujui dan Aktifkan Toko" style="background: #10b981; color: #fff; border: none; padding: 5px 9px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; cursor: pointer;">
                   ✅ Setujui
                 </button>
-                <button onclick="rejectPendingStore('${app.id}')" title="Tolak Pengajuan" style="background: #ef4444; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer;">
+                <button type="button" onclick="rejectPendingStore('${app.id}')" title="Tolak Pengajuan" style="background: #ef4444; color: #fff; border: none; padding: 5px 9px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; cursor: pointer;">
                   ❌ Tolak
                 </button>
               </div>
