@@ -667,38 +667,63 @@ function getTierLabelName(tier) {
 }
 
 // Modal Struk Nota POS
+// Modal Struk Nota POS & Online Order
 function openPosReceiptModal(trx) {
-  const store = (typeof appState !== 'undefined' && appState.storeSettings) || {};
-  document.getElementById('rcptStoreName').textContent = store.storeName || 'Aisyah SR12 Hub';
-  document.getElementById('rcptStoreTagline').textContent = store.storeTagline || 'Distributor Resmi SR12 Wilayah Jawa Barat';
-  document.getElementById('rcptStoreAddress').textContent = `${store.storeCity || 'Bandung'} · WA: ${store.storeWaNumber || '6281234567890'}`;
+  if (!trx) return;
+  try {
+    const store = (typeof appState !== 'undefined' && appState.storeSettings) || {};
+    
+    const setEl = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = val;
+    };
 
-  document.getElementById('rcptTrxId').textContent = trx.id;
-  document.getElementById('rcptDateTime').textContent = trx.dateTime;
-  document.getElementById('rcptCustomer').textContent = trx.customerName;
-  document.getElementById('rcptTier').textContent = trx.tierLabel;
+    setEl('rcptStoreName', store.storeName || 'Aisyah SR12 Hub');
+    setEl('rcptStoreTagline', store.storeTagline || 'Distributor Resmi SR12 Wilayah Jawa Barat');
+    setEl('rcptStoreAddress', `${store.storeCity || 'Bandung'} · WA: ${store.storeWaNumber || '6281234567890'}`);
 
-  const tbody = document.getElementById('rcptItemsBody');
-  if (tbody) {
-    tbody.innerHTML = trx.items.map(i => `
-      <tr>
-        <td style="padding: 3px 0;">${i.name}</td>
-        <td style="text-align: center; padding: 3px 0;">${i.qty}</td>
-        <td style="text-align: right; padding: 3px 0;">Rp ${i.price.toLocaleString('id-ID')}</td>
-        <td style="text-align: right; padding: 3px 0; font-weight: 700;">Rp ${i.subtotal.toLocaleString('id-ID')}</td>
-      </tr>
-    `).join('');
+    setEl('rcptTrxId', trx.id || '-');
+    setEl('rcptDateTime', trx.dateTime || '-');
+    setEl('rcptCustomer', trx.customerName || '-');
+    setEl('rcptTier', trx.tierLabel || 'Retail');
+
+    const items = trx.items || [];
+    const tbody = document.getElementById('rcptItemsBody');
+    if (tbody) {
+      tbody.innerHTML = items.map(i => {
+        const price = Number(i.price) || 0;
+        const subtotal = Number(i.subtotal) || (price * (Number(i.qty) || 1));
+        return `
+          <tr>
+            <td style="padding: 4px 0;">${i.name || 'Produk SR12'}</td>
+            <td style="text-align: center; padding: 4px 0;">${i.qty || 1}</td>
+            <td style="text-align: right; padding: 4px 0;">Rp ${price.toLocaleString('id-ID')}</td>
+            <td style="text-align: right; padding: 4px 0; font-weight: 700;">Rp ${subtotal.toLocaleString('id-ID')}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    const subtotalVal = Number(trx.subtotalHet) || Number(trx.grandTotal) || 0;
+    const discountVal = Number(trx.discountAmount) || 0;
+    const grandTotalVal = Number(trx.grandTotal) || 0;
+    const cashVal = typeof trx.cashTendered === 'number' ? trx.cashTendered : grandTotalVal;
+    const changeVal = typeof trx.changeAmount === 'number' ? trx.changeAmount : 0;
+
+    setEl('rcptSubtotal', `Rp ${subtotalVal.toLocaleString('id-ID')}`);
+    setEl('rcptDiscount', discountVal > 0 ? `- Rp ${discountVal.toLocaleString('id-ID')}` : 'Rp 0');
+    setEl('rcptGrandTotal', `Rp ${grandTotalVal.toLocaleString('id-ID')}`);
+    setEl('rcptMethod', trx.paymentMethod || 'TRANSFER / ONLINE');
+    setEl('rcptCash', `Rp ${cashVal.toLocaleString('id-ID')}`);
+    setEl('rcptChange', `Rp ${changeVal.toLocaleString('id-ID')}`);
+
+    const modal = document.getElementById('modalPosReceipt');
+    if (modal) modal.classList.add('open');
+  } catch (err) {
+    console.error('Error opening receipt modal:', err);
+    const modal = document.getElementById('modalPosReceipt');
+    if (modal) modal.classList.add('open');
   }
-
-  document.getElementById('rcptSubtotal').textContent = `Rp ${trx.subtotalHet.toLocaleString('id-ID')}`;
-  document.getElementById('rcptDiscount').textContent = trx.discountAmount > 0 ? `- Rp ${trx.discountAmount.toLocaleString('id-ID')}` : 'Rp 0';
-  document.getElementById('rcptGrandTotal').textContent = `Rp ${trx.grandTotal.toLocaleString('id-ID')}`;
-  document.getElementById('rcptMethod').textContent = trx.paymentMethod;
-  document.getElementById('rcptCash').textContent = `Rp ${trx.cashTendered.toLocaleString('id-ID')}`;
-  document.getElementById('rcptChange').textContent = `Rp ${trx.changeAmount.toLocaleString('id-ID')}`;
-
-  const modal = document.getElementById('modalPosReceipt');
-  if (modal) modal.classList.add('open');
 }
 
 function printPosReceiptWindow() {
@@ -742,23 +767,30 @@ function sendPosReceiptViaWhatsApp() {
   let msg = `*🧾 NOTA TRANSAKSI RESMI - ${store.storeName || 'SR12 Partner Store'}*\n`;
   msg += `_Distributor Resmi SR12 Wilayah ${store.storeCity || 'Indonesia'}_\n`;
   msg += `----------------------------------------\n`;
-  msg += `No. Nota: *${trx.id}*\n`;
-  msg += `Tanggal: ${trx.dateTime}\n`;
-  msg += `Pelanggan: *${trx.customerName}* (${trx.tierLabel})\n`;
+  msg += `No. Nota: *${trx.id || '-'}*\n`;
+  msg += `Tanggal: ${trx.dateTime || '-'}\n`;
+  msg += `Pelanggan: *${trx.customerName || '-'}* (${trx.tierLabel || 'Retail'})\n`;
   msg += `----------------------------------------\n`;
   msg += `*DAFTAR PRODUK:*\n`;
 
-  trx.items.forEach((item, idx) => {
-    msg += `${idx + 1}. ${item.name}\n   ${item.qty} pcs x Rp ${item.price.toLocaleString('id-ID')} = *Rp ${item.subtotal.toLocaleString('id-ID')}*\n`;
+  const items = trx.items || [];
+  items.forEach((item, idx) => {
+    const price = Number(item.price) || 0;
+    const subtotal = Number(item.subtotal) || (price * (Number(item.qty) || 1));
+    msg += `${idx + 1}. ${item.name || 'Produk'}\n   ${item.qty || 1} pcs x Rp ${price.toLocaleString('id-ID')} = *Rp ${subtotal.toLocaleString('id-ID')}*\n`;
   });
 
+  const subtotalVal = Number(trx.subtotalHet) || Number(trx.grandTotal) || 0;
+  const discountVal = Number(trx.discountAmount) || 0;
+  const grandTotalVal = Number(trx.grandTotal) || 0;
+
   msg += `----------------------------------------\n`;
-  msg += `Subtotal HET: Rp ${trx.subtotalHet.toLocaleString('id-ID')}\n`;
-  if (trx.discountAmount > 0) {
-    msg += `Diskon Kemitraan: -Rp ${trx.discountAmount.toLocaleString('id-ID')}\n`;
+  msg += `Subtotal HET: Rp ${subtotalVal.toLocaleString('id-ID')}\n`;
+  if (discountVal > 0) {
+    msg += `Diskon Kemitraan: -Rp ${discountVal.toLocaleString('id-ID')}\n`;
   }
-  msg += `*TOTAL BAYAR: Rp ${trx.grandTotal.toLocaleString('id-ID')}*\n`;
-  msg += `Metode: ${trx.paymentMethod} (LUNAS)\n`;
+  msg += `*TOTAL BAYAR: Rp ${grandTotalVal.toLocaleString('id-ID')}*\n`;
+  msg += `Metode: ${trx.paymentMethod || 'TRANSFER / ONLINE'} (LUNAS)\n`;
   msg += `----------------------------------------\n`;
   msg += `_Terima kasih telah berbelanja produk asli SR12 Herbal Skin Care terverifikasi BPOM & Halal MUI!_`;
 
@@ -875,11 +907,20 @@ function filterTransactions(f) {
 
 function viewHistoricalReceipt(trxId) {
   if (typeof appState === 'undefined') return;
-  const trx = (appState.transactions || []).find(t => t.id === trxId);
-  if (!trx) return;
+  let list = appState.transactions;
+  if (!list || list.length === 0) {
+    list = getStoredTransactions();
+    appState.transactions = list;
+  }
+  const trx = (list || []).find(t => t.id === trxId);
+  if (!trx) {
+    alert(`Pesanan ${trxId} tidak ditemukan.`);
+    return;
+  }
   appState.posCurrentTrx = trx;
   openPosReceiptModal(trx);
 }
+window.viewHistoricalReceipt = viewHistoricalReceipt;
 
 // ==========================================
 // 6. INVENTORI (KATALOG & STOK GUDANG) LOGIC
