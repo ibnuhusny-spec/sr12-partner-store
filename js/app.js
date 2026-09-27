@@ -113,6 +113,48 @@ function saveStoredPartnerStores(stores) {
   localStorage.setItem('sr12_partner_stores_v2', JSON.stringify(stores));
 }
 
+const INITIAL_DEMO_PENDING_STORE_APPS = [
+  {
+    id: "APP-029104",
+    slug: "barokah-sr12",
+    storeName: "Griya Cantik Barokah SR12",
+    storeTagline: "Mitra Resmi SR12 Semarang",
+    storeTheme: "emerald",
+    heroTitle: "Katalog Resmi SR12 Griya Cantik Barokah",
+    heroSubtitle: "Solusi perawatan herbal alami berlisensi resmi BPOM. Belanja aman, diskon otomatis, dan cepat sampai.",
+    heroBannerUrl: "assets/hero-banner.jpg",
+    storeLogoText: "BAROK",
+    storeLogoUrl: "",
+    storeWaNumber: "6281399887766",
+    storeCity: "Semarang",
+    storeOwner: "Hj. Siti Barokah",
+    partnerTier: "distributor",
+    feePayer: "buyer",
+    storeAdminPin: "1234",
+    skNumber: "SK-DIST-SR12-2026-0419",
+    skDocUrl: "",
+    skDocName: "SK_Distributor_SR12_Barokah.pdf",
+    notes: "Distributor resmi area Jawa Tengah, pendaftaran diajukan untuk verifikasi pusat.",
+    submittedAt: "2026-09-27T10:15:00.000Z",
+    status: "pending"
+  }
+];
+
+function getStoredPendingStores() {
+  const stored = localStorage.getItem('sr12_pending_store_apps_v1');
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) return parsed;
+    } catch (e) {}
+  }
+  return INITIAL_DEMO_PENDING_STORE_APPS.slice();
+}
+
+function saveStoredPendingStores(apps) {
+  localStorage.setItem('sr12_pending_store_apps_v1', JSON.stringify(apps));
+}
+
 function getInitialStoreSlug(stores) {
   const params = new URLSearchParams(window.location.search);
   const storeParam = params.get('store');
@@ -295,6 +337,9 @@ const appState = {
   currentTier: 'konsumen',
   cart: getStoredCart(),
   partnerStores: getStoredPartnerStores(),
+  pendingStoreApps: getStoredPendingStores(),
+  tempRegSkBase64: null,
+  tempRegSkDocName: null,
   currentStoreSlug: '',
   storeSettings: getStoredStoreSettings(),
   products: getStoredProducts(),
@@ -478,10 +523,30 @@ function autoGenerateSlug(name) {
 function openRegisterStoreModal() {
   const modal = document.getElementById('modalRegisterStore');
   appState.tempRegLogoBase64 = null;
-  const previewBox = document.getElementById('regLogoPreviewBox');
-  if (previewBox) previewBox.style.display = 'none';
-  const fileInput = document.getElementById('regLogoFileInput');
-  if (fileInput) fileInput.value = '';
+  appState.tempRegSkBase64 = null;
+  appState.tempRegSkDocName = null;
+
+  const logoPreviewBox = document.getElementById('regLogoPreviewBox');
+  if (logoPreviewBox) logoPreviewBox.style.display = 'none';
+  const logoFileInput = document.getElementById('regLogoFileInput');
+  if (logoFileInput) logoFileInput.value = '';
+
+  const skPreviewBox = document.getElementById('regSkPreviewBox');
+  if (skPreviewBox) skPreviewBox.style.display = 'none';
+  const skPreviewImg = document.getElementById('regSkPreviewImg');
+  if (skPreviewImg) {
+    skPreviewImg.src = '';
+    skPreviewImg.style.display = 'none';
+  }
+  const skDocName = document.getElementById('regSkDocName');
+  if (skDocName) skDocName.textContent = '';
+  const skFileInput = document.getElementById('regSkFileInput');
+  if (skFileInput) skFileInput.value = '';
+  const skNumberInput = document.getElementById('regSkNumber');
+  if (skNumberInput) skNumberInput.value = '';
+  const notesInput = document.getElementById('regStoreNotes');
+  if (notesInput) notesInput.value = '';
+
   if (modal) modal.classList.add('open');
 }
 
@@ -497,9 +562,20 @@ function handleRegisterStoreSubmit(e) {
   const pin = document.getElementById('regStorePin')?.value.trim() || '1234';
   const logoText = document.getElementById('regLogoText')?.value.trim().toUpperCase() || name.slice(0, 5).toUpperCase();
   const logoUrl = appState.tempRegLogoBase64 || '';
+  const skNumber = document.getElementById('regSkNumber')?.value.trim() || '';
+  const skDocUrl = appState.tempRegSkBase64 || '';
+  const skDocName = appState.tempRegSkDocName || 'Dokumen_SK_Distributor.jpg';
+  const notes = document.getElementById('regStoreNotes')?.value.trim() || '';
 
   if (!name || !owner || !wa || !city) {
     alert('Mohon lengkapi semua data pendaftaran toko!');
+    return;
+  }
+
+  if (!skNumber) {
+    alert('Mohon masukkan Nomor SK Distributor Resmi atau Nomor Kontrak SR12 Anda untuk verifikasi keabsahan!');
+    const skInput = document.getElementById('regSkNumber');
+    if (skInput) skInput.focus();
     return;
   }
 
@@ -507,11 +583,15 @@ function handleRegisterStoreSubmit(e) {
     slug = name.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 30);
   }
 
-  if (appState.partnerStores.some(s => s.slug === slug)) {
+  if (appState.partnerStores.some(s => s.slug === slug) || (appState.pendingStoreApps && appState.pendingStoreApps.some(a => a.slug === slug))) {
     slug += '-' + Date.now().toString().slice(-4);
   }
 
-  const newStore = {
+  const cleanWa = wa.startsWith('0') ? '62' + wa.slice(1) : wa;
+  const ticketId = 'APP-' + Date.now().toString().slice(-6);
+
+  const newApp = {
+    id: ticketId,
     slug: slug,
     storeName: name,
     storeTagline: `Mitra Resmi SR12 ${city}`,
@@ -521,26 +601,269 @@ function handleRegisterStoreSubmit(e) {
     heroBannerUrl: 'assets/hero-banner.jpg',
     storeLogoText: logoText,
     storeLogoUrl: logoUrl,
-    storeWaNumber: wa.startsWith('0') ? '62' + wa.slice(1) : wa,
+    storeWaNumber: cleanWa,
     storeCity: city,
     storeOwner: owner,
     partnerTier: tier,
     feePayer: 'buyer',
     storeAdminPin: pin,
-    orderQuota: 10,
-    walletBalance: 10000,
-    totalTopupPaid: 0,
-    totalTx: 0
+    skNumber: skNumber,
+    skDocUrl: skDocUrl,
+    skDocName: skDocName,
+    notes: notes,
+    submittedAt: new Date().toISOString(),
+    status: 'pending'
   };
 
-  appState.partnerStores.unshift(newStore);
-  saveStoredPartnerStores(appState.partnerStores);
-  renderStoreDropdown();
-  switchPartnerStore(slug);
+  if (!appState.pendingStoreApps) appState.pendingStoreApps = [];
+  appState.pendingStoreApps.unshift(newApp);
+  saveStoredPendingStores(appState.pendingStoreApps);
 
+  // Close registration form
   closeModal('modalRegisterStore');
-  showToast(`🎉 Alhamdulillah! Toko "${name}" berhasil diaktifkan.`);
-  openShareStoreModal();
+
+  // Open pending success feedback modal
+  openStoreAppPendingSuccessModal(newApp);
+
+  // Update notification counter & developer portal
+  updateDevPortalMetrics();
+
+  showToast(`📜 Berkas pendaftaran diajukan! Menunggu verifikasi SK Admin Pusat.`);
+}
+
+function openStoreAppPendingSuccessModal(app) {
+  const modal = document.getElementById('modalStoreAppPendingSuccess');
+  const ticketEl = document.getElementById('pendingAppTicketId');
+  const nameEl = document.getElementById('pendingAppStoreName');
+  const ownerEl = document.getElementById('pendingAppOwner');
+  const tierEl = document.getElementById('pendingAppTier');
+
+  const tierObj = SR12_TIERS[app.partnerTier] || SR12_TIERS.distributor;
+
+  if (ticketEl) ticketEl.textContent = '#' + app.id;
+  if (nameEl) nameEl.textContent = app.storeName;
+  if (ownerEl) ownerEl.textContent = `${app.storeOwner} (${app.storeCity})`;
+  if (tierEl) tierEl.textContent = `${tierObj.name} (Diskon ${tierObj.discountPct}%)`;
+
+  if (modal) modal.classList.add('open');
+}
+
+function previewSkDocument(appId) {
+  const app = (appState.pendingStoreApps || []).find(a => a.id === appId);
+  if (!app) {
+    alert('Data pengajuan toko tidak ditemukan!');
+    return;
+  }
+
+  const modal = document.getElementById('modalPreviewSkDoc');
+  const titleEl = document.getElementById('previewSkTitle');
+  const detailsEl = document.getElementById('previewSkDetails');
+  const containerEl = document.getElementById('previewSkContainer');
+  const btnApprove = document.getElementById('btnPreviewApproveSk');
+  const btnReject = document.getElementById('btnPreviewRejectSk');
+
+  const tierObj = SR12_TIERS[app.partnerTier] || SR12_TIERS.distributor;
+  const dateFormatted = new Date(app.submittedAt).toLocaleString('id-ID', {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  });
+
+  if (titleEl) {
+    titleEl.innerHTML = `<span>📄</span> Verifikasi SK: ${app.storeName} <small style="color: #94a3b8; font-size: 0.75rem;">(#${app.id})</small>`;
+  }
+
+  if (detailsEl) {
+    detailsEl.innerHTML = `
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <div>
+          <span style="color: #94a3b8; font-size: 0.72rem; display: block;">Nama Toko & Calon Pemilik:</span>
+          <b style="color: #f8fafc; font-size: 0.85rem;">${app.storeName}</b>
+          <div style="color: #cbd5e1; font-size: 0.75rem;">👤 ${app.storeOwner} &middot; 📍 ${app.storeCity}</div>
+        </div>
+        <div>
+          <span style="color: #94a3b8; font-size: 0.72rem; display: block;">Level & WhatsApp:</span>
+          <span style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; padding: 1px 6px; border-radius: 4px; font-weight: 700; font-size: 0.72rem;">${tierObj.name}</span>
+          <div style="color: #4ade80; font-family: monospace; font-size: 0.75rem; margin-top: 2px;">📱 +${app.storeWaNumber}</div>
+        </div>
+      </div>
+      <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+        <div>
+          <span style="color: #fbbf24; font-weight: 700;">No. SK Legalitas:</span>
+          <code style="background: #0f172a; color: #fef08a; padding: 2px 6px; border-radius: 4px; font-size: 0.82rem; margin-left: 4px;">${app.skNumber}</code>
+        </div>
+        <div style="color: #94a3b8; font-size: 0.7rem;">Waktu Masuk: ${dateFormatted}</div>
+      </div>
+      ${app.notes ? `<div style="margin-top: 6px; font-size: 0.72rem; color: #cbd5e1; background: rgba(255,255,255,0.04); padding: 5px 8px; border-radius: 4px;">📝 <i>Catatan: ${app.notes}</i></div>` : ''}
+    `;
+  }
+
+  if (containerEl) {
+    if (app.skDocUrl && app.skDocUrl.startsWith('data:image')) {
+      containerEl.innerHTML = `
+        <div style="border: 2px solid #334155; border-radius: 8px; overflow: hidden; background: #000; max-height: 280px; display: flex; justify-content: center; align-items: center;">
+          <img src="${app.skDocUrl}" alt="Dokumen SK" style="max-width: 100%; max-height: 280px; object-fit: contain; cursor: zoom-in;" onclick="window.open('${app.skDocUrl}', '_blank')" title="Klik untuk perbesar gambar SK">
+        </div>
+        <small style="color: #94a3b8; font-size: 0.7rem; margin-top: 6px; display: block;">Dokumen gambar terlampir (Klik gambar untuk ukuran penuh)</small>
+      `;
+    } else {
+      containerEl.innerHTML = `
+        <div style="width: 100%; background: linear-gradient(135deg, #1e293b, #0f172a); border: 2px dashed #f59e0b; border-radius: 10px; padding: 24px 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.4);">
+          <div style="width: 50px; height: 50px; border-radius: 50%; background: rgba(245, 158, 11, 0.15); border: 1.5px solid #f59e0b; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; margin: 0 auto 10px auto;">
+            📜
+          </div>
+          <h4 style="color: #fbbf24; margin: 0 0 6px 0; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px;">Surat Keputusan (SK) Distributor Resmi</h4>
+          <div style="font-family: monospace; font-size: 0.95rem; color: #fff; background: rgba(0,0,0,0.3); display: inline-block; padding: 4px 12px; border-radius: 6px; border: 1px solid #475569; margin-bottom: 8px;">
+            ${app.skNumber}
+          </div>
+          <p style="color: #94a3b8; font-size: 0.75rem; margin: 0; line-height: 1.4;">
+            Dokumen Legalitas Kemitraan PT. SR12 Herbal Perkasa<br>
+            Atas Nama: <b style="color: #e2e8f0;">${app.storeOwner}</b> &middot; Toko: <b style="color: #38bdf8;">${app.storeName}</b>
+          </p>
+        </div>
+      `;
+    }
+  }
+
+  if (btnApprove) {
+    btnApprove.onclick = () => approvePendingStore(app.id);
+  }
+  if (btnReject) {
+    btnReject.onclick = () => rejectPendingStore(app.id);
+  }
+
+  if (modal) modal.classList.add('open');
+}
+
+function approvePendingStore(appId) {
+  const index = (appState.pendingStoreApps || []).findIndex(a => a.id === appId);
+  if (index === -1) {
+    alert('Pengajuan toko tidak ditemukan atau sudah diproses!');
+    return;
+  }
+
+  const app = appState.pendingStoreApps[index];
+  const confirmApprove = confirm(
+    `✅ PERSETUJUAN DOKUMEN SK DISTRIBUTOR\n\n` +
+    `Nama Toko: ${app.storeName}\n` +
+    `Calon Pemilik: ${app.storeOwner} (${app.storeCity})\n` +
+    `No. SK: ${app.skNumber}\n` +
+    `Level: ${SR12_TIERS[app.partnerTier]?.name || app.partnerTier}\n\n` +
+    `Apakah Anda yakin menyetujui pengajuan ini dan mengaktifkan tokonya sekarang?`
+  );
+
+  if (!confirmApprove) return;
+
+  // Remove from pending
+  appState.pendingStoreApps.splice(index, 1);
+  saveStoredPendingStores(appState.pendingStoreApps);
+
+  // Create active partner store
+  const approvedStore = {
+    slug: app.slug,
+    storeName: app.storeName,
+    storeTagline: app.storeTagline,
+    storeTheme: app.storeTheme || 'emerald',
+    heroTitle: app.heroTitle,
+    heroSubtitle: app.heroSubtitle,
+    heroBannerUrl: app.heroBannerUrl || 'assets/hero-banner.jpg',
+    storeLogoText: app.storeLogoText,
+    storeLogoUrl: app.storeLogoUrl || '',
+    storeWaNumber: app.storeWaNumber,
+    storeCity: app.storeCity,
+    storeOwner: app.storeOwner,
+    partnerTier: app.partnerTier,
+    feePayer: 'buyer',
+    storeAdminPin: app.storeAdminPin || '1234',
+    orderQuota: 15,
+    walletBalance: 10000,
+    totalTopupPaid: 0,
+    totalTx: 0,
+    verifiedSkNumber: app.skNumber,
+    approvedAt: new Date().toISOString()
+  };
+
+  appState.partnerStores.unshift(approvedStore);
+  saveStoredPartnerStores(appState.partnerStores);
+
+  // Close preview modal
+  closeModal('modalPreviewSkDoc');
+
+  // Refresh UI
+  renderStoreDropdown();
+  updateDevPortalMetrics();
+
+  // Prepare WA Activation Message
+  const storeUrl = `${window.location.origin}${window.location.pathname}?store=${approvedStore.slug}`;
+  const waMsg = encodeURIComponent(
+    `Halo Kak ${approvedStore.storeOwner}!\n\n` +
+    `🎉 *SELAMAT! PENGAJUAN TOKO SR12 ANDA TELAH DISETUJUI* 🎉\n\n` +
+    `Surat Keputusan (SK) Distributor Resmi Anda (No: *${approvedStore.verifiedSkNumber}*) telah *DIVERIFIKASI & DISETUJUI* oleh Admin Pusat PT. SR12 Herbal Perkasa.\n\n` +
+    `🏪 *Nama Toko:* ${approvedStore.storeName}\n` +
+    `📍 *Kota:* ${approvedStore.storeCity}\n` +
+    `🔗 *Link Resmi Toko Anda:*\n${storeUrl}\n\n` +
+    `🔑 *PIN Admin Toko:* ${approvedStore.storeAdminPin}\n` +
+    `⚡ *Bonus Kuota Awal:* 15 Order WhatsApp Gratis\n\n` +
+    `Silakan klik link di atas untuk melihat toko online Anda dan mulai sebarkan ke seluruh mitra maupun calon pembeli. Selamat berjualan dan sukses selalu! 🚀`
+  );
+
+  showToast(`🎉 Toko "${approvedStore.storeName}" BERHASIL DISETUJUI & AKTIF!`);
+
+  const sendWa = confirm(
+    `🎉 TOKO BERHASIL DIAKTIFKAN!\n\n` +
+    `Toko "${approvedStore.storeName}" sekarang sudah aktif dan dapat diakses publik.\n\n` +
+    `Kirim konfirmasi aktivasi via WhatsApp ke pemilik (+${approvedStore.storeWaNumber}) sekarang?`
+  );
+  if (sendWa) {
+    window.open(`https://wa.me/${approvedStore.storeWaNumber}?text=${waMsg}`, '_blank');
+  }
+}
+
+function rejectPendingStore(appId) {
+  const index = (appState.pendingStoreApps || []).findIndex(a => a.id === appId);
+  if (index === -1) {
+    alert('Pengajuan toko tidak ditemukan atau sudah diproses!');
+    return;
+  }
+
+  const app = appState.pendingStoreApps[index];
+  const reason = prompt(
+    `❌ PENOLAKAN PENGAJUAN TOKO\n\n` +
+    `Masukkan alasan penolakan untuk pendaftar "${app.storeOwner}":`,
+    'Nomor SK Distributor tidak terdaftar / berkas tidak valid'
+  );
+
+  if (reason === null) return;
+
+  // Remove from pending
+  appState.pendingStoreApps.splice(index, 1);
+  saveStoredPendingStores(appState.pendingStoreApps);
+
+  closeModal('modalPreviewSkDoc');
+  updateDevPortalMetrics();
+
+  showToast(`❌ Pengajuan toko "${app.storeName}" telah ditolak.`);
+
+  const waMsg = encodeURIComponent(
+    `Halo Kak ${app.storeOwner},\n\n` +
+    `Mohon maaf, pengajuan pembukaan toko SR12 untuk *${app.storeName}* belum dapat kami setujui saat ini.\n\n` +
+    `📋 *Alasan Verifikasi:* ${reason}\n` +
+    `No. SK Diajukan: ${app.skNumber}\n\n` +
+    `Silakan hubungi Admin Pusat atau ajukan ulang dengan melampirkan berkas SK Distributor resmi yang sesuai. Terima kasih. 🙏`
+  );
+
+  const sendWa = confirm(`Kirim notifikasi penolakan via WhatsApp ke pendaftar (+${app.storeWaNumber})?`);
+  if (sendWa) {
+    window.open(`https://wa.me/${app.storeWaNumber}?text=${waMsg}`, '_blank');
+  }
+}
+
+function contactApplicantWA(appId) {
+  const app = (appState.pendingStoreApps || []).find(a => a.id === appId);
+  if (!app) return;
+  const msg = encodeURIComponent(
+    `Halo Kak ${app.storeOwner}, kami dari Admin Pusat SR12 terkait pengajuan pembukaan toko online *${app.storeName}* (ID: #${app.id}, SK: ${app.skNumber}).`
+  );
+  window.open(`https://wa.me/${app.storeWaNumber}?text=${msg}`, '_blank');
 }
 
 function openShareStoreModal() {
@@ -1049,6 +1372,35 @@ function initEventListeners() {
           const previewBox = document.getElementById('regLogoPreviewBox');
           const previewImg = document.getElementById('regLogoPreviewImg');
           if (previewImg) previewImg.src = event.target.result;
+          if (previewBox) previewBox.style.display = 'flex';
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  }
+
+  // Registration Store SK Document Upload (Verifikasi Dokumen Resmi)
+  const regSkFileInput = document.getElementById('regSkFileInput');
+  if (regSkFileInput) {
+    regSkFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        appState.tempRegSkDocName = file.name;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          appState.tempRegSkBase64 = event.target.result;
+          const previewBox = document.getElementById('regSkPreviewBox');
+          const previewImg = document.getElementById('regSkPreviewImg');
+          const docNameSpan = document.getElementById('regSkDocName');
+          if (docNameSpan) docNameSpan.textContent = `📎 ${file.name} (${Math.round(file.size / 1024)} KB)`;
+          if (previewImg) {
+            if (file.type.startsWith('image/')) {
+              previewImg.src = event.target.result;
+              previewImg.style.display = 'inline-block';
+            } else {
+              previewImg.style.display = 'none';
+            }
+          }
           if (previewBox) previewBox.style.display = 'flex';
         };
         reader.readAsDataURL(file);
@@ -2472,6 +2824,89 @@ function updateDevPortalMetrics() {
         </tr>
       `;
     }).join('');
+  }
+
+  // Update Pending Stores Counter & Alert
+  const pendingCount = (appState.pendingStoreApps || []).length;
+  const pendingCounterEl = document.getElementById('devPendingStoresCounter');
+  const topbarAlertBtn = document.getElementById('btnPendingStoreAlert');
+  const topbarPendingCountEl = document.getElementById('topbarPendingCount');
+
+  if (pendingCounterEl) {
+    pendingCounterEl.textContent = `${pendingCount} Menunggu Verifikasi`;
+    pendingCounterEl.style.background = pendingCount > 0 ? '#f59e0b' : '#334155';
+    pendingCounterEl.style.color = pendingCount > 0 ? '#78350f' : '#94a3b8';
+  }
+
+  if (topbarAlertBtn && topbarPendingCountEl) {
+    if (pendingCount > 0) {
+      topbarAlertBtn.style.display = 'inline-flex';
+      topbarAlertBtn.style.alignItems = 'center';
+      topbarAlertBtn.style.gap = '4px';
+      topbarPendingCountEl.textContent = pendingCount;
+    } else {
+      topbarAlertBtn.style.display = 'none';
+    }
+  }
+
+  // Render Pending Stores Table Body
+  const pendingTableBody = document.getElementById('devPendingStoresTableBody');
+  if (pendingTableBody) {
+    if (pendingCount === 0) {
+      pendingTableBody.innerHTML = `
+        <tr>
+          <td colspan="7" style="text-align: center; padding: 22px; color: #94a3b8; font-style: italic;">
+            ✨ Tidak ada antrean pengajuan toko baru. Semua permohonan telah diverifikasi.
+          </td>
+        </tr>
+      `;
+    } else {
+      pendingTableBody.innerHTML = appState.pendingStoreApps.map(app => {
+        const tierObj = SR12_TIERS[app.partnerTier] || SR12_TIERS.distributor;
+        return `
+          <tr style="border-bottom: 1px solid #334155;">
+            <td style="padding: 8px 10px;">
+              <b style="color: #f8fafc;">${app.storeName}</b>
+              <div style="font-size: 0.68rem; color: #f59e0b; font-family: monospace;">#${app.id} &middot; ?store=${app.slug}</div>
+            </td>
+            <td style="padding: 8px 10px;">
+              <div style="font-weight: 600;">${app.storeOwner}</div>
+              <div style="font-size: 0.68rem; color: #94a3b8;">📍 ${app.storeCity}</div>
+            </td>
+            <td style="padding: 8px 10px;">
+              <span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">
+                ${tierObj.name}
+              </span>
+            </td>
+            <td style="padding: 8px 10px;">
+              <button onclick="previewSkDocument('${app.id}')" style="background: #1e293b; border: 1px solid #f59e0b; color: #fbbf24; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                <span>📄</span> ${app.skNumber || 'Lihat SK'}
+              </button>
+            </td>
+            <td style="padding: 8px 10px;">
+              <button onclick="contactApplicantWA('${app.id}')" style="background: rgba(37, 211, 102, 0.15); border: 1px solid #25d366; color: #4ade80; padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                <span>📱</span> +${app.storeWaNumber}
+              </button>
+            </td>
+            <td style="padding: 8px 10px; text-align: center;">
+              <span style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; padding: 2px 8px; border-radius: 9999px; font-weight: 800; font-size: 0.68rem;">
+                ⏳ PENDING
+              </span>
+            </td>
+            <td style="padding: 8px 10px; text-align: center;">
+              <div style="display: flex; gap: 6px; justify-content: center;">
+                <button onclick="approvePendingStore('${app.id}')" title="Setujui dan Aktifkan Toko" style="background: #10b981; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer;">
+                  ✅ Setujui
+                </button>
+                <button onclick="rejectPendingStore('${app.id}')" title="Tolak Pengajuan" style="background: #ef4444; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer;">
+                  ❌ Tolak
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
   }
 }
 
@@ -4213,13 +4648,13 @@ window.updateStoreQuotaUI = updateStoreQuotaUI;
 window.switchPartnerStore = switchPartnerStore;
 window.openShareStoreModal = openShareStoreModal;
 window.copyStoreShareLink = copyStoreShareLink;
-window.shareToWhatsAppDirect = shareToWhatsAppDirect;
-window.shareToTelegramDirect = shareToTelegramDirect;
+window.shareStoreToWhatsApp = shareStoreToWhatsApp;
+window.shareStoreToTelegram = shareStoreToTelegram;
 window.openRegisterStoreModal = openRegisterStoreModal;
 window.handleRegisterStoreSubmit = handleRegisterStoreSubmit;
 window.toggleViewMode = toggleViewMode;
-window.openStoreAdminPinPrompt = openStoreAdminPinPrompt;
-window.verifyStoreAdminPinSubmit = verifyStoreAdminPinSubmit;
+window.openStoreAdminPinPrompt = openDistributorLoginModal;
+window.verifyStoreAdminPinSubmit = handleDistributorLoginSubmit;
 window.switchTab = switchTab;
 window.printShippingLabel = printShippingLabel;
 window.checkoutViaWhatsApp = checkoutViaWhatsApp;
@@ -4275,4 +4710,14 @@ window.openAdminOrdersModal = openAdminOrdersModal;
 window.confirmOrderFromModal = confirmOrderFromModal;
 window.clearAllSimulationOrders = clearAllSimulationOrders;
 window.playOrderChime = playOrderChime;
+
+// Pending Store Registration & SK Approval System Exports
+window.openRegisterStoreModal = openRegisterStoreModal;
+window.handleRegisterStoreSubmit = handleRegisterStoreSubmit;
+window.openStoreAppPendingSuccessModal = openStoreAppPendingSuccessModal;
+window.previewSkDocument = previewSkDocument;
+window.approvePendingStore = approvePendingStore;
+window.rejectPendingStore = rejectPendingStore;
+window.contactApplicantWA = contactApplicantWA;
+
 
