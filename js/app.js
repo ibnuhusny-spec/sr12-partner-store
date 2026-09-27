@@ -3317,15 +3317,18 @@ function updateDevPortalMetrics() {
     pendingCounterEl.style.color = pendingCount > 0 ? '#78350f' : '#94a3b8';
   }
 
-  if (topbarAlertBtn && topbarPendingCountEl) {
+  const footerPendingBadge = document.getElementById('footerDevPendingBadge');
+  if (footerPendingBadge) {
     if (pendingCount > 0) {
-      topbarAlertBtn.style.display = 'inline-flex';
-      topbarAlertBtn.style.alignItems = 'center';
-      topbarAlertBtn.style.gap = '4px';
-      topbarPendingCountEl.textContent = pendingCount;
+      footerPendingBadge.style.display = 'inline-block';
+      footerPendingBadge.textContent = `${pendingCount} Pengajuan Baru`;
     } else {
-      topbarAlertBtn.style.display = 'none';
+      footerPendingBadge.style.display = 'none';
     }
+  }
+
+  if (topbarAlertBtn) {
+    topbarAlertBtn.style.display = 'none';
   }
 
   // Render Pending Stores Table Body
