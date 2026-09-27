@@ -1958,13 +1958,9 @@ function initEventListeners() {
     btnCloseAddPromo.addEventListener('click', () => modalAddPromo.classList.remove('open'));
   }
 
-  // Developer Portal PIN Security Trigger
-  const btnOpenDevPortal = document.getElementById('btnOpenDevPortal');
+  // Developer Portal PIN Security Triggers
   const modalDevPin = document.getElementById('modalDevPin');
   const btnCloseDevPin = document.getElementById('btnCloseDevPin');
-  if (btnOpenDevPortal && modalDevPin) {
-    btnOpenDevPortal.addEventListener('click', openDevPinPrompt);
-  }
   if (btnCloseDevPin && modalDevPin) {
     btnCloseDevPin.addEventListener('click', () => modalDevPin.classList.remove('open'));
   }
@@ -1975,13 +1971,36 @@ function initEventListeners() {
     btnCloseDevPortal.addEventListener('click', () => modalDevPortal.classList.remove('open'));
   }
 
-  // Secret Shortcut Keyboard untuk Developer Portal: Ctrl + Shift + D
+  // 1. Secret Shortcut Keyboard untuk Desktop: Ctrl + Shift + D
   window.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
       e.preventDefault();
       openDevPinPrompt();
     }
   });
+
+  // 2. Secret Mobile Triple-Tap pada Footer Copyright (Untuk akses aman via Smartphone tanpa keyboard)
+  const footerArea = document.querySelector('footer');
+  if (footerArea) {
+    let tapCount = 0;
+    let tapTimeout = null;
+    footerArea.addEventListener('click', () => {
+      tapCount++;
+      clearTimeout(tapTimeout);
+      if (tapCount >= 3) {
+        tapCount = 0;
+        openDevPinPrompt();
+      } else {
+        tapTimeout = setTimeout(() => { tapCount = 0; }, 500);
+      }
+    });
+  }
+
+  // 3. Akses Rahasia via URL Parameter: ?dev=1
+  const urlCheck = new URLSearchParams(window.location.search);
+  if (urlCheck.get('dev') === '1' || urlCheck.get('admin') === 'dev') {
+    setTimeout(openDevPinPrompt, 400);
+  }
 }
 
 // Open PIN Prompt for Developer Portal
