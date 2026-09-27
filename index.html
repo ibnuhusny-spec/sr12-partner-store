@@ -1033,11 +1033,16 @@
   <div class="modal-backdrop" id="cartBackdrop"></div>
   <aside class="cart-drawer" id="cartDrawer">
     <div class="cart-drawer-header">
-      <h3>
+      <h3 style="display: flex; align-items: center; gap: 8px;">
         <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
         Keranjang Belanja
       </h3>
-      <button class="btn-close-modal" id="btnCloseCart" style="color: #fff;">&times;</button>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <button id="btnClearCart" onclick="clearCart()" title="Kosongkan semua produk dalam keranjang" style="background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); color: #fecaca; font-size: 0.72rem; font-weight: 700; padding: 4px 8px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.2s ease;">
+          🗑️ Kosongkan
+        </button>
+        <button class="btn-close-modal" id="btnCloseCart" style="color: #fff;">&times;</button>
+      </div>
     </div>
 
     <!-- WRAPPER SCROLLABLE BODY (AGAR PRODUK TIDAK TERHIMPIT / SQUASHED) -->

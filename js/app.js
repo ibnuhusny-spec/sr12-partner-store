@@ -422,14 +422,26 @@ function saveStoredMarketerSales(sales) {
   localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(sales));
 }
 
+function getStoredCart() {
+  const stored = localStorage.getItem('sr12_user_cart');
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) return parsed;
+    } catch (e) {}
+  }
+  return []; // Bersih kosong secara default
+}
+
+function saveStoredCart(cart) {
+  localStorage.setItem('sr12_user_cart', JSON.stringify(cart));
+}
+
 // Global Application State
 const appState = {
   isAdminMode: false,
   currentTier: 'konsumen',
-  cart: [
-    { productId: 'SR12-DEO-60', qty: 3 },
-    { productId: 'SR12-GOMILK-ORI', qty: 2 }
-  ],
+  cart: getStoredCart(),
   partnerStores: getStoredPartnerStores(),
   currentStoreSlug: '',
   storeSettings: getStoredStoreSettings(),
@@ -1421,6 +1433,7 @@ function addToCart(productId) {
     appState.cart.push({ productId, qty: 1 });
   }
 
+  saveStoredCart(appState.cart);
   updateCartUI();
   showToast(`Produk ditambahkan ke keranjang!`);
 }
@@ -1433,7 +1446,32 @@ function adjustCartQty(productId, delta) {
       appState.cart.splice(itemIndex, 1);
     }
   }
+  saveStoredCart(appState.cart);
   updateCartUI();
+}
+
+function removeFromCart(productId) {
+  const itemIndex = appState.cart.findIndex(i => i.productId === productId);
+  if (itemIndex > -1) {
+    const prod = appState.products.find(p => p.id === productId);
+    appState.cart.splice(itemIndex, 1);
+    saveStoredCart(appState.cart);
+    updateCartUI();
+    showToast(`🗑️ ${prod ? prod.name : 'Produk'} dihapus dari keranjang.`);
+  }
+}
+
+function clearCart() {
+  if (!appState.cart || appState.cart.length === 0) {
+    showToast('Keranjang belanja Anda sudah kosong.');
+    return;
+  }
+  if (confirm('Kosongkan semua produk dari keranjang belanja?')) {
+    appState.cart = [];
+    saveStoredCart(appState.cart);
+    updateCartUI();
+    showToast('🗑️ Keranjang belanja berhasil dikosongkan.');
+  }
 }
 
 function updateCartUI() {
@@ -1490,6 +1528,7 @@ function updateCartUI() {
           <button class="qty-btn" onclick="adjustCartQty('${item.productId}', -1)" title="Kurangi">-</button>
           <span class="qty-val">${item.qty}</span>
           <button class="qty-btn" onclick="adjustCartQty('${item.productId}', 1)" title="Tambah">+</button>
+          <button class="qty-btn" onclick="removeFromCart('${item.productId}')" title="Hapus produk ini" style="background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; margin-left: 4px; font-size: 0.8rem; padding: 2px 6px; cursor: pointer; border-radius: 4px;">🗑️</button>
         </div>
       </div>
     `;
@@ -3876,10 +3915,17 @@ function autoCheckBuyerMitraPhone(query) {
 
   if (found) {
     appState.verifiedMitra = found;
+    appState.buyerDetails.name = found.name;
+    appState.buyerDetails.phone = found.phone;
+    if (found.city) {
+      appState.buyerDetails.address = `${found.city}`;
+    }
+    const tierSel = document.getElementById('globalTierSelect');
     const status = getMitraStatus(found);
 
     if (found.tier === 'marketer') {
       appState.currentTier = 'konsumen';
+      if (tierSel) tierSel.value = 'konsumen';
       renderTierQuickBanner();
       renderProducts();
       updateCartUI();
@@ -3902,6 +3948,7 @@ function autoCheckBuyerMitraPhone(query) {
       notice.innerHTML = `💼 <b>Tim Marketer Dikenali: ${found.name} (${found.id})!</b><br>✨ Pesanan ini otomatis dicatat ke Buku Omset Marketer untuk <b>Bonus 15% Bulanan</b> (Estimasi komisi: <b>${formatRupiah(Math.round(subtotalHet * 0.15))}</b>). Pengirim dropship otomatis diisi nama Marketer.`;
     } else if (found.tier === 'agen') {
       appState.currentTier = 'agen';
+      if (tierSel) tierSel.value = 'agen';
       renderTierQuickBanner();
       renderProducts();
       updateCartUI();
@@ -3913,6 +3960,7 @@ function autoCheckBuyerMitraPhone(query) {
       notice.innerHTML = `👑 <b>Selamat Datang Kembali, ${found.name} (${found.id})!</b><br>Terverifikasi sebagai <b>Agen Resmi SR12 Aktif</b>. Diskon Agen <b>40%</b> otomatis diaktifkan untuk pesanan ini!`;
     } else if (found.tier === 'sub_agen') {
       appState.currentTier = 'sub_agen';
+      if (tierSel) tierSel.value = 'sub_agen';
       renderTierQuickBanner();
       renderProducts();
       updateCartUI();
@@ -3925,6 +3973,7 @@ function autoCheckBuyerMitraPhone(query) {
     } else if (found.tier === 'reseller') {
       if (status.state !== 'expired') {
         appState.currentTier = 'reseller';
+        if (tierSel) tierSel.value = 'reseller';
         renderTierQuickBanner();
         renderProducts();
         updateCartUI();
@@ -4029,3 +4078,6 @@ window.openDistributorLoginModal = openDistributorLoginModal;
 window.autoFillDemoLogin = autoFillDemoLogin;
 window.handleDistributorLoginSubmit = handleDistributorLoginSubmit;
 window.handleDistributorLogout = handleDistributorLogout;
+window.clearCart = clearCart;
+window.removeFromCart = removeFromCart;
+
