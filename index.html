@@ -413,10 +413,13 @@
             <h2 class="olsera-page-title">📅 Riwayat Transaksi & Order</h2>
             <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.84rem;">Pantau status seluruh pesanan, baik order dari website online maupun transaksi kasir POS gudang.</p>
           </div>
-          <div style="display: flex; gap: 8px;">
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
             <button onclick="filterTransactions('all')" class="chip-btn active" id="btnTrxAll">Semua</button>
             <button onclick="filterTransactions('today')" class="chip-btn" id="btnTrxToday">Hari Ini</button>
             <button onclick="filterTransactions('month')" class="chip-btn" id="btnTrxMonth">Bulan Ini</button>
+            <button onclick="clearAllTransactionsHistory()" style="background: #fff; color: #ef4444; border: 1px solid #fca5a5; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.78rem; cursor: pointer;" title="Kosongkan seluruh riwayat pesanan & transaksi">
+              🗑️ Hapus Riwayat
+            </button>
           </div>
         </div>
 
@@ -520,12 +523,15 @@
             <h2 class="olsera-page-title">💵 Buku Kas Masuk - Keluar Distributor</h2>
             <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.84rem;">Catat arus kas harian: kulakan ke PT SR12 Pusat, biaya operasional lakban/packing, dan penerimaan penjualan.</p>
           </div>
-          <div style="display: flex; gap: 8px;">
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
             <button onclick="openAddCashflowModal('in')" style="background: #10b981; color: #fff; border: none; padding: 9px 14px; border-radius: 8px; font-weight: 700; font-size: 0.82rem; cursor: pointer;">
               + Catat Kas Masuk
             </button>
             <button onclick="openAddCashflowModal('out')" style="background: #ef4444; color: #fff; border: none; padding: 9px 14px; border-radius: 8px; font-weight: 700; font-size: 0.82rem; cursor: pointer;">
               - Catat Kas Keluar
+            </button>
+            <button onclick="clearAllCashflow()" style="background: #fff; color: #ef4444; border: 1px solid #fca5a5; padding: 9px 14px; border-radius: 8px; font-weight: 700; font-size: 0.82rem; cursor: pointer;" title="Kosongkan seluruh catatan kas">
+              🗑️ Hapus Data Kas
             </button>
           </div>
         </div>
@@ -882,9 +888,12 @@
               Distributor mengatur seluruh jaringan mitranya: <b>Agen (Diskon 40%)</b>, <b>Sub Agen (Diskon 30%)</b>, <b>Reseller (Diskon 20% & Evaluasi 90 Hari)</b>, dan <b>Tim Marketer (Komisi 15% Bulanan Tanpa Modal)</b>. Setiap mitra memiliki <b>Nomor ID Unik</b> sehingga otomatis terbaca saat berbelanja di website.
             </p>
           </div>
-          <div style="display: flex; gap: 8px;">
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
             <button onclick="openAddMitraModal()" style="background: var(--primary-700); color: #fff; border: none; padding: 10px 16px; border-radius: var(--radius-md); font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
               <span>+</span> Daftarkan Mitra Baru
+            </button>
+            <button onclick="clearAllMitraDatabase()" style="background: #fff; color: #ef4444; border: 1px solid #fca5a5; padding: 10px 14px; border-radius: var(--radius-md); font-weight: 700; font-size: 0.85rem; cursor: pointer;" title="Kosongkan seluruh data mitra">
+              🗑️ Hapus Semua Data Mitra
             </button>
           </div>
         </div>
@@ -970,6 +979,9 @@
             </button>
             <button onclick="openAddMitraModal('marketer')" style="background: #f1f5f9; color: var(--dark-800); border: 1px solid #cbd5e1; padding: 10px 14px; border-radius: var(--radius-md); font-weight: 700; font-size: 0.85rem; cursor: pointer;">
               + Tambah Marketer
+            </button>
+            <button onclick="clearAllMarketerSales()" style="background: #fff; color: #ef4444; border: 1px solid #fca5a5; padding: 10px 14px; border-radius: var(--radius-md); font-weight: 700; font-size: 0.85rem; cursor: pointer;" title="Kosongkan seluruh rekap gaji & penjualan marketer">
+              🗑️ Hapus Rekap Gaji
             </button>
           </div>
         </div>

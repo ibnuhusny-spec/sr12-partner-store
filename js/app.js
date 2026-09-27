@@ -5,6 +5,27 @@
 
 const DEFAULT_PARTNER_STORES = [
   {
+    slug: 'sr12-central',
+    storeName: 'SR12 Official Central Hub',
+    storeTagline: 'Pusat Distribusi Nasional & Jaringan Kemitraan Resmi SR12',
+    storeTheme: 'emerald',
+    heroTitle: 'Pusat Belanja & Jaringan Distribusi Resmi SR12 Herbal Skin Care',
+    heroSubtitle: 'Pesan langsung dari Gudang Pusat Nasional atau pilih Distributor Resmi terdekat di kota Anda untuk pengiriman lebih cepat & hemat ongkir.',
+    heroBannerUrl: 'assets/hero-banner.jpg',
+    storeLogoText: 'SR12',
+    storeLogoUrl: 'assets/sr12-logo.png',
+    storeWaNumber: '6281200001212',
+    storeCity: 'Jakarta Pusat (Gudang Pusat Nasional)',
+    storeOwner: 'PT. SR12 Herbal Perkasa (Kantor Pusat)',
+    partnerTier: 'distributor',
+    feePayer: 'buyer',
+    storeAdminPin: '1234',
+    orderQuota: 999,
+    walletBalance: 500000,
+    totalTopupPaid: 0,
+    totalTx: 0
+  },
+  {
     slug: 'aisyah-herbal',
     storeName: 'Aisyah SR12 Distributor Hub',
     storeTagline: 'Distributor Resmi SR12 Wilayah Jawa Barat',
@@ -73,7 +94,14 @@ function getStoredPartnerStores() {
   const stored = localStorage.getItem('sr12_partner_stores_v2');
   if (stored) {
     try {
-      return JSON.parse(stored);
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        if (!parsed.some(s => s.slug === 'sr12-central')) {
+          parsed.unshift(DEFAULT_PARTNER_STORES[0]);
+          saveStoredPartnerStores(parsed);
+        }
+        return parsed;
+      }
     } catch (e) {
       console.error(e);
     }
@@ -91,7 +119,7 @@ function getInitialStoreSlug(stores) {
   if (storeParam && stores.some(s => s.slug === storeParam)) {
     return storeParam;
   }
-  return stores[0]?.slug || 'aisyah-herbal';
+  return 'sr12-central';
 }
 
 const DEFAULT_STORE_SETTINGS = Object.assign({}, DEFAULT_PARTNER_STORES[0]);
@@ -175,201 +203,23 @@ function getStoredDevPin() {
 }
 
 // Database Seluruh Mitra Binaan Distributor (Agen 40%, Sub Agen 30%, Reseller 20%, Marketer 15%)
-const DEFAULT_DISTRIBUTOR_MITRA = [
-  {
-    id: 'AG-001',
-    name: 'dr. Linda Sp.KK',
-    phone: '085712345678',
-    city: 'Jakarta Selatan',
-    tier: 'agen',
-    bankName: 'BCA',
-    bankAccount: '1234567890',
-    bankHolder: 'dr. Linda',
-    qualificationDate: '2026-06-10',
-    lastOrderDate: '2026-09-12',
-    accumulatedSpent90Days: 8500000,
-    totalOrdersCount: 14,
-    status: 'active'
-  },
-  {
-    id: 'SUB-001',
-    name: 'Haji Ahmad Fauzi',
-    phone: '087890123456',
-    city: 'Surabaya',
-    tier: 'sub_agen',
-    bankName: 'BRI',
-    bankAccount: '4455667788',
-    bankHolder: 'Ahmad Fauzi',
-    qualificationDate: '2026-07-05',
-    lastOrderDate: '2026-09-15',
-    accumulatedSpent90Days: 2400000,
-    totalOrdersCount: 6,
-    status: 'active'
-  },
-  {
-    id: 'RS-001',
-    name: 'Ibu Ratna Dewi',
-    phone: '085798765432',
-    city: 'Jakarta Selatan',
-    tier: 'reseller',
-    bankName: 'Mandiri',
-    bankAccount: '9988776655',
-    bankHolder: 'Ratna Dewi',
-    qualificationDate: '2026-08-15',
-    lastOrderDate: '2026-09-20',
-    accumulatedSpent90Days: 780000,
-    totalOrdersCount: 4,
-    status: 'active'
-  },
-  {
-    id: 'RS-002',
-    name: 'Siti Nurhaliza',
-    phone: '081234567890',
-    city: 'Bandung Barat',
-    tier: 'reseller',
-    bankName: 'BCA',
-    bankAccount: '3322114455',
-    bankHolder: 'Siti Nurhaliza',
-    qualificationDate: '2026-07-28',
-    lastOrderDate: '2026-08-10',
-    accumulatedSpent90Days: 350000,
-    totalOrdersCount: 2,
-    status: 'active'
-  },
-  {
-    id: 'RS-003',
-    name: 'Maya Anggraini',
-    phone: '087812345678',
-    city: 'Bekasi',
-    tier: 'reseller',
-    bankName: 'BRI',
-    bankAccount: '2233445566',
-    bankHolder: 'Maya A',
-    qualificationDate: '2026-05-10',
-    lastOrderDate: '2026-05-20',
-    accumulatedSpent90Days: 120000,
-    totalOrdersCount: 1,
-    status: 'expired'
-  },
-  {
-    id: 'MKT-001',
-    name: 'Rian Pratama',
-    phone: '085811223344',
-    city: 'Bandung',
-    tier: 'marketer',
-    bankName: 'BCA',
-    bankAccount: '5220394811',
-    bankHolder: 'Rian Pratama',
-    qualificationDate: '2026-07-01',
-    lastOrderDate: '2026-09-26',
-    accumulatedSpent90Days: 1070000,
-    totalOrdersCount: 3,
-    status: 'active'
-  },
-  {
-    id: 'MKT-002',
-    name: 'Dina Lestari',
-    phone: '087722334455',
-    city: 'Cimahi',
-    tier: 'marketer',
-    bankName: 'Dana',
-    bankAccount: '087722334455',
-    bankHolder: 'Dina Lestari',
-    qualificationDate: '2026-08-10',
-    lastOrderDate: '2026-09-26',
-    accumulatedSpent90Days: 820000,
-    totalOrdersCount: 2,
-    status: 'active'
-  }
-];
+const DEFAULT_DISTRIBUTOR_MITRA = [];
 
 // Data Transaksi Penjualan Tim Marketer (Perhitungan Komisi 15% Bulanan)
-const DEFAULT_MARKETER_SALES = [
-  {
-    orderId: 'ORD-MKT-101',
-    marketerId: 'MKT-001',
-    date: '2026-09-15',
-    monthPeriod: '2026-09',
-    customerName: 'Ibu Ningsih (Jakarta)',
-    customerPhone: '081299887766',
-    itemsDesc: '2x Deodorant Spray, 1x GoMilku Original',
-    omsetHet: 200000,
-    commissionPct: 15,
-    commissionAmount: 30000,
-    paidStatus: 'paid',
-    paidDate: '2026-09-20'
-  },
-  {
-    orderId: 'ORD-MKT-102',
-    marketerId: 'MKT-001',
-    date: '2026-09-22',
-    monthPeriod: '2026-09',
-    customerName: 'Kak Cindy (Bogor)',
-    customerPhone: '087812994455',
-    itemsDesc: '1x Paket Acne Glow, 2x Sabun Bulus',
-    omsetHet: 450000,
-    commissionPct: 15,
-    commissionAmount: 67500,
-    paidStatus: 'unpaid',
-    paidDate: null
-  },
-  {
-    orderId: 'ORD-MKT-103',
-    marketerId: 'MKT-001',
-    date: '2026-09-25',
-    monthPeriod: '2026-09',
-    customerName: 'Mbak Tari (Tangerang)',
-    customerPhone: '085699443322',
-    itemsDesc: '3x GoMilku Cokelat',
-    omsetHet: 420000,
-    commissionPct: 15,
-    commissionAmount: 63000,
-    paidStatus: 'unpaid',
-    paidDate: null
-  },
-  {
-    orderId: 'ORD-MKT-104',
-    marketerId: 'MKT-002',
-    date: '2026-09-18',
-    monthPeriod: '2026-09',
-    customerName: 'Bpk Hendra (Bandung)',
-    customerPhone: '085611223344',
-    itemsDesc: '2x VCO 100ml, 1x Manjakani',
-    omsetHet: 260000,
-    commissionPct: 15,
-    commissionAmount: 39000,
-    paidStatus: 'paid',
-    paidDate: '2026-09-20'
-  },
-  {
-    orderId: 'ORD-MKT-105',
-    marketerId: 'MKT-002',
-    date: '2026-09-26',
-    monthPeriod: '2026-09',
-    customerName: 'Ibu Desi (Cimahi)',
-    customerPhone: '081377889900',
-    itemsDesc: '4x GoMilku Strawberi',
-    omsetHet: 560000,
-    commissionPct: 15,
-    commissionAmount: 84000,
-    paidStatus: 'unpaid',
-    paidDate: null
-  }
-];
+const DEFAULT_MARKETER_SALES = [];
 
 function getStoredMitra() {
+  const dummyIds = ['AG-001', 'SUB-001', 'RS-001', 'RS-002', 'RS-003', 'MKT-001', 'MKT-002'];
   const stored = localStorage.getItem('sr12_distributor_mitra_v2');
   if (stored) {
     try {
       const list = JSON.parse(stored);
-      if (Array.isArray(list) && list.length > 0) {
-        // Ensure marketers exist
-        if (!list.some(m => m.tier === 'marketer')) {
-          const defaultMarketers = DEFAULT_DISTRIBUTOR_MITRA.filter(m => m.tier === 'marketer');
-          list.push(...defaultMarketers);
-          saveStoredMitra(list);
+      if (Array.isArray(list)) {
+        const cleaned = list.filter(m => !dummyIds.includes(m.id));
+        if (cleaned.length !== list.length) {
+          saveStoredMitra(cleaned);
         }
-        return list;
+        return cleaned;
       }
     } catch (e) {}
   }
@@ -377,18 +227,15 @@ function getStoredMitra() {
   if (oldStored) {
     try {
       const old = JSON.parse(oldStored);
-      if (Array.isArray(old) && old.length > 0) {
-        if (!old.some(m => m.tier === 'marketer')) {
-          const defaultMarketers = DEFAULT_DISTRIBUTOR_MITRA.filter(m => m.tier === 'marketer');
-          old.push(...defaultMarketers);
-        }
-        saveStoredMitra(old);
-        return old;
+      if (Array.isArray(old)) {
+        const cleaned = old.filter(m => !dummyIds.includes(m.id));
+        saveStoredMitra(cleaned);
+        return cleaned;
       }
     } catch (e) {}
   }
-  saveStoredMitra(DEFAULT_DISTRIBUTOR_MITRA);
-  return [...DEFAULT_DISTRIBUTOR_MITRA];
+  saveStoredMitra([]);
+  return [];
 }
 
 function saveStoredMitra(mitraList) {
@@ -405,17 +252,22 @@ function saveStoredResellers(resellers) {
 }
 
 function getStoredMarketerSales() {
+  const dummyOrders = ['ORD-MKT-101', 'ORD-MKT-102', 'ORD-MKT-103', 'ORD-MKT-104', 'ORD-MKT-105'];
   const stored = localStorage.getItem('sr12_marketer_sales_v1');
   if (stored) {
     try {
       const list = JSON.parse(stored);
-      if (Array.isArray(list) && list.length > 0) {
-        return list;
+      if (Array.isArray(list)) {
+        const cleaned = list.filter(s => !dummyOrders.includes(s.orderId));
+        if (cleaned.length !== list.length) {
+          saveStoredMarketerSales(cleaned);
+        }
+        return cleaned;
       }
     } catch (e) {}
   }
-  saveStoredMarketerSales(DEFAULT_MARKETER_SALES);
-  return [...DEFAULT_MARKETER_SALES];
+  saveStoredMarketerSales([]);
+  return [];
 }
 
 function saveStoredMarketerSales(sales) {
@@ -555,7 +407,13 @@ document.addEventListener('DOMContentLoaded', () => {
   renderProducts();
   renderRewards();
   renderMarketingKits();
-  // Bersihkan data transaksi dummy lama dan update notifikasi pesanan masuk
+  // Bersihkan data dummy lama untuk simulasi bersih (Mitra, Marketer, Kasflow, Transaksi)
+  appState.mitraList = getStoredMitra();
+  appState.resellers = appState.mitraList;
+  appState.marketerSales = getStoredMarketerSales();
+  if (typeof getStoredCashflow === 'function') {
+    appState.cashflow = getStoredCashflow();
+  }
   try {
     const s = localStorage.getItem('sr12_pos_transactions_v1');
     if (s) {
@@ -3658,6 +3516,30 @@ function deleteMitra(id) {
 function deleteReseller(id) {
   deleteMitra(id);
 }
+
+function clearAllMitraDatabase() {
+  if (!confirm('⚠️ Anda yakin ingin mengosongkan seluruh Database Mitra Binaan Toko?\n\nSemua data Agen, Sub Agen, Reseller, dan Marketer akan dihapus untuk simulasi bersih dari awal.')) {
+    return;
+  }
+  appState.mitraList = [];
+  appState.resellers = [];
+  saveStoredMitra([]);
+  renderResellers();
+  updateViewModeUI();
+  showToast('🗑️ Database Seluruh Mitra berhasil dikosongkan!');
+}
+window.clearAllMitraDatabase = clearAllMitraDatabase;
+
+function clearAllMarketerSales() {
+  if (!confirm('⚠️ Anda yakin ingin mengosongkan seluruh Rekap Penjualan & Bonus Gaji Marketer?\n\nSeluruh catatan penjualan dan komisi marketer akan dikosongkan untuk simulasi bersih.')) {
+    return;
+  }
+  appState.marketerSales = [];
+  saveStoredMarketerSales([]);
+  renderMarketerPayroll();
+  showToast('🗑️ Rekap Gaji & Komisi Marketer berhasil dikosongkan!');
+}
+window.clearAllMarketerSales = clearAllMarketerSales;
 
 function sendGeneralMitraWA(phone, name, tier) {
   const storeName = appState.storeSettings.storeName;

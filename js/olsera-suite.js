@@ -8,48 +8,7 @@
 // ==========================================
 const DEFAULT_TRANSACTIONS = [];
 
-const DEFAULT_CASHFLOW = [
-  {
-    id: 'CSH-001',
-    date: '2026-09-20',
-    type: 'out',
-    category: 'Kulakan PT SR12 Pusat',
-    notes: 'Kulakan stok bulanan GoMilku, VCO, dan Deodorant ke Gudang Pusat SR12',
-    amount: 8500000
-  },
-  {
-    id: 'CSH-002',
-    date: '2026-09-22',
-    type: 'in',
-    category: 'Penjualan Grosir Mitra',
-    notes: 'Pelunasan order grosir Agen dr. Linda (TRX-2026-102)',
-    amount: 2580000
-  },
-  {
-    id: 'CSH-003',
-    date: '2026-09-23',
-    type: 'out',
-    category: 'Biaya Packing & Operasional',
-    notes: 'Beli lakban fragile, kardus packing, dan bubble wrap 1 roll',
-    amount: 175000
-  },
-  {
-    id: 'CSH-004',
-    date: '2026-09-25',
-    type: 'in',
-    category: 'Penjualan Reseller',
-    notes: 'Order reseller Siti Rahmawati (TRX-2026-103)',
-    amount: 440000
-  },
-  {
-    id: 'CSH-005',
-    date: '2026-09-26',
-    type: 'out',
-    category: 'Gaji / Komisi Marketer',
-    notes: 'Pembayaran komisi 15% marketer MKT-001 Dina Lestari periode September',
-    amount: 93000
-  }
-];
+const DEFAULT_CASHFLOW = [];
 
 function getStoredTransactions() {
   const s = localStorage.getItem('sr12_pos_transactions_v1');
@@ -74,14 +33,22 @@ function saveStoredTransactions(list) {
 }
 
 function getStoredCashflow() {
+  const dummyCashIds = ['CSH-001', 'CSH-002', 'CSH-003', 'CSH-004', 'CSH-005'];
   const s = localStorage.getItem('sr12_cashflow_records_v1');
   if (s) {
     try {
       const parsed = JSON.parse(s);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) {
+        const cleaned = parsed.filter(c => !dummyCashIds.includes(c.id));
+        if (cleaned.length !== parsed.length) {
+          saveStoredCashflow(cleaned);
+        }
+        return cleaned;
+      }
     } catch (e) {}
   }
-  return [...DEFAULT_CASHFLOW];
+  saveStoredCashflow([]);
+  return [];
 }
 
 function saveStoredCashflow(list) {
@@ -892,6 +859,18 @@ function confirmWebOrder(trxId) {
 }
 window.confirmWebOrder = confirmWebOrder;
 
+function clearAllTransactionsHistory() {
+  if (!confirm('⚠️ Anda yakin ingin mengosongkan seluruh Riwayat Transaksi Kasir POS & Pesanan Web?\n\nSemua riwayat transaksi akan dihapus untuk simulasi baru.')) {
+    return;
+  }
+  appState.transactions = [];
+  saveStoredTransactions([]);
+  renderPosTransactions('all');
+  if (typeof updateAdminNotificationUI === 'function') updateAdminNotificationUI();
+  if (typeof showToast === 'function') showToast('🗑️ Seluruh Riwayat Transaksi berhasil dikosongkan!');
+}
+window.clearAllTransactionsHistory = clearAllTransactionsHistory;
+
 function filterTransactions(f) {
   ['btnTrxAll', 'btnTrxToday', 'btnTrxMonth'].forEach(id => {
     const btn = document.getElementById(id);
@@ -1185,6 +1164,17 @@ function deleteCashflowEntry(id) {
   renderCashflowTable();
   showToast('Catatan arus kas telah dihapus.');
 }
+
+function clearAllCashflow() {
+  if (!confirm('⚠️ Anda yakin ingin mengosongkan seluruh Catatan Buku Kas Masuk - Keluar?\n\nSemua data arus kas akan dihapus untuk simulasi baru.')) {
+    return;
+  }
+  appState.cashflow = [];
+  saveStoredCashflow([]);
+  renderCashflowTable();
+  if (typeof showToast === 'function') showToast('🗑️ Seluruh Catatan Kas Masuk - Keluar berhasil dikosongkan!');
+}
+window.clearAllCashflow = clearAllCashflow;
 
 // ==========================================
 // 8. LAPORAN & REKAP LABA LOGIC
