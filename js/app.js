@@ -752,7 +752,8 @@ function renderStoreDropdown() {
   // Update public exclusive store badge
   const publicBadge = document.getElementById('activeStorePublicBadge');
   if (publicBadge) {
-    publicBadge.innerHTML = `<span style="color: #38bdf8; font-weight: 800;">${curStore.storeName || 'SR12 Store'}</span> <span style="color: #94a3b8; font-size: 0.7rem; font-weight: 600;">(${curStore.storeCity || 'Mitra'}) &middot; ${tierObj.name}</span>`;
+    const cleanCity = (curStore.storeCity || 'Mitra').split('(')[0].trim();
+    publicBadge.innerHTML = `<span style="color: #38bdf8; font-weight: 800;">${curStore.storeName || 'SR12 Store'}</span> <span style="color: #94a3b8; font-size: 0.7rem; font-weight: 600;">(${cleanCity})</span>`;
   }
 
   // Update Dev Portal Store Switcher
@@ -2014,6 +2015,31 @@ function openDevPinPrompt() {
   if (pinInput) setTimeout(() => pinInput.focus(), 200);
 }
 
+// Switch Tabs inside Developer Super Admin Portal
+function switchDevPortalTab(tabName) {
+  const tabs = ['overview', 'stores', 'pending', 'payment'];
+  tabs.forEach(t => {
+    const pane = document.getElementById(`devTabPane_${t}`);
+    const btn = document.getElementById(`devTabBtn_${t}`);
+    if (pane) {
+      pane.style.display = (t === tabName) ? 'block' : 'none';
+    }
+    if (btn) {
+      if (t === tabName) {
+        btn.classList.add('active');
+        btn.style.background = '#0284c7';
+        btn.style.color = '#ffffff';
+        btn.style.borderColor = '#38bdf8';
+      } else {
+        btn.classList.remove('active');
+        btn.style.background = '#1e293b';
+        btn.style.color = '#94a3b8';
+        btn.style.borderColor = '#334155';
+      }
+    }
+  });
+}
+
 // Verify PIN Entered
 function verifyDevPinSubmit(e) {
   if (e) e.preventDefault();
@@ -2026,6 +2052,7 @@ function verifyDevPinSubmit(e) {
     // Correct PIN!
     if (modalDevPin) modalDevPin.classList.remove('open');
     if (modalDevPortal) modalDevPortal.classList.add('open');
+    switchDevPortalTab('overview');
     updateDevPortalMetrics();
     showToast('🔓 Akses Master Diterima! Membuka Portal Pengembang.');
   } else {
@@ -3343,6 +3370,16 @@ function updateDevPortalMetrics() {
       footerPendingBadge.textContent = `${pendingCount} Pengajuan Baru`;
     } else {
       footerPendingBadge.style.display = 'none';
+    }
+  }
+
+  const pendingTabBadge = document.getElementById('devPendingTabBadge');
+  if (pendingTabBadge) {
+    if (pendingCount > 0) {
+      pendingTabBadge.style.display = 'inline-block';
+      pendingTabBadge.textContent = pendingCount;
+    } else {
+      pendingTabBadge.style.display = 'none';
     }
   }
 
@@ -5226,5 +5263,7 @@ window.switchPreviewDocTab = switchPreviewDocTab;
 window.approvePendingStore = approvePendingStore;
 window.rejectPendingStore = rejectPendingStore;
 window.contactApplicantWA = contactApplicantWA;
+window.switchDevPortalTab = switchDevPortalTab;
+window.openDevPinPrompt = openDevPinPrompt;
 
 
