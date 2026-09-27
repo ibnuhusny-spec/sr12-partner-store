@@ -1186,6 +1186,7 @@ h1, h2, h3, h4, h5, h6 {
   transition: right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .cart-drawer.open {
@@ -1193,7 +1194,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .cart-drawer-header {
-  padding: 18px 20px;
+  flex-shrink: 0;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
@@ -1210,37 +1212,67 @@ h1, h2, h3, h4, h5, h6 {
   gap: 8px;
 }
 
-.cart-items-container {
-  flex-grow: 1;
+/* Middle body scrolls smoothly, ensuring product list and options never get squeezed */
+.cart-drawer-body {
+  flex: 1 1 auto;
   overflow-y: auto;
-  padding: 16px;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  padding-bottom: 16px;
+  scroll-behavior: smooth;
+}
+
+.cart-drawer-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.cart-drawer-body::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.cart-drawer-body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
+.cart-items-container {
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 50px;
 }
 
 .cart-item-card {
   display: grid;
-  grid-template-columns: 60px 1fr auto;
+  grid-template-columns: 64px 1fr auto;
   gap: 12px;
-  background: var(--dark-50);
-  border: 1px solid var(--border-subtle);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: var(--radius-md);
-  padding: 10px;
+  padding: 10px 12px;
   align-items: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  flex-shrink: 0;
 }
 
 .cart-item-card img {
-  width: 60px;
-  height: 60px;
+  width: 64px;
+  height: 64px;
   object-fit: cover;
   border-radius: var(--radius-sm);
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
 }
 
 .cart-item-info h5 {
-  font-size: 0.85rem;
+  font-size: 0.88rem;
   margin-bottom: 2px;
   line-height: 1.3;
+  color: #0f172a;
+  font-weight: 700;
 }
 
 .cart-item-price {
@@ -1256,20 +1288,30 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .qty-btn {
-  background: #fff;
+  background: #f8fafc;
   border: 1px solid #cbd5e1;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   border-radius: var(--radius-sm);
   font-weight: 700;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.qty-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
 }
 
 .qty-val {
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: 0.88rem;
   min-width: 20px;
   text-align: center;
+  color: #0f172a;
 }
 
 .dropship-toggle-box {
@@ -1306,9 +1348,11 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .cart-drawer-footer {
+  flex-shrink: 0;
   border-top: 1px solid var(--border-subtle);
-  padding: 16px 20px;
+  padding: 14px 20px 18px 20px;
   background: #ffffff;
+  box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.05);
 }
 
 .summary-line {

@@ -438,6 +438,7 @@ const appState = {
   rewards: getStoredRewards(),
   resellers: getStoredMitra(),
   mitraList: getStoredMitra(),
+  verifiedMitra: null,
   marketerSales: getStoredMarketerSales(),
   selectedPayrollMonth: '2026-09',
   selectedMitraFilter: 'all',
@@ -1461,21 +1462,34 @@ function updateCartUI() {
   container.innerHTML = appState.cart.map(item => {
     const prod = appState.products.find(p => p.id === item.productId);
     if (!prod) return '';
+    const tier = SR12_TIERS[appState.currentTier] || SR12_TIERS.konsumen;
     const unitPrice = getProductTierPrice(prod, appState.currentTier);
     const subtotal = unitPrice * item.qty;
+    const isDiscounted = appState.currentTier !== 'konsumen' && unitPrice < prod.het;
 
     return `
       <div class="cart-item-card">
         <img src="${prod.image}" alt="${prod.name}">
         <div class="cart-item-info">
           <h5>${prod.name}</h5>
-          <div class="cart-item-price">${formatRupiah(unitPrice)} <span style="color: var(--dark-400); font-weight: 500; font-size: 0.75rem;">x ${item.qty}</span></div>
-          <div style="font-size: 0.78rem; font-weight: 800; color: var(--primary-700); margin-top: 2px;">= ${formatRupiah(subtotal)}</div>
+          <div style="font-size: 0.72rem; color: #64748b; margin-bottom: 4px;">${prod.netto || prod.category || 'SR12 Herbal'}</div>
+          
+          <div class="cart-item-price" style="display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;">
+            ${isDiscounted ? `
+              <span style="text-decoration: line-through; color: #94a3b8; font-size: 0.74rem;">${formatRupiah(prod.het)}</span>
+              <span style="color: #059669; font-weight: 800; font-size: 0.85rem;">${formatRupiah(unitPrice)}</span>
+              <span style="background: #ecfdf5; color: #065f46; font-size: 0.68rem; font-weight: 800; padding: 1px 5px; border-radius: 4px;">-${tier.discountPct}%</span>
+            ` : `
+              <span style="color: #0f172a; font-weight: 700; font-size: 0.85rem;">${formatRupiah(unitPrice)}</span>
+            `}
+            <span style="color: #64748b; font-weight: 500; font-size: 0.74rem;">x ${item.qty}</span>
+          </div>
+          <div style="font-size: 0.8rem; font-weight: 800; color: #0284c7; margin-top: 3px;">= ${formatRupiah(subtotal)}</div>
         </div>
         <div class="cart-qty-ctrl">
-          <button class="qty-btn" onclick="adjustCartQty('${item.productId}', -1)">-</button>
+          <button class="qty-btn" onclick="adjustCartQty('${item.productId}', -1)" title="Kurangi">-</button>
           <span class="qty-val">${item.qty}</span>
-          <button class="qty-btn" onclick="adjustCartQty('${item.productId}', 1)">+</button>
+          <button class="qty-btn" onclick="adjustCartQty('${item.productId}', 1)" title="Tambah">+</button>
         </div>
       </div>
     `;
@@ -1490,7 +1504,17 @@ function updateCartSummary() {
   const shippingLine = document.getElementById('cartSummaryShipping');
   const totalLine = document.getElementById('cartSummaryTotal');
   const moqWarning = document.getElementById('cartMoqWarning');
+  const hetRow = document.getElementById('cartSummaryHetRow');
+  const hetVal = document.getElementById('cartSummaryHetVal');
+  const discountRow = document.getElementById('cartSummaryDiscountRow');
+  const discountLabel = document.getElementById('cartSummaryDiscountLabel');
+  const discountVal = document.getElementById('cartSummaryDiscountVal');
+  const savingsBadge = document.getElementById('cartSavingsBadge');
+  const savingsAmount = document.getElementById('cartSavingsAmount');
+  const mitraBox = document.getElementById('cartMitraVerificationBox');
+  const mitraTierLabel = document.getElementById('cartMitraTierLabel');
 
+  let totalHet = 0;
   let subtotal = 0;
   let totalWeightGram = 0;
   let totalPcs = 0;
@@ -1499,11 +1523,36 @@ function updateCartSummary() {
     const prod = appState.products.find(p => p.id === item.productId);
     if (prod) {
       const price = getProductTierPrice(prod, appState.currentTier);
+      totalHet += (prod.het || price) * item.qty;
       subtotal += price * item.qty;
-      totalWeightGram += prod.weightGram * item.qty;
+      totalWeightGram += (prod.weightGram || 200) * item.qty;
       totalPcs += item.qty;
     }
   });
+
+  const totalSavings = Math.max(0, totalHet - subtotal);
+  const tier = SR12_TIERS[appState.currentTier] || SR12_TIERS.konsumen;
+
+  // Rincian Baris Diskon Kemitraan
+  if (totalSavings > 0 && appState.currentTier !== 'konsumen') {
+    if (hetRow) {
+      hetRow.style.display = 'flex';
+      if (hetVal) hetVal.textContent = formatRupiah(totalHet);
+    }
+    if (discountRow) {
+      discountRow.style.display = 'flex';
+      if (discountLabel) discountLabel.textContent = `Diskon ${tier.name} (${tier.discountPct}%):`;
+      if (discountVal) discountVal.textContent = `- ${formatRupiah(totalSavings)}`;
+    }
+    if (savingsBadge) {
+      savingsBadge.style.display = 'block';
+      if (savingsAmount) savingsAmount.textContent = `${formatRupiah(totalSavings)} (${tier.name} ${tier.discountPct}%)`;
+    }
+  } else {
+    if (hetRow) hetRow.style.display = 'none';
+    if (discountRow) discountRow.style.display = 'none';
+    if (savingsBadge) savingsBadge.style.display = 'none';
+  }
 
   const courierId = appState.buyerDetails.courier || 'jne';
   const courier = SR12_SHIPPING_PROVIDERS.find(c => c.id === courierId) || SR12_SHIPPING_PROVIDERS[0];
@@ -1527,24 +1576,41 @@ function updateCartSummary() {
   if (shippingLine) shippingLine.textContent = formatRupiah(shippingCost) + ` (${weightKg} kg)`;
   if (totalLine) totalLine.textContent = formatRupiah(grandTotal);
 
-  const tier = SR12_TIERS[appState.currentTier];
-  if (moqWarning) {
-    if (subtotal < tier.minOrderNominal || totalPcs < tier.minOrderPcs) {
-      moqWarning.style.display = 'block';
-      moqWarning.innerHTML = `⚠️ <b>Syarat Belanja ${tier.name}:</b> Minimal belanja ${formatRupiah(tier.minOrderNominal)} atau min. ${tier.minOrderPcs} pcs produk.`;
-    } else {
-      moqWarning.style.display = 'none';
-    }
-  }
+  // Status Kemitraan & MOQ
+  const isVerifiedPartner = !!appState.verifiedMitra && appState.verifiedMitra.tier === appState.currentTier;
 
-  const mitraBox = document.getElementById('cartMitraVerificationBox');
-  const mitraTierLabel = document.getElementById('cartMitraTierLabel');
-  if (mitraBox) {
-    if (appState.currentTier !== 'konsumen') {
-      mitraBox.style.display = 'block';
-      if (mitraTierLabel) mitraTierLabel.textContent = tier.name;
-    } else {
-      mitraBox.style.display = 'none';
+  if (isVerifiedPartner) {
+    // Sembunyikan verifikasi form manual karena sudah terautentikasi otomatis
+    if (mitraBox) mitraBox.style.display = 'none';
+
+    // Repeat Order bagi mitra resmi terdaftar: Bebas batas minimal pendaftaran Rp 5 juta / 50 pcs!
+    if (moqWarning) {
+      moqWarning.style.display = 'block';
+      moqWarning.style.background = '#ecfdf5';
+      moqWarning.style.borderColor = '#a7f3d0';
+      moqWarning.style.color = '#065f46';
+      moqWarning.innerHTML = `✨ <b>Repeat Order ${tier.name} Terverifikasi (${appState.verifiedMitra.id}):</b> Diskon ${tier.discountPct}% dinikmati tanpa syarat minimal belanja Rp 5 juta!`;
+    }
+  } else {
+    // Tamu umum / kualifikasi baru
+    if (mitraBox) {
+      if (appState.currentTier !== 'konsumen') {
+        mitraBox.style.display = 'block';
+        if (mitraTierLabel) mitraTierLabel.textContent = tier.name;
+      } else {
+        mitraBox.style.display = 'none';
+      }
+    }
+    if (moqWarning) {
+      if (appState.currentTier !== 'konsumen' && (subtotal < tier.minOrderNominal || totalPcs < tier.minOrderPcs)) {
+        moqWarning.style.display = 'block';
+        moqWarning.style.background = '#fffbeb';
+        moqWarning.style.borderColor = '#fde68a';
+        moqWarning.style.color = '#92400e';
+        moqWarning.innerHTML = `⚠️ <b>Syarat Belanja ${tier.name}:</b> Minimal belanja ${formatRupiah(tier.minOrderNominal)} atau min. ${tier.minOrderPcs} pcs produk (untuk pendaftaran mitra baru).`;
+      } else {
+        moqWarning.style.display = 'none';
+      }
     }
   }
 }
@@ -1555,27 +1621,36 @@ function checkoutViaWhatsApp() {
     return;
   }
 
+  let totalHet = 0;
   let subtotal = 0;
   let totalPcs = 0;
+  const tier = SR12_TIERS[appState.currentTier] || SR12_TIERS.konsumen;
+
   const itemsText = appState.cart.map((item, idx) => {
     const prod = appState.products.find(p => p.id === item.productId);
     const price = getProductTierPrice(prod, appState.currentTier);
+    totalHet += (prod.het || price) * item.qty;
     subtotal += price * item.qty;
     totalPcs += item.qty;
-    return `${idx + 1}. ${prod.name} (${item.qty} pcs) x ${formatRupiah(price)} = ${formatRupiah(price * item.qty)}`;
+    const isDiscounted = appState.currentTier !== 'konsumen' && price < prod.het;
+    return `${idx + 1}. ${prod.name} (${item.qty} pcs) x ${formatRupiah(price)}${isDiscounted ? ` [Diskon ${tier.discountPct}% dari ${formatRupiah(prod.het)}]` : ''} = ${formatRupiah(price * item.qty)}`;
   }).join('\n');
 
+  const totalSavings = Math.max(0, totalHet - subtotal);
+  const isVerifiedPartner = !!appState.verifiedMitra && appState.verifiedMitra.tier === appState.currentTier;
+
   // Proteksi & Validasi Tingkatan Kemitraan (Anti-Cheating / Anti-Bypass)
-  const tier = SR12_TIERS[appState.currentTier];
-  if (tier && tier.id !== 'konsumen') {
+  // Mitra resmi terdaftar bebas syarat minimal pendaftaran awal (Rp 5 juta)
+  if (!isVerifiedPartner && tier && tier.id !== 'konsumen') {
     if (subtotal < tier.minOrderNominal || totalPcs < tier.minOrderPcs) {
       alert(`⛔ SYARAT MINIMAL BELANJA LEVEL ${tier.name.toUpperCase()} BELUM TERPENUHI!\n\n` +
         `Anda saat ini memilih harga khusus: ${tier.name} (Diskon ${tier.discountPct}%).\n` +
-        `• Ketentuan Resmi PT. SR12: Minimal belanja ${formatRupiah(tier.minOrderNominal)} atau min. ${tier.minOrderPcs} pcs produk.\n` +
+        `• Ketentuan Pendaftaran Mitra Baru: Minimal belanja ${formatRupiah(tier.minOrderNominal)} atau min. ${tier.minOrderPcs} pcs produk.\n` +
         `• Total belanja di keranjang Anda: ${formatRupiah(subtotal)} (${totalPcs} pcs).\n\n` +
         `💡 Pilihan Anda:\n` +
-        `1. Tambah jumlah/varian produk hingga mencapai minimal ${formatRupiah(tier.minOrderNominal)}.\n` +
-        `2. Atau ganti pilihan harga di atas ke "Konsumen Retail (HET)" jika hanya ingin belanja eceran.`);
+        `1. Masukkan ID Mitra Anda pada formulir "Cek Kemitraan" di bagian atas keranjang jika Anda adalah mitra resmi aktif (bebas batas minimal belanja).\n` +
+        `2. Tambah jumlah/varian produk hingga mencapai minimal ${formatRupiah(tier.minOrderNominal)} untuk bergabung menjadi mitra baru.\n` +
+        `3. Atau ubah pilihan tingkat harga ke "Konsumen Retail (HET)".`);
       return;
     }
   }
@@ -1727,10 +1802,13 @@ function checkoutViaWhatsApp() {
     `Tanggal       : ${new Date().toLocaleDateString('id-ID', { dateStyle: 'full' })}\n` +
     `----------------------------------------\n` +
     `📦 *DAFTAR PRODUK SR12:*\n${itemsText}\n\n` +
+    (totalSavings > 0 ? `Harga Retail Normal (HET) : ${formatRupiah(totalHet)}\n` +
+    `Diskon Kemitraan (${tier.name} ${tier.discountPct}%) : -${formatRupiah(totalSavings)}\n` : '') +
     `Subtotal Produk : ${formatRupiah(subtotal)}\n` +
     `Ongkos Kirim (${courier.name}) : ${formatRupiah(shippingCost)}\n` +
     (fee > 0 ? `Biaya Layanan Sistem : ${formatRupiah(fee)}\n` : '') +
     `*TOTAL PEMBAYARAN: ${formatRupiah(grandTotal)}*\n` +
+    (totalSavings > 0 ? `🎉 *TOTAL HEMAT: ${formatRupiah(totalSavings)}*\n` : '') +
     crmNoticeText +
     mitraVerificationText +
     `----------------------------------------\n` +
@@ -3639,8 +3717,10 @@ function checkBuyerMitraPhoneClick() {
 function autoCheckBuyerMitraPhone(query) {
   const notice = document.getElementById('buyerStatusNotice');
   if (!notice) return;
-  if (!query || query.trim().length < 4) {
+  if (!query || query.trim().length < 3) {
     notice.style.display = 'none';
+    appState.verifiedMitra = null;
+    updateCartSummary();
     return;
   }
 
@@ -3649,13 +3729,14 @@ function autoCheckBuyerMitraPhone(query) {
   }
 
   const found = findMitraByIdOrPhone(query);
-  let subtotal = 0;
+  let subtotalHet = 0;
   appState.cart.forEach(item => {
     const prod = appState.products.find(p => p.id === item.productId);
-    subtotal += (prod?.het || 0) * item.qty;
+    subtotalHet += (prod?.het || 0) * item.qty;
   });
 
   if (found) {
+    appState.verifiedMitra = found;
     const status = getMitraStatus(found);
 
     if (found.tier === 'marketer') {
@@ -3679,7 +3760,7 @@ function autoCheckBuyerMitraPhone(query) {
       notice.style.background = '#e0f2fe';
       notice.style.color = '#0369a1';
       notice.style.border = '1px solid #bae6fd';
-      notice.innerHTML = `💼 <b>Tim Marketer Dikenali: ${found.name} (${found.id})!</b><br>✨ Pesanan ini otomatis dicatat ke Buku Omset Marketer untuk <b>Bonus 15% Bulanan</b> (Estimasi komisi: <b>${formatRupiah(Math.round(subtotal * 0.15))}</b>). Pengirim dropship otomatis diisi nama Marketer.`;
+      notice.innerHTML = `💼 <b>Tim Marketer Dikenali: ${found.name} (${found.id})!</b><br>✨ Pesanan ini otomatis dicatat ke Buku Omset Marketer untuk <b>Bonus 15% Bulanan</b> (Estimasi komisi: <b>${formatRupiah(Math.round(subtotalHet * 0.15))}</b>). Pengirim dropship otomatis diisi nama Marketer.`;
     } else if (found.tier === 'agen') {
       appState.currentTier = 'agen';
       renderTierQuickBanner();
@@ -3728,21 +3809,23 @@ function autoCheckBuyerMitraPhone(query) {
       }
     }
   } else {
+    appState.verifiedMitra = null;
     // Belum terdaftar
-    if (subtotal >= 500000) {
+    if (subtotalHet >= 500000) {
       notice.style.display = 'block';
       notice.style.background = '#fef3c7';
       notice.style.color = '#92400e';
       notice.style.border = '1px solid #fde68a';
-      notice.innerHTML = `🎉 <b>Kualifikasi Reseller Terpenuhi!</b> Belanjaan Anda ${formatRupiah(subtotal)} mencapai syarat Rp 500.000. Begitu order selesai, Anda otomatis terdaftar sebagai <b>Reseller Resmi (Diskon 20%)</b> untuk 90 hari ke depan!`;
+      notice.innerHTML = `🎉 <b>Kualifikasi Reseller Terpenuhi!</b> Belanjaan Anda ${formatRupiah(subtotalHet)} mencapai syarat Rp 500.000. Begitu order selesai, Anda otomatis terdaftar sebagai <b>Reseller Resmi (Diskon 20%)</b> untuk 90 hari ke depan!`;
     } else {
       notice.style.display = 'block';
       notice.style.background = '#f1f5f9';
       notice.style.color = '#475569';
       notice.style.border = '1px solid #cbd5e1';
-      const def = 500000 - subtotal;
+      const def = 500000 - subtotalHet;
       notice.innerHTML = `ℹ️ Status: <b>Konsumen Retail (Harga HET)</b>.<br>Tambah belanja ${formatRupiah(def)} lagi (total min. Rp 500.000) untuk otomatis bergabung menjadi Reseller Resmi!`;
     }
+    updateCartSummary();
   }
 }
 
