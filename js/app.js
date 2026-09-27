@@ -549,11 +549,21 @@ document.addEventListener('DOMContentLoaded', () => {
   renderProducts();
   renderRewards();
   renderMarketingKits();
-  updateCartUI();
-  updateViewModeUI();
-  if (appState.isAdminMode && typeof showDistributorPortalView === 'function') {
-    showDistributorPortalView(true);
-  }
+  // Bersihkan data transaksi dummy lama dan update notifikasi pesanan masuk
+  try {
+    const s = localStorage.getItem('sr12_pos_transactions_v1');
+    if (s) {
+      const parsed = JSON.parse(s);
+      if (Array.isArray(parsed)) {
+        const cleaned = parsed.filter(t => !['TRX-2026-101', 'TRX-2026-102', 'TRX-2026-103'].includes(t.id));
+        if (cleaned.length !== parsed.length) {
+          localStorage.setItem('sr12_pos_transactions_v1', JSON.stringify(cleaned));
+        }
+        appState.transactions = cleaned;
+      }
+    }
+  } catch(e) {}
+  updateAdminNotificationUI();
   updateDevPortalMetrics();
 });
 
@@ -1995,6 +2005,14 @@ function checkoutViaWhatsApp() {
   const trxBadge = document.getElementById('olseraTrxBadge');
   if (trxBadge) trxBadge.textContent = `${appState.transactions.length}`;
 
+  // Trigger notifikasi real-time ke Admin dan mainkan suara dering
+  triggerAdminNewOrderNotification(webOrder);
+
+  // Kosongkan keranjang pembeli agar siap untuk pesanan berikutnya (tidak tertinggal di browser)
+  appState.cart = [];
+  saveStoredCart(appState.cart);
+  updateCartUI();
+
   const encoded = encodeURIComponent(message);
   const waUrl = `https://api.whatsapp.com/send?phone=${targetWa}&text=${encoded}`;
   openWhatsAppPreviewModal(message, waUrl);
@@ -2705,6 +2723,200 @@ function showToast(message) {
     toast.style.opacity = '0';
     setTimeout(() => { toast.style.display = 'none'; }, 300);
   }, 2600);
+}
+
+// ==========================================
+// REAL-TIME ADMIN NOTIFICATION & ORDER MONITOR
+// ==========================================
+function playOrderChime() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.15); // A5
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.5);
+  } catch (e) {}
+}
+
+function updateAdminNotificationUI() {
+  const list = appState.transactions || [];
+  const pendingOrders = list.filter(t => t.status === 'Menunggu Konfirmasi' || t.status === 'Siap Diambil di Toko');
+  const count = pendingOrders.length;
+
+  const btnNotif = document.getElementById('btnAdminOrderNotif');
+  const badge1 = document.getElementById('adminPendingOrderCountBadge');
+  const badge2 = document.getElementById('olseraTopbarOrderBadge');
+  const trxBadge = document.getElementById('olseraTrxBadge');
+
+  if (badge1) badge1.textContent = count;
+  if (badge2) badge2.textContent = count;
+  if (trxBadge) trxBadge.textContent = list.length;
+
+  if (btnNotif) {
+    if (appState.isAdminMode || appState.isDistributorLoggedIn || count > 0) {
+      btnNotif.style.display = 'inline-flex';
+      if (count > 0) {
+        btnNotif.style.background = '#fef3c7';
+        btnNotif.style.borderColor = '#f59e0b';
+        btnNotif.style.color = '#92400e';
+      } else {
+        btnNotif.style.background = '#f8fafc';
+        btnNotif.style.borderColor = '#cbd5e1';
+        btnNotif.style.color = '#475569';
+      }
+    } else {
+      btnNotif.style.display = 'none';
+    }
+  }
+}
+
+function triggerAdminNewOrderNotification(order) {
+  playOrderChime();
+  updateAdminNotificationUI();
+
+  const banner = document.getElementById('adminFloatingOrderBanner');
+  const nameEl = document.getElementById('floatingBannerCustomer');
+  const detailsEl = document.getElementById('floatingBannerDetails');
+
+  if (banner && nameEl && detailsEl) {
+    nameEl.textContent = order.customerName;
+    detailsEl.textContent = `${order.items.length} macam produk • ${formatRupiah(order.grandTotal)} • ${order.paymentMethod}`;
+    banner.style.display = 'block';
+
+    setTimeout(() => {
+      banner.style.display = 'none';
+    }, 8000);
+  }
+
+  showToast(`🔔 PESANAN MASUK BARU! ${order.customerName} (${formatRupiah(order.grandTotal)})`);
+}
+
+function renderAdminOrdersModal() {
+  const body = document.getElementById('adminOrdersListBody');
+  if (!body) return;
+
+  const orders = appState.transactions || [];
+  if (orders.length === 0) {
+    body.innerHTML = `
+      <div style="text-align: center; padding: 40px 20px; color: #94a3b8;">
+        <span style="font-size: 3rem; display: block; margin-bottom: 12px;">🎉</span>
+        <h4 style="margin: 0 0 6px 0; color: #334155; font-size: 1rem;">Belum Ada Pesanan Masuk</h4>
+        <p style="margin: 0; font-size: 0.82rem; line-height: 1.5;">
+          Data transaksi bersih (0 pesanan). Masukkan produk ke keranjang dan checkout via WhatsApp untuk mencoba simulasi pesanan Agen / Konsumen secara live!
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  body.innerHTML = orders.map(ord => {
+    const isPending = ord.status === 'Menunggu Konfirmasi' || ord.status === 'Siap Diambil di Toko';
+    const statusBg = isPending ? '#fef3c7' : '#ecfdf5';
+    const statusColor = isPending ? '#b45309' : '#065f46';
+    const statusIcon = isPending ? '🟡' : '✅';
+
+    const itemsSummary = (ord.items || []).map(i => `<span style="display: inline-block; background: #f1f5f9; padding: 2px 7px; border-radius: 4px; font-size: 0.74rem; margin: 2px 3px 2px 0;">${i.qty}x ${i.name}</span>`).join('');
+
+    return `
+      <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <b style="font-size: 0.9rem; color: #0f172a;">${ord.id}</b>
+              <span style="background: #e0f2fe; color: #0369a1; font-size: 0.7rem; font-weight: 700; padding: 1px 6px; border-radius: 4px;">${ord.tierLabel || 'Retail'}</span>
+            </div>
+            <div style="font-size: 0.75rem; color: #64748b; margin-top: 2px;">📅 ${ord.dateTime}</div>
+          </div>
+          <span style="background: ${statusBg}; color: ${statusColor}; font-size: 0.74rem; font-weight: 800; padding: 3px 8px; border-radius: 999px;">
+            ${statusIcon} ${ord.status}
+          </span>
+        </div>
+
+        <div style="background: #f8fafc; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; font-size: 0.8rem;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+            <span>Pemesan:</span>
+            <b>${ord.customerName}</b>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+            <span>No. WhatsApp:</span>
+            <span style="color: #0284c7; font-weight: 600;">${ord.customerPhone}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span>Metode Pengambilan/Kirim:</span>
+            <span style="font-weight: 600; color: #334155;">${ord.paymentMethod}</span>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 10px;">
+          <div style="font-size: 0.74rem; font-weight: 700; color: #475569; margin-bottom: 4px;">Daftar Produk:</div>
+          <div>${itemsSummary}</div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed #e2e8f0; padding-top: 10px;">
+          <div>
+            <span style="font-size: 0.74rem; color: #64748b;">Total Tagihan:</span>
+            <div style="font-size: 1rem; font-weight: 800; color: #0f172a;">${formatRupiah(ord.grandTotal)}</div>
+          </div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            ${isPending ? `
+              <button type="button" onclick="confirmOrderFromModal('${ord.id}')" style="background: #059669; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer;">
+                ✅ Konfirmasi Selesai
+              </button>
+            ` : ''}
+            <button type="button" onclick="viewHistoricalReceipt('${ord.id}')" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 6px 10px; border-radius: 6px; font-size: 0.76rem; font-weight: 600; cursor: pointer;">
+              📄 Struk Nota
+            </button>
+            ${ord.customerPhone && ord.customerPhone !== '-' ? `
+              <button type="button" onclick="window.open('https://api.whatsapp.com/send?phone=${ord.customerPhone.replace(/[^0-9]/g, '')}&text=${encodeURIComponent('Halo Kak ' + ord.customerName + ', pesanan ' + ord.id + ' di SR12 sudah kami terima dan siap disiapkan. Terima kasih! 🌿')}', '_blank')" style="background: #25d366; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer;">
+                💬 Chat WA
+              </button>
+            ` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function openAdminOrdersModal() {
+  renderAdminOrdersModal();
+  const modal = document.getElementById('modalAdminOrders');
+  if (modal) modal.classList.add('open');
+}
+
+function confirmOrderFromModal(trxId) {
+  const ord = (appState.transactions || []).find(t => t.id === trxId);
+  if (!ord) return;
+  ord.status = 'Lunas / Selesai';
+  localStorage.setItem('sr12_pos_transactions_v1', JSON.stringify(appState.transactions));
+  renderAdminOrdersModal();
+  updateAdminNotificationUI();
+  if (typeof renderPosTransactions === 'function') renderPosTransactions();
+  showToast(`✅ Pesanan ${trxId} berhasil dikonfirmasi selesai!`);
+}
+
+function clearAllSimulationOrders() {
+  if (confirm('Kosongkan SEMUA data transaksi pesanan dan keranjang belanja untuk simulasi dari nol?')) {
+    appState.transactions = [];
+    appState.cart = [];
+    localStorage.removeItem('sr12_pos_transactions_v1');
+    localStorage.removeItem('sr12_user_cart');
+    saveStoredCart([]);
+    updateCartUI();
+    renderAdminOrdersModal();
+    updateAdminNotificationUI();
+    if (typeof renderPosTransactions === 'function') renderPosTransactions();
+    showToast('🧹 Semua data simulasi telah bersih (0 pesanan)!');
+  }
 }
 
 // ==========================================
@@ -4146,4 +4358,11 @@ window.handleDistributorLoginSubmit = handleDistributorLoginSubmit;
 window.handleDistributorLogout = handleDistributorLogout;
 window.clearCart = clearCart;
 window.removeFromCart = removeFromCart;
+window.updateAdminNotificationUI = updateAdminNotificationUI;
+window.triggerAdminNewOrderNotification = triggerAdminNewOrderNotification;
+window.renderAdminOrdersModal = renderAdminOrdersModal;
+window.openAdminOrdersModal = openAdminOrdersModal;
+window.confirmOrderFromModal = confirmOrderFromModal;
+window.clearAllSimulationOrders = clearAllSimulationOrders;
+window.playOrderChime = playOrderChime;
 

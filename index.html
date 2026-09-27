@@ -122,6 +122,13 @@
           <span class="cart-count-badge" id="cartItemCountBadge">0</span>
         </button>
 
+        <!-- Tombol Notifikasi Pesanan Masuk (Khusus Admin / Distributor) -->
+        <button type="button" id="btnAdminOrderNotif" onclick="openAdminOrdersModal()" style="display: none; background: #fffbeb; border: 1px solid #fde68a; color: #b45309; padding: 6px 12px; border-radius: var(--radius-full); font-weight: 800; font-size: 0.8rem; cursor: pointer; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: all 0.2s ease;">
+          <span style="font-size: 1rem;">🔔</span>
+          <span>Pesanan Masuk</span>
+          <span id="adminPendingOrderCountBadge" style="background: #ef4444; color: #fff; font-size: 0.7rem; font-weight: 800; padding: 1px 6px; border-radius: 999px;">0</span>
+        </button>
+
         <!-- Tombol Login / Profil Distributor (Pengganti Mode Switcher) -->
         <div id="distributorAuthContainer">
           <button type="button" id="btnDistributorLogin" onclick="openDistributorLoginModal()" style="background: transparent; color: var(--dark-700); border: 1px solid #cbd5e1; padding: 7px 12px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.8rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
@@ -171,6 +178,9 @@
     </div>
 
     <div class="tools-section">
+      <button type="button" class="btn-topbar-link" onclick="openAdminOrdersModal()" style="background: #fffbeb; color: #92400e; border: 1px solid #fde68a;" title="Monitor Pesanan Masuk">
+        <span>🔔</span> Pesanan Masuk <b id="olseraTopbarOrderBadge" style="background: #ef4444; color: #fff; padding: 1px 6px; border-radius: 999px; font-size: 0.72rem; margin-left: 4px;">0</b>
+      </button>
       <div class="quota-chip">
         <span>⚡ Sisa Kuota: <b id="olseraTopbarQuotaDisplay" style="color: #34d399;">10 Order</b></span>
         <button type="button" class="btn-quota-topup" onclick="openTopupQuotaModal()">+ Top Up</button>
@@ -2529,6 +2539,53 @@
     </div>
   </div>
 
+  <!-- FLOATING REAL-TIME NOTIFICATION BANNER PESANAN MASUK -->
+  <div id="adminFloatingOrderBanner" style="display: none; position: fixed; top: 20px; right: 20px; z-index: 99999; max-width: 370px; background: #ffffff; border: 2px solid #10b981; border-radius: 12px; padding: 14px 16px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.25); animation: slideDown 0.3s ease;">
+    <div style="display: flex; align-items: flex-start; gap: 12px;">
+      <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0;">
+        🔔
+      </div>
+      <div style="flex: 1;">
+        <div style="font-size: 0.72rem; font-weight: 800; color: #059669; text-transform: uppercase; letter-spacing: 0.5px;">Pesanan Baru Masuk!</div>
+        <div id="floatingBannerCustomer" style="font-size: 0.88rem; font-weight: 800; color: #0f172a; margin: 2px 0;">dr. Linda (AG-001)</div>
+        <div id="floatingBannerDetails" style="font-size: 0.78rem; color: #64748b; margin-bottom: 8px;">2 produk &middot; Rp 510.000 &middot; Ambil di Toko</div>
+        <div style="display: flex; gap: 6px;">
+          <button type="button" onclick="openAdminOrdersModal(); document.getElementById('adminFloatingOrderBanner').style.display='none';" style="background: #059669; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer;">
+            👀 Cek Pesanan
+          </button>
+          <button type="button" onclick="document.getElementById('adminFloatingOrderBanner').style.display='none';" style="background: #f1f5f9; color: #475569; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer;">
+            Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL MONITOR PESANAN MASUK (ADMIN REAL-TIME ORDER MONITOR) -->
+  <div class="modal-backdrop" id="modalAdminOrders">
+    <div class="modal-container" style="max-width: 680px; max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #0f172a, #1e293b); color: #fff; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h3 style="margin: 0; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
+            <span>🔔</span> Monitor Pesanan Masuk (Real-Time)
+          </h3>
+          <p style="margin: 2px 0 0 0; font-size: 0.75rem; color: #94a3b8;">
+            Pantau dan verifikasi pesanan yang masuk dari Keranjang Toko &amp; WhatsApp
+          </p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button type="button" onclick="clearAllSimulationOrders()" style="background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.4); color: #fecaca; font-size: 0.72rem; font-weight: 700; padding: 5px 9px; border-radius: 4px; cursor: pointer;" title="Kosongkan seluruh pesanan dummy untuk mulai simulasi dari nol">
+            🧹 Kosongkan Data Simulasi
+          </button>
+          <button class="btn-close-modal" style="color: #fff;" onclick="closeModal('modalAdminOrders')">&times;</button>
+        </div>
+      </div>
+      <div class="modal-body" style="padding: 16px; overflow-y: auto; flex: 1;" id="adminOrdersListBody">
+        <!-- Rendered dynamically via renderAdminOrdersModal() -->
+      </div>
+    </div>
+  </div>
+
   <!-- FOOTER -->
   <footer style="margin-top: 60px; padding: 30px 20px; border-top: 1px solid var(--border-subtle); text-align: center; font-size: 0.8rem; color: var(--dark-500); background: #ffffff;">
     <p style="font-weight: 700; color: var(--dark-700); margin-bottom: 4px;">SR12 Herbal Skin Care Official Partner Store</p>
@@ -2543,8 +2600,8 @@
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/supabase-config.js"></script>
-  <script src="js/data.js?v=2.8"></script>
-  <script src="js/app.js?v=2.8"></script>
-  <script src="js/olsera-suite.js?v=2.8"></script>
+  <script src="js/data.js?v=2.9"></script>
+  <script src="js/app.js?v=2.9"></script>
+  <script src="js/olsera-suite.js?v=2.9"></script>
 </body>
 </html>

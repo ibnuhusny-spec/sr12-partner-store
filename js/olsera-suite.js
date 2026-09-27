@@ -6,65 +6,7 @@
 // ==========================================
 // 1. DATA AWAL TRANSAKSI & ARUS KAS GUDANG
 // ==========================================
-const DEFAULT_TRANSACTIONS = [
-  {
-    id: 'TRX-2026-101',
-    dateTime: '2026-09-27 10:15',
-    customerName: 'Ibu Ningsih (Jakarta)',
-    customerPhone: '081299887766',
-    tier: 'konsumen',
-    tierLabel: 'Konsumen Retail',
-    items: [
-      { name: 'SR12 Deodorant Spray Premium 60ml', qty: 2, price: 40000, subtotal: 80000 },
-      { name: 'SR12 GoMilku Susu Kambing Etawa Original 200g', qty: 1, price: 50000, subtotal: 50000 }
-    ],
-    subtotalHet: 130000,
-    discountAmount: 0,
-    grandTotal: 130000,
-    paymentMethod: 'CASH',
-    cashTendered: 150000,
-    changeAmount: 20000,
-    status: 'Lunas'
-  },
-  {
-    id: 'TRX-2026-102',
-    dateTime: '2026-09-26 15:30',
-    customerName: 'dr. Linda Sp.KK',
-    customerPhone: '085712345678',
-    tier: 'agen',
-    tierLabel: 'Agen Resmi (40%)',
-    items: [
-      { name: 'SR12 GoMilku Susu Kambing Etawa Jumbo 600g', qty: 20, price: 125000, subtotal: 2500000 },
-      { name: 'SR12 Deodorant Spray Jumbo 100ml', qty: 30, price: 60000, subtotal: 1800000 }
-    ],
-    subtotalHet: 4300000,
-    discountAmount: 1720000,
-    grandTotal: 2580000,
-    paymentMethod: 'TRANSFER',
-    cashTendered: 2580000,
-    changeAmount: 0,
-    status: 'Lunas'
-  },
-  {
-    id: 'TRX-2026-103',
-    dateTime: '2026-09-25 11:45',
-    customerName: 'Siti Rahmawati',
-    customerPhone: '081345678901',
-    tier: 'reseller',
-    tierLabel: 'Reseller Resmi (20%)',
-    items: [
-      { name: 'SR12 Sabun Bulus Herbal 60g', qty: 6, price: 25000, subtotal: 150000 },
-      { name: 'SR12 Virgin Coconut Oil VCO Cold Pressed 250ml', qty: 5, price: 80000, subtotal: 400000 }
-    ],
-    subtotalHet: 550000,
-    discountAmount: 110000,
-    grandTotal: 440000,
-    paymentMethod: 'TRANSFER',
-    cashTendered: 440000,
-    changeAmount: 0,
-    status: 'Lunas'
-  }
-];
+const DEFAULT_TRANSACTIONS = [];
 
 const DEFAULT_CASHFLOW = [
   {
@@ -114,10 +56,17 @@ function getStoredTransactions() {
   if (s) {
     try {
       const parsed = JSON.parse(s);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) {
+        // Hapus pesanan dummy bawaan agar simulasi bersih dari awal
+        const cleaned = parsed.filter(t => !['TRX-2026-101', 'TRX-2026-102', 'TRX-2026-103'].includes(t.id));
+        if (cleaned.length !== parsed.length) {
+          saveStoredTransactions(cleaned);
+        }
+        return cleaned;
+      }
     } catch (e) {}
   }
-  return [...DEFAULT_TRANSACTIONS];
+  return [];
 }
 
 function saveStoredTransactions(list) {
