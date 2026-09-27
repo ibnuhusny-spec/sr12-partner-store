@@ -522,6 +522,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const initSlug = getInitialStoreSlug(appState.partnerStores);
   loadStoreBySlug(initSlug);
 
+  // Pastikan URL di address bar browser selalu mencantumkan parameter toko (?store=...) agar tautan jelas spesifik
+  if (!window.location.search || !window.location.search.includes('store=')) {
+    const defaultUrl = window.location.pathname + '?store=' + initSlug;
+    window.history.replaceState({ store: initSlug }, '', defaultUrl);
+  }
+
   // Periksa sesi login Distributor resmi tersimpan
   const savedDistributorSession = localStorage.getItem('sr12_distributor_session');
   if (savedDistributorSession) {
@@ -683,6 +689,7 @@ function openShareStoreModal() {
   const modal = document.getElementById('modalShareStore');
   const targetName = document.getElementById('shareStoreTargetName');
   const fullUrlInput = document.getElementById('shareStoreFullUrlInput');
+  const infoBadge = document.getElementById('shareStoreInfoBadge');
 
   const currentStore = appState.partnerStores.find(s => s.slug === appState.currentStoreSlug) || appState.storeSettings;
   const storeName = currentStore.storeName || 'Toko SR12 Anda';
@@ -690,6 +697,27 @@ function openShareStoreModal() {
 
   if (targetName) targetName.textContent = storeName;
   if (fullUrlInput) fullUrlInput.value = fullUrl;
+  if (infoBadge) {
+    infoBadge.innerHTML = `
+      <div style="font-size: 0.78rem; color: #047857; display: flex; flex-direction: column; gap: 5px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span>🏪 <b>Distributor Resmi:</b></span>
+          <span style="font-weight: 700; color: #065f46;">${storeName}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span>📱 <b>WhatsApp Tujuan Order:</b></span>
+          <span style="font-family: monospace; font-weight: 700; color: #047857;">+${currentStore.storeWaNumber || '6281234567890'}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span>📍 <b>Gudang Pengiriman/Pick-up:</b></span>
+          <span style="font-weight: 600;">${currentStore.storeCity || 'Kota Toko'}</span>
+        </div>
+        <div style="margin-top: 4px; padding-top: 6px; border-top: 1px dashed #bbf7d0; font-size: 0.74rem; color: #047857;">
+          🔑 <b>ID Unik Toko:</b> <code style="background: #e2e8f0; color: #0f172a; padding: 2px 6px; border-radius: 4px; font-weight: 700;">?store=${currentStore.slug}</code> (otomatis memisahkan pesanan dari distributor lain).
+        </div>
+      </div>
+    `;
+  }
   if (modal) modal.classList.add('open');
 }
 
