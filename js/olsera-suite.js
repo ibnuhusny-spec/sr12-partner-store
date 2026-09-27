@@ -244,10 +244,26 @@ function updateOlseraHeaderMeta() {
   const topbarLogoEl = document.getElementById('olseraTopbarLogo');
 
   const activeLogo = store.storeLogoUrl || 'assets/sr12-logo.png';
-  const logoHtml = `<img src="${activeLogo}" alt="Logo SR12" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
+  const logoHtml = `<img src="${activeLogo}" alt="Logo Toko" style="width: 100%; height: 100%; object-fit: contain !important; object-position: center center !important; border-radius: 50%; display: block; margin: 0 auto;">`;
 
   if (logoEl) logoEl.innerHTML = logoHtml;
   if (topbarLogoEl) topbarLogoEl.innerHTML = logoHtml;
+
+  // Auto-center any custom uploaded logo that might have asymmetric padding
+  if (activeLogo && activeLogo !== 'assets/sr12-logo.png' && typeof autoTrimAndCenterImage === 'function') {
+    autoTrimAndCenterImage(activeLogo, (centeredUrl) => {
+      if (centeredUrl && centeredUrl !== activeLogo) {
+        if (logoEl) {
+          const img = logoEl.querySelector('img');
+          if (img) img.src = centeredUrl;
+        }
+        if (topbarLogoEl) {
+          const img = topbarLogoEl.querySelector('img');
+          if (img) img.src = centeredUrl;
+        }
+      }
+    });
+  }
 
   // Badges count
   const trxBadge = document.getElementById('olseraTrxBadge');
@@ -1334,6 +1350,88 @@ function populateOlseraSettingsForm() {
   updateOlseraSettingsLogoPreview(store.storeLogoUrl);
 }
 
+/**
+ * Auto-trim and optical center utility for store logos
+ * Crops uneven transparent or white padding and centers graphic in a 1:1 square canvas
+ */
+function autoTrimAndCenterImage(imgSrc, callback) {
+  if (!imgSrc || typeof callback !== 'function') return;
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    try {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const w = img.naturalWidth || img.width;
+      const h = img.naturalHeight || img.height;
+      if (!w || !h) return callback(imgSrc);
+
+      canvas.width = w;
+      canvas.height = h;
+      ctx.drawImage(img, 0, 0);
+
+      const imgData = ctx.getImageData(0, 0, w, h);
+      const data = imgData.data;
+      let minX = w, minY = h, maxX = 0, maxY = 0;
+      let hasContent = false;
+
+      // Sample pixels to find graphic bounds
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const idx = (y * w + x) * 4;
+          const r = data[idx];
+          const g = data[idx + 1];
+          const b = data[idx + 2];
+          const a = data[idx + 3];
+
+          // Content pixel is not transparent and not pure white (above threshold)
+          const isTransparent = a < 25;
+          const isWhite = r > 248 && g > 248 && b > 248 && a > 200;
+
+          if (!isTransparent && !isWhite) {
+            hasContent = true;
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+
+      if (!hasContent || maxX <= minX || maxY <= minY) {
+        return callback(imgSrc);
+      }
+
+      const contentW = maxX - minX + 1;
+      const contentH = maxY - minY + 1;
+      const size = Math.max(contentW, contentH);
+      const pad = Math.round(size * 0.05); // 5% breathing room
+      const finalSize = size + pad * 2;
+
+      const squareCanvas = document.createElement('canvas');
+      squareCanvas.width = finalSize;
+      squareCanvas.height = finalSize;
+      const sCtx = squareCanvas.getContext('2d');
+
+      const offsetX = Math.round((finalSize - contentW) / 2);
+      const offsetY = Math.round((finalSize - contentH) / 2);
+
+      sCtx.drawImage(
+        img,
+        minX, minY, contentW, contentH,
+        offsetX, offsetY, contentW, contentH
+      );
+
+      callback(squareCanvas.toDataURL('image/png'));
+    } catch (e) {
+      console.warn('Auto-trim skipped (cross-origin or unsupported):', e);
+      callback(imgSrc);
+    }
+  };
+  img.onerror = () => callback(imgSrc);
+  img.src = imgSrc;
+}
+
 function updateOlseraSettingsLogoPreview(logoUrl) {
   const img = document.getElementById('olseraSetLogoPreviewImg');
   const icon = document.getElementById('olseraSetLogoDefaultIcon');
@@ -1349,6 +1447,9 @@ function updateOlseraSettingsLogoPreview(logoUrl) {
   if (img) {
     img.src = finalLogo;
     img.style.display = 'block';
+    img.style.objectFit = 'contain';
+    img.style.objectPosition = 'center center';
+    img.style.margin = '0 auto';
   }
   if (icon) icon.style.display = 'none';
   if (fileNameDisplay && (!logoUrl || logoUrl === 'assets/sr12-logo.png')) {
@@ -1371,50 +1472,64 @@ async function handleOlseraLogoUpload(e) {
     statusEl.style.display = 'inline-flex';
     statusEl.style.background = '#e0f2fe';
     statusEl.style.color = '#0284c7';
-    statusEl.textContent = '⏳ Membaca logo...';
+    statusEl.textContent = '⏳ Membaca & memusatkan logo...';
   }
 
-  // 1. Instant local preview via Base64 FileReader
+  // 1. Instant local preview via Base64 FileReader with optical centering
   const reader = new FileReader();
   reader.onload = async (ev) => {
-    const base64Data = ev.target.result;
-    appState.tempOlseraLogoUrl = base64Data;
-    updateOlseraSettingsLogoPreview(base64Data);
+    const rawData = ev.target.result;
+    autoTrimAndCenterImage(rawData, async (centeredBase64) => {
+      appState.tempOlseraLogoUrl = centeredBase64;
+      updateOlseraSettingsLogoPreview(centeredBase64);
 
-    // 2. Upload to Supabase Storage bucket if available
-    if (window.supabaseClient) {
-      try {
-        if (statusEl) statusEl.textContent = '☁️ Mengupload ke Supabase Cloud...';
-        const storeSlug = (appState.storeSettings && appState.storeSettings.slug) || 'store';
-        const fileExt = file.name.split('.').pop() || 'png';
-        const fileName = `logos/${storeSlug}-${Date.now()}.${fileExt}`;
-
-        const { data, error } = await window.supabaseClient.storage
-          .from('products')
-          .upload(fileName, file, { cacheControl: '3600', upsert: true });
-
-        if (!error && data) {
-          const { data: pubData } = window.supabaseClient.storage
-            .from('products')
-            .getPublicUrl(fileName);
-
-          if (pubData && pubData.publicUrl) {
-            appState.tempOlseraLogoUrl = pubData.publicUrl;
-            if (statusEl) {
-              statusEl.style.background = '#ecfdf5';
-              statusEl.style.color = '#065f46';
-              statusEl.textContent = '☁️ Terupload ke Supabase Cloud';
-            }
-            if (typeof showToast === 'function') {
-              showToast('☁️ Logo berhasil diunggah ke Supabase Storage!');
-            }
-            return;
-          }
-        }
-      } catch (err) {
-        console.warn('Supabase storage upload fallback to base64:', err);
+      // Also immediately update live logo previews in UI
+      const logoEl = document.getElementById('olseraLogoIcon');
+      const topbarLogoEl = document.getElementById('olseraTopbarLogo');
+      if (logoEl) {
+        const i = logoEl.querySelector('img');
+        if (i) i.src = centeredBase64;
       }
-    }
+      if (topbarLogoEl) {
+        const i = topbarLogoEl.querySelector('img');
+        if (i) i.src = centeredBase64;
+      }
+
+      // 2. Upload to Supabase Storage bucket if available
+      if (window.supabaseClient) {
+        try {
+          if (statusEl) statusEl.textContent = '☁️ Mengupload ke Supabase Cloud...';
+          const storeSlug = (appState.storeSettings && appState.storeSettings.slug) || 'store';
+          const fileExt = file.name.split('.').pop() || 'png';
+          const fileName = `logos/${storeSlug}-${Date.now()}.${fileExt}`;
+
+          const { data, error } = await window.supabaseClient.storage
+            .from('products')
+            .upload(fileName, file, { cacheControl: '3600', upsert: true });
+
+          if (!error && data) {
+            const { data: pubData } = window.supabaseClient.storage
+              .from('products')
+              .getPublicUrl(fileName);
+
+            if (pubData && pubData.publicUrl) {
+              appState.tempOlseraLogoUrl = pubData.publicUrl;
+              if (statusEl) {
+                statusEl.style.background = '#ecfdf5';
+                statusEl.style.color = '#065f46';
+                statusEl.textContent = '☁️ Terupload ke Supabase Cloud';
+              }
+              if (typeof showToast === 'function') {
+                showToast('☁️ Logo berhasil diunggah ke Supabase Storage!');
+              }
+              return;
+            }
+          }
+        } catch (err) {
+          console.warn('Supabase storage upload fallback to base64:', err);
+        }
+      }
+    });
 
     if (statusEl) {
       statusEl.style.background = '#ecfdf5';
@@ -1560,3 +1675,5 @@ window.handleOlseraLogoUpload = handleOlseraLogoUpload;
 window.handleOlseraLogoUrlInput = handleOlseraLogoUrlInput;
 window.resetOlseraLogoToDefault = resetOlseraLogoToDefault;
 window.updateOlseraSettingsLogoPreview = updateOlseraSettingsLogoPreview;
+window.autoTrimAndCenterImage = autoTrimAndCenterImage;
+

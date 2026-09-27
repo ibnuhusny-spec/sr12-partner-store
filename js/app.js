@@ -740,7 +740,7 @@ function renderStoreBranding() {
 
   if (logoBox) {
     const activeLogo = cfg.storeLogoUrl || 'assets/sr12-logo.png';
-    logoBox.innerHTML = `<img src="${activeLogo}" alt="Logo Toko" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
+    logoBox.innerHTML = `<img src="${activeLogo}" alt="Logo Toko" style="width: 100%; height: 100%; object-fit: contain !important; object-position: center center !important; border-radius: 50%; display: block; margin: 0 auto;">`;
   }
 
   if (heroTitle) heroTitle.textContent = cfg.heroTitle || DEFAULT_STORE_SETTINGS.heroTitle;
@@ -1092,11 +1092,27 @@ function initEventListeners() {
       if (file) {
         const reader = new FileReader();
         reader.onload = (event) => {
-          appState.tempStoreLogoBase64 = event.target.result;
-          const previewImg = document.getElementById('settingLogoPreview');
-          if (previewImg) {
-            previewImg.src = event.target.result;
-            previewImg.style.display = 'block';
+          const rawBase64 = event.target.result;
+          if (typeof window.autoTrimAndCenterImage === 'function') {
+            window.autoTrimAndCenterImage(rawBase64, (centeredBase64) => {
+              appState.tempStoreLogoBase64 = centeredBase64;
+              const previewImg = document.getElementById('settingLogoPreview');
+              if (previewImg) {
+                previewImg.src = centeredBase64;
+                previewImg.style.display = 'block';
+                previewImg.style.objectFit = 'contain';
+                previewImg.style.objectPosition = 'center center';
+              }
+            });
+          } else {
+            appState.tempStoreLogoBase64 = rawBase64;
+            const previewImg = document.getElementById('settingLogoPreview');
+            if (previewImg) {
+              previewImg.src = rawBase64;
+              previewImg.style.display = 'block';
+              previewImg.style.objectFit = 'contain';
+              previewImg.style.objectPosition = 'center center';
+            }
           }
         };
         reader.readAsDataURL(file);
