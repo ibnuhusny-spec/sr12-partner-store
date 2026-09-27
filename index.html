@@ -62,6 +62,10 @@
           <span style="font-size: 0.72rem; color: #94a3b8;">🏪 Toko:</span>
           <span id="activeStorePublicBadge" style="font-size: 0.76rem; font-weight: 800; color: #38bdf8;">SR12 Official Central Hub</span>
         </div>
+        <!-- Tombol Buka Olsera POS Langsung (Aplikasi Kasir Seperti Screenshot) -->
+        <button class="btn-topbar-olsera" onclick="openOlseraPosDirect()" title="Buka Aplikasi Olsera POS Kasir & Backoffice">
+          🛒 <span>Olsera POS</span>
+        </button>
         <!-- Tombol Bagikan Link Toko -->
         <button class="btn-topbar-action" onclick="openShareStoreModal()" title="Salin link toko ini untuk disebarkan ke pembeli">
           🔗 <span>Bagikan</span>
@@ -187,15 +191,18 @@
   <!-- 3.5 DEDICATED OLSERA APP TOPBAR (SATU-SATUNYA HEADER YANG MUNCUL SAAT DI DALAM PORTAL OLSERA) -->
   <header id="olseraAppNavbar" class="olsera-app-navbar" style="display: none;">
     <div class="brand-section">
+      <button type="button" class="btn-olsera-drawer-toggle" id="btnOlseraDrawerToggle" onclick="toggleOlseraSidebarDrawer()" aria-label="Buka Menu Olsera" title="Buka Menu Olsera (Drawer Kiri)">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
       <div class="brand-logo" id="olseraTopbarLogo">
         <span style="font-size: 1.4rem;">🌿</span>
       </div>
       <div>
         <div class="brand-text-name">
-          <span id="olseraTopbarStoreName">Aisyah SR12 Distributor Hub</span>
-          <span class="brand-badge">Olsera POS &amp; Backoffice</span>
+          <span id="olseraTopbarStoreName">Alzam Agency</span>
+          <span class="brand-badge">Olsera POS</span>
         </div>
-        <div class="brand-sub" id="olseraTopbarOwnerName">Ibu Aisyah &bull; Distributor Resmi SR12</div>
+        <div class="brand-sub" id="olseraTopbarOwnerName">Nurlinda Sari &bull; Distributor Resmi SR12</div>
       </div>
     </div>
 
@@ -204,7 +211,7 @@
         <span>🔔</span> Pesanan Masuk <b id="olseraTopbarOrderBadge" style="background: #ef4444; color: #fff; padding: 1px 6px; border-radius: 999px; font-size: 0.72rem; margin-left: 4px;">0</b>
       </button>
       <div class="quota-chip">
-        <span>⚡ Sisa Kuota: <b id="olseraTopbarQuotaDisplay" style="color: #34d399;">10 Order</b></span>
+        <span>⚡ Sisa Kuota: <b id="olseraTopbarQuotaDisplay" style="color: #34d399;">15 Order</b></span>
         <button type="button" class="btn-quota-topup" onclick="openTopupQuotaModal()">+ Top Up</button>
       </div>
       <button type="button" class="btn-topbar-link" onclick="openShareStoreModal()" title="Salin tautan toko pembeli">
@@ -227,8 +234,12 @@
 
   <!-- 3.6 OLSERA-STYLE DISTRIBUTOR MANAGEMENT PORTAL (POS, TRANSAKSI, INVENTORI, KAS, LAPORAN) -->
   <div id="distributorOlseraPortal" class="distributor-portal-container" style="display: none; max-width: 1320px; margin: 20px auto 40px auto; padding: 0 16px;">
-    <!-- LEFT SIDEBAR (OLSERA DRAWER) -->
-    <aside class="olsera-sidebar">
+    <!-- BACKDROP FOR MOBILE SLIDE-OUT DRAWER -->
+    <div id="olseraDrawerBackdrop" class="olsera-drawer-backdrop" onclick="closeOlseraSidebarDrawer()"></div>
+
+    <!-- LEFT SIDEBAR (OLSERA DRAWER SESUAI PERSIS SCREENSHOT APLIKASI OLSERA) -->
+    <aside class="olsera-sidebar" id="olseraSidebar">
+      <!-- HEADER BANNER: Biru Gradasi Olsera dengan Geometris & Logo Alzam Agency -->
       <div class="olsera-header-banner">
         <div class="olsera-brand-box">
           <div class="olsera-logo-emblem">
@@ -236,70 +247,117 @@
           </div>
           <div class="olsera-store-meta">
             <h3 class="olsera-store-title" id="olseraStoreNameDisplay">Alzam Agency</h3>
-            <p class="olsera-store-owner" id="olseraStoreOwnerDisplay">Nurlinda Sari</p>
-            <span class="olsera-badge-status">👑 Distributor Resmi</span>
+            <div style="display: flex; align-items: center; gap: 5px; cursor: pointer; margin-top: 3px;" onclick="openStoreSwitchDropdownFromDrawer()" title="Ganti Toko / Cabang">
+              <span class="olsera-store-owner" id="olseraStoreOwnerDisplay">Nurlinda Sari</span>
+              <span class="olsera-owner-caret">▼</span>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Menu List -->
+      <!-- Menu List (Sesuai Persis Tampilan Olsera Mobile di Screenshot User) -->
       <ul class="olsera-menu-list">
         <li>
           <a class="olsera-menu-item active" id="menuItemPos" onclick="switchOlseraTab('pos')">
-            <span class="olsera-menu-icon">🛒</span>
+            <span class="olsera-menu-icon">
+              <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+            </span>
             <span>Point of Sale</span>
-            <span class="olsera-menu-badge" style="background: #e0f2fe; color: #0284c7;">Kasir</span>
           </a>
         </li>
         <li>
           <a class="olsera-menu-item" id="menuItemTransactions" onclick="switchOlseraTab('transactions')">
-            <span class="olsera-menu-icon">📅</span>
+            <span class="olsera-menu-icon">
+              <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l2 2 4-4"/></svg>
+            </span>
             <span>Transaksi</span>
             <span class="olsera-menu-badge" id="olseraTrxBadge" style="background: #f1f5f9; color: #475569;">0</span>
           </a>
         </li>
         <li>
           <a class="olsera-menu-item" id="menuItemInventory" onclick="switchOlseraTab('inventory')">
-            <span class="olsera-menu-icon">📦</span>
+            <span class="olsera-menu-icon">
+              <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            </span>
             <span>Inventori</span>
             <span class="olsera-menu-badge" id="olseraInvBadge" style="background: #f1f5f9; color: #475569;">Stok</span>
           </a>
         </li>
         <li>
           <a class="olsera-menu-item" id="menuItemCashflow" onclick="switchOlseraTab('cashflow')">
-            <span class="olsera-menu-icon">💵</span>
+            <span class="olsera-menu-icon">
+              <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
+            </span>
             <span>Kas Masuk-Keluar</span>
-            <span class="olsera-menu-badge" style="background: #ecfdf5; color: #059669;">Buku Kas</span>
           </a>
         </li>
         <li>
           <a class="olsera-menu-item" id="menuItemReports" onclick="switchOlseraTab('reports')">
-            <span class="olsera-menu-icon">📊</span>
+            <span class="olsera-menu-icon">
+              <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            </span>
             <span>Laporan</span>
-            <span class="olsera-menu-badge" style="background: #fef3c7; color: #d97706;">Laba</span>
           </a>
         </li>
 
         <li class="olsera-menu-divider"></li>
 
         <li>
+          <a class="olsera-menu-item" id="menuItemAbsensi" onclick="openOlseraAbsensiModal()">
+            <span class="olsera-menu-icon">
+              <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="10" y1="14" x2="14" y2="18"/><line x1="14" y1="14" x2="10" y2="18"/></svg>
+            </span>
+            <span>Absensi</span>
+          </a>
+        </li>
+        <li>
+          <a class="olsera-menu-item" id="menuItemCustomerDisplay" onclick="showDistributorPortalView(false)">
+            <span class="olsera-menu-icon">
+              <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><circle cx="12" cy="18" r="1"/></svg>
+            </span>
+            <span>Customer Facing Display</span>
+          </a>
+        </li>
+        <li>
           <a class="olsera-menu-item" id="menuItemMitra" onclick="switchOlseraTab('mitra')">
-            <span class="olsera-menu-icon">👥</span>
+            <span class="olsera-menu-icon">
+              <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+            </span>
             <span>Database Mitra</span>
             <span class="olsera-menu-badge" id="olseraMitraBadge" style="background: #dbeafe; color: #1d4ed8;">SR12</span>
           </a>
         </li>
         <li>
           <a class="olsera-menu-item" id="menuItemMarketer" onclick="switchOlseraTab('marketer')">
-            <span class="olsera-menu-icon">💼</span>
+            <span class="olsera-menu-icon">
+              <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
+            </span>
             <span>Gaji Marketer (15%)</span>
             <span class="olsera-menu-badge" style="background: #e0e7ff; color: #4338ca;">Bulanan</span>
           </a>
         </li>
         <li>
           <a class="olsera-menu-item" id="menuItemSettings" onclick="switchOlseraTab('settings')">
-            <span class="olsera-menu-icon">⚙️</span>
-            <span>Pengaturan Toko</span>
+            <span class="olsera-menu-icon">
+              <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+            </span>
+            <span>Pengaturan</span>
+          </a>
+        </li>
+        <li>
+          <a class="olsera-menu-item" id="menuItemOperator" onclick="openSwitchOperatorPrompt()">
+            <span class="olsera-menu-icon">
+              <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </span>
+            <span>Ganti Operator</span>
+          </a>
+        </li>
+        <li>
+          <a class="olsera-menu-item" id="menuItemLock" onclick="lockOlseraScreen()">
+            <span class="olsera-menu-icon">
+              <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+            </span>
+            <span>Kunci</span>
           </a>
         </li>
       </ul>
@@ -2378,6 +2436,66 @@
         <button onclick="confirmSimulatedTopupPayment()" style="width: 100%; background: linear-gradient(135deg, #059669, #10b981); color: #fff; border: none; padding: 12px; border-radius: var(--radius-md); font-weight: 800; font-size: 0.95rem; cursor: pointer; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);">
           ✅ Konfirmasi Pembayaran Selesai (Aktifkan Kuota)
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL ABSENSI OPERATOR OLSERA -->
+  <div class="modal-backdrop" id="modalOlseraAbsensi">
+    <div class="modal-dialog" style="max-width: 440px;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff;">
+        <h3 style="display: flex; align-items: center; gap: 8px; color: #fff; margin: 0; font-size: 1.05rem;">
+          <span>📋</span> Absensi Shift Kasir &amp; Operator
+        </h3>
+        <button class="btn-close-modal" style="color: #fff;" onclick="closeModal('modalOlseraAbsensi')">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 20px;">
+        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 16px; margin-bottom: 16px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 48px; height: 48px; border-radius: 50%; background: #10b981; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0;">
+              👤
+            </div>
+            <div>
+              <div style="font-weight: 800; color: #166534; font-size: 1.05rem;" id="absensiOperatorName">Nurlinda Sari</div>
+              <div style="font-size: 0.78rem; color: #15803d; margin-top: 2px;">Status: <b style="color: #16a34a;">Hadir &amp; Aktif Melayani (Shift Pagi)</b></div>
+            </div>
+          </div>
+        </div>
+        <div style="font-size: 0.84rem; color: #475569; line-height: 1.6; margin-bottom: 18px;">
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding: 8px 0;">
+            <span>Jam Masuk Shift:</span>
+            <b>08:00 WIB (Hari ini)</b>
+          </div>
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding: 8px 0;">
+            <span>Outlet / Toko:</span>
+            <b id="absensiStoreName">Alzam Agency</b>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+            <span>Total Transaksi Sesi Ini:</span>
+            <b id="absensiTrxCount" style="color: #0284c7;">0 Transaksi</b>
+          </div>
+        </div>
+        <button type="button" onclick="closeModal('modalOlseraAbsensi'); showToast('✅ Data Absensi Shift Tercatat Resmi!');" style="width: 100%; background: #0284c7; color: #fff; border: none; padding: 12px; border-radius: 8px; font-weight: 800; font-size: 0.92rem; cursor: pointer;">
+          Tutup &amp; Lanjut Layani POS
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL KUNCI LAYAR POS (PIN LOCK) -->
+  <div class="modal-backdrop" id="modalOlseraLock">
+    <div class="modal-dialog" style="max-width: 380px; text-align: center;">
+      <div class="modal-body" style="padding: 30px 22px;">
+        <div style="font-size: 3.2rem; margin-bottom: 12px;">🔒</div>
+        <h3 style="font-size: 1.25rem; font-weight: 800; color: #0f172a; margin: 0 0 6px 0;">Layar POS Terkunci</h3>
+        <p style="font-size: 0.82rem; color: #64748b; margin: 0 0 18px 0;">Masukkan PIN Kasir untuk membuka kembali Point of Sale.</p>
+        <input type="password" id="olseraUnlockPinInput" maxlength="6" placeholder="PIN (1234)" style="width: 170px; padding: 12px; font-size: 1.3rem; letter-spacing: 6px; text-align: center; border: 2px solid #cbd5e1; border-radius: 8px; margin-bottom: 12px; font-family: monospace;">
+        <div id="olseraUnlockPinError" style="display: none; color: #ef4444; font-size: 0.78rem; margin-bottom: 12px; font-weight: 600;">❌ PIN salah! Coba 1234 atau 8899</div>
+        <div>
+          <button type="button" onclick="unlockOlseraScreen()" style="width: 100%; background: #0284c7; color: #fff; border: none; padding: 12px; border-radius: 8px; font-weight: 800; font-size: 0.95rem; cursor: pointer;">
+            Buka Kunci Layar
+          </button>
+        </div>
       </div>
     </div>
   </div>

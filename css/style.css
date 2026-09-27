@@ -2194,61 +2194,75 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
   margin: 16px auto 40px auto;
   border: 1px solid #e2e8f0;
+  position: relative;
 }
 
-/* Olsera Left Sidebar Navigation */
+/* Olsera Left Sidebar Navigation (Drawer) */
 .olsera-sidebar {
-  width: 280px;
+  width: 290px;
   background: #ffffff;
   border-right: 1px solid #e2e8f0;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.28s ease;
   z-index: 40;
 }
 
-/* Olsera Header Header Banner (Blue geometric with logo) */
+/* Olsera Header Banner (Cyan-Blue geometric gradient with logo matching screenshot) */
 .olsera-header-banner {
-  background: linear-gradient(135deg, #0284c7 0%, #0369a1 60%, #075985 100%);
+  background: linear-gradient(135deg, #0099e5 0%, #0084d6 50%, #0070c0 100%);
   position: relative;
-  padding: 22px 18px;
+  padding: 24px 18px 20px 18px;
   color: #ffffff;
   overflow: hidden;
+}
+
+.olsera-header-banner::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 150px;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.02) 80%);
+  clip-path: polygon(100% 0, 0% 100%, 100% 100%);
+  pointer-events: none;
 }
 
 .olsera-header-banner::after {
   content: '';
   position: absolute;
-  top: 0;
-  right: 0;
-  width: 120px;
-  height: 100%;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 70%);
-  clip-path: polygon(100% 0, 0% 100%, 100% 100%);
+  bottom: -15px;
+  right: 25px;
+  width: 100px;
+  height: 75%;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0) 70%);
+  clip-path: polygon(50% 0, 0% 100%, 100% 100%);
+  pointer-events: none;
 }
 
 .olsera-brand-box {
   display: flex;
-  align-items: center;
-  gap: 14px;
+  flex-direction: column;
+  gap: 12px;
   position: relative;
   z-index: 2;
 }
 
 .olsera-logo-emblem {
-  width: 52px;
-  height: 52px;
+  width: 58px;
+  height: 58px;
   border-radius: 50%;
   background: #ffffff;
-  border: 2.5px solid #10b981;
+  border: 3.5px solid #22c55e; /* Green border matching Alzam logo in screenshot */
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
   flex-shrink: 0;
   overflow: hidden;
-  padding: 3px;
+  padding: 2px;
   box-sizing: border-box;
 }
 
@@ -2265,7 +2279,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .olsera-logo-emblem span {
-  font-size: 1.6rem;
+  font-size: 1.8rem;
   line-height: 1;
   display: flex;
   align-items: center;
@@ -2273,70 +2287,54 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .olsera-store-meta {
-  flex: 1;
-  min-width: 0;
+  width: 100%;
 }
 
 .olsera-store-title {
   font-family: var(--font-heading);
-  font-size: 0.98rem;
+  font-size: 1.18rem;
   font-weight: 800;
   color: #ffffff;
   margin: 0;
-  white-space: normal;
-  line-height: 1.25;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  line-height: 1.2;
 }
 
 .olsera-store-owner {
-  font-size: 0.8rem;
-  color: #e0f2fe;
-  margin-top: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 0.88rem;
+  color: #ffffff;
+  font-weight: 500;
+  margin: 0;
 }
 
-.olsera-badge-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: rgba(16, 185, 129, 0.25);
-  border: 1px solid rgba(52, 211, 153, 0.5);
-  color: #ecfdf5;
-  font-size: 0.68rem;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 999px;
-  margin-top: 5px;
+.olsera-owner-caret {
+  font-size: 0.65rem;
+  color: #bae6fd;
+  transform: scaleY(0.85);
+  margin-left: 5px;
 }
 
-/* Olsera Nav Menu Items */
+/* Olsera Nav Menu Items (Matching Screenshot) */
 .olsera-menu-list {
-  padding: 12px 10px;
+  padding: 8px 0;
   list-style: none;
   margin: 0;
   flex: 1;
   overflow-y: auto;
+  background: #ffffff;
 }
 
 .olsera-menu-item {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 12px 16px;
-  border-radius: 10px;
-  color: #475569;
-  font-size: 0.9rem;
-  font-weight: 600;
+  gap: 16px;
+  padding: 13px 20px;
+  color: #334155;
+  font-size: 0.94rem;
+  font-weight: 500;
   text-decoration: none;
   cursor: pointer;
-  transition: all 0.2s ease;
-  margin-bottom: 3px;
-  border-left: 3px solid transparent;
+  transition: all 0.15s ease;
+  border-left: 4px solid transparent;
 }
 
 .olsera-menu-item:hover {
@@ -2345,40 +2343,141 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .olsera-menu-item.active {
-  background: #f0f9ff;
+  background: #e0f2fe; /* Light blue highlight matching screenshot */
   color: #0284c7;
   font-weight: 700;
   border-left-color: #0284c7;
 }
 
+.olsera-menu-item.active .olsera-menu-icon {
+  color: #0284c7;
+}
+
 .olsera-menu-icon {
   font-size: 1.25rem;
   width: 24px;
-  text-align: center;
+  height: 24px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  color: #64748b;
+  flex-shrink: 0;
 }
 
 .olsera-menu-divider {
   height: 1px;
   background: #e2e8f0;
-  margin: 10px 14px;
+  margin: 8px 0;
 }
 
 .olsera-menu-badge {
   margin-left: auto;
-  font-size: 0.7rem;
-  padding: 2px 7px;
+  font-size: 0.72rem;
+  padding: 2px 8px;
   border-radius: 999px;
   font-weight: 700;
 }
 
 /* Sidebar Footer */
 .olsera-sidebar-footer {
-  padding: 14px 16px;
+  padding: 14px 18px;
   border-top: 1px solid #e2e8f0;
   background: #f8fafc;
+}
+
+/* Mobile Slide-out Drawer Overlay & Rules */
+.olsera-drawer-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(2px);
+  z-index: 10000;
+  opacity: 0;
+  transition: opacity 0.28s ease;
+}
+
+.olsera-drawer-backdrop.open {
+  display: block !important;
+  opacity: 1 !important;
+}
+
+.btn-olsera-drawer-toggle {
+  background: none;
+  border: none;
+  color: #ffffff;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 6px;
+  transition: background 0.15s ease;
+}
+
+.btn-olsera-drawer-toggle:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.btn-topbar-olsera {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #ffffff;
+  border: 1px solid #38bdf8;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  font-weight: 800;
+  font-size: 0.76rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
+  transition: all 0.2s ease;
+}
+
+.btn-topbar-olsera:hover {
+  background: #0284c7;
+  transform: translateY(-1px);
+}
+
+@media (max-width: 992px) {
+  .distributor-portal-container {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #f8fafc !important;
+  }
+
+  .olsera-sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    width: 310px !important;
+    max-width: 84vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    background: #ffffff !important;
+    z-index: 10001 !important;
+    transform: translateX(-100%) !important;
+    box-shadow: none !important;
+    overflow-y: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .olsera-sidebar.open {
+    transform: translateX(0) !important;
+    box-shadow: 16px 0 45px rgba(0, 0, 0, 0.4) !important;
+  }
+
+  .olsera-main-content {
+    padding: 14px 12px !important;
+  }
 }
 
 /* Main Content Area */

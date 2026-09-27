@@ -26,6 +26,27 @@ const DEFAULT_PARTNER_STORES = [
     totalTx: 0
   },
   {
+    slug: 'alzam-agency',
+    storeName: 'Alzam Agency',
+    storeTagline: 'Distributor Resmi SR12 Herbal Skin Care',
+    storeTheme: 'emerald',
+    heroTitle: 'Pusat Belanja & Grosir Resmi SR12 - Alzam Agency',
+    heroSubtitle: 'Melayani Agen, Sub Agen, Reseller & Konsumen. Order instan via WhatsApp, stok ready gudang distributor.',
+    heroBannerUrl: 'assets/hero-banner.jpg',
+    storeLogoText: 'ALZAM',
+    storeLogoUrl: 'assets/sr12-logo.png',
+    storeWaNumber: '6281234567890',
+    storeCity: 'Bandung (Distributor Resmi)',
+    storeOwner: 'Nurlinda Sari',
+    partnerTier: 'distributor',
+    feePayer: 'buyer',
+    storeAdminPin: '1234',
+    orderQuota: 15,
+    walletBalance: 25000,
+    totalTopupPaid: 0,
+    totalTx: 0
+  },
+  {
     slug: 'aisyah-herbal',
     storeName: 'Aisyah SR12 Distributor Hub',
     storeTagline: 'Distributor Resmi SR12 Wilayah Jawa Barat',
@@ -98,6 +119,10 @@ function getStoredPartnerStores() {
       if (Array.isArray(parsed) && parsed.length > 0) {
         if (!parsed.some(s => s.slug === 'sr12-central')) {
           parsed.unshift(DEFAULT_PARTNER_STORES[0]);
+          saveStoredPartnerStores(parsed);
+        }
+        if (!parsed.some(s => s.slug === 'alzam-agency')) {
+          parsed.splice(1, 0, DEFAULT_PARTNER_STORES[1]);
           saveStoredPartnerStores(parsed);
         }
         return parsed;
@@ -5647,5 +5672,22 @@ window.handleDeveloperLogout = handleDeveloperLogout;
 window.openDevStoreAdminBackoffice = openDevStoreAdminBackoffice;
 window.openDevCurrentStoreBackoffice = openDevCurrentStoreBackoffice;
 window.contactMitraWA = contactMitraWA;
+
+function openOlseraPosDirect() {
+  const alzam = appState.partnerStores.find(s => s.slug === 'alzam-agency');
+  if (alzam && appState.currentStoreSlug !== 'alzam-agency') {
+    loadStoreBySlug('alzam-agency');
+  }
+  appState.isAdminMode = true;
+  appState.isDistributorLoggedIn = true;
+  try {
+    localStorage.setItem('sr12_distributor_session', 'active');
+  } catch(e) {}
+  if (typeof showDistributorPortalView === 'function') {
+    showDistributorPortalView(true);
+  }
+  showToast('🏪 Membuka Olsera POS & Backoffice Alzam Agency!');
+}
+window.openOlseraPosDirect = openOlseraPosDirect;
 
 

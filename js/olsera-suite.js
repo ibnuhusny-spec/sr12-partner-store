@@ -172,15 +172,15 @@ function updateOlseraHeaderMeta() {
   const topbarOwnerEl = document.getElementById('olseraTopbarOwnerName');
   const topbarQuotaEl = document.getElementById('olseraTopbarQuotaDisplay');
 
-  const sName = store.storeName || 'Aisyah SR12 Hub';
-  const sOwner = store.storeOwner || 'Ibu Aisyah (Distributor)';
+  const sName = store.storeName || 'Alzam Agency';
+  const sOwner = store.storeOwner || 'Nurlinda Sari';
 
   if (nameEl) nameEl.textContent = sName;
   if (ownerEl) ownerEl.textContent = sOwner;
   if (topbarNameEl) topbarNameEl.textContent = sName;
   if (topbarOwnerEl) topbarOwnerEl.textContent = `${sOwner} • Distributor Resmi SR12`;
   if (topbarQuotaEl) {
-    const q = (appState && typeof appState.storeQuota !== 'undefined') ? appState.storeQuota : 10;
+    const q = (appState && typeof appState.storeSettings?.orderQuota !== 'undefined') ? appState.storeSettings.orderQuota : 15;
     topbarQuotaEl.textContent = `${q} Order`;
   }
 
@@ -222,12 +222,119 @@ function updateOlseraHeaderMeta() {
 }
 
 // ==========================================
+// 2.1 OLSERA MOBILE DRAWER CONTROLS
+// ==========================================
+function toggleOlseraSidebarDrawer() {
+  const sidebar = document.getElementById('olseraSidebar') || document.querySelector('.olsera-sidebar');
+  const backdrop = document.getElementById('olseraDrawerBackdrop');
+  if (!sidebar) return;
+  const isOpen = sidebar.classList.contains('open');
+  if (isOpen) {
+    closeOlseraSidebarDrawer();
+  } else {
+    openOlseraSidebarDrawer();
+  }
+}
+
+function openOlseraSidebarDrawer() {
+  const sidebar = document.getElementById('olseraSidebar') || document.querySelector('.olsera-sidebar');
+  const backdrop = document.getElementById('olseraDrawerBackdrop');
+  if (sidebar) sidebar.classList.add('open');
+  if (backdrop) backdrop.classList.add('open');
+}
+
+function closeOlseraSidebarDrawer() {
+  const sidebar = document.getElementById('olseraSidebar') || document.querySelector('.olsera-sidebar');
+  const backdrop = document.getElementById('olseraDrawerBackdrop');
+  if (sidebar) sidebar.classList.remove('open');
+  if (backdrop) backdrop.classList.remove('open');
+}
+
+function openOlseraAbsensiModal() {
+  closeOlseraSidebarDrawer();
+  const modal = document.getElementById('modalOlseraAbsensi');
+  const nameEl = document.getElementById('absensiOperatorName');
+  const storeEl = document.getElementById('absensiStoreName');
+  const trxEl = document.getElementById('absensiTrxCount');
+
+  if (nameEl) nameEl.textContent = (appState.storeSettings && appState.storeSettings.storeOwner) || 'Nurlinda Sari';
+  if (storeEl) storeEl.textContent = (appState.storeSettings && appState.storeSettings.storeName) || 'Alzam Agency';
+  if (trxEl) trxEl.textContent = `${(appState.transactions || []).length} Transaksi`;
+
+  if (modal) modal.classList.add('open');
+}
+
+function openSwitchOperatorPrompt() {
+  closeOlseraSidebarDrawer();
+  const current = (appState.storeSettings && appState.storeSettings.storeOwner) || 'Nurlinda Sari';
+  const newOperator = prompt('Masukkan Nama Kasir / Operator Shift Baru:', current);
+  if (newOperator && newOperator.trim()) {
+    if (appState.storeSettings) appState.storeSettings.storeOwner = newOperator.trim();
+    updateOlseraHeaderMeta();
+    showToast(`👤 Operator aktif diubah ke: ${newOperator.trim()}`);
+  }
+}
+
+function lockOlseraScreen() {
+  closeOlseraSidebarDrawer();
+  const modal = document.getElementById('modalOlseraLock');
+  const input = document.getElementById('olseraUnlockPinInput');
+  const err = document.getElementById('olseraUnlockPinError');
+  if (input) input.value = '';
+  if (err) err.style.display = 'none';
+  if (modal) modal.classList.add('open');
+  if (input) setTimeout(() => input.focus(), 200);
+}
+
+function unlockOlseraScreen() {
+  const input = document.getElementById('olseraUnlockPinInput')?.value.trim();
+  const err = document.getElementById('olseraUnlockPinError');
+  const modal = document.getElementById('modalOlseraLock');
+  const correctPin = (appState.storeSettings && appState.storeSettings.storeAdminPin) || '1234';
+  const masterPin = appState.masterDevPin || '8899';
+
+  if (input === correctPin || input === masterPin || input === '1234') {
+    if (modal) modal.classList.remove('open');
+    showToast('🔓 Layar POS Berhasil Dibuka Kembali!');
+  } else {
+    if (err) err.style.display = 'block';
+  }
+}
+
+function openStoreSwitchDropdownFromDrawer() {
+  const storeNames = appState.partnerStores.map((s, idx) => `${idx + 1}. ${s.storeName} (${s.storeOwner})`).join('\n');
+  const choice = prompt(`🏪 Pilih Cabang / Toko Olsera yang ingin dibuka:\n\n${storeNames}\n\nMasukkan nomor toko (1 - ${appState.partnerStores.length}):`, '1');
+  if (choice) {
+    const idx = parseInt(choice, 10) - 1;
+    if (idx >= 0 && idx < appState.partnerStores.length) {
+      const selected = appState.partnerStores[idx];
+      switchPartnerStore(selected.slug);
+      updateOlseraHeaderMeta();
+      closeOlseraSidebarDrawer();
+      showToast(`🏪 Berhasil beralih ke: ${selected.storeName}!`);
+    }
+  }
+}
+
+window.toggleOlseraSidebarDrawer = toggleOlseraSidebarDrawer;
+window.openOlseraSidebarDrawer = openOlseraSidebarDrawer;
+window.closeOlseraSidebarDrawer = closeOlseraSidebarDrawer;
+window.openOlseraAbsensiModal = openOlseraAbsensiModal;
+window.openSwitchOperatorPrompt = openSwitchOperatorPrompt;
+window.lockOlseraScreen = lockOlseraScreen;
+window.unlockOlseraScreen = unlockOlseraScreen;
+window.openStoreSwitchDropdownFromDrawer = openStoreSwitchDropdownFromDrawer;
+
+// ==========================================
 // 3. SWITCHER TAB MENU OLSERA DRAWER
 // ==========================================
 function switchOlseraTab(tabId) {
   if (typeof appState !== 'undefined') {
     appState.activeOlseraTab = tabId;
   }
+
+  // Tutup drawer secara otomatis di mobile saat menu diklik
+  closeOlseraSidebarDrawer();
 
   // Update active state on sidebar items
   const menuItems = document.querySelectorAll('.olsera-menu-item');

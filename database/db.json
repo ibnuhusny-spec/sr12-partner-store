@@ -1,6 +1,28 @@
 {
   "stores": [
     {
+      "slug": "alzam-agency",
+      "storeName": "Alzam Agency",
+      "storeTagline": "Distributor Resmi SR12 Herbal Skin Care",
+      "storeTheme": "emerald",
+      "heroTitle": "Pusat Distribusi & Grosir Resmi SR12 - Alzam Agency",
+      "heroSubtitle": "Melayani Agen, Sub Agen, Reseller & Konsumen. Order instan via WhatsApp, stok ready gudang distributor.",
+      "heroBannerUrl": "assets/hero-banner.jpg",
+      "storeLogoText": "ALZAM",
+      "storeLogoUrl": "assets/sr12-logo.png",
+      "storeWaNumber": "6281234567890",
+      "storeCity": "Bandung (Distributor Resmi)",
+      "storeOwner": "Nurlinda Sari",
+      "ownerEmail": "alzam@sr12.co.id",
+      "ownerPassword": "1234",
+      "partnerTier": "distributor",
+      "feePayer": "buyer",
+      "orderQuota": 15,
+      "walletBalance": 25000,
+      "totalTopupPaid": 0,
+      "createdAt": "2026-09-01"
+    },
+    {
       "slug": "aisyah-herbal",
       "storeName": "Aisyah SR12 Distributor Hub",
       "storeTagline": "Distributor Resmi SR12 Wilayah Jawa Barat",
