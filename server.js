@@ -187,7 +187,10 @@ const server = http.createServer(async (req, res) => {
     staticPath = '/index.html';
   }
 
-  const filePath = path.join(__dirname, staticPath);
+  let filePath = path.join(__dirname, 'public', staticPath);
+  if (!fs.existsSync(filePath)) {
+    filePath = path.join(__dirname, staticPath);
+  }
   const ext = path.extname(filePath).toLowerCase();
   const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
