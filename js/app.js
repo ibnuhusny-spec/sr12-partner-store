@@ -3733,18 +3733,19 @@ function updateStoreQuotaUI() {
 
 const DEFAULT_DEV_PAYMENT_SETTINGS = {
   bankName: 'BCA',
-  bankAccount: '7820-1234-5678',
-  bankHolder: 'Developer Resmi SR12 Ecosystem',
+  bankAccount: '',
+  bankHolder: '',
   ewalletName: 'DANA',
-  ewalletNumber: '0812-3456-7890',
-  developerWa: '6281234567890'
+  ewalletNumber: '',
+  developerWa: ''
 };
 
 function getStoredDevPaymentSettings() {
   const stored = localStorage.getItem('sr12_dev_payment_settings_v1');
   if (stored) {
     try {
-      return Object.assign({}, DEFAULT_DEV_PAYMENT_SETTINGS, JSON.parse(stored));
+      const parsed = JSON.parse(stored);
+      return Object.assign({}, DEFAULT_DEV_PAYMENT_SETTINGS, parsed);
     } catch (e) {}
   }
   return Object.assign({}, DEFAULT_DEV_PAYMENT_SETTINGS);
@@ -3800,10 +3801,10 @@ function updateDevPaymentUI() {
   const qrisReceiverEl = document.getElementById('topupDevQrisReceiverName');
 
   if (bankNameEl) bankNameEl.textContent = settings.bankName || 'BCA';
-  if (bankAccEl) bankAccEl.textContent = settings.bankAccount || '7820-1234-5678';
-  if (bankHolderEl) bankHolderEl.textContent = settings.bankHolder || 'Developer Resmi SR12 Ecosystem';
+  if (bankAccEl) bankAccEl.textContent = settings.bankAccount || '(Belum diatur)';
+  if (bankHolderEl) bankHolderEl.textContent = settings.bankHolder || 'Developer Platform SR12';
   if (ewalletNameEl) ewalletNameEl.textContent = settings.ewalletName || 'DANA';
-  if (ewalletNumEl) ewalletNumEl.textContent = settings.ewalletNumber || '0812-3456-7890';
+  if (ewalletNumEl) ewalletNumEl.textContent = settings.ewalletNumber || '(Belum diatur)';
   if (qrisReceiverEl) qrisReceiverEl.textContent = settings.bankHolder || 'Platform Developer SR12 Ecosystem';
 
   const inputBankName = document.getElementById('devSettingBankName');
@@ -3820,9 +3821,9 @@ function updateDevPaymentUI() {
 function handleSaveDevPaymentSettings(e) {
   if (e) e.preventDefault();
   const bankName = document.getElementById('devSettingBankName')?.value.trim() || 'BCA';
-  const bankAccount = document.getElementById('devSettingBankAccount')?.value.trim() || '7820-1234-5678';
-  const bankHolder = document.getElementById('devSettingBankHolder')?.value.trim() || 'Developer Resmi SR12';
-  const ewalletNumber = document.getElementById('devSettingEwalletNumber')?.value.trim() || '0812-3456-7890';
+  const bankAccount = document.getElementById('devSettingBankAccount')?.value.trim() || '';
+  const bankHolder = document.getElementById('devSettingBankHolder')?.value.trim() || '';
+  const ewalletNumber = document.getElementById('devSettingEwalletNumber')?.value.trim() || '';
 
   const settings = {
     bankName,
@@ -3830,13 +3831,14 @@ function handleSaveDevPaymentSettings(e) {
     bankHolder,
     ewalletName: 'DANA',
     ewalletNumber,
-    developerWa: appState.storeSettings.storeWaNumber || '6281234567890'
+    developerWa: appState.storeSettings.storeWaNumber || ''
   };
 
   saveStoredDevPaymentSettings(settings);
   updateDevPaymentUI();
   showToast('✅ Rekening Developer berhasil disimpan dan diperbarui!');
 }
+
 
 function copyDevBankAccount() {
   const settings = getStoredDevPaymentSettings();
