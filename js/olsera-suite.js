@@ -76,12 +76,15 @@ function showDistributorPortalView(showPortal) {
   const portal = document.getElementById('distributorOlseraPortal');
   const olseraNav = document.getElementById('olseraAppNavbar');
   const previewStrip = document.getElementById('distributorPreviewStrip');
+  const devStrip = document.getElementById('devPreviewStrip');
   const storefront = document.getElementById('publicStorefrontMain');
   const platformTopbar = document.getElementById('platformTopbar') || document.querySelector('.platform-topbar');
   const adminBanner = document.getElementById('adminModeBanner');
   const siteHeader = document.querySelector('.site-header');
   const tierBanner = document.querySelector('.tier-quick-banner');
   const oldToggleBar = document.getElementById('distributorPortalToggleBar');
+  const backToDevBtn = document.getElementById('btnOlseraBackToDevConsole');
+  const superAdminBanner = document.getElementById('olseraSuperAdminBanner');
 
   if (typeof appState !== 'undefined') {
     appState.isOlseraPortalOpen = !!showPortal;
@@ -101,10 +104,24 @@ function showDistributorPortalView(showPortal) {
     if (tierBanner) tierBanner.style.display = 'none';
     if (platformTopbar) platformTopbar.style.display = 'none';
     if (previewStrip) previewStrip.style.display = 'none';
+    if (devStrip) devStrip.style.display = 'none';
 
     // Tampilkan HANYA SATU Olsera App Navbar dan Portal Olsera
     if (olseraNav) olseraNav.style.display = 'flex';
     if (portal) portal.style.display = 'flex';
+
+    // Jika Developer Super Admin yang sedang masuk:
+    if (typeof appState !== 'undefined' && appState.isDevMasterLoggedIn) {
+      if (backToDevBtn) backToDevBtn.style.display = 'inline-flex';
+      if (superAdminBanner) {
+        superAdminBanner.style.display = 'flex';
+        const nameEl = document.getElementById('olseraSuperAdminStoreName');
+        if (nameEl) nameEl.textContent = (appState.storeSettings && appState.storeSettings.storeName) || 'Toko Mitra';
+      }
+    } else {
+      if (backToDevBtn) backToDevBtn.style.display = 'none';
+      if (superAdminBanner) superAdminBanner.style.display = 'none';
+    }
 
     // Refresh data nama toko, kuota, logo, dan hitungan badge
     updateOlseraHeaderMeta();
@@ -122,15 +139,27 @@ function showDistributorPortalView(showPortal) {
     if (tierBanner) tierBanner.style.display = 'block';
     if (platformTopbar) platformTopbar.style.display = 'none';
 
-    // Tampilkan hanya satu strip preview di paling atas jika admin sedang login
-    if (previewStrip && appState && appState.isAdminMode) {
+    // Jika Developer Master login, tampilkan Dev Preview Strip di paling atas
+    if (typeof appState !== 'undefined' && appState.isDevMasterLoggedIn) {
+      if (devStrip) {
+        devStrip.style.display = 'flex';
+        const devStripName = document.getElementById('devStripStoreName');
+        const devStripQuota = document.getElementById('devStripOrderQuota');
+        if (devStripName) devStripName.textContent = (appState.storeSettings && appState.storeSettings.storeName) || 'Toko Aktif';
+        if (devStripQuota) devStripQuota.textContent = typeof appState.storeSettings?.orderQuota === 'number' ? appState.storeSettings.orderQuota : 10;
+      }
+      if (previewStrip) previewStrip.style.display = 'none';
+    } else if (previewStrip && appState && appState.isAdminMode) {
+      // Distributor Biasa
+      if (devStrip) devStrip.style.display = 'none';
       previewStrip.style.display = 'flex';
       const previewNameEl = document.getElementById('previewStripDistName');
       if (previewNameEl) {
         previewNameEl.textContent = (appState.storeSettings && appState.storeSettings.storeOwner) || 'Distributor Utama';
       }
-    } else if (previewStrip) {
-      previewStrip.style.display = 'none';
+    } else {
+      if (previewStrip) previewStrip.style.display = 'none';
+      if (devStrip) devStrip.style.display = 'none';
     }
   }
 }

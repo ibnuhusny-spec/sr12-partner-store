@@ -301,6 +301,236 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ========================================================
+   DEDICATED DEVELOPER SUPER ADMIN PLATFORM (WORKSPACE & NAVBAR)
+   ======================================================== */
+.dev-preview-strip {
+  background: #090d16;
+  border-bottom: 1.5px solid #0284c7;
+  color: #e2e8f0;
+  padding: 8px 18px;
+  font-size: 0.78rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 9999;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dev-preview-strip .dev-master-tag {
+  background: #0284c7;
+  color: #fff;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  font-size: 0.68rem;
+  letter-spacing: 0.5px;
+}
+
+.dev-preview-strip .dev-cloud-pill {
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid #10b981;
+  color: #a7f3d0;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.btn-dev-strip-primary {
+  background: #0284c7;
+  color: #fff;
+  border: 1px solid #38bdf8;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s;
+}
+
+.btn-dev-strip-primary:hover {
+  background: #0369a1;
+  transform: translateY(-1px);
+}
+
+.btn-dev-strip-green {
+  background: #059669;
+  color: #fff;
+  border: 1px solid #34d399;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s;
+}
+
+.btn-dev-strip-green:hover {
+  background: #047857;
+  transform: translateY(-1px);
+}
+
+.btn-dev-strip-danger {
+  background: rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+  border: 1px solid #ef4444;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-dev-strip-danger:hover {
+  background: #ef4444;
+  color: #fff;
+}
+
+/* Developer Console Top Navbar */
+.dev-app-navbar {
+  background: #090d16;
+  border-bottom: 1.5px solid #0284c7;
+  padding: 12px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.dev-nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dev-nav-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  box-shadow: 0 0 15px rgba(2, 132, 199, 0.4);
+}
+
+.dev-nav-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #f8fafc;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dev-nav-badge {
+  background: #0284c7;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+}
+
+.dev-nav-sub {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.dev-nav-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dev-nav-stats {
+  background: #1e293b;
+  border: 1px solid #334155;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  color: #cbd5e1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dev-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-dev-switch-storefront {
+  background: #1e293b;
+  color: #38bdf8;
+  border: 1px solid #0284c7;
+  padding: 7px 14px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.btn-dev-switch-storefront:hover {
+  background: #0284c7;
+  color: #fff;
+}
+
+.btn-dev-logout {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border: 1px solid #ef4444;
+  padding: 7px 12px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-dev-logout:hover {
+  background: #ef4444;
+  color: #fff;
+}
+
+/* Workspace Container */
+.dev-workspace-container {
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 14px;
+  border: 1px solid #334155;
+  padding: 24px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  min-height: calc(100vh - 120px);
+}
+
+/* ========================================================
    SELLER ADMIN CONTROL BAR (HANYA MUNCUL DI MODE ADMIN)
    ======================================================== */
 .admin-mode-banner {
@@ -1923,6 +2153,31 @@ h1, h2, h3, h4, h5, h6 {
   .dev-tab-btn {
     padding: 6px 10px !important;
     font-size: 0.74rem !important;
+  }
+
+  /* 7. Developer Super Admin on Mobile */
+  .dev-preview-strip {
+    padding: 6px 10px !important;
+    font-size: 0.72rem !important;
+  }
+  .dev-app-navbar {
+    padding: 10px 12px !important;
+  }
+  .dev-nav-brand {
+    gap: 8px !important;
+  }
+  .dev-nav-logo {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 1.1rem !important;
+  }
+  .dev-nav-title {
+    font-size: 0.95rem !important;
+  }
+  .dev-workspace-container {
+    padding: 14px 10px !important;
+    margin: 10px auto !important;
+    border-radius: 10px !important;
   }
 }
 

@@ -573,6 +573,8 @@ function saveStoredCart(cart) {
 // Global Application State
 const appState = {
   isAdminMode: false,
+  isDistributorLoggedIn: false,
+  isDevMasterLoggedIn: false,
   currentTier: 'konsumen',
   cart: getStoredCart(),
   partnerStores: getStoredPartnerStores(),
@@ -719,6 +721,24 @@ document.addEventListener('DOMContentLoaded', () => {
   } catch(e) {}
   updateAdminNotificationUI();
   updateDevPortalMetrics();
+
+  // Pulihkan sesi Developer Super Admin jika sebelumnya aktif
+  try {
+    const devSession = localStorage.getItem('sr12_dev_session');
+    if (devSession === 'active') {
+      appState.isDevMasterLoggedIn = true;
+      const devStrip = document.getElementById('devPreviewStrip');
+      if (devStrip) {
+        devStrip.style.display = 'flex';
+        const stripName = document.getElementById('devStripStoreName');
+        const stripQuota = document.getElementById('devStripOrderQuota');
+        if (stripName) stripName.textContent = (appState.storeSettings && appState.storeSettings.storeName) || 'Toko Aktif';
+        if (stripQuota) stripQuota.textContent = typeof appState.storeSettings?.orderQuota === 'number' ? appState.storeSettings.orderQuota : 10;
+      }
+      const devFab = document.getElementById('devFloatingFab');
+      if (devFab) devFab.style.display = 'flex';
+    }
+  } catch(e) {}
 });
 
 function loadStoreBySlug(slug) {
@@ -2006,6 +2026,10 @@ function initEventListeners() {
 
 // Open PIN Prompt for Developer Portal
 function openDevPinPrompt() {
+  if (appState.isDevMasterLoggedIn) {
+    showDeveloperWorkspaceView(true);
+    return;
+  }
   const modal = document.getElementById('modalDevPin');
   const pinInput = document.getElementById('devPinInput');
   const pinError = document.getElementById('devPinError');
@@ -2015,26 +2039,43 @@ function openDevPinPrompt() {
   if (pinInput) setTimeout(() => pinInput.focus(), 200);
 }
 
-// Switch Tabs inside Developer Super Admin Portal
+// Switch Tabs inside Developer Super Admin Portal (Workspace & Modal)
 function switchDevPortalTab(tabName) {
-  const tabs = ['overview', 'stores', 'pending', 'payment'];
+  const tabs = ['overview', 'stores', 'pending', 'networkMitra', 'payment'];
   tabs.forEach(t => {
-    const pane = document.getElementById(`devTabPane_${t}`);
-    const btn = document.getElementById(`devTabBtn_${t}`);
-    if (pane) {
-      pane.style.display = (t === tabName) ? 'block' : 'none';
-    }
-    if (btn) {
+    // 1. Workspace Panes & Buttons (Dedicated Full-Screen Console)
+    const paneWs = document.getElementById(`devTabPane_ws_${t}`);
+    const btnWs = document.getElementById(`devTabBtn_ws_${t}`);
+    if (paneWs) paneWs.style.display = (t === tabName) ? 'block' : 'none';
+    if (btnWs) {
       if (t === tabName) {
-        btn.classList.add('active');
-        btn.style.background = '#0284c7';
-        btn.style.color = '#ffffff';
-        btn.style.borderColor = '#38bdf8';
+        btnWs.classList.add('active');
+        btnWs.style.background = '#0284c7';
+        btnWs.style.color = '#ffffff';
+        btnWs.style.borderColor = '#38bdf8';
       } else {
-        btn.classList.remove('active');
-        btn.style.background = '#1e293b';
-        btn.style.color = '#94a3b8';
-        btn.style.borderColor = '#334155';
+        btnWs.classList.remove('active');
+        btnWs.style.background = '#1e293b';
+        btnWs.style.color = '#94a3b8';
+        btnWs.style.borderColor = '#334155';
+      }
+    }
+
+    // 2. Modal Panes & Buttons (Floating Modal Dialog)
+    const paneModal = document.getElementById(`devTabPane_${t}`);
+    const btnModal = document.getElementById(`devTabBtn_${t}`);
+    if (paneModal) paneModal.style.display = (t === tabName) ? 'block' : 'none';
+    if (btnModal) {
+      if (t === tabName) {
+        btnModal.classList.add('active');
+        btnModal.style.background = '#0284c7';
+        btnModal.style.color = '#ffffff';
+        btnModal.style.borderColor = '#38bdf8';
+      } else {
+        btnModal.classList.remove('active');
+        btnModal.style.background = '#1e293b';
+        btnModal.style.color = '#94a3b8';
+        btnModal.style.borderColor = '#334155';
       }
     }
   });
@@ -2046,15 +2087,12 @@ function verifyDevPinSubmit(e) {
   const pinInput = document.getElementById('devPinInput')?.value.trim();
   const pinError = document.getElementById('devPinError');
   const modalDevPin = document.getElementById('modalDevPin');
-  const modalDevPortal = document.getElementById('modalDevPortal');
 
   if (pinInput === appState.masterDevPin) {
-    // Correct PIN!
+    // Correct PIN! Langsung buka Workspace Dedicated Layar Penuh
     if (modalDevPin) modalDevPin.classList.remove('open');
-    if (modalDevPortal) modalDevPortal.classList.add('open');
-    switchDevPortalTab('overview');
-    updateDevPortalMetrics();
-    showToast('🔓 Akses Master Diterima! Membuka Portal Pengembang.');
+    showDeveloperWorkspaceView(true);
+    showToast('🔓 Akses Master Diterima! Membuka Console Developer.');
   } else {
     // Wrong PIN!
     if (pinError) {
@@ -2064,6 +2102,149 @@ function verifyDevPinSubmit(e) {
   }
 }
 
+// Toggle Developer Dedicated Super Admin Workspace vs Preview Storefront
+function showDeveloperWorkspaceView(showWorkspace) {
+  const devWorkspace = document.getElementById('devSuperAdminWorkspace');
+  const devNav = document.getElementById('devSuperAdminNavbar');
+  const devPreviewStrip = document.getElementById('devPreviewStrip');
+  const devFab = document.getElementById('devFloatingFab');
+  const storefront = document.getElementById('publicStorefrontMain');
+  const platformTopbar = document.getElementById('platformTopbar') || document.querySelector('.platform-topbar');
+  const siteHeader = document.querySelector('.site-header');
+  const tierBanner = document.querySelector('.tier-quick-banner');
+  const olseraNav = document.getElementById('olseraAppNavbar');
+  const olseraPortal = document.getElementById('distributorOlseraPortal');
+  const distStrip = document.getElementById('distributorPreviewStrip');
+  const modalDevPortal = document.getElementById('modalDevPortal');
+
+  if (modalDevPortal) modalDevPortal.classList.remove('open');
+
+  if (showWorkspace) {
+    appState.isDevMasterLoggedIn = true;
+    try {
+      localStorage.setItem('sr12_dev_session', 'active');
+    } catch(e) {}
+
+    // Sembunyikan Storefront & Distributor Olsera
+    if (storefront) storefront.style.display = 'none';
+    if (platformTopbar) platformTopbar.style.display = 'none';
+    if (siteHeader) siteHeader.style.display = 'none';
+    if (tierBanner) tierBanner.style.display = 'none';
+    if (distStrip) distStrip.style.display = 'none';
+    if (olseraNav) olseraNav.style.display = 'none';
+    if (olseraPortal) olseraPortal.style.display = 'none';
+    if (devPreviewStrip) devPreviewStrip.style.display = 'none';
+    if (devFab) devFab.style.display = 'none';
+
+    // Tampilkan Developer Super Admin Workspace
+    if (devNav) devNav.style.display = 'flex';
+    if (devWorkspace) devWorkspace.style.display = 'block';
+
+    updateDevPortalMetrics();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } else {
+    // Mode Tinjau Etalase Toko (Storefront Preview) dengan Developer Preview Strip
+    if (devWorkspace) devWorkspace.style.display = 'none';
+    if (devNav) devNav.style.display = 'none';
+    if (olseraNav) olseraNav.style.display = 'none';
+    if (olseraPortal) olseraPortal.style.display = 'none';
+    if (distStrip) distStrip.style.display = 'none';
+
+    if (storefront) storefront.style.display = 'block';
+    if (platformTopbar) platformTopbar.style.display = 'flex';
+    if (siteHeader) siteHeader.style.display = 'block';
+    if (tierBanner) tierBanner.style.display = 'block';
+
+    if (appState.isDevMasterLoggedIn) {
+      if (devPreviewStrip) {
+        devPreviewStrip.style.display = 'flex';
+        const stripName = document.getElementById('devStripStoreName');
+        const stripQuota = document.getElementById('devStripOrderQuota');
+        if (stripName) stripName.textContent = (appState.storeSettings && appState.storeSettings.storeName) || 'Toko Aktif';
+        if (stripQuota) stripQuota.textContent = typeof appState.storeSettings?.orderQuota === 'number' ? appState.storeSettings.orderQuota : 10;
+      }
+      if (devFab) devFab.style.display = 'flex';
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+// Logout Developer
+function handleDeveloperLogout() {
+  appState.isDevMasterLoggedIn = false;
+  try {
+    localStorage.removeItem('sr12_dev_session');
+  } catch(e) {}
+
+  const devWorkspace = document.getElementById('devSuperAdminWorkspace');
+  const devNav = document.getElementById('devSuperAdminNavbar');
+  const devPreviewStrip = document.getElementById('devPreviewStrip');
+  const devFab = document.getElementById('devFloatingFab');
+  const storefront = document.getElementById('publicStorefrontMain');
+  const platformTopbar = document.getElementById('platformTopbar') || document.querySelector('.platform-topbar');
+  const siteHeader = document.querySelector('.site-header');
+  const tierBanner = document.querySelector('.tier-quick-banner');
+  const modalDevPortal = document.getElementById('modalDevPortal');
+
+  if (modalDevPortal) modalDevPortal.classList.remove('open');
+  if (devWorkspace) devWorkspace.style.display = 'none';
+  if (devNav) devNav.style.display = 'none';
+  if (devPreviewStrip) devPreviewStrip.style.display = 'none';
+  if (devFab) devFab.style.display = 'none';
+
+  if (storefront) storefront.style.display = 'block';
+  if (platformTopbar) platformTopbar.style.display = 'flex';
+  if (siteHeader) siteHeader.style.display = 'block';
+  if (tierBanner) tierBanner.style.display = 'block';
+
+  showToast('🔒 Sesi Developer Super Admin Telah Berakhir.');
+}
+
+// Buka Backoffice Olsera Toko Mana Saja dengan Akses Super Admin Developer
+function openDevStoreAdminBackoffice(targetSlug) {
+  if (targetSlug && targetSlug !== appState.currentStoreSlug) {
+    loadStoreBySlug(targetSlug);
+  }
+
+  appState.isAdminMode = true;
+  appState.isDistributorLoggedIn = true;
+
+  // Sembunyikan Developer Workspace
+  const devWorkspace = document.getElementById('devSuperAdminWorkspace');
+  const devNav = document.getElementById('devSuperAdminNavbar');
+  const devPreviewStrip = document.getElementById('devPreviewStrip');
+  if (devWorkspace) devWorkspace.style.display = 'none';
+  if (devNav) devNav.style.display = 'none';
+  if (devPreviewStrip) devPreviewStrip.style.display = 'none';
+
+  // Buka Olsera Backoffice
+  if (typeof showDistributorPortalView === 'function') {
+    showDistributorPortalView(true);
+  }
+
+  // Tampilkan banner Super Admin Developer
+  const superAdminBanner = document.getElementById('olseraSuperAdminBanner');
+  const superAdminStoreName = document.getElementById('olseraSuperAdminStoreName');
+  if (superAdminBanner) superAdminBanner.style.display = 'flex';
+  if (superAdminStoreName) superAdminStoreName.textContent = (appState.storeSettings && appState.storeSettings.storeName) || 'Toko Mitra';
+
+  const backToDevBtn = document.getElementById('btnOlseraBackToDevConsole');
+  if (backToDevBtn) backToDevBtn.style.display = 'inline-flex';
+
+  showToast(`👑 Akses Super Admin: Masuk ke Backoffice "${appState.storeSettings?.storeName || 'Toko Mitra'}"!`);
+}
+
+function openDevCurrentStoreBackoffice() {
+  openDevStoreAdminBackoffice(appState.currentStoreSlug || (appState.storeSettings && appState.storeSettings.slug) || 'sr12-central');
+}
+
+function contactMitraWA(phone, name) {
+  if (!phone) return;
+  const cleanPhone = phone.replace(/[^0-9]/g, '');
+  const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Halo ${name}, kami dari Tim Developer & Manajemen SR12...`)}`;
+  window.open(url, '_blank');
+}
+
 // Change Developer Master PIN
 function changeDevMasterPin() {
   const newPin = prompt('Masukkan Master PIN Baru untuk Pengembang (minimal 4 karakter):', appState.masterDevPin);
@@ -2071,7 +2252,9 @@ function changeDevMasterPin() {
     appState.masterDevPin = newPin.trim();
     localStorage.setItem('sr12_master_dev_pin', appState.masterDevPin);
     const pinDisp = document.getElementById('currentMasterPinDisplay');
+    const pinDispWs = document.getElementById('currentMasterPinDisplay_ws');
     if (pinDisp) pinDisp.textContent = `${appState.masterDevPin} (Aktif)`;
+    if (pinDispWs) pinDispWs.textContent = `${appState.masterDevPin} (Aktif)`;
     alert(`✅ Master PIN Berhasil Diperbarui!\n\nMaster PIN Pengembang baru Anda: ${appState.masterDevPin}\n\nSimpan PIN ini baik-baik.`);
     showToast('🔑 Master PIN Developer Berhasil Diperbarui!');
   } else if (newPin !== null) {
@@ -3308,6 +3491,22 @@ function updateDevPortalMetrics() {
   const storesTableBody = document.getElementById('devStoresTableBody');
   const storesCounter = document.getElementById('devTotalStoresCounter');
 
+  // Workspace Elements (Dedicated Full-Screen Console)
+  const wsTx = document.getElementById('devWsTotalTx');
+  const wsFee = document.getElementById('devWsTotalFee');
+  const wsStores = document.getElementById('devWsTotalStores');
+  const wsTopup = document.getElementById('devWsTotalTopup');
+  const wsGmv = document.getElementById('devWsTotalGMV');
+  const wsPin = document.getElementById('currentMasterPinDisplay_ws');
+  const navStores = document.getElementById('devNavStoresCount');
+  const navFee = document.getElementById('devNavFeeCount');
+  const navPendingBtn = document.getElementById('devNavPendingBtn');
+  const navPendingBadge = document.getElementById('devNavPendingBadge');
+  const wsPendingBadge = document.getElementById('devPendingCountBadge_ws');
+  const storesTableBody_ws = document.getElementById('devStoresTableBody_ws');
+  const pendingTableBody_ws = document.getElementById('devPendingStoresTableBody_ws');
+  const networkMitraTableBody = document.getElementById('devNetworkMitraTableBody_ws');
+
   const totalStores = appState.partnerStores.length;
   const totalTx = m.totalPlatformTransactions || 0;
   const totalFee = totalTx * appState.platformFee;
@@ -3315,6 +3514,7 @@ function updateDevPortalMetrics() {
   const storeTopupSum = appState.partnerStores.reduce((acc, s) => acc + (s.totalTopupPaid || 0), 0);
   const totalTopupKas = storeTopupSum;
 
+  // Sync Modal Numbers
   if (dTx) dTx.textContent = totalTx.toLocaleString('id-ID');
   if (dFee) dFee.textContent = formatRupiah(totalFee);
   if (dStores) dStores.textContent = `${totalStores} Toko`;
@@ -3323,6 +3523,23 @@ function updateDevPortalMetrics() {
   if (pinDisp) pinDisp.textContent = `${appState.masterDevPin} (Aktif)`;
   if (storesCounter) storesCounter.textContent = `${totalStores} Toko Terdaftar`;
 
+  // Sync Workspace Console Numbers
+  if (wsTx) wsTx.textContent = totalTx.toLocaleString('id-ID');
+  if (wsFee) wsFee.textContent = formatRupiah(totalFee);
+  if (wsStores) wsStores.textContent = `${totalStores} Toko`;
+  if (wsTopup) wsTopup.textContent = formatRupiah(totalTopupKas);
+  if (wsGmv) wsGmv.textContent = formatRupiah(m.totalGMV || 0);
+  if (wsPin) wsPin.textContent = `${appState.masterDevPin} (Aktif)`;
+  if (navStores) navStores.textContent = `${totalStores} Toko`;
+  if (navFee) navFee.textContent = formatRupiah(totalFee);
+
+  // Sync Strip Preview Topbar
+  const stripName = document.getElementById('devStripStoreName');
+  const stripQuota = document.getElementById('devStripOrderQuota');
+  if (stripName) stripName.textContent = (appState.storeSettings && appState.storeSettings.storeName) || 'Toko Aktif';
+  if (stripQuota) stripQuota.textContent = typeof appState.storeSettings?.orderQuota === 'number' ? appState.storeSettings.orderQuota : 10;
+
+  // 1. Render Modal Stores Table
   if (storesTableBody) {
     storesTableBody.innerHTML = appState.partnerStores.map(s => {
       const tierObj = SR12_TIERS[s.partnerTier] || SR12_TIERS.reseller;
@@ -3351,11 +3568,47 @@ function updateDevPortalMetrics() {
     }).join('');
   }
 
+  // 2. Render Workspace Stores Table (with Storefront Preview & Instant Backoffice access)
+  if (storesTableBody_ws) {
+    storesTableBody_ws.innerHTML = appState.partnerStores.map(s => {
+      const tierObj = SR12_TIERS[s.partnerTier] || SR12_TIERS.reseller;
+      const quotaVal = typeof s.orderQuota === 'number' ? s.orderQuota : 10;
+      return `
+        <tr style="border-bottom: 1px solid #334155;">
+          <td style="padding: 10px 12px; font-weight: 700;">
+            <div style="font-size: 0.9rem; color: #f8fafc;">${s.storeName}</div>
+            <div style="font-size: 0.72rem; color: #38bdf8; font-family: monospace;">?store=${s.slug}</div>
+          </td>
+          <td style="padding: 10px 12px;">
+            <div style="font-weight: 600; color: #f1f5f9;">${s.storeOwner}</div>
+            <div style="font-size: 0.7rem; color: #94a3b8;">📍 ${s.storeCity || '-'}</div>
+          </td>
+          <td style="padding: 10px 12px;"><span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;">${tierObj.name}</span></td>
+          <td style="padding: 10px 12px; font-family: monospace; color: #cbd5e1;">+${s.storeWaNumber}</td>
+          <td style="padding: 10px 12px; text-align: center;">
+            <span style="background: ${quotaVal <= 2 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}; color: ${quotaVal <= 2 ? '#f87171' : '#34d399'}; padding: 3px 10px; border-radius: 9999px; font-weight: 800; font-size: 0.75rem;">
+              ${quotaVal} Order
+            </span>
+          </td>
+          <td style="padding: 10px 12px; text-align: center; white-space: nowrap;">
+            <div style="display: inline-flex; gap: 8px; align-items: center;">
+              <button type="button" onclick="switchPartnerStore('${s.slug}'); showDeveloperWorkspaceView(false);" style="background: #0284c7; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+                👁️ Tinjau Etalase
+              </button>
+              <button type="button" onclick="openDevStoreAdminBackoffice('${s.slug}')" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(245, 158, 11, 0.3);">
+                👑 Masuk Backoffice Olsera
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
   // Update Pending Stores Counter & Alert
   const pendingCount = (appState.pendingStoreApps || []).length;
   const pendingCounterEl = document.getElementById('devPendingStoresCounter');
   const topbarAlertBtn = document.getElementById('btnPendingStoreAlert');
-  const topbarPendingCountEl = document.getElementById('topbarPendingCount');
 
   if (pendingCounterEl) {
     pendingCounterEl.textContent = `${pendingCount} Menunggu Verifikasi`;
@@ -3383,11 +3636,30 @@ function updateDevPortalMetrics() {
     }
   }
 
+  // Update Workspace Nav & Tab Pending Badges
+  if (wsPendingBadge) {
+    if (pendingCount > 0) {
+      wsPendingBadge.style.display = 'inline-block';
+      wsPendingBadge.textContent = pendingCount;
+    } else {
+      wsPendingBadge.style.display = 'none';
+    }
+  }
+
+  if (navPendingBtn) {
+    if (pendingCount > 0) {
+      navPendingBtn.style.display = 'inline-flex';
+      if (navPendingBadge) navPendingBadge.textContent = pendingCount;
+    } else {
+      navPendingBtn.style.display = 'none';
+    }
+  }
+
   if (topbarAlertBtn) {
     topbarAlertBtn.style.display = 'none';
   }
 
-  // Render Pending Stores Table Body
+  // 3. Render Pending Stores Table Body (Modal)
   const pendingTableBody = document.getElementById('devPendingStoresTableBody');
   if (pendingTableBody) {
     if (pendingCount === 0) {
@@ -3443,6 +3715,100 @@ function updateDevPortalMetrics() {
                   ❌ Tolak
                 </button>
               </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+  }
+
+  // 4. Render Pending Stores Table Body (Workspace Dedicated)
+  if (pendingTableBody_ws) {
+    if (pendingCount === 0) {
+      pendingTableBody_ws.innerHTML = `
+        <tr>
+          <td colspan="7" style="text-align: center; padding: 28px; color: #94a3b8; font-style: italic;">
+            ✨ Tidak ada antrean pengajuan toko baru. Semua permohonan telah diverifikasi & disetujui.
+          </td>
+        </tr>
+      `;
+    } else {
+      pendingTableBody_ws.innerHTML = appState.pendingStoreApps.map(app => {
+        const tierObj = SR12_TIERS[app.partnerTier] || SR12_TIERS.distributor;
+        return `
+          <tr style="border-bottom: 1px solid #334155;">
+            <td style="padding: 10px 12px;">
+              <b style="color: #f8fafc; font-size: 0.88rem;">${app.storeName}</b>
+              <div style="font-size: 0.7rem; color: #f59e0b; font-family: monospace;">#${app.id} &middot; ?store=${app.slug}</div>
+            </td>
+            <td style="padding: 10px 12px;">
+              <div style="font-weight: 600; color: #f1f5f9;">${app.storeOwner}</div>
+              <div style="font-size: 0.7rem; color: #94a3b8;">📍 ${app.storeCity}</div>
+            </td>
+            <td style="padding: 10px 12px;">
+              <span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;">
+                ${tierObj.name}
+              </span>
+            </td>
+            <td style="padding: 10px 12px; white-space: nowrap;">
+              <button type="button" onclick="event.stopPropagation(); previewSkDocument('${app.id}')" title="Klik untuk memeriksa dokumen SK resmi" style="background: #0f172a; border: 1.5px solid #f59e0b; color: #fbbf24; padding: 6px 12px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;">
+                <span>📄</span> <span>${app.skNumber || 'Lihat Dokumen SK'}</span> <span style="font-size: 0.7rem; opacity: 0.8;">↗️</span>
+              </button>
+            </td>
+            <td style="padding: 10px 12px;">
+              <button type="button" onclick="contactApplicantWA('${app.id}')" style="background: rgba(37, 211, 102, 0.15); border: 1px solid #25d366; color: #4ade80; padding: 6px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; white-space: nowrap;">
+                <span>📱</span> +${app.storeWaNumber}
+              </button>
+            </td>
+            <td style="padding: 10px 12px; text-align: center;">
+              <span style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; padding: 3px 10px; border-radius: 9999px; font-weight: 800; font-size: 0.7rem; white-space: nowrap;">
+                ⏳ PENDING
+              </span>
+            </td>
+            <td style="padding: 10px 12px; text-align: center; white-space: nowrap;">
+              <div style="display: inline-flex; gap: 6px; justify-content: center; align-items: center;">
+                <button type="button" onclick="event.stopPropagation(); previewSkDocument('${app.id}')" title="Buka & Verifikasi Berkas SK" style="background: #0284c7; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+                  <span>📄</span> Cek SK
+                </button>
+                <button type="button" onclick="approvePendingStore('${app.id}')" title="Setujui dan Aktifkan Toko" style="background: #10b981; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer;">
+                  ✅ Setujui
+                </button>
+                <button type="button" onclick="rejectPendingStore('${app.id}')" title="Tolak Pengajuan" style="background: #ef4444; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer;">
+                  ❌ Tolak
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+  }
+
+  // 5. Render Database Seluruh Mitra Jaringan (Workspace Dedicated)
+  if (networkMitraTableBody) {
+    const list = appState.mitraList || [];
+    if (list.length === 0) {
+      networkMitraTableBody.innerHTML = `
+        <tr>
+          <td colspan="6" style="text-align: center; padding: 24px; color: #94a3b8; font-style: italic;">
+            Belum ada data mitra jaringan yang tercatat.
+          </td>
+        </tr>
+      `;
+    } else {
+      networkMitraTableBody.innerHTML = list.map(m => {
+        const tierName = m.role || m.tier || 'Reseller';
+        return `
+          <tr style="border-bottom: 1px solid #334155;">
+            <td style="padding: 10px 12px; font-weight: 600; color: #f1f5f9;">${m.name || '-'}</td>
+            <td style="padding: 10px 12px; font-family: monospace; color: #38bdf8;">${m.id || '-'}</td>
+            <td style="padding: 10px 12px;"><span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;">${tierName}</span></td>
+            <td style="padding: 10px 12px; font-family: monospace; color: #cbd5e1;">${m.phone || '-'}</td>
+            <td style="padding: 10px 12px; font-weight: 700; color: #fbbf24;">${m.points || 0} Poin</td>
+            <td style="padding: 10px 12px; text-align: center;">
+              <button type="button" onclick="contactMitraWA('${m.phone || ''}', '${m.name || ''}')" style="background: rgba(37, 211, 102, 0.15); border: 1px solid #25d366; color: #4ade80; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer;">
+                Hubungi WA
+              </button>
             </td>
           </tr>
         `;
@@ -3898,14 +4264,25 @@ function updateDevPaymentUI() {
   if (inputBankAcc) inputBankAcc.value = settings.bankAccount || '';
   if (inputBankHolder) inputBankHolder.value = settings.bankHolder || '';
   if (inputEwallet) inputEwallet.value = settings.ewalletNumber || '';
+
+  // Workspace Inputs (Dedicated Console)
+  const inputBankName_ws = document.getElementById('devSettingBankName_ws');
+  const inputBankAcc_ws = document.getElementById('devSettingBankAccount_ws');
+  const inputBankHolder_ws = document.getElementById('devSettingBankHolder_ws');
+  const inputEwallet_ws = document.getElementById('devSettingEwalletNumber_ws');
+
+  if (inputBankName_ws) inputBankName_ws.value = settings.bankName || '';
+  if (inputBankAcc_ws) inputBankAcc_ws.value = settings.bankAccount || '';
+  if (inputBankHolder_ws) inputBankHolder_ws.value = settings.bankHolder || '';
+  if (inputEwallet_ws) inputEwallet_ws.value = settings.ewalletNumber || '';
 }
 
 function handleSaveDevPaymentSettings(e) {
   if (e) e.preventDefault();
-  const bankName = document.getElementById('devSettingBankName')?.value.trim() || 'BCA';
-  const bankAccount = document.getElementById('devSettingBankAccount')?.value.trim() || '';
-  const bankHolder = document.getElementById('devSettingBankHolder')?.value.trim() || '';
-  const ewalletNumber = document.getElementById('devSettingEwalletNumber')?.value.trim() || '';
+  const bankName = document.getElementById('devSettingBankName_ws')?.value.trim() || document.getElementById('devSettingBankName')?.value.trim() || 'BCA';
+  const bankAccount = document.getElementById('devSettingBankAccount_ws')?.value.trim() || document.getElementById('devSettingBankAccount')?.value.trim() || '';
+  const bankHolder = document.getElementById('devSettingBankHolder_ws')?.value.trim() || document.getElementById('devSettingBankHolder')?.value.trim() || '';
+  const ewalletNumber = document.getElementById('devSettingEwalletNumber_ws')?.value.trim() || document.getElementById('devSettingEwalletNumber')?.value.trim() || '';
 
   const settings = {
     bankName,
@@ -5265,5 +5642,10 @@ window.rejectPendingStore = rejectPendingStore;
 window.contactApplicantWA = contactApplicantWA;
 window.switchDevPortalTab = switchDevPortalTab;
 window.openDevPinPrompt = openDevPinPrompt;
+window.showDeveloperWorkspaceView = showDeveloperWorkspaceView;
+window.handleDeveloperLogout = handleDeveloperLogout;
+window.openDevStoreAdminBackoffice = openDevStoreAdminBackoffice;
+window.openDevCurrentStoreBackoffice = openDevCurrentStoreBackoffice;
+window.contactMitraWA = contactMitraWA;
 
 
