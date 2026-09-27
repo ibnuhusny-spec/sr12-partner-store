@@ -1047,21 +1047,42 @@
 
     <!-- WRAPPER SCROLLABLE BODY (AGAR PRODUK TIDAK TERHIMPIT / SQUASHED) -->
     <div class="cart-drawer-body" id="cartDrawerBody">
-      <!-- Pengenal No. ID Mitra atau No. WhatsApp Pembeli (Auto-Detect Tier & Marketer) -->
-      <div style="margin: 14px 16px 4px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-sm); padding: 10px; flex-shrink: 0;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-          <label style="font-size: 0.78rem; font-weight: 700; color: #1e293b;">
-            🛡️ Cek Kemitraan (ID Mitra / No. WhatsApp):
+      <!-- FORM IDENTITAS PEMESAN & CEK KEMITRAAN (AG-001 DLL) -->
+      <div style="margin: 14px 16px 8px 16px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; flex-shrink: 0 !important;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <label style="font-size: 0.82rem; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 6px;">
+            <span>👤</span> Identitas Pemesan / Mitra SR12:
           </label>
-          <span style="font-size: 0.68rem; color: #0284c7; font-weight: 700;">Diskon / Komisi Otomatis</span>
+          <span style="font-size: 0.68rem; background: #e0f2fe; color: #0369a1; padding: 2px 7px; border-radius: 4px; font-weight: 700;">
+            Diskon Otomatis
+          </span>
         </div>
-        <div style="display: flex; gap: 6px;">
-          <input type="text" id="cartBuyerPhoneInput" placeholder="Ketik ID (cth: AG-001 / RS-001 / MKT-001) atau No. WA..." oninput="autoCheckBuyerMitraPhone(this.value)" style="flex: 1; padding: 7px 10px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 0.8rem; font-family: var(--font-main);">
-          <button type="button" onclick="checkBuyerMitraPhoneClick()" style="background: #0284c7; color: #fff; border: none; padding: 7px 12px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; cursor: pointer;">
-            Cek
-          </button>
+        
+        <!-- Input ID Kemitraan (AG-001 dll) atau Cek No WA -->
+        <div style="margin-bottom: 8px;">
+          <label style="font-size: 0.72rem; font-weight: 700; color: #475569; display: block; margin-bottom: 3px;">
+            Ketik ID Mitra (cth: AG-001) atau No. WhatsApp:
+          </label>
+          <div style="display: flex; gap: 6px;">
+            <input type="text" id="cartBuyerPhoneInput" placeholder="Ketik ID: AG-001 / No. WA..." oninput="autoCheckBuyerMitraPhone(this.value)" style="flex: 1; padding: 8px 10px; border-radius: 6px; border: 1px solid #94a3b8; font-size: 0.82rem; font-family: var(--font-main);">
+            <button type="button" onclick="checkBuyerMitraPhoneClick()" style="background: #0284c7; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; cursor: pointer; white-space: nowrap;">
+              🔍 Cek ID
+            </button>
+          </div>
+          <div id="buyerStatusNotice" style="margin-top: 6px; font-size: 0.74rem; line-height: 1.4; display: none; padding: 8px 10px; border-radius: 6px;"></div>
         </div>
-        <div id="buyerStatusNotice" style="margin-top: 6px; font-size: 0.72rem; line-height: 1.4; display: none; padding: 6px 10px; border-radius: 4px;"></div>
+
+        <!-- Nama Pemesan & No WhatsApp -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div>
+            <label style="font-size: 0.72rem; font-weight: 700; color: #475569; display: block; margin-bottom: 3px;">Nama Pemesan / Mitra:</label>
+            <input type="text" id="cartBuyerNameInput" placeholder="Nama Lengkap" oninput="appState.buyerDetails.name = this.value" style="width: 100%; padding: 7px 8px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 0.78rem; font-family: var(--font-main);">
+          </div>
+          <div>
+            <label style="font-size: 0.72rem; font-weight: 700; color: #475569; display: block; margin-bottom: 3px;">No. WhatsApp Pemesan:</label>
+            <input type="text" id="cartBuyerPhoneField" placeholder="08xxxxxxxxxx" oninput="appState.buyerDetails.phone = this.value" style="width: 100%; padding: 7px 8px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 0.78rem; font-family: var(--font-main);">
+          </div>
+        </div>
       </div>
 
       <!-- DAFTAR ITEM PRODUK BELANJA (TINGGI PENUH, TIDAK AKAN GEPENG / HILANG) -->
@@ -2522,8 +2543,8 @@
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/supabase-config.js"></script>
-  <script src="js/data.js?v=2.7"></script>
-  <script src="js/app.js?v=2.7"></script>
-  <script src="js/olsera-suite.js?v=2.7"></script>
+  <script src="js/data.js?v=2.8"></script>
+  <script src="js/app.js?v=2.8"></script>
+  <script src="js/olsera-suite.js?v=2.8"></script>
 </body>
 </html>

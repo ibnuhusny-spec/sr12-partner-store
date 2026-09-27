@@ -1055,6 +1055,14 @@ function initEventListeners() {
     btnOpenCart.addEventListener('click', () => {
       cartDrawer.classList.add('open');
       cartBackdrop.classList.add('open');
+      const nameIn = document.getElementById('cartBuyerNameInput');
+      const phoneIn = document.getElementById('cartBuyerPhoneField');
+      if (nameIn && !nameIn.value && appState.buyerDetails.name) {
+        nameIn.value = appState.buyerDetails.name;
+      }
+      if (phoneIn && !phoneIn.value && appState.buyerDetails.phone) {
+        phoneIn.value = appState.buyerDetails.phone;
+      }
     });
   }
 
@@ -1783,6 +1791,12 @@ function checkoutViaWhatsApp() {
 
   // Update atau Kualifikasi Mitra / Reseller / Marketer di Database Distributor
   const inputPartnerQuery = document.getElementById('cartBuyerPhoneInput')?.value.trim();
+  const inputBuyerName = document.getElementById('cartBuyerNameInput')?.value.trim();
+  const inputBuyerPhone = document.getElementById('cartBuyerPhoneField')?.value.trim();
+
+  if (inputBuyerName) appState.buyerDetails.name = inputBuyerName;
+  if (inputBuyerPhone) appState.buyerDetails.phone = inputBuyerPhone;
+
   if (inputPartnerQuery && !inputPartnerQuery.toUpperCase().startsWith('AG-') && !inputPartnerQuery.toUpperCase().startsWith('SUB-') && !inputPartnerQuery.toUpperCase().startsWith('RS-') && !inputPartnerQuery.toUpperCase().startsWith('MKT-')) {
     appState.buyerDetails.phone = inputPartnerQuery;
   }
@@ -1934,6 +1948,52 @@ function checkoutViaWhatsApp() {
   appState.devMetrics.totalPlatformTransactions += 1;
   appState.devMetrics.totalGMV += grandTotal;
   updateDevPortalMetrics();
+
+  // Catat pesanan online ke riwayat Transaksi Toko Distributor
+  const orderTrxId = 'ORD-WEB-' + Date.now().toString().slice(-6);
+  const now = new Date();
+  const dateFormatted = now.toLocaleDateString('id-ID', { year: 'numeric', month: '2-digit', day: '2-digit' }) + ' ' +
+    now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+
+  const webOrder = {
+    id: orderTrxId,
+    dateTime: dateFormatted,
+    customerName: (appState.buyerDetails.name || 'Pelanggan') + (foundMitra ? ` (${foundMitra.id})` : ''),
+    customerPhone: buyerPhone || appState.buyerDetails.phone || '-',
+    customerAddress: appState.buyerDetails.address || '-',
+    tier: appState.currentTier,
+    tierLabel: SR12_TIERS[appState.currentTier]?.name || 'Konsumen',
+    items: appState.cart.map(item => {
+      const p = appState.products.find(pr => pr.id === item.productId);
+      const prc = getProductTierPrice(p, appState.currentTier);
+      return {
+        name: p ? p.name : 'Produk SR12',
+        qty: item.qty,
+        price: prc,
+        subtotal: prc * item.qty
+      };
+    }),
+    subtotalHet: totalHet,
+    discountAmount: totalSavings,
+    grandTotal: grandTotal,
+    paymentMethod: courier.id === 'pickup' ? 'Ambil Sendiri di Toko' : courier.id === 'cod' ? 'COD (Bayar di Tempat)' : `Ekspedisi ${courier.name}`,
+    status: courier.id === 'pickup' ? 'Siap Diambil di Toko' : 'Menunggu Konfirmasi',
+    orderSource: 'Online Web Store'
+  };
+
+  if (!appState.transactions) {
+    try {
+      const stored = localStorage.getItem('sr12_pos_transactions_v1');
+      appState.transactions = stored ? JSON.parse(stored) : [];
+    } catch(e) {
+      appState.transactions = [];
+    }
+  }
+  appState.transactions.unshift(webOrder);
+  localStorage.setItem('sr12_pos_transactions_v1', JSON.stringify(appState.transactions));
+  
+  const trxBadge = document.getElementById('olseraTrxBadge');
+  if (trxBadge) trxBadge.textContent = `${appState.transactions.length}`;
 
   const encoded = encodeURIComponent(message);
   const waUrl = `https://api.whatsapp.com/send?phone=${targetWa}&text=${encoded}`;
@@ -3920,6 +3980,12 @@ function autoCheckBuyerMitraPhone(query) {
     if (found.city) {
       appState.buyerDetails.address = `${found.city}`;
     }
+
+    const nameField = document.getElementById('cartBuyerNameInput');
+    const phoneField = document.getElementById('cartBuyerPhoneField');
+    if (nameField) nameField.value = found.name;
+    if (phoneField) phoneField.value = found.phone;
+
     const tierSel = document.getElementById('globalTierSelect');
     const status = getMitraStatus(found);
 

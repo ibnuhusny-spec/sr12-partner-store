@@ -876,16 +876,40 @@ function renderPosTransactions(filter = 'all') {
         <td><span class="badge-crm" style="background: #e0f2fe; color: #0369a1;">${t.tierLabel}</span></td>
         <td style="font-weight: 800; color: #0f172a;">Rp ${Number(t.grandTotal).toLocaleString('id-ID')}</td>
         <td><span style="font-size: 0.76rem; font-weight: 700; color: #475569;">${t.paymentMethod}</span></td>
-        <td><span style="background: #ecfdf5; color: #065f46; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 800;">${t.status}</span></td>
-        <td style="text-align: center;">
-          <button onclick="viewHistoricalReceipt('${t.id}')" style="background: #0284c7; color: #fff; border: none; padding: 4px 10px; border-radius: 4px; font-size: 0.74rem; font-weight: 700; cursor: pointer;">
-            Struk Nota
+        <td>
+          ${t.status === 'Menunggu Konfirmasi'
+            ? `<span style="background: #fef3c7; color: #b45309; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 800;">🟡 Menunggu Konfirmasi</span>`
+            : t.status === 'Siap Diambil di Toko'
+              ? `<span style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 800;">🏪 Siap Diambil</span>`
+              : `<span style="background: #ecfdf5; color: #065f46; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 800;">✅ ${t.status}</span>`}
+        </td>
+        <td style="text-align: center; white-space: nowrap;">
+          <button onclick="viewHistoricalReceipt('${t.id}')" style="background: #0284c7; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; cursor: pointer; margin-right: 4px;" title="Lihat Struk / Nota Rincian">
+            📄 Struk
           </button>
+          ${(t.status === 'Menunggu Konfirmasi' || t.status === 'Siap Diambil di Toko') ? `
+            <button onclick="confirmWebOrder('${t.id}')" style="background: #059669; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; cursor: pointer;" title="Tandai pesanan telah selesai / lunas">
+              ✅ Konfirmasi
+            </button>
+          ` : ''}
         </td>
       </tr>
     `;
   }).join('');
 }
+
+function confirmWebOrder(trxId) {
+  if (typeof appState === 'undefined') return;
+  const trx = (appState.transactions || []).find(t => t.id === trxId);
+  if (!trx) return;
+  trx.status = 'Lunas / Selesai';
+  saveStoredTransactions(appState.transactions);
+  renderPosTransactions();
+  if (typeof showToast === 'function') {
+    showToast(`✅ Pesanan ${trxId} (${trx.customerName}) berhasil dikonfirmasi lunas/selesai!`);
+  }
+}
+window.confirmWebOrder = confirmWebOrder;
 
 function filterTransactions(f) {
   ['btnTrxAll', 'btnTrxToday', 'btnTrxMonth'].forEach(id => {
