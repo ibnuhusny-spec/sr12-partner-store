@@ -1556,8 +1556,8 @@ function updateCartSummary() {
 
   const courierId = appState.buyerDetails.courier || 'jne';
   const courier = SR12_SHIPPING_PROVIDERS.find(c => c.id === courierId) || SR12_SHIPPING_PROVIDERS[0];
-  const weightKg = Math.max(1, Math.ceil(totalWeightGram / 1000));
-  const shippingCost = appState.cart.length > 0 ? courier.costPerKg * weightKg : 0;
+  const weightKg = Math.max(courier.minKg || 1, Math.ceil(totalWeightGram / 1000));
+  const shippingCost = appState.cart.length > 0 ? (courier.id === 'pickup' ? 0 : courier.costPerKg * weightKg) : 0;
   
   // Model Biaya Layanan: Ditanggung Pembeli (+Rp 1.000)
   const isFeeChargedToBuyer = (appState.storeSettings.feePayer || 'buyer') === 'buyer';
@@ -1573,7 +1573,52 @@ function updateCartSummary() {
       platformFeeLine.parentElement.style.display = 'none'; // Ditanggung toko, tidak muncul ke pembeli
     }
   }
-  if (shippingLine) shippingLine.textContent = formatRupiah(shippingCost) + ` (${weightKg} kg)`;
+
+  // Tampilan Rincian Ongkos Kirim / Ambil Sendiri / COD
+  if (shippingLine) {
+    if (courier.id === 'pickup') {
+      shippingLine.innerHTML = `<span style="color: #059669; font-weight: 800;">Gratis (Ambil di Toko)</span>`;
+    } else if (courier.id === 'cod') {
+      shippingLine.innerHTML = `<span>${formatRupiah(shippingCost)} <span style="font-size: 0.72rem; color: #b45309; font-weight: 700; background: #fef3c7; padding: 1px 6px; border-radius: 4px;">COD ${weightKg}kg</span></span>`;
+    } else if (courier.id === 'instant') {
+      shippingLine.innerHTML = `<span>${formatRupiah(shippingCost)} <span style="font-size: 0.72rem; color: #0369a1; font-weight: 700; background: #e0f2fe; padding: 1px 6px; border-radius: 4px;">Instan</span></span>`;
+    } else {
+      shippingLine.textContent = `${formatRupiah(shippingCost)} (${weightKg} kg)`;
+    }
+  }
+
+  // Kotak Penjelasan Interaktif Metode Pengiriman / Pengambilan
+  const courierNoticeBox = document.getElementById('courierNoticeBox');
+  if (courierNoticeBox) {
+    if (courier.id === 'pickup') {
+      courierNoticeBox.style.display = 'block';
+      courierNoticeBox.style.background = '#ecfdf5';
+      courierNoticeBox.style.border = '1px solid #a7f3d0';
+      courierNoticeBox.style.color = '#065f46';
+      courierNoticeBox.innerHTML = `🏪 <b>Ambil Sendiri di Toko / Gudang (${appState.storeSettings.storeCity || 'Kota Toko'}):</b> Bebas ongkos kirim (Rp 0)! Pesanan Anda disiapkan oleh tim gudang dan siap diambil langsung setelah konfirmasi via WhatsApp.`;
+    } else if (courier.id === 'cod') {
+      courierNoticeBox.style.display = 'block';
+      courierNoticeBox.style.background = '#fffbeb';
+      courierNoticeBox.style.border = '1px solid #fde68a';
+      courierNoticeBox.style.color = '#92400e';
+      courierNoticeBox.innerHTML = `💵 <b>Layanan COD (Bayar di Tempat):</b> Pembayaran tunai dilakukan ke kurir saat paket tiba di alamat Anda. Mohon siapkan uang pas sebesar total belanja.`;
+    } else if (courier.id === 'instant') {
+      courierNoticeBox.style.display = 'block';
+      courierNoticeBox.style.background = '#f0f9ff';
+      courierNoticeBox.style.border = '1px solid #bae6fd';
+      courierNoticeBox.style.color = '#0369a1';
+      courierNoticeBox.innerHTML = `⚡ <b>Kurir Instan (GoSend / Grab):</b> Pengiriman cepat langsung sampai di hari yang sama (estimasi 1-3 jam) untuk wilayah ${appState.storeSettings.storeCity || 'dalam kota'} dan sekitarnya.`;
+    } else if (courier.id === 'kargo') {
+      courierNoticeBox.style.display = 'block';
+      courierNoticeBox.style.background = '#f8fafc';
+      courierNoticeBox.style.border = '1px solid #cbd5e1';
+      courierNoticeBox.style.color = '#475569';
+      courierNoticeBox.innerHTML = `🚛 <b>Jalur Kargo Agen / Grosir:</b> Tarif super hemat Rp 3.500/kg untuk belanja kuantitas besar (min. 10 kg). Cocok untuk Agen/Sub Agen restock berkoli-koli.`;
+    } else {
+      courierNoticeBox.style.display = 'none';
+    }
+  }
+
   if (totalLine) totalLine.textContent = formatRupiah(grandTotal);
 
   // Status Kemitraan & MOQ
@@ -1676,8 +1721,16 @@ function checkoutViaWhatsApp() {
   }
   updateStoreQuotaUI();
 
+  let totalWeightGram = 0;
+  appState.cart.forEach(item => {
+    const p = appState.products.find(prod => prod.id === item.productId);
+    const w = (p && p.weightGram) ? p.weightGram : 100;
+    totalWeightGram += w * item.qty;
+  });
+
   const courier = SR12_SHIPPING_PROVIDERS.find(c => c.id === appState.buyerDetails.courier) || SR12_SHIPPING_PROVIDERS[0];
-  const shippingCost = courier.costPerKg * 1;
+  const weightKg = Math.max(courier.minKg || 1, Math.ceil(totalWeightGram / 1000));
+  const shippingCost = courier.id === 'pickup' ? 0 : courier.costPerKg * weightKg;
   const isFeeChargedToBuyer = (appState.storeSettings.feePayer || 'buyer') === 'buyer';
   const fee = isFeeChargedToBuyer ? appState.platformFee : 0;
   const grandTotal = subtotal + shippingCost + fee;
@@ -1805,20 +1858,39 @@ function checkoutViaWhatsApp() {
     (totalSavings > 0 ? `Harga Retail Normal (HET) : ${formatRupiah(totalHet)}\n` +
     `Diskon Kemitraan (${tier.name} ${tier.discountPct}%) : -${formatRupiah(totalSavings)}\n` : '') +
     `Subtotal Produk : ${formatRupiah(subtotal)}\n` +
-    `Ongkos Kirim (${courier.name}) : ${formatRupiah(shippingCost)}\n` +
+    (courier.id === 'pickup'
+      ? `Metode Pengambilan : 🏪 Ambil Sendiri di Gudang Toko [Bebas Ongkir - Rp 0]\n`
+      : courier.id === 'cod'
+        ? `Metode Pengiriman  : 💵 COD (Bayar Tunai di Tempat saat Sampai)\nOngkos Kirim COD    : ${formatRupiah(shippingCost)} (${weightKg} kg)\n`
+        : courier.id === 'instant'
+          ? `Metode Pengiriman  : ⚡ Kurir Instan / Same Day (GoSend/Grab)\nOngkos Kirim Instan : ${formatRupiah(shippingCost)} (${weightKg} kg)\n`
+          : `Ongkos Kirim (${courier.name}) : ${formatRupiah(shippingCost)} (${weightKg} kg)\n`
+    ) +
     (fee > 0 ? `Biaya Layanan Sistem : ${formatRupiah(fee)}\n` : '') +
     `*TOTAL PEMBAYARAN: ${formatRupiah(grandTotal)}*\n` +
     (totalSavings > 0 ? `🎉 *TOTAL HEMAT: ${formatRupiah(totalSavings)}*\n` : '') +
     crmNoticeText +
     mitraVerificationText +
     `----------------------------------------\n` +
-    `👤 *DATA PENERIMA:*\n` +
-    `• Nama   : ${appState.buyerDetails.name}\n` +
-    `• No HP  : ${appState.buyerDetails.phone}\n` +
-    `• Alamat : ${appState.buyerDetails.address}\n` +
+    (courier.id === 'pickup'
+      ? `🏪 *DATA PENGAMBILAN DI TOKO/GUDANG:*\n` +
+        `• Nama Pemesan/Pengambil : ${appState.buyerDetails.name || 'Pelanggan'}\n` +
+        `• No. WhatsApp           : ${buyerPhone || appState.buyerDetails.phone || '-'}\n` +
+        `• Lokasi Ambil Barang    : Gudang Resmi SR12 ${storeName} (${appState.storeSettings.storeCity || 'Kota Toko'})\n` +
+        `• Status Pengambilan     : Diambil Mandiri oleh Pembeli / Mitra\n`
+      : `👤 *DATA PENERIMA:*\n` +
+        `• Nama   : ${appState.buyerDetails.name || 'Pelanggan'}\n` +
+        `• No HP  : ${buyerPhone || appState.buyerDetails.phone || '-'}\n` +
+        `• Alamat : ${appState.buyerDetails.address || '-'}\n`
+    ) +
     dropshipText +
     `----------------------------------------\n` +
-    `Mohon konfirmasi pesanan dan nomor rekening pembayaran. Terima kasih ${storeName}! 🌿`;
+    (courier.id === 'cod'
+      ? `💡 *CATATAN COD:* Pesanan dikirim dengan opsi Bayar di Tempat. Pembeli wajib menyiapkan uang tunai pas sebesar *${formatRupiah(grandTotal)}* kepada kurir saat serah terima paket.\nMohon konfirmasi pesanan ini agar segera diproses packing. Terima kasih ${storeName}! 🌿`
+      : courier.id === 'pickup'
+        ? `💡 *CATATAN AMBIL SENDIRI:* Mohon konfirmasi kesiapan barang di gudang sebelum pengambilan. Terima kasih ${storeName}! 🌿`
+        : `Mohon konfirmasi pesanan dan nomor rekening pembayaran. Terima kasih ${storeName}! 🌿`
+    );
 
   appState.devMetrics.totalPlatformTransactions += 1;
   appState.devMetrics.totalGMV += grandTotal;
@@ -2403,37 +2475,104 @@ function updateDevPortalMetrics() {
 function printShippingLabel() {
   const storeName = appState.storeSettings.storeName;
   const storePhone = appState.storeSettings.storeWaNumber;
+  const storeCity = appState.storeSettings.storeCity || 'Kota Toko';
   const dName = appState.isDropship ? (document.getElementById('dropshipNameInput')?.value || appState.dropshipSender.name) : `${storeName} (Official)`;
   const dPhone = appState.isDropship ? (document.getElementById('dropshipPhoneInput')?.value || appState.dropshipSender.phone) : storePhone;
   
+  const courierId = appState.buyerDetails.courier || 'jne';
+  const courier = SR12_SHIPPING_PROVIDERS.find(c => c.id === courierId) || SR12_SHIPPING_PROVIDERS[0];
+  
+  let totalWeightGram = 0;
+  let subtotal = 0;
+  appState.cart.forEach(item => {
+    const p = appState.products.find(prod => prod.id === item.productId);
+    const w = (p && p.weightGram) ? p.weightGram : 100;
+    totalWeightGram += w * item.qty;
+    const price = getProductTierPrice(p, appState.currentTier);
+    subtotal += price * item.qty;
+  });
+  const weightKg = Math.max(courier.minKg || 1, Math.ceil(totalWeightGram / 1000));
+  const shippingCost = courier.id === 'pickup' ? 0 : courier.costPerKg * weightKg;
+  const isFeeChargedToBuyer = (appState.storeSettings.feePayer || 'buyer') === 'buyer';
+  const fee = isFeeChargedToBuyer ? appState.platformFee : 0;
+  const grandTotal = subtotal + shippingCost + fee;
+
+  let title = 'RESI PENGIRIMAN RESMI SR12';
+  let badgeHtml = '';
+  let destinationHtml = '';
+
+  if (courier.id === 'pickup') {
+    title = 'INVOICE / SURAT JALAN PENGAMBILAN TOKO (SELF PICK-UP)';
+    badgeHtml = `<div style="background: #059669; color: #fff; padding: 7px 10px; text-align: center; font-weight: bold; border-radius: 4px; margin: 10px 0; font-size: 13px;">🏪 BARANG DIAMBIL SENDIRI DI GUDANG / TOKO (BEBAS ONGKIR - RP 0)</div>`;
+    destinationHtml = `
+      <div class="row"><b>PENGAMBIL / PEMESAN:</b><br>${appState.buyerDetails.name} (${appState.buyerDetails.phone})</div>
+      <div class="row"><b>LOKASI PENGAMBILAN:</b><br>Gudang Toko ${storeName} - ${storeCity}</div>
+      <div class="row"><b>STATUS PENGAMBILAN:</b><br>Ambil Mandiri / Menunggu Verifikasi WhatsApp</div>
+    `;
+  } else if (courier.id === 'cod') {
+    title = 'RESI PENGIRIMAN COD (BAYAR DI TEMPAT)';
+    badgeHtml = `
+      <div style="background: #fffbeb; color: #92400e; padding: 8px 10px; text-align: center; font-weight: bold; border-radius: 4px; margin: 10px 0; font-size: 13px; border: 2px dashed #f59e0b;">
+        💵 TAGIHAN COD: BAYAR TUNAI SAAT DITERIMA<br>
+        <span style="font-size: 18px; color: #b45309; letter-spacing: 0.5px;">${formatRupiah(grandTotal)}</span>
+      </div>
+    `;
+    destinationHtml = `
+      <div class="row"><b>PENERIMA (COD):</b><br>${appState.buyerDetails.name} (${appState.buyerDetails.phone})<br>${appState.buyerDetails.address}</div>
+      <div class="row"><b>EKSPEDISI:</b> ${courier.name} (${weightKg} kg)</div>
+      <div class="row" style="background: #fef2f2; padding: 5px; border-radius: 4px; border: 1px solid #fecaca; font-size: 11px;">
+        ⚠️ <b>PETUNJUK KURIR:</b> Tagih uang tunai pas sebesar <b>${formatRupiah(grandTotal)}</b> kepada penerima sebelum menyerahkan paket.
+      </div>
+    `;
+  } else {
+    destinationHtml = `
+      <div class="row"><b>PENERIMA:</b><br>${appState.buyerDetails.name} (${appState.buyerDetails.phone})<br>${appState.buyerDetails.address}</div>
+      <div class="row"><b>EKSPEDISI:</b> ${courier.name} (${weightKg} kg) - ${formatRupiah(shippingCost)}</div>
+    `;
+  }
+
+  const itemsHtml = appState.cart.map((item) => {
+    const prod = appState.products.find(p => p.id === item.productId);
+    return `<div style="font-size: 11px; margin-bottom: 2px;">• ${item.qty}x ${prod ? prod.name : 'Produk SR12'}</div>`;
+  }).join('');
+
   const labelHtml = `
     <html>
     <head>
-      <title>Label Pengiriman - ${storeName}</title>
+      <title>${title} - ${storeName}</title>
       <style>
-        body { font-family: monospace; padding: 20px; max-width: 400px; margin: 0 auto; border: 2px solid #000; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; padding: 20px; max-width: 440px; margin: 0 auto; border: 2px solid #000; }
         .head { text-align: center; border-bottom: 2px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
-        .row { margin-bottom: 8px; font-size: 13px; }
-        .barcode { text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: bold; margin: 15px 0; border: 1px solid #000; padding: 10px; }
+        .row { margin-bottom: 8px; font-size: 13px; line-height: 1.4; }
+        .barcode { text-align: center; font-size: 22px; letter-spacing: 5px; font-weight: bold; margin: 12px 0; border: 1px solid #000; padding: 8px; }
       </style>
     </head>
     <body>
       <div class="head">
-        <h3>${storeName.toUpperCase()}</h3>
-        <p>RESI PENGIRIMAN RESMI SR12</p>
+        <h3 style="margin: 0 0 4px 0;">${storeName.toUpperCase()}</h3>
+        <p style="margin: 0; font-size: 12px; font-weight: bold;">${title}</p>
       </div>
+      ${badgeHtml}
       <div class="barcode">|||||||||||||||||||||||||</div>
-      <div class="row"><b>No. Resi:</b> SR12-${Date.now().toString().slice(-8)}</div>
-      <div class="row"><b>Kurir:</b> JNE Express (Reguler)</div>
+      <div class="row"><b>No. Referensi:</b> SR12-${Date.now().toString().slice(-8)}</div>
+      <div class="row"><b>Metode:</b> ${courier.name}</div>
       <hr style="border: none; border-top: 1px dashed #000; margin: 10px 0;">
-      <div class="row"><b>PENERIMA:</b><br>${appState.buyerDetails.name} (${appState.buyerDetails.phone})<br>${appState.buyerDetails.address}</div>
+      ${destinationHtml}
       <hr style="border: none; border-top: 1px dashed #000; margin: 10px 0;">
-      <div class="row"><b>PENGIRIM:</b><br>${dName} (${dPhone})</div>
+      <div class="row"><b>PENGIRIM / DISTRIBUTOR:</b><br>${dName} (${dPhone})<br>${storeCity}</div>
+      <hr style="border: none; border-top: 1px dashed #000; margin: 10px 0;">
+      <div class="row">
+        <b>ISI PAKET (${appState.cart.reduce((sum, i) => sum + i.qty, 0)} pcs):</b>
+        ${itemsHtml}
+      </div>
+      <div class="row" style="margin-top: 8px; font-size: 12px; font-weight: bold; text-align: right;">
+        Total: ${formatRupiah(grandTotal)}
+      </div>
       <script>window.print();</script>
     </body>
     </html>
   `;
-  const printWindow = window.open('', '_blank', 'width=500,height=600');
+  const printWindow = window.open('', '_blank', 'width=520,height=650');
   printWindow.document.write(labelHtml);
   printWindow.document.close();
 }

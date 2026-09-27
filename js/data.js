@@ -515,10 +515,13 @@ const DEFAULT_MARKETING_KITS = [
   }
 ];
 
-// Ekspedisi Pengiriman
+// Ekspedisi & Metode Pengambilan / Pengiriman
 const SR12_SHIPPING_PROVIDERS = [
-  { id: 'jne', name: 'JNE Express (Reguler)', costPerKg: 12000, estDays: '2-3 hari', minKg: 1 },
-  { id: 'jnt', name: 'J&T Express (Kilat)', costPerKg: 14000, estDays: '1-2 hari', minKg: 1 },
-  { id: 'sicepat', name: 'SiCepat Halu / Reguler', costPerKg: 11000, estDays: '2-3 hari', minKg: 1 },
-  { id: 'kargo', name: 'J&T Cargo / Indah Kargo (Khusus Agen/Grosir)', costPerKg: 3500, estDays: '3-5 hari', minKg: 10 }
+  { id: 'jne', name: 'JNE Express (Reguler)', costPerKg: 12000, estDays: '2-3 hari', minKg: 1, type: 'courier' },
+  { id: 'jnt', name: 'J&T Express (Kilat)', costPerKg: 14000, estDays: '1-2 hari', minKg: 1, type: 'courier' },
+  { id: 'sicepat', name: 'SiCepat Halu / Reguler', costPerKg: 11000, estDays: '2-3 hari', minKg: 1, type: 'courier' },
+  { id: 'cod', name: '💵 COD (Bayar Tunai di Tempat saat Sampai)', costPerKg: 15000, estDays: '1-3 hari', minKg: 1, type: 'cod' },
+  { id: 'pickup', name: '🏪 Ambil Sendiri di Toko/Gudang (Bebas Ongkir - Rp 0)', costPerKg: 0, estDays: 'Bisa langsung diambil', minKg: 1, type: 'pickup' },
+  { id: 'instant', name: '⚡ Kurir Instan / Same Day (GoSend / GrabExpress)', costPerKg: 20000, estDays: '1-3 jam', minKg: 1, type: 'instant' },
+  { id: 'kargo', name: '🚛 J&T Cargo / Indah Kargo (Grosir Min. 10 kg)', costPerKg: 3500, estDays: '3-5 hari', minKg: 10, type: 'cargo' }
 ];

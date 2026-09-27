@@ -1074,15 +1074,21 @@
         </div>
       </div>
 
-      <!-- EKSPEDISI PENGIRIMAN -->
+      <!-- EKSPEDISI / METODE PENGAMBILAN & PENGIRIMAN -->
       <div style="padding: 0 16px; flex-shrink: 0 !important;">
-        <label style="font-size: 0.8rem; font-weight: 700; color: var(--dark-700); display: block; margin-bottom: 4px;">Pilihan Ekspedisi Pengiriman:</label>
-        <select id="courierSelect" style="width: 100%; padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); font-size: 0.82rem; font-family: var(--font-main);">
+        <label style="font-size: 0.8rem; font-weight: 700; color: var(--dark-700); display: block; margin-bottom: 4px;">
+          Metode Pengiriman / Pengambilan Barang:
+        </label>
+        <select id="courierSelect" style="width: 100%; padding: 9px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); font-size: 0.82rem; font-family: var(--font-main); background: #ffffff; cursor: pointer;">
           <option value="jne">JNE Express (Reguler) - Rp 12.000 / kg</option>
           <option value="jnt">J&T Express (Kilat) - Rp 14.000 / kg</option>
           <option value="sicepat">SiCepat Halu - Rp 11.000 / kg</option>
-          <option value="kargo">J&T Cargo / Indah Kargo (Khusus Agen/Grosir) - Rp 3.500 / kg</option>
+          <option value="cod">💵 COD (Bayar di Tempat saat Barang Sampai) - Rp 15.000 / kg</option>
+          <option value="pickup">🏪 Ambil Sendiri di Toko/Gudang (Bebas Ongkir - Rp 0)</option>
+          <option value="instant">⚡ Kurir Instan / Same Day (GoSend / Grab) - Rp 20.000 / kg</option>
+          <option value="kargo">🚛 J&T Cargo / Indah Kargo (Grosir Min. 10 kg) - Rp 3.500 / kg</option>
         </select>
+        <div id="courierNoticeBox" style="display: none; margin-top: 6px; padding: 7px 10px; border-radius: 6px; font-size: 0.74rem; line-height: 1.4;"></div>
       </div>
 
       <!-- Verifikasi ID Kemitraan SR12 (Hanya muncul jika bukan Konsumen Retail dan Belum Teridentifikasi) -->
@@ -2511,8 +2517,8 @@
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/supabase-config.js"></script>
-  <script src="js/data.js"></script>
-  <script src="js/app.js"></script>
-  <script src="js/olsera-suite.js"></script>
+  <script src="js/data.js?v=2.7"></script>
+  <script src="js/app.js?v=2.7"></script>
+  <script src="js/olsera-suite.js?v=2.7"></script>
 </body>
 </html>
