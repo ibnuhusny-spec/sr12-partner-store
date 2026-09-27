@@ -1,0 +1,10 @@
+{
+  "name": "sr12-partner-store",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SR12 Partner Store & Olsera POS Backoffice",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {}
+}
