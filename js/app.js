@@ -664,7 +664,7 @@ function getProductTierPrice(product, tierId) {
 }
 
 function formatRupiah(amount) {
-  return 'Rp ' + Number(amount).toLocaleString('id-ID');
+  return 'Rp\u00A0' + Number(amount || 0).toLocaleString('id-ID');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -2362,12 +2362,8 @@ function renderProducts() {
       <div class="product-card" id="card-${prod.id}">
         <div class="product-thumb-box">
           <img src="${prod.image}" alt="${prod.name}" loading="lazy" />
-          <span class="badge-official-sr12">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg>
-            Resmi SR12
-          </span>
-          <span class="badge-bpom">BPOM: ${prod.bpom}</span>
-          ${!isRetail ? `<span class="badge-discount-save">Hemat ${currentTier.discountPct}%</span>` : ''}
+          <span class="badge-bpom-clean">🌿 BPOM</span>
+          ${!isRetail ? `<span class="badge-disc-clean">-${currentTier.discountPct}%</span>` : ''}
 
           ${appState.isAdminMode ? `
             <button class="btn-quick-edit-image" title="Ubah Gambar atau Detail Produk" onclick="openEditProductModal('${prod.id}')">
@@ -2380,32 +2376,34 @@ function renderProducts() {
         <div class="product-body">
           <div class="product-category-row">
             <span class="product-cat-name">${prod.category}</span>
-            <span class="product-rating">
-              ★ ${prod.rating || '4.9'} <span style="color: var(--dark-400); font-weight: 500;">(${prod.soldCount || 100})</span>
-            </span>
+            <span class="product-rating">★ ${prod.rating || '4.9'}</span>
           </div>
 
           <h4 class="product-title" onclick="openProductDetailModal('${prod.id}')">${prod.name}</h4>
           <p class="product-summary-text">${prod.summary}</p>
 
           <div class="price-block">
-            <div class="price-het-row">
-              <span>HET Konsumen:</span>
-              <span class="${!isRetail ? 'het-strikethrough' : ''}">${formatRupiah(prod.het)}</span>
-            </div>
-            <div class="price-tier-row">
+            <div class="price-main-row">
               <span class="tier-price-val">${formatRupiah(tierPrice)}</span>
-              ${!isRetail ? `<span class="tier-profit-margin">+Profit ${formatRupiah(profitMargin)}</span>` : ''}
+              ${!isRetail ? `<span class="badge-mini-disc">-${currentTier.discountPct}%</span>` : ''}
+            </div>
+            <div class="price-sub-row">
+              ${!isRetail ? `
+                <span class="het-text">HET: <del>${formatRupiah(prod.het)}</del></span>
+                <span class="tier-profit-margin">+Profit ${formatRupiah(profitMargin)}</span>
+              ` : `
+                <span class="het-text-plain">HET Resmi</span>
+              `}
             </div>
           </div>
 
           <div class="card-actions">
             <button class="btn-add-cart" onclick="addToCart('${prod.id}')" title="Tambah ${prod.name} ke Keranjang">
-              <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
               <span class="btn-add-cart-text">Beli</span>
             </button>
             <button class="btn-detail-preview" title="Lihat Detail & Khasiat" onclick="${appState.isAdminMode ? `openEditProductModal('${prod.id}')` : `openProductDetailModal('${prod.id}')`}">
-              ${appState.isAdminMode ? '✏️ Edit' : 'ℹ️ Info'}
+              ${appState.isAdminMode ? '✏️' : '👁️'}
             </button>
           </div>
         </div>

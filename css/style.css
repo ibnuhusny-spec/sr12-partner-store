@@ -1124,74 +1124,68 @@ h1, h2, h3, h4, h5, h6 {
 .product-thumb-box {
   position: relative;
   width: 100%;
-  height: 200px;
-  background: #f1f5f9;
+  aspect-ratio: 1 / 1;
+  background: #ffffff;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .product-thumb-box img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  padding: 8px;
   transition: transform 0.4s ease;
 }
 
-.badge-official-sr12 {
+.badge-bpom-clean {
   position: absolute;
-  top: 10px;
-  left: 10px;
-  background: rgba(0, 0, 0, 0.75);
+  top: 8px;
+  left: 8px;
+  background: rgba(16, 185, 129, 0.95);
   color: #fff;
-  font-size: 0.68rem;
-  font-weight: 800;
-  padding: 3px 8px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 2px 7px;
   border-radius: var(--radius-full);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
 }
 
-.badge-bpom {
+.badge-disc-clean {
   position: absolute;
-  bottom: 10px;
-  left: 10px;
-  background: rgba(15, 23, 42, 0.75);
-  color: #fff;
-  font-size: 0.65rem;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: var(--radius-sm);
-}
-
-.badge-discount-save {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: var(--gold-500);
+  top: 8px;
+  right: 8px;
+  background: #ef4444;
   color: #fff;
   font-weight: 800;
-  font-size: 0.72rem;
-  padding: 3px 8px;
+  font-size: 0.65rem;
+  padding: 2px 7px;
   border-radius: var(--radius-full);
+  box-shadow: 0 1px 4px rgba(239, 68, 68, 0.3);
 }
 
 /* Quick Edit Button (HANYA MUNCUL DI MODE ADMIN) */
 .btn-quick-edit-image {
   position: absolute;
-  bottom: 10px;
-  right: 10px;
+  bottom: 8px;
+  right: 8px;
   background: #ffffff;
   color: var(--dark-900);
   border: 1px solid var(--border-subtle);
-  padding: 4px 10px;
+  padding: 3px 8px;
   border-radius: var(--radius-full);
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .btn-quick-edit-image:hover {
@@ -1200,7 +1194,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .product-body {
-  padding: 16px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
   flex-grow: 1;
@@ -1210,87 +1204,115 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .product-cat-name {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 700;
   color: var(--primary-700);
   text-transform: uppercase;
 }
 
 .product-rating {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
   color: var(--gold-500);
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
 }
 
 .product-title {
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: var(--dark-900);
-  margin-bottom: 6px;
-  line-height: 1.35;
+  margin-bottom: 4px;
+  line-height: 1.3;
   cursor: pointer;
 }
 
 .product-summary-text {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--dark-500);
   line-height: 1.4;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
+/* Shopee-style Price Block */
 .price-block {
-  background: var(--dark-50);
+  background: #f8fafc;
   border: 1px solid #edf2f7;
-  border-radius: var(--radius-md);
-  padding: 10px 12px;
+  border-radius: 8px;
+  padding: 6px 10px;
   margin-top: auto;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
-.price-het-row {
+.price-main-row {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.75rem;
-  color: var(--dark-500);
-  margin-bottom: 2px;
-}
-
-.het-strikethrough {
-  text-decoration: line-through;
-}
-
-.price-tier-row {
-  display: flex;
-  justify-content: space-between;
   align-items: baseline;
+  gap: 6px;
+  flex-wrap: nowrap;
+  white-space: nowrap !important;
 }
 
 .tier-price-val {
-  font-size: 1.25rem;
+  font-size: 1.05rem;
   font-weight: 800;
-  color: var(--primary-800);
+  color: #ef4444;
   font-family: var(--font-heading);
+  white-space: nowrap !important;
+  letter-spacing: -0.3px;
+}
+
+.badge-mini-disc {
+  background: #fee2e2;
+  color: #ef4444;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 4px;
+  white-space: nowrap !important;
+}
+
+.price-sub-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: #94a3b8;
+  gap: 4px;
+  margin-top: 2px;
+  white-space: nowrap !important;
+  overflow: hidden;
+}
+
+.het-text del {
+  color: #94a3b8;
+  text-decoration: line-through;
+  white-space: nowrap !important;
+}
+
+.het-text-plain {
+  color: #059669;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap !important;
 }
 
 .tier-profit-margin {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  color: var(--primary-600);
-  background: var(--primary-100);
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
+  color: #059669;
+  background: #ecfdf5;
+  padding: 1px 5px;
+  border-radius: 4px;
+  white-space: nowrap !important;
 }
 
 .card-actions {
@@ -3316,28 +3338,57 @@ h1, h2, h3, h4, h5, h6 {
     font-size: 1.1rem !important;
   }
 
-  /* 4. Katalog Produk di HP: 2 Kolom Rapi & Tombol Pill Modern */
+  /* 4. Katalog Produk di HP: Shopee Style Compact & Bersih */
   .product-grid {
     grid-template-columns: repeat(2, 1fr) !important;
-    gap: 10px !important;
+    gap: 8px !important;
   }
 
   .product-card {
-    border-radius: 14px !important;
+    border-radius: 12px !important;
+    border: 1px solid #f1f5f9 !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04) !important;
+    overflow: hidden !important;
   }
 
   .product-thumb-box {
-    height: 140px !important;
+    aspect-ratio: 1 / 1 !important;
+    height: auto !important;
+    max-height: none !important;
+    background: #ffffff !important;
+  }
+
+  .product-thumb-box img {
+    object-fit: contain !important;
+    padding: 6px !important;
   }
 
   .product-body {
-    padding: 10px !important;
+    padding: 8px 10px !important;
+  }
+
+  .product-category-row {
+    margin-bottom: 2px !important;
+  }
+
+  .product-cat-name {
+    font-size: 0.65rem !important;
+  }
+
+  .product-rating {
+    font-size: 0.68rem !important;
   }
 
   .product-title {
-    font-size: 0.88rem !important;
-    margin-bottom: 3px !important;
-    line-height: 1.25 !important;
+    font-size: 0.82rem !important;
+    line-height: 1.3 !important;
+    height: 2.6em !important;
+    overflow: hidden !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    margin-bottom: 4px !important;
+    color: #1e293b !important;
   }
 
   .product-summary-text {
@@ -3345,28 +3396,71 @@ h1, h2, h3, h4, h5, h6 {
   }
 
   .price-block {
-    padding: 5px 8px !important;
-    margin-bottom: 8px !important;
-    border-radius: 10px !important;
+    padding: 4px 6px !important;
+    margin-bottom: 6px !important;
+    border-radius: 6px !important;
+    background: #f8fafc !important;
+  }
+
+  .price-main-row {
+    gap: 4px !important;
   }
 
   .tier-price-val {
-    font-size: 1.05rem !important;
+    font-size: 0.92rem !important;
+    font-weight: 800 !important;
+    color: #ef4444 !important;
+    white-space: nowrap !important;
+    letter-spacing: -0.2px !important;
+  }
+
+  .badge-mini-disc {
+    font-size: 0.62rem !important;
+    padding: 1px 4px !important;
+    white-space: nowrap !important;
+  }
+
+  .price-sub-row {
+    font-size: 0.65rem !important;
+    margin-top: 1px !important;
+    gap: 3px !important;
+    white-space: nowrap !important;
+  }
+
+  .het-text del {
+    font-size: 0.65rem !important;
+    white-space: nowrap !important;
+  }
+
+  .het-text-plain {
+    font-size: 0.65rem !important;
+    white-space: nowrap !important;
+  }
+
+  .tier-profit-margin {
+    font-size: 0.62rem !important;
+    padding: 1px 4px !important;
+    white-space: nowrap !important;
   }
 
   .card-actions {
-    gap: 5px !important;
+    gap: 4px !important;
   }
 
   .btn-add-cart {
-    padding: 7px 10px !important;
-    font-size: 0.78rem !important;
+    padding: 6px 8px !important;
+    font-size: 0.75rem !important;
     border-radius: var(--radius-full) !important;
   }
 
+  .btn-add-cart svg {
+    width: 14px !important;
+    height: 14px !important;
+  }
+
   .btn-detail-preview {
-    padding: 7px 9px !important;
-    font-size: 0.74rem !important;
+    padding: 6px 8px !important;
+    font-size: 0.72rem !important;
     border-radius: var(--radius-full) !important;
   }
 }
