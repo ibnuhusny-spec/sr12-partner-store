@@ -2560,15 +2560,26 @@ h1, h2, h3, h4, h5, h6 {
   transform: translateY(-1px);
 }
 
+/* Pastikan portal Olsera & Dev Workspace TIDAK PERNAH bocor ke pembeli jika hidden */
+.distributor-portal-container[style*="display: none"],
+#distributorOlseraPortal[style*="display: none"],
+.dev-workspace-container[style*="display: none"],
+#devSuperAdminWorkspace[style*="display: none"] {
+  display: none !important;
+}
+
 @media (max-width: 992px) {
   .distributor-portal-container {
-    display: block !important;
     margin: 0 !important;
     padding: 0 !important;
     border-radius: 0 !important;
     border: none !important;
     box-shadow: none !important;
     background: #f8fafc !important;
+  }
+
+  .distributor-portal-container:not([style*="display: none"]) {
+    display: block !important;
   }
 
   .olsera-sidebar {
@@ -3474,4 +3485,222 @@ h1, h2, h3, h4, h5, h6 {
   pointer-events: none !important;
   z-index: 100005 !important;
 }
+
+/* ========================================================
+   HARMONIZED BUTTON DESIGN SYSTEM (ADMIN & DEVELOPER SUITE)
+   Menyelaraskan semua tombol agar rapi, modern (pill), kompak, tidak kaku/raksasa
+   ======================================================== */
+.btn-dev-switch-storefront,
+.btn-dev-logout,
+.btn-dev-simulation,
+.btn-dev-strip-primary,
+.btn-dev-strip-green,
+.btn-dev-strip-danger,
+.btn-dev-pill-primary,
+.btn-dev-pill-danger,
+.btn-dev-action-pill,
+.olsera-app-navbar .btn-switch-storefront,
+.olsera-app-navbar .btn-logout,
+.olsera-app-navbar .btn-topbar-link,
+.olsera-app-navbar .btn-quota-topup,
+.olsera-sidebar-footer button,
+.pos-action-btns button,
+.pos-register-panel button,
+.olsera-page-header button,
+.dev-workspace-container button,
+.dev-tab-btn,
+.btn-admin-pill,
+.admin-mode-actions button,
+.modal-footer button,
+.modal-body button:not(.btn-quick-edit-image) {
+  border-radius: var(--radius-full) !important;
+  font-family: var(--font-main) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.1px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* Tombol Simulasi Split Payment (tidak lagi raksasa) */
+.btn-dev-simulation {
+  background: linear-gradient(135deg, #0284c7, #0369a1) !important;
+  color: #fff !important;
+  border: 1px solid #38bdf8 !important;
+  padding: 8px 18px !important;
+  border-radius: var(--radius-full) !important;
+  font-weight: 700 !important;
+  font-size: 0.8rem !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  width: auto !important;
+  max-width: 100% !important;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3) !important;
+}
+
+.btn-dev-simulation:hover {
+  background: #0284c7 !important;
+  transform: translateY(-1px);
+}
+
+/* ========================================================
+   RESPONSIVE MOBILE STYLES: ADMIN & DEVELOPER BUTTON HARMONY
+   ======================================================== */
+@media (max-width: 768px) {
+  /* 1. Header Olsera POS di HP */
+  .olsera-app-navbar {
+    padding: 8px 12px !important;
+    gap: 6px !important;
+  }
+
+  .olsera-app-navbar .brand-text-name {
+    font-size: 0.82rem !important;
+  }
+
+  .olsera-app-navbar .brand-sub {
+    font-size: 0.65rem !important;
+  }
+
+  .olsera-app-navbar .tools-section,
+  .olsera-app-navbar .actions-section {
+    gap: 4px !important;
+  }
+
+  .olsera-app-navbar .btn-topbar-link,
+  .olsera-app-navbar .btn-switch-storefront,
+  .olsera-app-navbar .btn-logout {
+    padding: 5px 9px !important;
+    font-size: 0.72rem !important;
+    border-radius: var(--radius-full) !important;
+  }
+
+  .olsera-app-navbar .quota-chip {
+    padding: 3px 8px !important;
+    font-size: 0.66rem !important;
+    gap: 4px !important;
+  }
+
+  .olsera-app-navbar .btn-quota-topup {
+    padding: 2px 6px !important;
+    font-size: 0.64rem !important;
+  }
+
+  /* 2. Tombol Navigasi Footer Drawer Sidebar Olsera */
+  .olsera-sidebar-footer {
+    padding: 10px 14px !important;
+  }
+
+  .olsera-sidebar-footer button {
+    padding: 8px 12px !important;
+    font-size: 0.78rem !important;
+    border-radius: var(--radius-full) !important;
+    margin-bottom: 6px !important;
+  }
+
+  /* 3. Olsera Page Headers & Action Buttons */
+  .olsera-page-header {
+    gap: 8px !important;
+    margin-bottom: 12px !important;
+    padding-bottom: 10px !important;
+  }
+
+  .olsera-page-title {
+    font-size: 1.05rem !important;
+  }
+
+  .olsera-page-header button,
+  .olsera-main-content button:not(.chip-btn) {
+    padding: 6px 12px !important;
+    font-size: 0.76rem !important;
+    border-radius: var(--radius-full) !important;
+  }
+
+  /* 4. POS Register/Checkout Buttons di HP */
+  .pos-action-btns {
+    gap: 6px !important;
+    margin-top: 10px !important;
+  }
+
+  .pos-action-btns button {
+    padding: 8px 10px !important;
+    font-size: 0.76rem !important;
+    border-radius: var(--radius-full) !important;
+  }
+
+  .pos-register-panel button[onclick*="whatsapp"] {
+    padding: 8px 12px !important;
+    font-size: 0.78rem !important;
+    border-radius: var(--radius-full) !important;
+    margin-top: 6px !important;
+  }
+
+  /* 5. Developer Workspace Tabs & Buttons di HP */
+  .dev-tabs-bar {
+    gap: 4px !important;
+    padding-bottom: 6px !important;
+  }
+
+  .dev-tab-btn {
+    padding: 5px 10px !important;
+    font-size: 0.72rem !important;
+    border-radius: var(--radius-full) !important;
+  }
+
+  .dev-workspace-container button {
+    padding: 6px 12px !important;
+    font-size: 0.75rem !important;
+    border-radius: var(--radius-full) !important;
+  }
+
+  .dev-workspace-container {
+    padding: 10px 8px !important;
+  }
+
+  /* 6. Admin Mode Banner di HP (Pill Horizontal Scroll Halus) */
+  .admin-mode-banner {
+    padding: 8px 12px !important;
+    gap: 6px !important;
+  }
+
+  .admin-mode-actions {
+    display: flex !important;
+    overflow-x: auto !important;
+    gap: 5px !important;
+    padding: 3px 0 !important;
+    scrollbar-width: none !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .admin-mode-actions::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .btn-admin-pill {
+    padding: 4px 10px !important;
+    font-size: 0.7rem !important;
+    border-radius: var(--radius-full) !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* 7. Modal Action Buttons di HP */
+  .modal-dialog {
+    border-radius: 14px !important;
+    margin: 8px auto !important;
+  }
+
+  .modal-footer {
+    padding: 10px 14px !important;
+    gap: 6px !important;
+  }
+
+  .modal-footer button,
+  .modal-body button[type="submit"] {
+    padding: 7px 14px !important;
+    font-size: 0.78rem !important;
+    border-radius: var(--radius-full) !important;
+  }
+}
+
 

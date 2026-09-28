@@ -364,10 +364,10 @@
 
       <!-- Sidebar Footer -->
       <div class="olsera-sidebar-footer">
-        <button type="button" onclick="showDistributorPortalView(false)" style="width: 100%; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 9px; border-radius: 8px; font-weight: 700; font-size: 0.8rem; cursor: pointer; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+        <button type="button" onclick="showDistributorPortalView(false)" style="width: 100%; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 8px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 6px;">
           <span>🌐</span> Lihat Toko Online
         </button>
-        <button type="button" onclick="handleDistributorLogout()" style="width: 100%; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 9px; border-radius: 8px; font-weight: 700; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+        <button type="button" onclick="handleDistributorLogout()" style="width: 100%; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 8px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
           <span>🚪</span> Logout Distributor
         </button>
       </div>
@@ -480,14 +480,14 @@
 
             <!-- Action Buttons -->
             <div class="pos-action-btns">
-              <button type="button" onclick="processPosCheckout('save')" style="background: #0284c7; color: #ffffff; border: none; padding: 11px; border-radius: 8px; font-weight: 800; font-size: 0.85rem; cursor: pointer;">
+              <button type="button" onclick="processPosCheckout('save')" style="background: #0284c7; color: #ffffff; border: 1px solid #38bdf8; padding: 8px 12px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
                 💾 Simpan Order
               </button>
-              <button type="button" onclick="processPosCheckout('print')" style="background: #0f172a; color: #ffffff; border: none; padding: 11px; border-radius: 8px; font-weight: 800; font-size: 0.85rem; cursor: pointer;">
+              <button type="button" onclick="processPosCheckout('print')" style="background: #0f172a; color: #ffffff; border: 1px solid #334155; padding: 8px 12px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
                 🧾 Cetak Struk
               </button>
             </div>
-            <button type="button" onclick="processPosCheckout('whatsapp')" style="width: 100%; margin-top: 8px; background: #25d366; color: #ffffff; border: none; padding: 10px; border-radius: 8px; font-weight: 800; font-size: 0.82rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <button type="button" onclick="processPosCheckout('whatsapp')" style="width: 100%; margin-top: 8px; background: #25d366; color: #ffffff; border: none; padding: 8px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 8px rgba(37, 211, 102, 0.3);">
               <span>📲</span> Kirim Struk via WhatsApp
             </button>
           </div>
@@ -556,7 +556,7 @@
             <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.84rem;">Atur stok fisik gudang distributor, perbarui harga, dan tambahkan produk baru langsung terhubung ke Supabase Storage.</p>
           </div>
           <div style="display: flex; gap: 8px;">
-            <button onclick="openAddProductModal()" style="background: #10b981; color: #fff; border: none; padding: 9px 16px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+            <button onclick="openAddProductModal()" style="background: #10b981; color: #fff; border: 1px solid #34d399; padding: 7px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
               <span>+</span> Tambah Produk Baru
             </button>
           </div>
@@ -612,13 +612,13 @@
             <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.84rem;">Catat arus kas harian: kulakan ke PT SR12 Pusat, biaya operasional lakban/packing, dan penerimaan penjualan.</p>
           </div>
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button onclick="openAddCashflowModal('in')" style="background: #10b981; color: #fff; border: none; padding: 9px 14px; border-radius: 8px; font-weight: 700; font-size: 0.82rem; cursor: pointer;">
+            <button onclick="openAddCashflowModal('in')" style="background: #10b981; color: #fff; border: 1px solid #34d399; padding: 6px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
               + Catat Kas Masuk
             </button>
-            <button onclick="openAddCashflowModal('out')" style="background: #ef4444; color: #fff; border: none; padding: 9px 14px; border-radius: 8px; font-weight: 700; font-size: 0.82rem; cursor: pointer;">
+            <button onclick="openAddCashflowModal('out')" style="background: #ef4444; color: #fff; border: 1px solid #f87171; padding: 6px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
               - Catat Kas Keluar
             </button>
-            <button onclick="clearAllCashflow()" style="background: #fff; color: #ef4444; border: 1px solid #fca5a5; padding: 9px 14px; border-radius: 8px; font-weight: 700; font-size: 0.82rem; cursor: pointer;" title="Kosongkan seluruh catatan kas">
+            <button onclick="clearAllCashflow()" style="background: #fff; color: #ef4444; border: 1px solid #fca5a5; padding: 6px 12px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.76rem; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Kosongkan seluruh catatan kas">
               🗑️ Hapus Data Kas
             </button>
           </div>
@@ -666,7 +666,7 @@
             <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.84rem;">Analisis performa bisnis distributor, ranking produk terlaris SR12, dan ekspor laporan ke Excel.</p>
           </div>
           <div style="display: flex; gap: 8px;">
-            <button onclick="exportReportsToCSV()" style="background: #047857; color: #fff; border: none; padding: 9px 16px; border-radius: 8px; font-weight: 700; font-size: 0.82rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+            <button onclick="exportReportsToCSV()" style="background: #047857; color: #fff; border: 1px solid #10b981; padding: 7px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
               <span>📥</span> Download Excel / CSV
             </button>
           </div>
@@ -826,7 +826,7 @@
             </div>
 
             <div style="margin-top: 20px; display: flex; justify-content: flex-end;">
-              <button type="submit" style="background: #0284c7; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 800; font-size: 0.85rem; cursor: pointer;">
+              <button type="submit" style="background: #0284c7; color: #fff; border: 1px solid #38bdf8; padding: 8px 18px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.8rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3);">
                 💾 Simpan Pengaturan Toko
               </button>
             </div>
@@ -904,10 +904,10 @@
           <span id="currentMasterPinDisplay_ws" style="font-family: monospace; font-size: 1.15rem; color: #38bdf8; font-weight: 800;">8899 (Aktif)</span>
         </div>
         <div style="display: flex; gap: 8px;">
-          <button onclick="resetAllDummyDataToZero()" style="background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5; padding: 8px 14px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; cursor: pointer;">
+          <button onclick="resetAllDummyDataToZero()" style="background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5; padding: 6px 14px; border-radius: var(--radius-full); font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
             🔄 Nol-kan Data Dummy
           </button>
-          <button onclick="changeDevMasterPin()" style="background: #0284c7; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; font-size: 0.82rem; font-weight: 700; cursor: pointer;">
+          <button onclick="changeDevMasterPin()" style="background: #0284c7; color: #fff; border: 1px solid #38bdf8; padding: 6px 14px; border-radius: var(--radius-full); font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
             🔑 Ganti Master PIN
           </button>
         </div>
@@ -958,9 +958,11 @@
         </div>
       </div>
 
-      <button style="width: 100%; background: #0284c7; color: #fff; border: none; padding: 13px; border-radius: 8px; font-weight: 800; font-size: 0.9rem; cursor: pointer;" onclick="alert('✅ Simulasi Split-Payment Berhasil!\n\n1 Transaksi baru masuk: Rp 101.000.\n➔ Rp 1.000 langsung masuk mutasi rekening BCA Developer Anda.\n➔ Rp 100.000 langsung diteruskan ke rekening Toko SR12.\n\nTidak ada transfer manual!')">
-        Simulasikan Uji Coba Auto-Split Payment (Midtrans Webhook Test)
-      </button>
+      <div style="display: flex; justify-content: center; margin-top: 14px;">
+        <button class="btn-dev-simulation" onclick="alert('✅ Simulasi Split-Payment Berhasil!\n\n1 Transaksi baru masuk: Rp 101.000.\n➔ Rp 1.000 langsung masuk mutasi rekening BCA Developer Anda.\n➔ Rp 100.000 langsung diteruskan ke rekening Toko SR12.\n\nTidak ada transfer manual!')">
+          <span>⚡</span> Simulasikan Uji Coba Auto-Split Payment (Midtrans Webhook)
+        </button>
+      </div>
     </div>
 
     <!-- 2. TAB PANE: JARINGAN TOKO MITRA WORKSPACE -->
@@ -1100,7 +1102,7 @@
           </div>
           <div style="grid-column: span 2; display: flex; justify-content: space-between; align-items: center; margin-top: 6px; flex-wrap: wrap; gap: 8px;">
             <span style="font-size: 0.72rem; color: #94a3b8;">*Nomor rekening ini akan tampil otomatis kepada distributor saat mereka top-up kuota.</span>
-            <button type="submit" style="background: #0284c7; color: #fff; border: none; padding: 9px 18px; border-radius: 6px; font-weight: 700; font-size: 0.85rem; cursor: pointer;">
+            <button type="submit" style="background: #0284c7; color: #fff; border: 1px solid #38bdf8; padding: 7px 16px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3);">
               💾 Simpan Rekening Developer
             </button>
           </div>

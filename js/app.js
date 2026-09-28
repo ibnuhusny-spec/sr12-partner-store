@@ -764,6 +764,13 @@ document.addEventListener('DOMContentLoaded', () => {
       if (devFab) devFab.style.display = 'flex';
     }
   } catch(e) {}
+
+  // Pastikan untuk pembeli (bukan distributor / dev login), portal kasir selalu tertutup rapat
+  if (!appState.isAdminMode && !appState.isDevMasterLoggedIn) {
+    if (typeof showDistributorPortalView === 'function') {
+      showDistributorPortalView(false);
+    }
+  }
 });
 
 function loadStoreBySlug(slug) {
