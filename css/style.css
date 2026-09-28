@@ -204,19 +204,19 @@ h1, h2, h3, h4, h5, h6 {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.18);
   color: #e2e8f0;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 0.74rem;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
 }
 
 .btn-topbar-action:hover {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.18);
   color: #fff;
 }
 
@@ -224,13 +224,16 @@ h1, h2, h3, h4, h5, h6 {
   background: linear-gradient(135deg, #059669, #10b981);
   border: none;
   color: #fff;
-  padding: 4px 12px;
-  border-radius: 6px;
+  padding: 5px 14px;
+  border-radius: var(--radius-full);
   font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
   transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .btn-topbar-primary:hover {
@@ -242,9 +245,9 @@ h1, h2, h3, h4, h5, h6 {
   background: #0f172a;
   border: 1px solid #0284c7;
   color: #38bdf8;
-  padding: 4px 11px;
+  padding: 5px 12px;
   border-radius: var(--radius-full);
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
   display: inline-flex;
@@ -270,14 +273,19 @@ h1, h2, h3, h4, h5, h6 {
   overflow-x: auto;
   padding-bottom: 8px;
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.dev-tabs-bar::-webkit-scrollbar {
+  display: none;
 }
 
 .dev-tab-btn {
   background: #1e293b;
   color: #94a3b8;
   border: 1px solid #334155;
-  padding: 7px 14px;
-  border-radius: 6px;
+  padding: 7px 16px;
+  border-radius: var(--radius-full);
   font-size: 0.8rem;
   font-weight: 700;
   cursor: pointer;
@@ -294,10 +302,76 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .dev-tab-btn.active {
-  background: #0284c7;
+  background: linear-gradient(135deg, #0284c7, #0369a1);
   color: #ffffff;
   border-color: #38bdf8;
-  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4);
+  box-shadow: 0 2px 10px rgba(2, 132, 199, 0.4);
+}
+
+/* Modern Dev Pill Buttons */
+.btn-dev-pill-danger {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+}
+
+.btn-dev-pill-danger:hover {
+  background: #ef4444;
+  color: #fff;
+}
+
+.btn-dev-pill-primary {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  border: 1px solid #38bdf8;
+  color: #ffffff;
+  padding: 6px 16px;
+  border-radius: var(--radius-full);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3);
+  transition: all 0.2s ease;
+}
+
+.btn-dev-pill-primary:hover {
+  background: #0284c7;
+  transform: translateY(-1px);
+}
+
+.btn-dev-action-pill {
+  width: 100%;
+  margin-top: 14px;
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #fff;
+  border: 1px solid #38bdf8;
+  padding: 10px 18px;
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-dev-action-pill:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(2, 132, 199, 0.45);
 }
 
 /* ========================================================
@@ -735,7 +809,7 @@ h1, h2, h3, h4, h5, h6 {
   color: #fff;
   border: none;
   padding: 8px 16px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-full);
   font-weight: 700;
   font-size: 0.88rem;
   cursor: pointer;
@@ -743,11 +817,12 @@ h1, h2, h3, h4, h5, h6 {
   align-items: center;
   gap: 8px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
-  transition: transform 0.2s;
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .btn-cart-bubble:hover {
   transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(6, 78, 59, 0.3);
 }
 
 .cart-count-badge {
@@ -1225,11 +1300,11 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .btn-add-cart {
-  background: var(--primary-700);
+  background: linear-gradient(135deg, var(--primary-700), var(--primary-800));
   color: #fff;
   border: none;
-  padding: 9px 14px;
-  border-radius: var(--radius-md);
+  padding: 8px 14px;
+  border-radius: var(--radius-full);
   font-weight: 700;
   font-size: 0.85rem;
   cursor: pointer;
@@ -1237,21 +1312,34 @@ h1, h2, h3, h4, h5, h6 {
   align-items: center;
   justify-content: center;
   gap: 6px;
+  box-shadow: 0 2px 8px rgba(6, 78, 59, 0.2);
+  transition: all 0.2s ease;
 }
 
 .btn-add-cart:hover {
   background: var(--primary-800);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(6, 78, 59, 0.3);
 }
 
 .btn-detail-preview {
-  background: var(--dark-100);
+  background: var(--dark-50);
   color: var(--dark-700);
   border: 1px solid var(--border-subtle);
-  padding: 9px 12px;
-  border-radius: var(--radius-md);
-  font-weight: 600;
-  font-size: 0.85rem;
+  padding: 8px 14px;
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  font-size: 0.82rem;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.btn-detail-preview:hover {
+  background: var(--dark-100);
+  color: var(--dark-900);
 }
 
 /* ========================================================
@@ -1753,14 +1841,23 @@ h1, h2, h3, h4, h5, h6 {
 .dev-m-card {
   background: #1e293b;
   border: 1px solid #334155;
-  border-radius: var(--radius-sm);
-  padding: 12px;
+  border-radius: 14px;
+  padding: 12px 14px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dev-m-card:hover {
+  transform: translateY(-2px);
 }
 
 .dev-m-label {
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   color: #94a3b8;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 4px;
 }
 
 .dev-m-val {
@@ -3005,5 +3102,282 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 1.4rem;
   font-weight: 800;
   color: #0f172a;
+}
+
+/* ========================================================
+   MOBILE APP MODERNIZATION (CLEAN SYMBOLS, NO HEAVY BOXES)
+   ======================================================== */
+@media (max-width: 768px) {
+  /* 1. Header & Cart: Simbol Keranjang Bulat Modern Tanpa Teks */
+  .site-header {
+    padding: 8px 14px !important;
+  }
+
+  .header-inner {
+    gap: 8px !important;
+  }
+
+  .brand-logo-badge {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  .brand-text h1 {
+    font-size: 0.95rem !important;
+  }
+
+  .brand-text p {
+    display: none !important;
+  }
+
+  .header-actions {
+    gap: 6px !important;
+  }
+
+  /* Hilangkan tulisan "Keranjang" di HP, cukup simbol keranjang bulat */
+  .btn-cart-text {
+    display: none !important;
+  }
+
+  .btn-cart-bubble {
+    width: 42px !important;
+    height: 42px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: 0 4px 12px rgba(6, 78, 59, 0.25) !important;
+    position: relative !important;
+    flex-shrink: 0 !important;
+  }
+
+  .cart-count-badge {
+    position: absolute !important;
+    top: -2px !important;
+    right: -2px !important;
+    min-width: 18px !important;
+    height: 18px !important;
+    font-size: 0.65rem !important;
+    border: 2px solid #ffffff !important;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2) !important;
+  }
+
+  /* Hilangkan teks poin yang kepanjangan */
+  .header-points-text {
+    display: none !important;
+  }
+
+  .header-points-chip {
+    padding: 4px 8px !important;
+    font-size: 0.72rem !important;
+  }
+
+  /* Tombol login distributor jadi ikon bersih bulat */
+  .btn-login-text {
+    display: none !important;
+  }
+
+  #btnDistributorLogin {
+    width: 38px !important;
+    height: 38px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 0.95rem !important;
+  }
+
+  /* Tombol notifikasi pesanan masuk jadi ikon bulat */
+  .btn-notif-text {
+    display: none !important;
+  }
+
+  #btnAdminOrderNotif {
+    width: 38px !important;
+    height: 38px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    position: relative !important;
+  }
+
+  #adminPendingOrderCountBadge {
+    position: absolute !important;
+    top: -2px !important;
+    right: -2px !important;
+    min-width: 18px !important;
+    height: 18px !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border: 2px solid #fff !important;
+  }
+
+  /* Selector tier harga ramping */
+  .header-tier-box .tier-label {
+    display: none !important;
+  }
+
+  .header-tier-box {
+    padding: 3px 8px !important;
+    border-radius: var(--radius-full) !important;
+  }
+
+  .tier-select {
+    font-size: 0.75rem !important;
+    padding: 3px 6px !important;
+    border: none !important;
+    background: transparent !important;
+  }
+
+  /* 2. Platform Topbar Ramping di HP */
+  .platform-topbar {
+    padding: 6px 10px !important;
+  }
+
+  .platform-topbar-inner {
+    gap: 6px !important;
+  }
+
+  .platform-brand span:not(.platform-badge) {
+    display: none !important;
+  }
+
+  .active-store-chip span:first-child {
+    display: none !important;
+  }
+
+  .topbar-btn-text {
+    display: none !important;
+  }
+
+  .btn-topbar-olsera,
+  .btn-topbar-action,
+  .btn-topbar-primary,
+  .btn-topbar-dev {
+    width: 34px !important;
+    height: 34px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 0.95rem !important;
+    flex-shrink: 0 !important;
+    gap: 0 !important;
+  }
+
+  /* 3. Developer Portal Modal di HP (Tab Bersih & Kartu Halus) */
+  #modalDevPortal .modal-dialog {
+    margin: 8px !important;
+    max-height: calc(100vh - 16px) !important;
+    border-radius: 16px !important;
+  }
+
+  #modalDevPortal .modal-header {
+    padding: 12px 14px !important;
+  }
+
+  #modalDevPortal .modal-body {
+    padding: 14px 12px !important;
+  }
+
+  .dev-tabs-bar {
+    gap: 6px !important;
+    padding-bottom: 6px !important;
+  }
+
+  .dev-tab-btn {
+    padding: 6px 12px !important;
+    font-size: 0.76rem !important;
+    border-radius: var(--radius-full) !important;
+  }
+
+  .dev-metric-cards {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  .dev-m-card {
+    padding: 10px 12px !important;
+    border-radius: 12px !important;
+  }
+
+  .dev-m-label {
+    font-size: 0.68rem !important;
+  }
+
+  .dev-m-val {
+    font-size: 1.1rem !important;
+  }
+
+  /* 4. Katalog Produk di HP: 2 Kolom Rapi & Tombol Pill Modern */
+  .product-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .product-card {
+    border-radius: 14px !important;
+  }
+
+  .product-thumb-box {
+    height: 140px !important;
+  }
+
+  .product-body {
+    padding: 10px !important;
+  }
+
+  .product-title {
+    font-size: 0.88rem !important;
+    margin-bottom: 3px !important;
+    line-height: 1.25 !important;
+  }
+
+  .product-summary-text {
+    display: none !important;
+  }
+
+  .price-block {
+    padding: 5px 8px !important;
+    margin-bottom: 8px !important;
+    border-radius: 10px !important;
+  }
+
+  .tier-price-val {
+    font-size: 1.05rem !important;
+  }
+
+  .card-actions {
+    gap: 5px !important;
+  }
+
+  .btn-add-cart {
+    padding: 7px 10px !important;
+    font-size: 0.78rem !important;
+    border-radius: var(--radius-full) !important;
+  }
+
+  .btn-detail-preview {
+    padding: 7px 9px !important;
+    font-size: 0.74rem !important;
+    border-radius: var(--radius-full) !important;
+  }
+}
+
+/* Floating Toast Halus di Mobile */
+#globalToast {
+  bottom: 20px !important;
+  font-size: 0.78rem !important;
+  padding: 8px 16px !important;
+  border-radius: 9999px !important;
+  pointer-events: none !important;
+  z-index: 100005 !important;
 }
 
