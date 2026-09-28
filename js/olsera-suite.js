@@ -133,6 +133,8 @@ function showDistributorPortalView(showPortal) {
     // -------------------------------------------------------------
     if (portal) portal.style.display = 'none';
     if (olseraNav) olseraNav.style.display = 'none';
+    const bBar = document.getElementById('posMobileBottomBar');
+    if (bBar) bBar.style.display = 'none';
 
     if (storefront) storefront.style.display = 'block';
     if (siteHeader) siteHeader.style.display = 'block';
@@ -364,6 +366,11 @@ function switchOlseraTab(tabId) {
   const targetView = document.getElementById(`olseraView${tabId.charAt(0).toUpperCase() + tabId.slice(1)}`);
   if (targetView) targetView.style.display = 'block';
 
+  const bBar = document.getElementById('posMobileBottomBar');
+  if (bBar && tabId !== 'pos') {
+    bBar.style.display = 'none';
+  }
+
   // Render content according to tab
   switch (tabId) {
     case 'pos':
@@ -424,14 +431,22 @@ function renderPosProducts(category = 'all', query = '') {
     const het = Number(prod.het || prod.price || prod.het_price) || 0;
     const netto = prod.netto || (prod.weightGram ? prod.weightGram + 'g' : 'Original');
     const priceText = typeof formatRupiah === 'function' ? formatRupiah(het) : ('Rp\u00A0' + het.toLocaleString('id-ID'));
+    const inCart = (appState.posCart || []).find(i => i.productId === prod.id);
+    const inCartQty = inCart ? inCart.qty : 0;
+
     return `
-      <div class="pos-product-card" onclick="addPosCartItem('${prod.id}')">
-        <img class="pos-product-thumb" src="${thumb}" alt="${prod.name}" onerror="this.src='assets/hero-banner.jpg'">
+      <div class="pos-product-card ${inCartQty > 0 ? 'in-cart' : ''}" onclick="addPosCartItem('${prod.id}')" title="Klik untuk tambah ${prod.name} ke kasir">
+        <div class="pos-product-thumb-box">
+          <img class="pos-product-thumb" src="${thumb}" alt="${prod.name}" onerror="this.src='assets/hero-banner.jpg'">
+          ${inCartQty > 0 ? `<span class="pos-badge-qty-floating">✓ ${inCartQty}</span>` : ''}
+        </div>
         <div class="pos-product-name">${prod.name}</div>
         <div class="pos-product-netto">Netto: ${netto}</div>
         <div class="pos-product-price">
-          <span>${priceText}</span>
-          <span class="pos-btn-kasir-pill">+ Kasir</span>
+          <span class="pos-price-val">${priceText}</span>
+          <button type="button" class="pos-btn-kasir-pill ${inCartQty > 0 ? 'active' : ''}" onclick="event.stopPropagation(); addPosCartItem('${prod.id}')" title="Tambah ke Kasir">
+            ${inCartQty > 0 ? `✓ ${inCartQty}` : `+ 🛒`}
+          </button>
         </div>
       </div>
     `;
@@ -462,8 +477,10 @@ function addPosCartItem(productId) {
   if (!prod) return;
 
   const existing = (appState.posCart || []).find(item => item.productId === productId);
+  let currentQty = 1;
   if (existing) {
     existing.qty += 1;
+    currentQty = existing.qty;
   } else {
     if (!appState.posCart) appState.posCart = [];
     appState.posCart.push({
@@ -476,6 +493,12 @@ function addPosCartItem(productId) {
   }
 
   renderPosCart();
+  renderPosProducts();
+
+  const totalQty = (appState.posCart || []).reduce((acc, it) => acc + it.qty, 0);
+  if (typeof showToast === 'function') {
+    showToast(`🛒 "${prod.name}" (${currentQty} pcs) masuk kasir! Total: ${totalQty} item`);
+  }
 }
 
 function updatePosCartQty(productId, delta) {
@@ -489,22 +512,30 @@ function updatePosCartQty(productId, delta) {
   }
 
   renderPosCart();
+  renderPosProducts();
 }
 
 function removePosCartItem(productId) {
   if (typeof appState === 'undefined' || !appState.posCart) return;
   appState.posCart = appState.posCart.filter(i => i.productId !== productId);
   renderPosCart();
+  renderPosProducts();
 }
 
 function clearPosCart() {
   if (typeof appState !== 'undefined') {
     appState.posCart = [];
     renderPosCart();
+    renderPosProducts();
     const cInput = document.getElementById('posCashTendered');
     if (cInput) cInput.value = '';
     const chVal = document.getElementById('posChangeVal');
     if (chVal) chVal.textContent = 'Rp 0';
+    const bBar = document.getElementById('posMobileBottomBar');
+    if (bBar) bBar.style.display = 'none';
+    if (typeof showToast === 'function') {
+      showToast('🗑️ Keranjang kasir telah dikosongkan.');
+    }
   }
 }
 
@@ -548,6 +579,8 @@ function renderPosCart() {
     if (discountValEl) discountValEl.textContent = '- Rp 0';
     if (grandTotalEl) grandTotalEl.textContent = 'Rp 0';
     calculatePosChange();
+    const bBar = document.getElementById('posMobileBottomBar');
+    if (bBar) bBar.style.display = 'none';
     return;
   }
 
@@ -607,6 +640,17 @@ function renderPosCart() {
   if (grandTotalEl) grandTotalEl.textContent = `Rp ${grandTotal.toLocaleString('id-ID')}`;
 
   calculatePosChange();
+
+  // Floating Mobile Bottom Cart Bar for POS
+  const bBar = document.getElementById('posMobileBottomBar');
+  if (bBar) {
+    bBar.style.display = 'flex';
+    const totalQty = cart.reduce((acc, it) => acc + it.qty, 0);
+    const qtyEl = document.getElementById('posBottomBarQty');
+    const totEl = document.getElementById('posBottomBarTotal');
+    if (qtyEl) qtyEl.innerHTML = `🛒 <b>${totalQty} item</b>`;
+    if (totEl) totEl.textContent = `Rp ${grandTotal.toLocaleString('id-ID')}`;
+  }
 }
 
 function togglePosCashInput(isCash) {
@@ -1817,4 +1861,12 @@ window.handleOlseraLogoUrlInput = handleOlseraLogoUrlInput;
 window.resetOlseraLogoToDefault = resetOlseraLogoToDefault;
 window.updateOlseraSettingsLogoPreview = updateOlseraSettingsLogoPreview;
 window.autoTrimAndCenterImage = autoTrimAndCenterImage;
+window.scrollPosToCheckout = function() {
+  const panel = document.querySelector('.pos-register-panel');
+  if (panel) {
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const nameInput = document.getElementById('posCustomerName');
+    if (nameInput) setTimeout(() => nameInput.focus(), 400);
+  }
+};
 
