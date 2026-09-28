@@ -423,14 +423,15 @@ function renderPosProducts(category = 'all', query = '') {
     const thumb = prod.image || 'assets/hero-banner.jpg';
     const het = Number(prod.het || prod.price || prod.het_price) || 0;
     const netto = prod.netto || (prod.weightGram ? prod.weightGram + 'g' : 'Original');
+    const priceText = typeof formatRupiah === 'function' ? formatRupiah(het) : ('Rp\u00A0' + het.toLocaleString('id-ID'));
     return `
       <div class="pos-product-card" onclick="addPosCartItem('${prod.id}')">
         <img class="pos-product-thumb" src="${thumb}" alt="${prod.name}" onerror="this.src='assets/hero-banner.jpg'">
         <div class="pos-product-name">${prod.name}</div>
         <div class="pos-product-netto">Netto: ${netto}</div>
         <div class="pos-product-price">
-          <span>Rp ${het.toLocaleString('id-ID')}</span>
-          <span style="background: #e0f2fe; color: #0284c7; font-size: 0.72rem; padding: 2px 6px; border-radius: 4px;">+ Kasir</span>
+          <span>${priceText}</span>
+          <span class="pos-btn-kasir-pill">+ Kasir</span>
         </div>
       </div>
     `;
