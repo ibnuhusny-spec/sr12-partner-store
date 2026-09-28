@@ -181,7 +181,7 @@ function updateOlseraHeaderMeta() {
   if (topbarOwnerEl) topbarOwnerEl.textContent = `${sOwner} • Distributor Resmi SR12`;
   if (topbarQuotaEl) {
     const q = (appState && typeof appState.storeSettings?.orderQuota !== 'undefined') ? appState.storeSettings.orderQuota : 15;
-    topbarQuotaEl.textContent = `${q} Order`;
+    topbarQuotaEl.textContent = `${q}`;
   }
 
   // Update logo di sidebar & topbar dengan logo resmi tanpa kotak (sesuai gaya Olsera)

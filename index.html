@@ -192,42 +192,51 @@
   <header id="olseraAppNavbar" class="olsera-app-navbar" style="display: none;">
     <div class="brand-section">
       <button type="button" class="btn-olsera-drawer-toggle" id="btnOlseraDrawerToggle" onclick="toggleOlseraSidebarDrawer()" aria-label="Buka Menu Olsera" title="Buka Menu Olsera (Drawer Kiri)">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
       <div class="brand-logo" id="olseraTopbarLogo">
-        <span style="font-size: 1.4rem;">🌿</span>
+        <span style="font-size: 1.3rem;">🌿</span>
       </div>
-      <div>
+      <div class="brand-meta-container">
         <div class="brand-text-name">
           <span id="olseraTopbarStoreName">Alzam Agency</span>
-          <span class="brand-badge">Olsera POS</span>
+          <span class="brand-badge desktop-only-badge">Olsera POS</span>
         </div>
-        <div class="brand-sub" id="olseraTopbarOwnerName">Nurlinda Sari &bull; Distributor Resmi SR12</div>
+        <div class="brand-sub desktop-only-sub" id="olseraTopbarOwnerName">Nurlinda Sari &bull; Distributor Resmi SR12</div>
       </div>
     </div>
 
     <div class="tools-section">
-      <button type="button" class="btn-topbar-link" onclick="openAdminOrdersModal()" style="background: #fffbeb; color: #92400e; border: 1px solid #fde68a;" title="Monitor Pesanan Masuk">
-        <span>🔔</span> Pesanan Masuk <b id="olseraTopbarOrderBadge" style="background: #ef4444; color: #fff; padding: 1px 6px; border-radius: 999px; font-size: 0.72rem; margin-left: 4px;">0</b>
+      <!-- 1. Pesan Masuk: Icon Amplop Bersih dengan Badge Counter -->
+      <button type="button" class="btn-topbar-icon" onclick="openAdminOrdersModal()" title="Pesanan Masuk" aria-label="Pesanan Masuk">
+        <span class="icon-symbol">✉️</span>
+        <b id="olseraTopbarOrderBadge" class="badge-icon-counter">0</b>
       </button>
-      <div class="quota-chip">
-        <span>⚡ Sisa Kuota: <b id="olseraTopbarQuotaDisplay" style="color: #34d399;">15 Order</b></span>
-        <button type="button" class="btn-quota-topup" onclick="openTopupQuotaModal()">+ Top Up</button>
-      </div>
-      <button type="button" class="btn-topbar-link" onclick="openShareStoreModal()" title="Salin tautan toko pembeli">
-        <span>🔗</span> Salin Link Toko
-      </button>
-    </div>
 
-    <div class="actions-section">
-      <button type="button" id="btnOlseraBackToDevConsole" class="btn-switch-storefront" onclick="showDeveloperWorkspaceView(true)" style="display: none; background: #0f172a; color: #38bdf8; border: 1px solid #0284c7;" title="Kembali ke Developer Console">
-        <span>⚡</span> Kembali ke Console Dev
+      <!-- 2. Sisa Kuota: Icon Petir + Angka Saja -->
+      <button type="button" class="btn-topbar-quota-pill" onclick="openTopupQuotaModal()" title="Sisa Kuota Order: Klik untuk Top Up" aria-label="Sisa Kuota Order">
+        <span class="quota-icon">⚡</span>
+        <b id="olseraTopbarQuotaDisplay" class="quota-number">15</b>
       </button>
-      <button type="button" class="btn-switch-storefront" onclick="showDistributorPortalView(false)" title="Tinjau tampilan web toko dari sudut pandang pembeli / customer">
+
+      <!-- 3. Salin Link: Icon Tautan Bersih -->
+      <button type="button" class="btn-topbar-icon" onclick="openShareStoreModal()" title="Salin Tautan Toko Pembeli" aria-label="Salin Link Toko">
+        <span class="icon-symbol">🔗</span>
+      </button>
+
+      <!-- 4. Tombol Dev Console (Hanya Super Admin Developer) -->
+      <button type="button" id="btnOlseraBackToDevConsole" class="btn-topbar-icon" onclick="showDeveloperWorkspaceView(true)" style="display: none; background: #0f172a; color: #38bdf8; border-color: #0284c7;" title="Kembali ke Developer Console">
+        <span>⚡</span>
+      </button>
+
+      <!-- 5. Tinjau Toko Pembeli (Desktop Only - di HP sudah ada di Drawer Menu agar layar rapi) -->
+      <button type="button" class="btn-switch-storefront desktop-only-btn" onclick="showDistributorPortalView(false)" title="Tinjau tampilan web toko dari sudut pandang pembeli / customer">
         <span>🌐</span> Tinjau Toko Pembeli
       </button>
-      <button type="button" class="btn-logout" onclick="handleDistributorLogout()" title="Keluar dari akun distributor">
-        <span>🚪</span> Logout
+
+      <!-- 6. Logout: Icon Pintu Keluar Bersih -->
+      <button type="button" class="btn-topbar-icon btn-logout-icon" onclick="handleDistributorLogout()" title="Keluar dari akun distributor" aria-label="Logout">
+        <span>🚪</span>
       </button>
     </div>
   </header>
