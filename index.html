@@ -32,19 +32,19 @@
 
   <!-- 0.1 PREVIEW MODE STRIP (HANYA MUNCUL KETIKA DISTRIBUTOR MENINJAU TOKO PEMBELI) -->
   <aside id="distributorPreviewStrip" class="distributor-preview-strip" style="display: none;">
-    <div style="display: flex; align-items: center; gap: 8px;">
-      <span class="preview-tag">👑 Mode Tinjau Toko</span>
-      <span>Anda sedang melihat tampilan toko sebagai <b id="previewStripDistName">Ibu Aisyah (Distributor Utama)</b></span>
+    <div class="preview-strip-info">
+      <span class="preview-tag">👑 Tinjau Toko</span>
+      <span class="preview-user-text">Toko: <b id="previewStripDistName">Ibu Aisyah</b></span>
     </div>
-    <div style="display: flex; align-items: center; gap: 8px;">
-      <button type="button" class="btn-back-olsera" onclick="showDistributorPortalView(true)">
-        <span>🛒</span> Kembali ke Kasir Olsera
+    <div class="preview-strip-actions">
+      <button type="button" class="btn-preview-icon" onclick="showDistributorPortalView(true)" title="Kembali ke Kasir Olsera" aria-label="Kasir">
+        <span>🛒</span><span class="preview-btn-label"> Kasir</span>
       </button>
-      <button type="button" onclick="openStoreSettingsModal()" style="background: rgba(255,255,255,0.15); color: #ffffff; border: 1px solid rgba(255,255,255,0.3); padding: 6px 12px; border-radius: 999px; font-weight: 700; font-size: 0.78rem; cursor: pointer;">
-        ⚙️ Pengaturan Toko
+      <button type="button" class="btn-preview-icon" onclick="openStoreSettingsModal()" title="Pengaturan Toko" aria-label="Pengaturan">
+        <span>⚙️</span><span class="preview-btn-label"> Pengaturan</span>
       </button>
-      <button type="button" onclick="handleDistributorLogout()" style="background: rgba(239, 68, 68, 0.3); color: #fecaca; border: 1px solid rgba(239, 68, 68, 0.5); padding: 6px 12px; border-radius: 999px; font-weight: 700; font-size: 0.78rem; cursor: pointer;">
-        🚪 Logout
+      <button type="button" class="btn-preview-icon btn-preview-logout" onclick="handleDistributorLogout()" title="Keluar / Logout" aria-label="Logout">
+        <span>🚪</span><span class="preview-btn-label"> Logout</span>
       </button>
     </div>
   </aside>
@@ -95,11 +95,21 @@
       </span>
     </div>
     <div class="admin-mode-actions">
-      <button class="btn-admin-pill" onclick="switchTab('resellers')" style="background: rgba(59, 130, 246, 0.3); border-color: #3b82f6; color: #bfdbfe;">👥 Database Seluruh Mitra</button>
-      <button class="btn-admin-pill" onclick="switchTab('marketers')" style="background: rgba(14, 165, 233, 0.3); border-color: #0ea5e9; color: #7dd3fc;">💼 Gaji Marketer (15%)</button>
-      <button class="btn-admin-pill" onclick="openTopupQuotaModal()" style="background: rgba(16, 185, 129, 0.3); border-color: #10b981; color: #a7f3d0;">⚡ Top Up Kuota</button>
-      <button class="btn-admin-pill" onclick="openShareStoreModal()" style="background: rgba(56, 189, 248, 0.25); border-color: #38bdf8; color: #38bdf8;">🔗 Salin Link Toko</button>
-      <button class="btn-admin-pill" onclick="handleDistributorLogout()" style="background: rgba(239, 68, 68, 0.4); border-color: #ef4444; color: #fecaca; font-weight: 700;">🚪 Logout Distributor</button>
+      <button class="btn-admin-icon-pill" onclick="switchTab('resellers')" title="Database Seluruh Mitra" aria-label="Database Mitra" style="background: rgba(59, 130, 246, 0.3); border-color: #3b82f6; color: #bfdbfe;">
+        <span>👥</span><span class="btn-pill-label"> Mitra</span>
+      </button>
+      <button class="btn-admin-icon-pill" onclick="switchTab('marketers')" title="Gaji Marketer (15%)" aria-label="Gaji Marketer" style="background: rgba(14, 165, 233, 0.3); border-color: #0ea5e9; color: #7dd3fc;">
+        <span>💼</span><span class="btn-pill-label"> Gaji Marketer</span>
+      </button>
+      <button class="btn-admin-icon-pill" onclick="openTopupQuotaModal()" title="Top Up Kuota Order" aria-label="Top Up Kuota" style="background: rgba(16, 185, 129, 0.3); border-color: #10b981; color: #a7f3d0;">
+        <span>⚡</span><span class="btn-pill-label"> Top Up</span>
+      </button>
+      <button class="btn-admin-icon-pill" onclick="openShareStoreModal()" title="Salin Link Toko" aria-label="Salin Link Toko" style="background: rgba(56, 189, 248, 0.25); border-color: #38bdf8; color: #38bdf8;">
+        <span>🔗</span><span class="btn-pill-label"> Link</span>
+      </button>
+      <button class="btn-admin-icon-pill btn-admin-logout" onclick="handleDistributorLogout()" title="Logout Distributor" aria-label="Logout" style="background: rgba(239, 68, 68, 0.4); border-color: #ef4444; color: #fecaca;">
+        <span>🚪</span><span class="btn-pill-label"> Logout</span>
+      </button>
     </div>
   </div>
 
@@ -532,7 +542,7 @@
         </div>
 
         <!-- Trx Metric Cards -->
-        <div class="cashflow-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 20px;">
+        <div class="cashflow-grid trx-metric-grid" style="margin-bottom: 20px;">
           <div class="cashflow-card" style="border-left: 4px solid #0284c7;">
             <div class="cashflow-label">Total Omset Transaksi</div>
             <div class="cashflow-val" id="trxTotalOmsetVal" style="color: #0284c7;">Rp 0</div>
@@ -692,7 +702,7 @@
           </div>
         </div>
 
-        <div class="cashflow-grid" style="grid-template-columns: repeat(4, 1fr);">
+        <div class="cashflow-grid report-metrics-grid">
           <div class="cashflow-card">
             <div class="cashflow-label">Total Omset HET</div>
             <div class="cashflow-val" id="repTotalHetOmset" style="font-size: 1.25rem;">Rp 0</div>
@@ -712,7 +722,7 @@
         </div>
 
         <!-- Ranking Produk Terlaris SR12 -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+        <div class="report-analytics-grid" style="margin-top: 20px;">
           <div style="background: #fff; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
             <h4 style="margin: 0 0 14px 0; font-size: 0.95rem; color: #0f172a;">🏆 5 Produk SR12 Paling Laris</h4>
             <div id="repTopProductsList">

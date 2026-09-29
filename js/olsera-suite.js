@@ -1030,23 +1030,23 @@ function renderPosTransactions(filter = 'all') {
   tbody.innerHTML = filtered.map(t => {
     return `
       <tr>
-        <td><b>${t.id}</b></td>
-        <td style="font-size: 0.8rem; color: #64748b;">${t.dateTime}</td>
-        <td>
+        <td data-label="No. Transaksi"><b>${t.id}</b></td>
+        <td data-label="Waktu" style="font-size: 0.8rem; color: #64748b;">${t.dateTime}</td>
+        <td data-label="Pembeli">
           <b>${t.customerName}</b>
           ${t.customerPhone ? `<div style="font-size: 0.72rem; color: #0284c7;">${t.customerPhone}</div>` : ''}
         </td>
-        <td><span class="badge-crm" style="background: #e0f2fe; color: #0369a1;">${t.tierLabel}</span></td>
-        <td style="font-weight: 800; color: #0f172a;">Rp ${Number(t.grandTotal).toLocaleString('id-ID')}</td>
-        <td><span style="font-size: 0.76rem; font-weight: 700; color: #475569;">${t.paymentMethod}</span></td>
-        <td>
+        <td data-label="Tingkat"><span class="badge-crm" style="background: #e0f2fe; color: #0369a1;">${t.tierLabel}</span></td>
+        <td data-label="Total Bayar" style="font-weight: 800; color: #0f172a;">Rp ${Number(t.grandTotal).toLocaleString('id-ID')}</td>
+        <td data-label="Metode"><span style="font-size: 0.76rem; font-weight: 700; color: #475569;">${t.paymentMethod}</span></td>
+        <td data-label="Status">
           ${t.status === 'Menunggu Konfirmasi'
             ? `<span style="background: #fef3c7; color: #b45309; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 800;">🟡 Menunggu Konfirmasi</span>`
             : t.status === 'Siap Diambil di Toko'
               ? `<span style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 800;">🏪 Siap Diambil</span>`
               : `<span style="background: #ecfdf5; color: #065f46; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 800;">✅ ${t.status}</span>`}
         </td>
-        <td style="text-align: center; white-space: nowrap;">
+        <td data-label="Aksi" style="text-align: center; white-space: nowrap;">
           <button onclick="viewHistoricalReceipt('${t.id}')" style="background: #0284c7; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; cursor: pointer; margin-right: 4px;" title="Lihat Struk / Nota Rincian">
             📄 Struk
           </button>
@@ -1176,22 +1176,22 @@ function renderInventoryTable() {
 
     return `
       <tr>
-        <td>
+        <td data-label="Foto">
           <img src="${p.image || 'assets/hero-banner.jpg'}" alt="${p.name}" style="width: 44px; height: 44px; object-fit: cover; border-radius: 6px; border: 1px solid #e2e8f0;" onerror="this.src='assets/hero-banner.jpg'">
         </td>
-        <td>
+        <td data-label="Nama Produk">
           <b style="color: #0f172a;">${p.name}</b>
           <div style="font-size: 0.72rem; color: #64748b;">ID: ${p.id}</div>
         </td>
-        <td>${netto}</td>
-        <td><span class="badge-crm" style="background: #f1f5f9; color: #475569;">${p.category || 'Herbal'}</span></td>
-        <td style="font-weight: 700; color: #0284c7;">Rp ${het.toLocaleString('id-ID')}</td>
-        <td style="color: #059669; font-size: 0.82rem;">Rp ${resPrice.toLocaleString('id-ID')}</td>
-        <td style="color: #d97706; font-size: 0.82rem;">Rp ${agenPrice.toLocaleString('id-ID')}</td>
-        <td style="text-align: center;">
+        <td data-label="Netto">${netto}</td>
+        <td data-label="Kategori"><span class="badge-crm" style="background: #f1f5f9; color: #475569;">${p.category || 'Herbal'}</span></td>
+        <td data-label="Harga HET" style="font-weight: 700; color: #0284c7;">Rp ${het.toLocaleString('id-ID')}</td>
+        <td data-label="Reseller 20%" style="color: #059669; font-size: 0.82rem;">Rp ${resPrice.toLocaleString('id-ID')}</td>
+        <td data-label="Agen 40%" style="color: #d97706; font-size: 0.82rem;">Rp ${agenPrice.toLocaleString('id-ID')}</td>
+        <td data-label="Stok Gudang" style="text-align: center;">
           ${stockBadgeHtml}
         </td>
-        <td style="text-align: center;">
+        <td data-label="Aksi Cepat" style="text-align: center;">
           <div style="display: flex; gap: 4px; justify-content: center;">
             <button onclick="quickUpdateStock('${p.id}', 10)" style="background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; padding: 4px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; cursor: pointer;" title="Tambah 10 stok masuk">
               +10
@@ -1265,18 +1265,18 @@ function renderCashflowTable() {
     const isIn = r.type === 'in';
     return `
       <tr>
-        <td style="font-size: 0.8rem; color: #64748b;">${r.date}</td>
-        <td>
+        <td data-label="Tanggal" style="font-size: 0.8rem; color: #64748b;">${r.date}</td>
+        <td data-label="Tipe">
           <span style="background: ${isIn ? '#ecfdf5' : '#fee2e2'}; color: ${isIn ? '#065f46' : '#991b1b'}; padding: 3px 8px; border-radius: 999px; font-weight: 800; font-size: 0.72rem;">
             ${isIn ? '⬆️ Kas Masuk' : '⬇️ Kas Keluar'}
           </span>
         </td>
-        <td><b>${r.category}</b></td>
-        <td style="color: #475569;">${r.notes}</td>
-        <td style="font-weight: 800; color: ${isIn ? '#059669' : '#dc2626'}; font-size: 0.9rem;">
+        <td data-label="Kategori"><b>${r.category}</b></td>
+        <td data-label="Keterangan" style="color: #475569;">${r.notes}</td>
+        <td data-label="Nominal" style="font-weight: 800; color: ${isIn ? '#059669' : '#dc2626'}; font-size: 0.9rem;">
           ${isIn ? '+' : '-'} Rp ${Number(r.amount).toLocaleString('id-ID')}
         </td>
-        <td style="text-align: center;">
+        <td data-label="Aksi" style="text-align: center;">
           <button onclick="deleteCashflowEntry('${r.id}')" style="background: none; border: none; color: #ef4444; font-size: 0.85rem; cursor: pointer;" title="Hapus">
             🗑️
           </button>

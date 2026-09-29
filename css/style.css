@@ -3198,58 +3198,123 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Distributor Preview Strip (Storefront Mode) */
 .distributor-preview-strip {
-  background: #075985;
+  background: linear-gradient(135deg, #075985, #0369a1);
   color: #ffffff;
-  padding: 8px 24px;
+  padding: 8px 18px;
   font-size: 0.82rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   border-bottom: 2px solid #0284c7;
   position: sticky;
   top: 0;
   z-index: 1000;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.preview-strip-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.preview-strip-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .distributor-preview-strip .preview-tag {
   background: #0284c7;
   color: #ffffff;
-  padding: 2px 8px;
-  border-radius: 999px;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
   font-weight: 800;
   font-size: 0.72rem;
+  white-space: nowrap;
 }
 
-.distributor-preview-strip .btn-back-olsera {
-  background: #ffffff;
-  color: #0369a1;
-  border: none;
-  padding: 6px 14px;
-  border-radius: 999px;
-  font-weight: 800;
+.btn-preview-icon {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-weight: 700;
   font-size: 0.78rem;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  justify-content: center;
+  gap: 5px;
   transition: all 0.2s ease;
 }
 
-.distributor-preview-strip .btn-back-olsera:hover {
-  background: #f0f9ff;
+.btn-preview-icon:hover {
+  background: rgba(255, 255, 255, 0.28);
   transform: translateY(-1px);
 }
 
-/* Cashflow Cards */
+.btn-preview-icon.btn-preview-logout {
+  background: rgba(239, 68, 68, 0.35);
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #fecaca;
+}
+
+.btn-preview-icon.btn-preview-logout:hover {
+  background: rgba(239, 68, 68, 0.55);
+}
+
+.btn-admin-icon-pill {
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  font-size: 0.76rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-admin-icon-pill:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+/* Grids for Cashflow, Reports, Transactions, and Metrics */
 .cashflow-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 16px;
   margin-bottom: 24px;
+}
+
+.trx-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.report-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.report-analytics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
 }
 
 .cashflow-card {
@@ -4222,22 +4287,83 @@ h1, h2, h3, h4, h5, h6 {
     padding: 10px 8px !important;
   }
 
-  /* 6. Admin Mode Banner di HP (Pill Horizontal Scroll Halus) */
-  .admin-mode-banner {
-    padding: 8px 12px !important;
+  /* 6. Mode Tinjau Toko & Admin Banner di HP (Icon-Only, Tanpa Kapsul Raksasa) */
+  .distributor-preview-strip {
+    padding: 6px 10px !important;
     gap: 6px !important;
+    flex-wrap: nowrap !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .preview-strip-info {
+    font-size: 0.74rem !important;
+    gap: 6px !important;
+    min-width: 0 !important;
+    flex: 1 !important;
+    overflow: hidden !important;
+  }
+
+  .preview-user-text {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    font-size: 0.74rem !important;
+  }
+
+  .preview-strip-actions {
+    gap: 4px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .btn-preview-icon {
+    padding: 6px 8px !important;
+    font-size: 0.85rem !important;
+    min-width: 32px !important;
+    height: 32px !important;
+    border-radius: 8px !important;
+    gap: 0 !important;
+  }
+
+  .btn-preview-icon .preview-btn-label {
+    display: none !important;
+  }
+
+  .admin-mode-banner {
+    padding: 8px 10px !important;
+    gap: 6px !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
   }
 
   .admin-mode-actions {
     display: flex !important;
     overflow-x: auto !important;
     gap: 5px !important;
-    padding: 3px 0 !important;
+    padding: 2px 0 !important;
     scrollbar-width: none !important;
     -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   .admin-mode-actions::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .btn-admin-icon-pill {
+    padding: 6px 8px !important;
+    font-size: 0.82rem !important;
+    border-radius: 8px !important;
+    min-width: 32px !important;
+    height: 32px !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+    gap: 0 !important;
+  }
+
+  .btn-admin-icon-pill .btn-pill-label {
     display: none !important;
   }
 
@@ -4265,6 +4391,202 @@ h1, h2, h3, h4, h5, h6 {
     padding: 7px 14px !important;
     font-size: 0.78rem !important;
     border-radius: var(--radius-full) !important;
+  }
+
+  /* 8. Responsive Metrics & Analytics Grids di HP */
+  .trx-metric-grid,
+  .report-metrics-grid,
+  .crm-stat-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    margin-bottom: 12px !important;
+  }
+
+  .cashflow-grid {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    margin-bottom: 12px !important;
+  }
+
+  .report-analytics-grid {
+    display: grid !important;
+    grid-template-columns: 100% !important;
+    gap: 12px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .cashflow-card,
+  .crm-stat-card {
+    padding: 10px !important;
+    border-radius: 10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .cashflow-label,
+  .crm-stat-label {
+    font-size: 0.72rem !important;
+  }
+
+  .cashflow-val,
+  .crm-stat-val {
+    font-size: 1.02rem !important;
+    word-break: break-word !important;
+  }
+
+  /* 9. Universal Mobile Table-to-Card Transformation (Transaksi, Inventori, Kas, Mitra, Marketer) */
+  #olseraViewTransactions div[style*="overflow-x: auto"],
+  #olseraViewInventory div[style*="overflow-x: auto"],
+  #olseraViewCashflow div[style*="overflow-x: auto"],
+  #resellersSection div[style*="overflow-x: auto"],
+  #marketersSection div[style*="overflow-x: auto"],
+  .olsera-main-content div[style*="overflow-x: auto"] {
+    overflow-x: visible !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .inv-table,
+  .crm-table {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    border: none !important;
+    border-collapse: separate !important;
+    background: transparent !important;
+  }
+
+  .inv-table thead,
+  .crm-table thead {
+    display: none !important;
+  }
+
+  .inv-table tbody,
+  .crm-table tbody {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .inv-table tr,
+  .crm-table tr {
+    display: block !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 12px !important;
+    padding: 12px 10px !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04) !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .inv-table td,
+  .crm-table td {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 6px 0 !important;
+    border: none !important;
+    border-bottom: 1px dashed #f1f5f9 !important;
+    font-size: 0.78rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    gap: 8px !important;
+    text-align: right !important;
+  }
+
+  .inv-table td::before,
+  .crm-table td::before {
+    content: attr(data-label) !important;
+    font-weight: 700 !important;
+    font-size: 0.72rem !important;
+    color: #64748b !important;
+    text-align: left !important;
+    flex-shrink: 0 !important;
+    max-width: 48% !important;
+  }
+
+  /* Baris Header pada Card (No Transaksi, Nama Produk, ID Mitra) */
+  .inv-table td[data-label="No. Transaksi"],
+  .inv-table td[data-label="Nama Produk"],
+  .crm-table td[data-label="ID & Nama Mitra"],
+  .crm-table td[data-label="ID & Nama Marketer"] {
+    background: #f8fafc !important;
+    margin: -4px -4px 6px -4px !important;
+    padding: 8px 10px !important;
+    border-radius: 8px !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    text-align: left !important;
+  }
+
+  /* Hilangkan label untuk foto produk & posisikan ke atas */
+  .inv-table td[data-label="Foto"] {
+    justify-content: flex-start !important;
+    border-bottom: none !important;
+    padding-bottom: 2px !important;
+  }
+
+  .inv-table td[data-label="Foto"]::before {
+    display: none !important;
+  }
+
+  /* Baris Aksi / Tombol di bagian bawah Card */
+  .inv-table td[data-label="Aksi"],
+  .inv-table td[data-label="Aksi Cepat"],
+  .crm-table td[data-label="Aksi"],
+  .crm-table td[data-label="Aksi Distributor"] {
+    border-bottom: none !important;
+    padding-top: 10px !important;
+    margin-top: 4px !important;
+    justify-content: flex-end !important;
+    text-align: right !important;
+  }
+
+  .inv-table td[data-label="Aksi"]::before,
+  .inv-table td[data-label="Aksi Cepat"]::before,
+  .crm-table td[data-label="Aksi"]::before,
+  .crm-table td[data-label="Aksi Distributor"]::before {
+    display: none !important;
+  }
+
+  /* 10. Toolbar & Filter Section di HP */
+  .crm-search-box,
+  #crmSearchInput {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  #resellersSection,
+  #marketersSection {
+    padding: 12px 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+
+  #resellersSection > div,
+  #marketersSection > div {
+    padding: 12px 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
 }
 

@@ -4666,19 +4666,19 @@ function renderResellers() {
 
     return `
       <tr>
-        <td>
+        <td data-label="ID & Nama Mitra">
           <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 3px;">
             <span style="background: #0f172a; color: #38bdf8; padding: 2px 7px; border-radius: 4px; font-family: monospace; font-weight: 800; font-size: 0.75rem;">${m.id || 'MITRA'}</span>
             <b style="font-size: 0.88rem; color: var(--dark-900);">${m.name}</b>
           </div>
           <span style="font-family: monospace; font-size: 0.75rem; color: #0284c7;">📱 ${m.phone}</span> &middot; <span style="font-size: 0.72rem; color: var(--dark-500);">${m.city || 'Indonesia'}</span>
         </td>
-        <td>
+        <td data-label="Tingkat">
           <span style="display: inline-block; padding: 4px 9px; border-radius: 4px; font-weight: 800; font-size: 0.72rem; ${tierBadgeStyle}">
             ${tierBadgeText}
           </span>
         </td>
-        <td>
+        <td data-label="Rekening Bank">
           <div style="font-size: 0.78rem; font-weight: 700; color: #1e293b;">
             ${m.bankName || 'BCA'} &middot; <span style="font-family: monospace;">${m.bankAccount || '-'}</span>
           </div>
@@ -4686,7 +4686,7 @@ function renderResellers() {
             a.n ${m.bankHolder || m.name}
           </div>
         </td>
-        <td>
+        <td data-label="Masa Aktif & Evaluasi">
           ${m.tier === 'marketer' ? `
             <div style="font-size: 0.75rem; color: #0284c7; font-weight: 700;">
               ✨ Jualan Tanpa Modal
@@ -4709,7 +4709,7 @@ function renderResellers() {
             `}
           `}
         </td>
-        <td>
+        <td data-label="Akumulasi Belanja">
           ${m.tier === 'marketer' ? `
             <div style="font-size: 0.78rem; font-weight: 800; color: #0369a1;">
               ${formatRupiah(m.accumulatedSpent90Days || 0)}
@@ -4730,12 +4730,12 @@ function renderResellers() {
             </div>
           `}
         </td>
-        <td>
+        <td data-label="Status">
           <span class="badge-crm" style="background: ${m.state === 'active' ? '#dcfce7' : (m.state === 'warning' ? '#fef3c7' : '#fee2e2')}; color: ${m.state === 'active' ? '#15803d' : (m.state === 'warning' ? '#92400e' : '#b91c1c')};">
             ${m.state === 'active' ? '🟢' : (m.state === 'warning' ? '🟡' : '🔴')} ${m.label}
           </span>
         </td>
-        <td style="text-align: center;">
+        <td data-label="Aksi" style="text-align: center;">
           <div style="display: flex; gap: 6px; justify-content: center;">
             ${m.tier === 'reseller' && m.deficit > 0 ? `
               <button onclick="sendResellerReminderWA('${m.phone}', '${m.name}', ${m.daysLeft}, ${m.deficit})" title="Kirim Pesan Pengingat Belanja RO ke WhatsApp" style="background: #25d366; color: #fff; border: none; padding: 5px 9px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;">
@@ -5031,14 +5031,14 @@ function renderMarketerPayroll() {
 
     return `
       <tr>
-        <td>
+        <td data-label="ID & Nama Marketer">
           <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 3px;">
             <span style="background: #0284c7; color: #fff; padding: 2px 7px; border-radius: 4px; font-family: monospace; font-weight: 800; font-size: 0.75rem;">${m.id}</span>
             <b style="font-size: 0.88rem; color: var(--dark-900);">${m.name}</b>
           </div>
           <span style="font-family: monospace; font-size: 0.75rem; color: #0284c7;">📱 ${m.phone}</span> &middot; <span style="font-size: 0.72rem; color: var(--dark-500);">${m.city || 'Indonesia'}</span>
         </td>
-        <td>
+        <td data-label="Rekening Transfer">
           <div style="font-size: 0.8rem; font-weight: 700; color: #1e293b;">
             ${m.bankName || 'BCA'} &middot; <span style="font-family: monospace;">${m.bankAccount || '-'}</span>
           </div>
@@ -5046,22 +5046,22 @@ function renderMarketerPayroll() {
             a.n ${m.bankHolder || m.name}
           </div>
         </td>
-        <td style="text-align: center;">
+        <td data-label="Pesanan Terjual" style="text-align: center;">
           <b style="font-size: 0.9rem; color: var(--dark-900);">${item.countOrders}</b>
           <span style="display: block; font-size: 0.68rem; color: var(--dark-500);">Pesanan</span>
         </td>
-        <td>
+        <td data-label="Total Omset (HET)">
           <b style="font-size: 0.88rem; color: var(--dark-800);">${formatRupiah(item.omset)}</b>
           <small style="display: block; font-size: 0.68rem; color: var(--dark-500);">Harga HET Retail</small>
         </td>
-        <td>
+        <td data-label="Bonus Marketer (15%)">
           <b style="font-size: 1.02rem; color: #0284c7;">${formatRupiah(item.bonus)}</b>
           <small style="display: block; font-size: 0.68rem; color: #0369a1; font-weight: 700;">15% Komisi Bersih</small>
         </td>
-        <td>
+        <td data-label="Status Pembayaran">
           ${paidBadge}
         </td>
-        <td style="text-align: center;">
+        <td data-label="Aksi Distributor" style="text-align: center;">
           <div style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;">
             ${item.countOrders > 0 ? `
               <button onclick="toggleMarketerPayrollStatus('${m.id}', '${selectedMonth}')" title="${item.isAllPaid ? 'Batalkan Status Lunas' : 'Tandai Komisi Sudah Ditransfer'}" style="background: ${item.isAllPaid ? '#f1f5f9' : '#10b981'}; color: ${item.isAllPaid ? '#475569' : '#fff'}; border: none; padding: 5px 9px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; cursor: pointer;">
