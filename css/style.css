@@ -1500,7 +1500,7 @@ h1, h2, h3, h4, h5, h6 {
   inset: 0;
   background: rgba(15, 23, 42, 0.65);
   backdrop-filter: blur(6px);
-  z-index: 999;
+  z-index: 99999 !important;
   display: none;
   align-items: center;
   justify-content: center;
@@ -1510,8 +1510,9 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .modal-backdrop.open {
-  display: flex;
+  display: flex !important;
   opacity: 1;
+  z-index: 99999 !important;
 }
 
 .modal-dialog {
@@ -1524,6 +1525,7 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: var(--shadow-lg);
   position: relative;
   border: 1px solid var(--border-subtle);
+  z-index: 100000 !important;
 }
 
 .modal-header {
@@ -4165,7 +4167,7 @@ h1, h2, h3, h4, h5, h6 {
     border-color: #059669 !important;
   }
 
-  /* Floating Mobile Cart Bar for POS */
+  /* Floating Mobile Cart Bar for POS (Hanya muncul jika kasir aktif dan ada item; otomatis sembunyi jika modal dibuka) */
   .pos-mobile-bottom-bar {
     position: fixed !important;
     bottom: 12px !important;
@@ -4177,12 +4179,25 @@ h1, h2, h3, h4, h5, h6 {
     border-radius: var(--radius-full) !important;
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45) !important;
     border: 1px solid #334155 !important;
-    z-index: 9999 !important;
-    display: flex !important;
+    z-index: 900 !important;
+    display: none !important;
     align-items: center !important;
     justify-content: space-between !important;
     cursor: pointer !important;
     animation: slideUpBottom 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
+  .pos-mobile-bottom-bar.active {
+    display: flex !important;
+  }
+
+  /* Jika modal apapun sedang terbuka, sembunyikan total bar kasir floating agar tidak menutupi tombol simpan */
+  body:has(.modal-backdrop.open) .pos-mobile-bottom-bar,
+  body.modal-open .pos-mobile-bottom-bar {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    opacity: 0 !important;
   }
 
   .pos-bottom-bar-info {

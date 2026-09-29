@@ -134,7 +134,10 @@ function showDistributorPortalView(showPortal) {
     if (portal) portal.style.display = 'none';
     if (olseraNav) olseraNav.style.display = 'none';
     const bBar = document.getElementById('posMobileBottomBar');
-    if (bBar) bBar.style.display = 'none';
+    if (bBar) {
+      bBar.classList.remove('active');
+      bBar.style.display = 'none';
+    }
 
     if (storefront) storefront.style.display = 'block';
     if (siteHeader) siteHeader.style.display = 'block';
@@ -368,6 +371,7 @@ function switchOlseraTab(tabId) {
 
   const bBar = document.getElementById('posMobileBottomBar');
   if (bBar && tabId !== 'pos') {
+    bBar.classList.remove('active');
     bBar.style.display = 'none';
   }
 
@@ -566,7 +570,10 @@ function clearPosCart() {
     const chVal = document.getElementById('posChangeVal');
     if (chVal) chVal.textContent = 'Rp 0';
     const bBar = document.getElementById('posMobileBottomBar');
-    if (bBar) bBar.style.display = 'none';
+    if (bBar) {
+      bBar.classList.remove('active');
+      bBar.style.display = 'none';
+    }
     if (typeof showToast === 'function') {
       showToast('🗑️ Keranjang kasir telah dikosongkan.');
     }
@@ -615,7 +622,10 @@ function renderPosCart() {
     if (grandTotalEl) grandTotalEl.textContent = 'Rp 0';
     calculatePosChange();
     const bBar = document.getElementById('posMobileBottomBar');
-    if (bBar) bBar.style.display = 'none';
+    if (bBar) {
+      bBar.classList.remove('active');
+      bBar.style.display = 'none';
+    }
     return;
   }
 
@@ -678,13 +688,20 @@ function renderPosCart() {
 
   // Floating Mobile Bottom Cart Bar for POS
   const bBar = document.getElementById('posMobileBottomBar');
+  const totalQty = (cart || []).reduce((acc, it) => acc + it.qty, 0);
+  const anyModalOpen = document.querySelectorAll('.modal-backdrop.open').length > 0;
   if (bBar) {
-    bBar.style.display = 'flex';
-    const totalQty = cart.reduce((acc, it) => acc + it.qty, 0);
-    const qtyEl = document.getElementById('posBottomBarQty');
-    const totEl = document.getElementById('posBottomBarTotal');
-    if (qtyEl) qtyEl.innerHTML = `🛒 <b>${totalQty} item</b>`;
-    if (totEl) totEl.textContent = `Rp ${grandTotal.toLocaleString('id-ID')}`;
+    if (totalQty > 0 && !anyModalOpen && (typeof appState === 'undefined' || appState.activeOlseraTab === 'pos')) {
+      bBar.classList.add('active');
+      bBar.style.display = 'flex';
+      const qtyEl = document.getElementById('posBottomBarQty');
+      const totEl = document.getElementById('posBottomBarTotal');
+      if (qtyEl) qtyEl.innerHTML = `🛒 <b>${totalQty} item</b>`;
+      if (totEl) totEl.textContent = `Rp ${grandTotal.toLocaleString('id-ID')}`;
+    } else {
+      bBar.classList.remove('active');
+      bBar.style.display = 'none';
+    }
   }
 }
 

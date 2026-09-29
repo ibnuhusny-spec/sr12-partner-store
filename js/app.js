@@ -3018,11 +3018,29 @@ function openWhatsAppPreviewModal(text, url) {
 function closeModal(modalId) {
   const modal = document.getElementById(modalId);
   if (modal) modal.classList.remove('open');
+  const remainingModals = document.querySelectorAll('.modal-backdrop.open');
+  if (remainingModals.length === 0) {
+    document.body.classList.remove('modal-open');
+    if (typeof appState !== 'undefined' && appState.activeOlseraTab === 'pos' && appState.posCart && appState.posCart.length > 0) {
+      const bBar = document.getElementById('posMobileBottomBar');
+      if (bBar) {
+        bBar.classList.add('active');
+        bBar.style.display = 'flex';
+      }
+    }
+  }
 }
 
 function openProductDetailModal(productId) {
   const prod = appState.products.find(p => p.id === productId);
   if (!prod) return;
+
+  const bBar = document.getElementById('posMobileBottomBar');
+  if (bBar) {
+    bBar.classList.remove('active');
+    bBar.style.display = 'none';
+  }
+  document.body.classList.add('modal-open');
 
   const modal = document.getElementById('modalProductDetail');
   const title = document.getElementById('modalProdTitle');
@@ -3073,6 +3091,13 @@ function openProductDetailModal(productId) {
 function openEditProductModal(productId) {
   const prod = appState.products.find(p => p.id === productId);
   if (!prod) return;
+
+  const bBar = document.getElementById('posMobileBottomBar');
+  if (bBar) {
+    bBar.classList.remove('active');
+    bBar.style.display = 'none';
+  }
+  document.body.classList.add('modal-open');
 
   appState.activeEditingProductId = productId;
   appState.tempEditImageBase64 = prod.image;
