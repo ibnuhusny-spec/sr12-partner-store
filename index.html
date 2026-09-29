@@ -242,7 +242,7 @@
   </header>
 
   <!-- 3.6 OLSERA-STYLE DISTRIBUTOR MANAGEMENT PORTAL (POS, TRANSAKSI, INVENTORI, KAS, LAPORAN) -->
-  <div id="distributorOlseraPortal" class="distributor-portal-container" style="display: none; max-width: 1320px; margin: 20px auto 40px auto; padding: 0 16px;">
+  <div id="distributorOlseraPortal" class="distributor-portal-container" style="display: none;">
     <!-- BACKDROP FOR MOBILE SLIDE-OUT DRAWER -->
     <div id="olseraDrawerBackdrop" class="olsera-drawer-backdrop" onclick="closeOlseraSidebarDrawer()"></div>
 
@@ -417,17 +417,17 @@
               </div>
             </div>
 
-            <!-- Products Grid for POS -->
-            <div class="pos-grid" id="posProductGrid">
+            <!-- Products Grid for POS (Unifikasi tampilan identik dengan katalog pembeli) -->
+            <div class="product-grid pos-grid" id="posProductGrid">
               <!-- Populated via JS -->
             </div>
           </div>
 
           <!-- Right: Register / Cart Panel -->
           <div class="pos-register-panel">
-            <div class="pos-register-header">
+            <div class="pos-register-header" style="width: 100%; box-sizing: border-box;">
               <label style="font-size: 0.76rem; font-weight: 800; color: #64748b; text-transform: uppercase; display: block; margin-bottom: 5px;">Tingkat Pembeli / Mitra:</label>
-              <select id="posBuyerTierSelect" onchange="handlePosBuyerTierChange(this.value)" class="pos-customer-select">
+              <select id="posBuyerTierSelect" onchange="handlePosBuyerTierChange(this.value)" class="pos-customer-select" style="width: 100%; box-sizing: border-box;">
                 <option value="konsumen">👤 Konsumen Retail Umum (HET)</option>
                 <option value="reseller">🌿 Reseller Resmi (Diskon 20%)</option>
                 <option value="sub_agen">🏢 Sub Agen SR12 (Diskon 30%)</option>
@@ -435,52 +435,52 @@
                 <option value="marketer">💼 Tim Marketer (15% Komisi)</option>
               </select>
 
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px;">
-                <input type="text" id="posCustomerName" placeholder="Nama Pembeli" style="padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.8rem;">
-                <input type="text" id="posCustomerPhone" placeholder="No. WA (628...)" style="padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.8rem;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; width: 100%; box-sizing: border-box;">
+                <input type="text" id="posCustomerName" placeholder="Nama Pembeli" style="width: 100%; min-width: 0; box-sizing: border-box; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.8rem;">
+                <input type="text" id="posCustomerPhone" placeholder="No. WA (628...)" style="width: 100%; min-width: 0; box-sizing: border-box; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.8rem;">
               </div>
             </div>
 
             <!-- Cart Items -->
-            <div class="pos-cart-list" id="posCartList">
+            <div class="pos-cart-list" id="posCartList" style="width: 100%; box-sizing: border-box;">
               <div style="text-align: center; color: #94a3b8; padding: 30px 10px; font-size: 0.85rem;">
-                🛒 Belum ada barang dipilih.<br>Klik produk di sebelah kiri untuk menambah ke kasir.
+                🛒 Belum ada barang dipilih.<br>Klik produk untuk menambah ke kasir.
               </div>
             </div>
 
             <!-- Financial Calculation -->
-            <div style="margin-top: 10px;">
-              <div class="pos-summary-row">
+            <div style="margin-top: 10px; width: 100%; box-sizing: border-box;">
+              <div class="pos-summary-row" style="width: 100%; box-sizing: border-box;">
                 <span>Subtotal (HET):</span>
                 <span id="posSubtotalHet" style="font-weight: 700;">Rp 0</span>
               </div>
-              <div class="pos-summary-row" style="color: #059669;">
+              <div class="pos-summary-row" style="color: #059669; width: 100%; box-sizing: border-box;">
                 <span id="posDiscountLabel">Diskon Kemitraan:</span>
                 <span id="posDiscountVal" style="font-weight: 700;">- Rp 0</span>
               </div>
-              <div class="pos-summary-total">
+              <div class="pos-summary-total" style="width: 100%; box-sizing: border-box;">
                 <span>Total Bayar:</span>
                 <span id="posGrandTotal" style="color: #0284c7;">Rp 0</span>
               </div>
             </div>
 
             <!-- Payment Method & Cash Change -->
-            <div style="background: #f8fafc; padding: 12px; border-radius: 8px; margin-top: 14px; border: 1px solid #e2e8f0;">
-              <div style="display: flex; gap: 10px; margin-bottom: 8px;">
-                <label style="font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; gap: 5px; cursor: pointer;">
+            <div style="background: #f8fafc; padding: 12px 10px; border-radius: 8px; margin-top: 14px; border: 1px solid #e2e8f0; width: 100%; box-sizing: border-box;">
+              <div style="display: flex; gap: 10px; margin-bottom: 8px; flex-wrap: wrap;">
+                <label style="font-size: 0.78rem; font-weight: 700; display: flex; align-items: center; gap: 5px; cursor: pointer;">
                   <input type="radio" name="posPayMethod" value="cash" checked onchange="togglePosCashInput(true)"> 💵 Tunai (Cash)
                 </label>
-                <label style="font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                <label style="font-size: 0.78rem; font-weight: 700; display: flex; align-items: center; gap: 5px; cursor: pointer;">
                   <input type="radio" name="posPayMethod" value="transfer" onchange="togglePosCashInput(false)"> 💳 Transfer Bank
                 </label>
               </div>
 
-              <div id="posCashBox">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <div id="posCashBox" style="width: 100%; box-sizing: border-box;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; width: 100%; box-sizing: border-box;">
                   <span style="font-size: 0.78rem; color: #64748b;">Uang Diterima:</span>
-                  <input type="number" id="posCashTendered" oninput="calculatePosChange()" placeholder="Rp 0" style="width: 120px; padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; font-weight: 700; text-align: right;">
+                  <input type="number" id="posCashTendered" oninput="calculatePosChange()" placeholder="Rp 0" style="width: 110px; max-width: 45%; box-sizing: border-box; padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; font-weight: 700; text-align: right;">
                 </div>
-                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; font-weight: 800;">
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; font-weight: 800; width: 100%; box-sizing: border-box;">
                   <span style="color: #64748b;">Kembalian:</span>
                   <span id="posChangeVal" style="color: #059669;">Rp 0</span>
                 </div>
@@ -488,15 +488,15 @@
             </div>
 
             <!-- Action Buttons -->
-            <div class="pos-action-btns">
-              <button type="button" onclick="processPosCheckout('save')" style="background: #0284c7; color: #ffffff; border: 1px solid #38bdf8; padding: 8px 12px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
-                💾 Simpan Order
+            <div class="pos-action-btns" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; width: 100%; box-sizing: border-box;">
+              <button type="button" onclick="processPosCheckout('save')" style="width: 100%; min-width: 0; box-sizing: border-box; background: #0284c7; color: #ffffff; border: 1px solid #38bdf8; padding: 8px 6px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.74rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                💾 Simpan
               </button>
-              <button type="button" onclick="processPosCheckout('print')" style="background: #0f172a; color: #ffffff; border: 1px solid #334155; padding: 8px 12px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
-                🧾 Cetak Struk
+              <button type="button" onclick="processPosCheckout('print')" style="width: 100%; min-width: 0; box-sizing: border-box; background: #0f172a; color: #ffffff; border: 1px solid #334155; padding: 8px 6px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.74rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                🧾 Cetak
               </button>
             </div>
-            <button type="button" onclick="processPosCheckout('whatsapp')" style="width: 100%; margin-top: 8px; background: #25d366; color: #ffffff; border: none; padding: 8px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 8px rgba(37, 211, 102, 0.3);">
+            <button type="button" onclick="processPosCheckout('whatsapp')" style="width: 100%; box-sizing: border-box; margin-top: 8px; background: #25d366; color: #ffffff; border: none; padding: 9px 12px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 8px rgba(37, 211, 102, 0.3);">
               <span>📲</span> Kirim Struk via WhatsApp
             </button>
           </div>

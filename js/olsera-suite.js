@@ -426,27 +426,60 @@ function renderPosProducts(category = 'all', query = '') {
     return;
   }
 
+  const tier = (typeof appState !== 'undefined' && appState.posBuyerTier) ? appState.posBuyerTier : 'konsumen';
+  const discountPct = getPosTierDiscountPct(tier);
+  const isRetail = tier === 'konsumen';
+
   grid.innerHTML = filtered.map(prod => {
     const thumb = prod.image || 'assets/hero-banner.jpg';
     const het = Number(prod.het || prod.price || prod.het_price) || 0;
-    const netto = prod.netto || (prod.weightGram ? prod.weightGram + 'g' : 'Original');
-    const priceText = typeof formatRupiah === 'function' ? formatRupiah(het) : ('Rp\u00A0' + het.toLocaleString('id-ID'));
+    const tierPrice = Math.round(het * (1 - (discountPct / 100)));
+    const profitMargin = het - tierPrice;
     const inCart = (appState.posCart || []).find(i => i.productId === prod.id);
     const inCartQty = inCart ? inCart.qty : 0;
 
     return `
-      <div class="pos-product-card ${inCartQty > 0 ? 'in-cart' : ''}" onclick="addPosCartItem('${prod.id}')" title="Klik untuk tambah ${prod.name} ke kasir">
-        <div class="pos-product-thumb-box">
-          <img class="pos-product-thumb" src="${thumb}" alt="${prod.name}" onerror="this.src='assets/hero-banner.jpg'">
-          ${inCartQty > 0 ? `<span class="pos-badge-qty-floating">✓ ${inCartQty}</span>` : ''}
+      <div class="product-card ${inCartQty > 0 ? 'pos-card-active' : ''}" id="pos-card-${prod.id}">
+        <div class="product-thumb-box" onclick="addPosCartItem('${prod.id}')" style="cursor: pointer;">
+          <img src="${thumb}" alt="${prod.name}" loading="lazy" onerror="this.src='assets/hero-banner.jpg'" />
+          <span class="badge-bpom-clean">🌿 BPOM</span>
+          ${!isRetail ? `<span class="badge-disc-clean">-${discountPct}%</span>` : ''}
+          ${inCartQty > 0 ? `<span class="pos-badge-qty-floating">✓ ${inCartQty} di Kasir</span>` : ''}
         </div>
-        <div class="pos-product-name">${prod.name}</div>
-        <div class="pos-product-netto">Netto: ${netto}</div>
-        <div class="pos-product-price">
-          <span class="pos-price-val">${priceText}</span>
-          <button type="button" class="pos-btn-kasir-pill ${inCartQty > 0 ? 'active' : ''}" onclick="event.stopPropagation(); addPosCartItem('${prod.id}')" title="Tambah ke Kasir">
-            ${inCartQty > 0 ? `✓ ${inCartQty}` : `+ 🛒`}
-          </button>
+
+        <div class="product-body">
+          <div class="product-category-row">
+            <span class="product-cat-name">${prod.category || 'SR12'}</span>
+            <span class="product-rating">★ ${prod.rating || '4.9'}</span>
+          </div>
+
+          <h4 class="product-title" onclick="addPosCartItem('${prod.id}')" title="Klik untuk tambah ${prod.name} ke kasir">${prod.name}</h4>
+          <p class="product-summary-text">${prod.summary || ''}</p>
+
+          <div class="price-block" onclick="addPosCartItem('${prod.id}')" style="cursor: pointer;">
+            <div class="price-main-row">
+              <span class="tier-price-val">${formatRupiah(tierPrice)}</span>
+              ${!isRetail ? `<span class="badge-mini-disc">-${discountPct}%</span>` : ''}
+            </div>
+            <div class="price-sub-row">
+              ${!isRetail ? `
+                <span class="het-text">HET: <del>${formatRupiah(het)}</del></span>
+                <span class="tier-profit-margin">+Profit ${formatRupiah(profitMargin)}</span>
+              ` : `
+                <span class="het-text-plain">HET Resmi</span>
+              `}
+            </div>
+          </div>
+
+          <div class="card-actions">
+            <button type="button" class="btn-add-cart ${inCartQty > 0 ? 'btn-pos-active' : ''}" onclick="addPosCartItem('${prod.id}')" title="Tambah ${prod.name} ke Kasir">
+              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+              <span class="btn-add-cart-text">${inCartQty > 0 ? `✓ ${inCartQty}` : 'Kasir'}</span>
+            </button>
+            <button type="button" class="btn-detail-preview" title="Lihat Detail & Khasiat" onclick="openProductDetailModal('${prod.id}')">
+              👁️
+            </button>
+          </div>
         </div>
       </div>
     `;
@@ -543,6 +576,7 @@ function handlePosBuyerTierChange(tier) {
   if (typeof appState !== 'undefined') {
     appState.posBuyerTier = tier;
     renderPosCart();
+    renderPosProducts();
   }
 }
 
