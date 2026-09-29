@@ -524,11 +524,29 @@ function clearAbsensiLogs() {
 function updateCashierBadgeUI() {
   if (typeof appState === 'undefined') return;
   const cashier = appState.activeCashier || getStoredActiveCashier();
+  const shiftText = cashier.shift?.includes('Pagi') ? 'Shift Pagi' : (cashier.shift?.includes('Sore') ? 'Shift Sore' : 'Full Day');
+
   const labelEl = document.getElementById('posActiveCashierLabel');
   if (labelEl) {
-    const shiftText = cashier.shift?.includes('Pagi') ? 'Shift Pagi' : (cashier.shift?.includes('Sore') ? 'Shift Sore' : 'Full Day');
     labelEl.textContent = `Kasir: ${cashier.name || 'Nurlinda Sari'} (${shiftText})`;
   }
+
+  // Update Topbar Active Cashier Pill (terlihat jelas di HP dan Desktop)
+  const topbarCashier = document.getElementById('topbarActiveCashierName');
+  if (topbarCashier) {
+    topbarCashier.textContent = cashier.name || 'Nurlinda Sari';
+  }
+
+  // Update POS Register Header Cashier Card (terlihat jelas di atas keranjang kasir)
+  const regCashier = document.getElementById('posRegisterCashierName');
+  if (regCashier) {
+    regCashier.textContent = cashier.name || 'Nurlinda Sari';
+  }
+  const regShift = document.getElementById('posRegisterShiftName');
+  if (regShift) {
+    regShift.textContent = shiftText;
+  }
+
   updateOlseraHeaderMeta();
 }
 

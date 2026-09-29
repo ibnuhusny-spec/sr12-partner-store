@@ -2191,16 +2191,20 @@ function showDeveloperWorkspaceView(showWorkspace) {
     if (distStrip) distStrip.style.display = 'none';
 
     if (storefront) storefront.style.display = 'block';
-    if (platformTopbar) platformTopbar.style.display = 'flex';
+    // Sembunyikan platformTopbar jika Developer Preview aktif agar kop etalase tidak bertumpuk/penuh tulisan
+    if (platformTopbar) platformTopbar.style.display = appState.isDevMasterLoggedIn ? 'none' : 'flex';
     if (siteHeader) siteHeader.style.display = 'block';
     if (tierBanner) tierBanner.style.display = 'block';
 
     if (appState.isDevMasterLoggedIn) {
       if (devPreviewStrip) {
         devPreviewStrip.style.display = 'flex';
+        const sName = (appState.storeSettings && appState.storeSettings.storeName) || 'SR12 Official Central Hub';
+        const previewDisplay = document.getElementById('devPreviewStoreNameDisplay');
+        if (previewDisplay) previewDisplay.textContent = sName;
         const stripName = document.getElementById('devStripStoreName');
         const stripQuota = document.getElementById('devStripOrderQuota');
-        if (stripName) stripName.textContent = (appState.storeSettings && appState.storeSettings.storeName) || 'Toko Aktif';
+        if (stripName) stripName.textContent = sName;
         if (stripQuota) stripQuota.textContent = typeof appState.storeSettings?.orderQuota === 'number' ? appState.storeSettings.orderQuota : 10;
       }
       if (devFab) devFab.style.display = 'flex';
@@ -3644,28 +3648,28 @@ function updateDevPortalMetrics() {
       const quotaVal = typeof s.orderQuota === 'number' ? s.orderQuota : 10;
       return `
         <tr style="border-bottom: 1px solid #334155;">
-          <td style="padding: 10px 12px; font-weight: 700;">
+          <td data-label="Nama Toko" style="padding: 10px 12px; font-weight: 700;">
             <div style="font-size: 0.9rem; color: #f8fafc;">${s.storeName}</div>
             <div style="font-size: 0.72rem; color: #38bdf8; font-family: monospace;">?store=${s.slug}</div>
           </td>
-          <td style="padding: 10px 12px;">
+          <td data-label="Pemilik & Kota" style="padding: 10px 12px;">
             <div style="font-weight: 600; color: #f1f5f9;">${s.storeOwner}</div>
             <div style="font-size: 0.7rem; color: #94a3b8;">📍 ${s.storeCity || '-'}</div>
           </td>
-          <td style="padding: 10px 12px;"><span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;">${tierObj.name}</span></td>
-          <td style="padding: 10px 12px; font-family: monospace; color: #cbd5e1;">+${s.storeWaNumber}</td>
-          <td style="padding: 10px 12px; text-align: center;">
+          <td data-label="Level" style="padding: 10px 12px;"><span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;">${tierObj.name}</span></td>
+          <td data-label="WhatsApp" style="padding: 10px 12px; font-family: monospace; color: #cbd5e1;">+${s.storeWaNumber}</td>
+          <td data-label="Sisa Kuota" style="padding: 10px 12px; text-align: center;">
             <span style="background: ${quotaVal <= 2 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}; color: ${quotaVal <= 2 ? '#f87171' : '#34d399'}; padding: 3px 10px; border-radius: 9999px; font-weight: 800; font-size: 0.75rem;">
               ${quotaVal} Order
             </span>
           </td>
-          <td style="padding: 10px 12px; text-align: center; white-space: nowrap;">
-            <div style="display: inline-flex; gap: 8px; align-items: center;">
+          <td data-label="Aksi" style="padding: 10px 12px; text-align: center; white-space: nowrap;">
+            <div style="display: inline-flex; gap: 8px; align-items: center; width: 100%; justify-content: flex-end; flex-wrap: wrap;">
               <button type="button" onclick="switchPartnerStore('${s.slug}'); showDeveloperWorkspaceView(false);" style="background: #0284c7; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
                 👁️ Tinjau Etalase
               </button>
               <button type="button" onclick="openDevStoreAdminBackoffice('${s.slug}')" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(245, 158, 11, 0.3);">
-                👑 Masuk Backoffice Olsera
+                👑 Masuk Backoffice
               </button>
             </div>
           </td>
@@ -3806,36 +3810,36 @@ function updateDevPortalMetrics() {
         const tierObj = SR12_TIERS[app.partnerTier] || SR12_TIERS.distributor;
         return `
           <tr style="border-bottom: 1px solid #334155;">
-            <td style="padding: 10px 12px;">
+            <td data-label="Toko & ID" style="padding: 10px 12px;">
               <b style="color: #f8fafc; font-size: 0.88rem;">${app.storeName}</b>
               <div style="font-size: 0.7rem; color: #f59e0b; font-family: monospace;">#${app.id} &middot; ?store=${app.slug}</div>
             </td>
-            <td style="padding: 10px 12px;">
+            <td data-label="Calon Pemilik" style="padding: 10px 12px;">
               <div style="font-weight: 600; color: #f1f5f9;">${app.storeOwner}</div>
               <div style="font-size: 0.7rem; color: #94a3b8;">📍 ${app.storeCity}</div>
             </td>
-            <td style="padding: 10px 12px;">
+            <td data-label="Level" style="padding: 10px 12px;">
               <span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;">
                 ${tierObj.name}
               </span>
             </td>
-            <td style="padding: 10px 12px; white-space: nowrap;">
+            <td data-label="Dokumen SK" style="padding: 10px 12px; white-space: nowrap;">
               <button type="button" onclick="event.stopPropagation(); previewSkDocument('${app.id}')" title="Klik untuk memeriksa dokumen SK resmi" style="background: #0f172a; border: 1.5px solid #f59e0b; color: #fbbf24; padding: 6px 12px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;">
                 <span>📄</span> <span>${app.skNumber || 'Lihat Dokumen SK'}</span> <span style="font-size: 0.7rem; opacity: 0.8;">↗️</span>
               </button>
             </td>
-            <td style="padding: 10px 12px;">
+            <td data-label="WhatsApp" style="padding: 10px 12px;">
               <button type="button" onclick="contactApplicantWA('${app.id}')" style="background: rgba(37, 211, 102, 0.15); border: 1px solid #25d366; color: #4ade80; padding: 6px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; white-space: nowrap;">
                 <span>📱</span> +${app.storeWaNumber}
               </button>
             </td>
-            <td style="padding: 10px 12px; text-align: center;">
+            <td data-label="Status" style="padding: 10px 12px; text-align: center;">
               <span style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; padding: 3px 10px; border-radius: 9999px; font-weight: 800; font-size: 0.7rem; white-space: nowrap;">
                 ⏳ PENDING
               </span>
             </td>
-            <td style="padding: 10px 12px; text-align: center; white-space: nowrap;">
-              <div style="display: inline-flex; gap: 6px; justify-content: center; align-items: center;">
+            <td data-label="Aksi" style="padding: 10px 12px; text-align: center; white-space: nowrap;">
+              <div style="display: inline-flex; gap: 6px; justify-content: flex-end; align-items: center; width: 100%; flex-wrap: wrap;">
                 <button type="button" onclick="event.stopPropagation(); previewSkDocument('${app.id}')" title="Buka & Verifikasi Berkas SK" style="background: #0284c7; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
                   <span>📄</span> Cek SK
                 </button>
@@ -3869,12 +3873,12 @@ function updateDevPortalMetrics() {
         const tierName = m.role || m.tier || 'Reseller';
         return `
           <tr style="border-bottom: 1px solid #334155;">
-            <td style="padding: 10px 12px; font-weight: 600; color: #f1f5f9;">${m.name || '-'}</td>
-            <td style="padding: 10px 12px; font-family: monospace; color: #38bdf8;">${m.id || '-'}</td>
-            <td style="padding: 10px 12px;"><span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;">${tierName}</span></td>
-            <td style="padding: 10px 12px; font-family: monospace; color: #cbd5e1;">${m.phone || '-'}</td>
-            <td style="padding: 10px 12px; font-weight: 700; color: #fbbf24;">${m.points || 0} Poin</td>
-            <td style="padding: 10px 12px; text-align: center;">
+            <td data-label="Nama Mitra" style="padding: 10px 12px; font-weight: 600; color: #f1f5f9;">${m.name || '-'}</td>
+            <td data-label="ID Mitra" style="padding: 10px 12px; font-family: monospace; color: #38bdf8;">${m.id || '-'}</td>
+            <td data-label="Level" style="padding: 10px 12px;"><span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;">${tierName}</span></td>
+            <td data-label="WhatsApp" style="padding: 10px 12px; font-family: monospace; color: #cbd5e1;">${m.phone || '-'}</td>
+            <td data-label="Poin" style="padding: 10px 12px; font-weight: 700; color: #fbbf24;">${m.points || 0} Poin</td>
+            <td data-label="Aksi" style="padding: 10px 12px; text-align: center;">
               <button type="button" onclick="contactMitraWA('${m.phone || ''}', '${m.name || ''}')" style="background: rgba(37, 211, 102, 0.15); border: 1px solid #25d366; color: #4ade80; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer;">
                 Hubungi WA
               </button>

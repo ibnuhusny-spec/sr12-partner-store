@@ -12,20 +12,19 @@
 
   <!-- 0.0 DEVELOPER PREVIEW STRIP (MUNCUL JIKA DEVELOPER SUPER ADMIN SEDANG MENINJAU ETALASE TOKO) -->
   <aside id="devPreviewStrip" class="dev-preview-strip" style="display: none;">
-    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-      <span class="dev-master-tag">🔐 SUPER ADMIN DEVELOPER</span>
-      <span>Sedang Meninjau: <b id="devPreviewStoreNameDisplay" style="color: #38bdf8;">SR12 Official Central Hub</b></span>
-      <span class="dev-cloud-pill">☁️ Supabase Cloud LIVE</span>
+    <div class="dev-strip-info">
+      <span class="dev-master-tag">🔐 Dev Preview</span>
+      <span class="dev-strip-store">Toko: <b id="devPreviewStoreNameDisplay" style="color: #38bdf8;">SR12 Official Central Hub</b></span>
     </div>
-    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-      <button type="button" class="btn-dev-strip-primary" onclick="showDeveloperWorkspaceView(true)">
-        <span>📊</span> <b>Buka Console Developer</b>
+    <div class="dev-strip-actions">
+      <button type="button" class="btn-dev-strip-icon" onclick="showDeveloperWorkspaceView(true)" title="Kembali ke Developer Console" aria-label="Console Developer">
+        <span>📊</span><span class="desktop-only-label"> Console</span>
       </button>
-      <button type="button" class="btn-dev-strip-green" onclick="openDevStoreAdminBackoffice()">
-        <span>👑</span> Masuk Backoffice Toko Ini
+      <button type="button" class="btn-dev-strip-icon btn-dev-strip-green" onclick="openDevStoreAdminBackoffice()" title="Masuk Backoffice Toko Ini" aria-label="Backoffice">
+        <span>👑</span><span class="desktop-only-label"> Backoffice</span>
       </button>
-      <button type="button" class="btn-dev-strip-danger" onclick="handleDeveloperLogout()">
-        <span>🚪</span> Logout Dev
+      <button type="button" class="btn-dev-strip-icon btn-dev-strip-danger" onclick="handleDeveloperLogout()" title="Logout Developer" aria-label="Logout">
+        <span>🚪</span><span class="desktop-only-label"> Logout</span>
       </button>
     </div>
   </aside>
@@ -217,6 +216,13 @@
     </div>
 
     <div class="tools-section">
+      <!-- 0. Kasir Aktif Bertugas: Terlihat jelas di HP dan Desktop -->
+      <button type="button" class="btn-topbar-cashier-active" onclick="openOlseraAbsensiModal()" title="Kasir Aktif: Klik untuk Absensi / Ganti Shift">
+        <span style="font-size: 0.95rem;">👤</span>
+        <span class="topbar-cashier-text">Kasir: <b id="topbarActiveCashierName">Nurlinda Sari</b></span>
+        <span class="badge-online-dot"></span>
+      </button>
+
       <!-- 1. Pesan Masuk: Icon Amplop Bersih dengan Badge Counter -->
       <button type="button" class="btn-topbar-icon" onclick="openAdminOrdersModal()" title="Pesanan Masuk" aria-label="Pesanan Masuk">
         <span class="icon-symbol">✉️</span>
@@ -441,6 +447,21 @@
           <!-- Right: Register / Cart Panel -->
           <div class="pos-register-panel">
             <div class="pos-register-header" style="width: 100%; box-sizing: border-box;">
+              <!-- Kartu Kasir Bertugas Aktif (Terlihat Jelas di HP & Komputer) -->
+              <div class="pos-cashier-duty-card" onclick="openOlseraAbsensiModal()" title="Kasir yang Sedang Bertugas: Klik untuk Kelola Shift / Ganti Kasir">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <div class="cashier-avatar-badge">👤</div>
+                  <div>
+                    <div style="font-size: 0.68rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Kasir Bertugas:</div>
+                    <div style="font-size: 0.88rem; font-weight: 800; color: #065f46;" id="posRegisterCashierName">Nurlinda Sari</div>
+                  </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span class="badge-shift-pill" id="posRegisterShiftName">Shift Pagi</span>
+                  <span style="font-size: 0.72rem; color: #0284c7; font-weight: 700;">Ubah &rarr;</span>
+                </div>
+              </div>
+
               <label style="font-size: 0.76rem; font-weight: 800; color: #64748b; text-transform: uppercase; display: block; margin-bottom: 5px;">Tingkat Pembeli / Mitra:</label>
               <select id="posBuyerTierSelect" onchange="handlePosBuyerTierChange(this.value)" class="pos-customer-select" style="width: 100%; box-sizing: border-box;">
                 <option value="konsumen">👤 Konsumen Retail Umum (HET)</option>
@@ -879,32 +900,32 @@
       <div class="dev-nav-logo">⚡</div>
       <div>
         <div class="dev-nav-title">
-          <span>SR12 Master Developer Console</span>
+          <span>Dev Console</span>
           <span class="dev-nav-badge">Super Admin</span>
         </div>
         <div class="dev-nav-sub">
-          Akses Master Owner &middot; <span style="color: #4ade80;">☁️ Supabase Cloud: LIVE (htdmdzbbwltesopfrmoc)</span>
+          Master Owner &middot; <span style="color: #4ade80;">☁️ Supabase Cloud LIVE</span>
         </div>
       </div>
     </div>
 
     <div class="dev-nav-tools">
       <div class="dev-nav-stats">
-        <span>🏪 Toko Aktif: <b id="devNavStoresCount" style="color: #38bdf8;">4 Toko</b></span>
+        <span>🏪 <b id="devNavStoresCount" style="color: #38bdf8;">4 Toko</b></span>
         <span>&middot;</span>
-        <span>⚡ Fee Terkumpul: <b id="devNavFeeCount" style="color: #34d399;">Rp 0</b></span>
+        <span>⚡ <b id="devNavFeeCount" style="color: #34d399;">Rp 0</b></span>
       </div>
-      <button type="button" class="btn-dev-nav-link" id="devNavPendingBtn" onclick="switchDevPortalTab('pending')" style="display: none; background: #78350f; color: #fde68a; border: 1px solid #f59e0b; padding: 5px 12px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer; align-items: center; gap: 5px;">
-        <span>⏳</span> Pengajuan Toko Baru <b id="devNavPendingBadge" style="background: #ef4444; color: #fff; padding: 1px 6px; border-radius: 999px; font-size: 0.68rem; margin-left: 3px;">1</b>
+      <button type="button" class="btn-dev-nav-link" id="devNavPendingBtn" onclick="switchDevPortalTab('pending')" style="display: none; background: #78350f; color: #fde68a; border: 1px solid #f59e0b; padding: 5px 10px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer; align-items: center; gap: 5px;" title="Pengajuan Toko Baru">
+        <span>⏳</span><span class="desktop-only-label"> Pengajuan</span> <b id="devNavPendingBadge" style="background: #ef4444; color: #fff; padding: 1px 6px; border-radius: 999px; font-size: 0.68rem;">1</b>
       </button>
     </div>
 
     <div class="dev-nav-actions">
-      <button type="button" class="btn-dev-switch-storefront" onclick="showDeveloperWorkspaceView(false)" title="Tinjau tampilan web toko dari sudut pandang pembeli">
-        <span>👁️</span> Tinjau Etalase Pembeli
+      <button type="button" class="btn-dev-nav-icon" onclick="showDeveloperWorkspaceView(false)" title="Tinjau tampilan etalase dari sudut pandang pembeli" aria-label="Tinjau Etalase Pembeli">
+        <span>👁️</span><span class="desktop-only-label"> Etalase</span>
       </button>
-      <button type="button" class="btn-dev-logout" onclick="handleDeveloperLogout()" title="Keluar dari sesi Developer">
-        <span>🚪</span> Logout Dev
+      <button type="button" class="btn-dev-nav-icon btn-dev-logout" onclick="handleDeveloperLogout()" title="Keluar dari sesi Developer" aria-label="Logout Developer">
+        <span>🚪</span><span class="desktop-only-label"> Logout</span>
       </button>
     </div>
   </header>
@@ -1028,7 +1049,7 @@
           <span id="devTotalStoresCounter_ws" style="font-size: 0.74rem; background: #0284c7; color: #fff; padding: 3px 10px; border-radius: 9999px; font-weight: 700;">4 Toko Terdaftar</span>
         </div>
         <div style="overflow-x: auto; max-height: 400px; overflow-y: auto;">
-          <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;">
+          <table class="dev-table-responsive" style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;">
             <thead>
               <tr style="border-bottom: 1.5px solid #475569; color: #94a3b8;">
                 <th style="padding: 10px 12px;">Nama Toko &amp; Link</th>
@@ -1063,7 +1084,7 @@
           Periksa berkas Surat Keputusan (SK) dan identitas calon pendaftar toko mitra sebelum memberikan akses toko online resmi.
         </p>
         <div style="overflow-x: auto; max-height: 420px; overflow-y: auto;">
-          <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;">
+          <table class="dev-table-responsive" style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;">
             <thead>
               <tr style="border-bottom: 1.5px solid #475569; color: #fbbf24;">
                 <th style="padding: 10px 12px;">Toko &amp; ID Pengajuan</th>
@@ -1093,7 +1114,7 @@
           <span style="font-size: 0.74rem; background: #0284c7; color: #fff; padding: 3px 10px; border-radius: 9999px; font-weight: 700;">Global Network</span>
         </div>
         <div style="overflow-x: auto; max-height: 400px; overflow-y: auto;">
-          <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;">
+          <table class="dev-table-responsive" style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;">
             <thead>
               <tr style="border-bottom: 1.5px solid #475569; color: #94a3b8;">
                 <th style="padding: 10px 12px;">Nama Mitra</th>
@@ -1118,7 +1139,7 @@
         <h4 style="color: #38bdf8; font-size: 0.95rem; margin: 0 0 14px 0; display: flex; align-items: center; gap: 8px;">
           <span>💳</span> Pengaturan Rekening Penerima Top-Up Developer:
         </h4>
-        <form onsubmit="handleSaveDevPaymentSettings(event)" style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+        <form onsubmit="handleSaveDevPaymentSettings(event)" class="grid-2col-resp" style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
           <div>
             <label style="font-size: 0.76rem; color: #94a3b8; display: block; margin-bottom: 4px;">Nama Bank:</label>
             <input type="text" id="devSettingBankName_ws" placeholder="Contoh: BCA / BRI / Mandiri" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #fff; font-size: 0.85rem;">
@@ -2115,7 +2136,7 @@
             <small style="font-size: 0.7rem; color: var(--dark-500);">Link ini yang akan Anda bagikan ke media sosial / calon pembeli.</small>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+          <div class="grid-2col-resp" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
             <div>
               <label style="font-size: 0.8rem; font-weight: 700; color: var(--dark-800); display: block; margin-bottom: 4px;">Nama Pemilik / Admin:</label>
               <input type="text" id="regStoreOwner" placeholder="Nama Lengkap Anda" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: var(--font-main);">
@@ -2132,7 +2153,7 @@
             </div>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+          <div class="grid-2col-resp" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
             <div>
               <label style="font-size: 0.8rem; font-weight: 700; color: var(--dark-800); display: block; margin-bottom: 4px;">No. WhatsApp Penerima Order:</label>
               <input type="text" id="regStoreWa" placeholder="081234567890" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: var(--font-main);">
@@ -2146,7 +2167,7 @@
           <!-- Input Logo Toko (Gambar atau Teks Badge) -->
           <div style="background: var(--dark-50); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 14px;">
             <label style="font-size: 0.8rem; font-weight: 700; color: var(--dark-800); display: block; margin-bottom: 6px;">Logo Toko (Upload Gambar / Teks Badge):</label>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+            <div class="grid-2col-resp" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
               <div>
                 <label style="font-size: 0.72rem; color: var(--dark-600); display: block; margin-bottom: 3px;">Teks Singkat Badge:</label>
                 <input type="text" id="regLogoText" maxlength="6" placeholder="SR12" style="width: 100%; padding: 7px 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-weight: 700; text-transform: uppercase;">
@@ -2170,7 +2191,7 @@
               </label>
               <span style="font-size: 0.68rem; background: #0284c7; color: #fff; padding: 2px 7px; border-radius: 4px; font-weight: 700;">WAJIB</span>
             </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px;">
+            <div class="grid-2col-resp" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px;">
               <div>
                 <label style="font-size: 0.72rem; color: #0284c7; display: block; margin-bottom: 2px;">16 Digit NIK KTP:</label>
                 <input type="text" id="regNikNumber" maxlength="16" placeholder="Contoh: 3374025804820003" required style="width: 100%; padding: 7px 10px; border: 1px solid #7dd3fc; border-radius: 4px; font-size: 0.78rem; font-family: monospace;">
@@ -2195,7 +2216,7 @@
               </label>
               <span style="font-size: 0.68rem; background: #059669; color: #fff; padding: 2px 7px; border-radius: 4px; font-weight: 700;">WAJIB</span>
             </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px;">
+            <div class="grid-2col-resp" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px;">
               <div>
                 <label style="font-size: 0.72rem; color: #047857; display: block; margin-bottom: 2px;">No. SK / Kontrak SR12:</label>
                 <input type="text" id="regSkNumber" placeholder="Contoh: SK-DIST-SR12-2026-0419" required style="width: 100%; padding: 7px 10px; border: 1px solid #a7f3d0; border-radius: 4px; font-size: 0.78rem; font-family: monospace;">
@@ -2233,7 +2254,7 @@
             <input type="text" id="regStoreNotes" placeholder="Contoh: Sudah tanda tangan kontrak kemitraan resmi wilayah Jawa Tengah" style="width: 100%; padding: 7px 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 0.78rem; font-family: var(--font-main);">
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
+          <div class="grid-2col-resp" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
             <div>
               <label style="font-size: 0.8rem; font-weight: 700; color: var(--dark-800); display: block; margin-bottom: 4px;">Pilihan Tema Warna Toko:</label>
               <select id="regStoreTheme" style="width: 100%; padding: 8px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: var(--font-main);">

@@ -562,12 +562,13 @@ h1, h2, h3, h4, h5, h6 {
   gap: 8px;
 }
 
+.btn-dev-nav-icon,
 .btn-dev-switch-storefront {
   background: #1e293b;
   color: #38bdf8;
   border: 1px solid #0284c7;
-  padding: 7px 14px;
-  border-radius: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
   font-weight: 700;
   font-size: 0.8rem;
   cursor: pointer;
@@ -575,26 +576,34 @@ h1, h2, h3, h4, h5, h6 {
   align-items: center;
   gap: 6px;
   transition: all 0.2s;
+  white-space: nowrap;
 }
 
+.btn-dev-nav-icon:hover,
 .btn-dev-switch-storefront:hover {
   background: #0284c7;
   color: #fff;
 }
 
-.btn-dev-logout {
+.btn-dev-logout,
+.btn-dev-nav-icon.btn-dev-logout {
   background: rgba(239, 68, 68, 0.2);
   color: #fca5a5;
   border: 1px solid #ef4444;
-  padding: 7px 12px;
-  border-radius: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
   font-weight: 700;
   font-size: 0.8rem;
   cursor: pointer;
   transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
 }
 
-.btn-dev-logout:hover {
+.btn-dev-logout:hover,
+.btn-dev-nav-icon.btn-dev-logout:hover {
   background: #ef4444;
   color: #fff;
 }
@@ -2894,6 +2903,137 @@ h1, h2, h3, h4, h5, h6 {
   100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
 }
 
+/* Topbar Active Cashier Pill */
+.btn-topbar-cashier-active {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.btn-topbar-cashier-active:hover {
+  background: #d1fae5;
+  border-color: #34d399;
+}
+.topbar-cashier-text b {
+  color: #047857;
+}
+
+/* POS Register Cashier Duty Card */
+.pos-cashier-duty-card {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+.pos-cashier-duty-card:hover {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+.cashier-avatar-badge {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #10b981;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+.badge-shift-pill {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+/* Minimalist Dev Preview Strip */
+.dev-preview-strip {
+  background: #090d16;
+  border-bottom: 1px solid #1e293b;
+  padding: 6px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #ffffff;
+  font-size: 0.78rem;
+  z-index: 1000;
+  flex-wrap: nowrap;
+}
+.dev-strip-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+.dev-strip-store {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dev-strip-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.btn-dev-strip-icon {
+  background: #1e293b;
+  color: #38bdf8;
+  border: 1px solid #334155;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+}
+.btn-dev-strip-icon:hover {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #38bdf8;
+}
+.btn-dev-strip-icon.btn-dev-strip-green {
+  color: #34d399;
+}
+.btn-dev-strip-icon.btn-dev-strip-green:hover {
+  background: #059669;
+  color: #ffffff;
+}
+.btn-dev-strip-icon.btn-dev-strip-danger {
+  color: #f87171;
+}
+.btn-dev-strip-icon.btn-dev-strip-danger:hover {
+  background: #dc2626;
+  color: #ffffff;
+}
+
 .absensi-tab-btn {
   padding: 10px 14px;
   background: transparent;
@@ -4683,6 +4823,213 @@ h1, h2, h3, h4, h5, h6 {
     width: 100% !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
+  }
+
+  /* 11. Topbar Active Cashier Pill di HP */
+  .btn-topbar-cashier-active {
+    padding: 4px 8px !important;
+    font-size: 0.72rem !important;
+    gap: 4px !important;
+  }
+  .topbar-cashier-text {
+    max-width: 85px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  /* 12. Kop Tinjau Etalase Pembeli (Dev Preview Strip) Ringkas di HP */
+  .dev-preview-strip {
+    padding: 5px 8px !important;
+  }
+  .dev-strip-info {
+    font-size: 0.74rem !important;
+  }
+  .btn-dev-strip-icon .desktop-only-label {
+    display: none !important;
+  }
+  .btn-dev-strip-icon {
+    padding: 5px 8px !important;
+    min-width: 32px !important;
+    height: 32px !important;
+    justify-content: center !important;
+  }
+
+  /* 13. Kop Dashboard Developer Console di HP */
+  .dev-app-navbar {
+    padding: 8px 10px !important;
+    gap: 8px !important;
+  }
+  .dev-nav-brand .dev-nav-title {
+    font-size: 0.88rem !important;
+  }
+  .dev-nav-sub {
+    font-size: 0.68rem !important;
+  }
+  .dev-nav-stats {
+    font-size: 0.7rem !important;
+    gap: 4px !important;
+    padding: 3px 6px !important;
+  }
+  .btn-dev-nav-icon .desktop-only-label,
+  .btn-dev-nav-link .desktop-only-label {
+    display: none !important;
+  }
+  .btn-dev-nav-icon {
+    padding: 6px 9px !important;
+    min-width: 32px !important;
+    height: 32px !important;
+    justify-content: center !important;
+    font-size: 0.92rem !important;
+  }
+  .btn-dev-nav-link {
+    padding: 5px 8px !important;
+    font-size: 0.72rem !important;
+  }
+
+  /* 14. Form Buka Toko Online (#modalRegisterStore) & Semua Modal Bebas Geser Kiri-Kanan */
+  .modal-dialog {
+    max-width: calc(100vw - 16px) !important;
+    width: 100% !important;
+    margin: 8px auto !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+  .modal-body {
+    padding: 14px 10px !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+  .modal-body form {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .modal-body [style*="grid-template-columns: 1fr 1fr"],
+  .modal-body [style*="grid-template-columns: repeat(2"],
+  #modalRegisterStore [style*="grid-template-columns: 1fr 1fr"],
+  #modalRegisterStore [style*="grid-template-columns: repeat(2"],
+  #modalRegisterStore .grid-2col-resp,
+  .grid-2col-resp {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .modal-body input,
+  .modal-body select,
+  .modal-body textarea,
+  .modal-body input[type="file"],
+  #modalRegisterStore input,
+  #modalRegisterStore select,
+  #modalRegisterStore textarea,
+  #modalRegisterStore input[type="file"] {
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* 15. Tabel Pengajuan Toko & Jaringan Mitra Developer (Responsif Card View di Layar HP) */
+  #devTabPane_ws_pending div[style*="overflow-x: auto"],
+  #devTabPane_ws_stores div[style*="overflow-x: auto"],
+  #devTabPane_ws_networkMitra div[style*="overflow-x: auto"],
+  #modalDevPortal div[style*="overflow-x: auto"] {
+    overflow-x: visible !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .dev-table-responsive,
+  #devTabPane_ws_pending table,
+  #devTabPane_ws_stores table,
+  #devTabPane_ws_networkMitra table {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    border: none !important;
+    background: transparent !important;
+  }
+
+  .dev-table-responsive thead,
+  #devTabPane_ws_pending table thead,
+  #devTabPane_ws_stores table thead,
+  #devTabPane_ws_networkMitra table thead {
+    display: none !important;
+  }
+
+  .dev-table-responsive tbody,
+  #devTabPane_ws_pending table tbody,
+  #devTabPane_ws_stores table tbody,
+  #devTabPane_ws_networkMitra table tbody {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .dev-table-responsive tr,
+  #devTabPane_ws_pending table tr,
+  #devTabPane_ws_stores table tr,
+  #devTabPane_ws_networkMitra table tr {
+    display: block !important;
+    background: #0f172a !important;
+    border: 1.5px solid #334155 !important;
+    border-radius: 12px !important;
+    padding: 12px 10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25) !important;
+  }
+
+  .dev-table-responsive td,
+  #devTabPane_ws_pending table td,
+  #devTabPane_ws_stores table td,
+  #devTabPane_ws_networkMitra table td {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 6px 0 !important;
+    border: none !important;
+    border-bottom: 1px dashed #1e293b !important;
+    font-size: 0.78rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    text-align: right !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+
+  .dev-table-responsive td::before,
+  #devTabPane_ws_pending table td::before,
+  #devTabPane_ws_stores table td::before,
+  #devTabPane_ws_networkMitra table td::before {
+    content: attr(data-label) !important;
+    font-weight: 700 !important;
+    color: #94a3b8 !important;
+    font-size: 0.72rem !important;
+    text-align: left !important;
+    flex-shrink: 0 !important;
+  }
+
+  #devTabPane_ws_pending table td:last-child,
+  #devTabPane_ws_stores table td:last-child,
+  #devTabPane_ws_networkMitra table td:last-child {
+    border-bottom: none !important;
+    padding-top: 8px !important;
+    justify-content: center !important;
+  }
+
+  #devTabPane_ws_pending table td:last-child > div,
+  #devTabPane_ws_stores table td:last-child > div {
+    width: 100% !important;
+    justify-content: space-between !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
   }
 }
 
