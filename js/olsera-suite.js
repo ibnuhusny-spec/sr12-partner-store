@@ -179,11 +179,12 @@ function updateOlseraHeaderMeta() {
 
   const sName = store.storeName || 'Alzam Agency';
   const sOwner = store.storeOwner || 'Nurlinda Sari';
+  const activeCashierName = (typeof appState !== 'undefined' && appState.activeCashier && appState.activeCashier.name) ? appState.activeCashier.name : sOwner;
 
   if (nameEl) nameEl.textContent = sName;
-  if (ownerEl) ownerEl.textContent = sOwner;
+  if (ownerEl) ownerEl.textContent = `${activeCashierName} (Kasir Aktif)`;
   if (topbarNameEl) topbarNameEl.textContent = sName;
-  if (topbarOwnerEl) topbarOwnerEl.textContent = `${sOwner} • Distributor Resmi SR12`;
+  if (topbarOwnerEl) topbarOwnerEl.textContent = `${activeCashierName} (Kasir) • Distributor Resmi SR12`;
   if (topbarQuotaEl) {
     const q = (appState && typeof appState.storeSettings?.orderQuota !== 'undefined') ? appState.storeSettings.orderQuota : 15;
     topbarQuotaEl.textContent = `${q}`;
@@ -255,29 +256,296 @@ function closeOlseraSidebarDrawer() {
   if (backdrop) backdrop.classList.remove('open');
 }
 
+// ========================================================
+// ABSENSI SHIFT KASIR & OPERATOR SUITE
+// ========================================================
+
+function getStoredActiveCashier() {
+  try {
+    const raw = localStorage.getItem('sr12_active_cashier');
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  const defaultOwner = (typeof appState !== 'undefined' && appState.storeSettings && appState.storeSettings.storeOwner) || 'Nurlinda Sari';
+  return {
+    name: defaultOwner,
+    shift: 'Shift Pagi (08:00 - 15:00)',
+    clockInTime: '08:00 WIB',
+    openingCash: 100000,
+    trxCount: 0,
+    totalSales: 0,
+    cashSales: 0,
+    nonCashSales: 0,
+    status: 'Aktif'
+  };
+}
+
+function saveStoredActiveCashier(cashier) {
+  try {
+    localStorage.setItem('sr12_active_cashier', JSON.stringify(cashier));
+  } catch (e) {}
+}
+
+function getStoredCashierAttendance() {
+  try {
+    const raw = localStorage.getItem('sr12_cashier_attendance');
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return [
+    {
+      id: 'ABS-101',
+      date: 'Hari ini',
+      cashierName: 'Nurlinda Sari',
+      shift: 'Shift Pagi (08:00 - 15:00)',
+      clockIn: '08:00 WIB',
+      clockOut: 'Sedang Berjalan',
+      openingCash: 100000,
+      totalSales: 0,
+      status: 'Aktif'
+    }
+  ];
+}
+
+function saveStoredCashierAttendance(logs) {
+  try {
+    localStorage.setItem('sr12_cashier_attendance', JSON.stringify(logs));
+  } catch (e) {}
+}
+
+function initCashierAttendanceState() {
+  if (typeof appState === 'undefined') return;
+  if (!appState.activeCashier) {
+    appState.activeCashier = getStoredActiveCashier();
+  }
+  if (!appState.cashierAttendanceLog) {
+    appState.cashierAttendanceLog = getStoredCashierAttendance();
+  }
+  updateCashierBadgeUI();
+}
+
+function switchAbsensiTab(tabId) {
+  const tabs = ['status', 'form', 'log'];
+  tabs.forEach(t => {
+    const btn = document.getElementById(`tabBtnAbsensi${t.charAt(0).toUpperCase() + t.slice(1)}`);
+    const view = document.getElementById(`absensiView${t.charAt(0).toUpperCase() + t.slice(1)}`);
+    if (btn) btn.classList.toggle('active', t === tabId);
+    if (view) view.style.display = (t === tabId) ? 'block' : 'none';
+  });
+
+  if (tabId === 'status') {
+    renderAbsensiStatusView();
+  } else if (tabId === 'log') {
+    renderAbsensiLogs();
+  }
+}
+
+function handleSelectCashierPreset(val) {
+  const customInput = document.getElementById('absensiInputCustomName');
+  if (!customInput) return;
+  if (val === 'custom') {
+    customInput.style.display = 'block';
+    customInput.focus();
+  } else {
+    customInput.style.display = 'none';
+    customInput.value = '';
+  }
+}
+
+function handleClockInSubmit(e) {
+  if (e) e.preventDefault();
+  const selectEl = document.getElementById('absensiSelectCashier');
+  const customInput = document.getElementById('absensiInputCustomName');
+  const shiftSelect = document.getElementById('absensiShiftSelect');
+  const cashInput = document.getElementById('absensiOpeningCashInput');
+
+  let chosenName = selectEl ? selectEl.value : 'Nurlinda Sari';
+  if (chosenName === 'custom') {
+    chosenName = customInput?.value.trim() || 'Kasir Pengganti';
+  }
+  const chosenShift = shiftSelect ? shiftSelect.value : 'Shift Pagi (08:00 - 15:00)';
+  const openingCash = Math.max(0, parseInt(cashInput?.value, 10) || 100000);
+
+  const now = new Date();
+  const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} WIB`;
+
+  // Simpan data kasir aktif baru
+  appState.activeCashier = {
+    name: chosenName,
+    shift: chosenShift,
+    clockInTime: timeStr,
+    openingCash,
+    trxCount: 0,
+    totalSales: 0,
+    cashSales: 0,
+    nonCashSales: 0,
+    status: 'Aktif'
+  };
+  saveStoredActiveCashier(appState.activeCashier);
+
+  // Catat ke daftar log absensi
+  if (!appState.cashierAttendanceLog) appState.cashierAttendanceLog = [];
+  appState.cashierAttendanceLog.unshift({
+    id: 'ABS-' + Math.floor(100 + Math.random() * 900),
+    date: `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`,
+    cashierName: chosenName,
+    shift: chosenShift,
+    clockIn: timeStr,
+    clockOut: 'Sedang Berjalan',
+    openingCash,
+    totalSales: 0,
+    status: 'Aktif'
+  });
+  saveStoredCashierAttendance(appState.cashierAttendanceLog);
+
+  updateCashierBadgeUI();
+  switchAbsensiTab('status');
+  showToast(`✅ Absen Masuk Berhasil! Kasir: ${chosenName} (${chosenShift.split(' ')[0] || 'Shift'}).`);
+}
+
+function handleClockOutCashier() {
+  if (!appState.activeCashier) return;
+  const cashier = appState.activeCashier;
+  const now = new Date();
+  const timeOutStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} WIB`;
+  const expectedDrawer = (cashier.openingCash || 0) + (cashier.cashSales || 0);
+
+  const confirmMsg = `Konfirmasi Tutup Shift Kasir?\n\n` +
+    `• Kasir: ${cashier.name}\n` +
+    `• Shift: ${cashier.shift}\n` +
+    `• Jam Masuk: ${cashier.clockInTime}\n` +
+    `• Jam Tutup: ${timeOutStr}\n` +
+    `• Transaksi Sesi Ini: ${cashier.trxCount || 0} Trx\n` +
+    `• Total Omset: Rp ${(cashier.totalSales || 0).toLocaleString('id-ID')}\n` +
+    `• Modal Awal Kas: Rp ${(cashier.openingCash || 0).toLocaleString('id-ID')}\n` +
+    `• Uang Tunai di Laci Kasir: Rp ${expectedDrawer.toLocaleString('id-ID')}\n\n` +
+    `Apakah Anda ingin menyelesaikan rekap shift ini?`;
+
+  if (!confirm(confirmMsg)) return;
+
+  // Update log absensi terakhir
+  if (appState.cashierAttendanceLog && appState.cashierAttendanceLog.length > 0) {
+    const activeLog = appState.cashierAttendanceLog.find(l => l.cashierName === cashier.name && l.status === 'Aktif') || appState.cashierAttendanceLog[0];
+    if (activeLog) {
+      activeLog.clockOut = timeOutStr;
+      activeLog.status = 'Selesai';
+      activeLog.totalSales = cashier.totalSales || 0;
+      activeLog.expectedDrawer = expectedDrawer;
+    }
+    saveStoredCashierAttendance(appState.cashierAttendanceLog);
+  }
+
+  // Tandai kasir selesai
+  cashier.status = 'Selesai';
+  saveStoredActiveCashier(cashier);
+
+  showToast(`🏁 Shift Kasir "${cashier.name}" selesai. Uang laci diserahkan: Rp ${expectedDrawer.toLocaleString('id-ID')}.`);
+  switchAbsensiTab('form');
+}
+
+function renderAbsensiStatusView() {
+  const cashier = (typeof appState !== 'undefined' && appState.activeCashier) ? appState.activeCashier : getStoredActiveCashier();
+  const nameEl = document.getElementById('absensiOperatorName');
+  const shiftLabelEl = document.getElementById('absensiShiftLabel');
+  const clockInEl = document.getElementById('absensiClockInTime');
+  const openingCashEl = document.getElementById('absensiOpeningCash');
+  const sessionTrxEl = document.getElementById('absensiSessionTrxCount');
+  const cashSalesEl = document.getElementById('absensiCashSalesVal');
+  const nonCashSalesEl = document.getElementById('absensiNonCashSalesVal');
+  const expectedDrawerEl = document.getElementById('absensiExpectedDrawerCash');
+  const statusBadge = document.getElementById('absensiStatusBadge');
+
+  if (nameEl) nameEl.textContent = cashier.name || 'Nurlinda Sari';
+  if (shiftLabelEl) shiftLabelEl.textContent = cashier.shift || 'Shift Pagi (08:00 - 15:00)';
+  if (clockInEl) clockInEl.textContent = cashier.clockInTime || '08:00 WIB';
+  if (openingCashEl) openingCashEl.textContent = `Rp ${(cashier.openingCash || 100000).toLocaleString('id-ID')}`;
+  if (sessionTrxEl) sessionTrxEl.textContent = `${cashier.trxCount || 0} Transaksi`;
+  if (cashSalesEl) cashSalesEl.textContent = `Rp ${(cashier.cashSales || 0).toLocaleString('id-ID')}`;
+  if (nonCashSalesEl) nonCashSalesEl.textContent = `Rp ${(cashier.nonCashSales || 0).toLocaleString('id-ID')}`;
+
+  const expectedDrawer = (cashier.openingCash || 0) + (cashier.cashSales || 0);
+  if (expectedDrawerEl) expectedDrawerEl.textContent = `Rp ${expectedDrawer.toLocaleString('id-ID')}`;
+
+  if (statusBadge) {
+    if (cashier.status === 'Selesai') {
+      statusBadge.style.background = '#f1f5f9';
+      statusBadge.style.color = '#64748b';
+      statusBadge.style.borderColor = '#cbd5e1';
+      statusBadge.innerHTML = '⚪ Shift Ditutup';
+    } else {
+      statusBadge.style.background = '#dcfce7';
+      statusBadge.style.color = '#166534';
+      statusBadge.style.borderColor = '#86efac';
+      statusBadge.innerHTML = '<span class="badge-online-dot"></span> Sedang Bertugas';
+    }
+  }
+}
+
+function renderAbsensiLogs() {
+  const tbody = document.getElementById('absensiLogTableBody');
+  if (!tbody || typeof appState === 'undefined') return;
+
+  const logs = appState.cashierAttendanceLog || getStoredCashierAttendance();
+  if (logs.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="5" style="text-align: center; padding: 20px; color: #94a3b8;">
+          Belum ada riwayat shift tercatat.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = logs.map(l => {
+    const isAktif = l.status === 'Aktif';
+    const statusHtml = isAktif
+      ? `<span style="background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 12px; font-weight: 800; font-size: 0.7rem;">🟢 Aktif</span>`
+      : `<span style="background: #f1f5f9; color: #64748b; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 0.7rem;">✅ Ditutup</span>`;
+
+    return `
+      <tr style="border-bottom: 1px solid #f1f5f9;">
+        <td style="padding: 8px 10px; font-weight: 700; color: #0f172a;">${l.cashierName || '-'}</td>
+        <td style="padding: 8px 10px; color: #475569;">${l.shift || '-'}</td>
+        <td style="padding: 8px 10px; color: #64748b; font-size: 0.72rem;">${l.clockIn || '-'} &rarr; ${l.clockOut || '-'}</td>
+        <td style="padding: 8px 10px; text-align: right; font-weight: 700; color: #059669;">Rp ${(l.totalSales || 0).toLocaleString('id-ID')}</td>
+        <td style="padding: 8px 10px; text-align: center;">${statusHtml}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function clearAbsensiLogs() {
+  if (!confirm('Yakin ingin membersihkan riwayat absensi shift yang tersimpan?')) return;
+  appState.cashierAttendanceLog = [];
+  saveStoredCashierAttendance([]);
+  renderAbsensiLogs();
+  showToast('🧹 Riwayat absensi shift telah dibersihkan.');
+}
+
+function updateCashierBadgeUI() {
+  if (typeof appState === 'undefined') return;
+  const cashier = appState.activeCashier || getStoredActiveCashier();
+  const labelEl = document.getElementById('posActiveCashierLabel');
+  if (labelEl) {
+    const shiftText = cashier.shift?.includes('Pagi') ? 'Shift Pagi' : (cashier.shift?.includes('Sore') ? 'Shift Sore' : 'Full Day');
+    labelEl.textContent = `Kasir: ${cashier.name || 'Nurlinda Sari'} (${shiftText})`;
+  }
+  updateOlseraHeaderMeta();
+}
+
 function openOlseraAbsensiModal() {
   closeOlseraSidebarDrawer();
+  initCashierAttendanceState();
+  switchAbsensiTab('status');
   const modal = document.getElementById('modalOlseraAbsensi');
-  const nameEl = document.getElementById('absensiOperatorName');
-  const storeEl = document.getElementById('absensiStoreName');
-  const trxEl = document.getElementById('absensiTrxCount');
-
-  if (nameEl) nameEl.textContent = (appState.storeSettings && appState.storeSettings.storeOwner) || 'Nurlinda Sari';
-  if (storeEl) storeEl.textContent = (appState.storeSettings && appState.storeSettings.storeName) || 'Alzam Agency';
-  if (trxEl) trxEl.textContent = `${(appState.transactions || []).length} Transaksi`;
-
   if (modal) modal.classList.add('open');
 }
 
 function openSwitchOperatorPrompt() {
   closeOlseraSidebarDrawer();
-  const current = (appState.storeSettings && appState.storeSettings.storeOwner) || 'Nurlinda Sari';
-  const newOperator = prompt('Masukkan Nama Kasir / Operator Shift Baru:', current);
-  if (newOperator && newOperator.trim()) {
-    if (appState.storeSettings) appState.storeSettings.storeOwner = newOperator.trim();
-    updateOlseraHeaderMeta();
-    showToast(`👤 Operator aktif diubah ke: ${newOperator.trim()}`);
-  }
+  initCashierAttendanceState();
+  switchAbsensiTab('form');
+  const modal = document.getElementById('modalOlseraAbsensi');
+  if (modal) modal.classList.add('open');
 }
 
 function lockOlseraScreen() {
@@ -764,11 +1032,15 @@ function processPosCheckout(action = 'save') {
   const now = new Date();
   const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 
+  const activeCashier = (typeof appState !== 'undefined' && appState.activeCashier) ? appState.activeCashier : getStoredActiveCashier();
+
   const newTrx = {
     id: trxId,
     dateTime: dateStr,
     customerName,
     customerPhone,
+    cashierName: activeCashier.name || 'Nurlinda Sari',
+    shift: activeCashier.shift || 'Shift Pagi',
     tier,
     tierLabel: getTierLabelName(tier),
     items: cart.map(i => ({
@@ -790,6 +1062,19 @@ function processPosCheckout(action = 'save') {
   if (!appState.transactions) appState.transactions = [];
   appState.transactions.unshift(newTrx);
   saveStoredTransactions(appState.transactions);
+
+  // Update akumulasi penjualan sesi shift kasir aktif
+  if (appState.activeCashier) {
+    appState.activeCashier.trxCount = (appState.activeCashier.trxCount || 0) + 1;
+    appState.activeCashier.totalSales = (appState.activeCashier.totalSales || 0) + grandTotal;
+    if (isCash) {
+      appState.activeCashier.cashSales = (appState.activeCashier.cashSales || 0) + grandTotal;
+    } else {
+      appState.activeCashier.nonCashSales = (appState.activeCashier.nonCashSales || 0) + grandTotal;
+    }
+    saveStoredActiveCashier(appState.activeCashier);
+    updateCashierBadgeUI();
+  }
 
   // Catat arus kas masuk
   if (!appState.cashflow) appState.cashflow = [];
@@ -884,6 +1169,7 @@ function openPosReceiptModal(trx) {
 
     setEl('rcptTrxId', trx.id || '-');
     setEl('rcptDateTime', trx.dateTime || '-');
+    setEl('rcptCashier', trx.cashierName || (typeof appState !== 'undefined' && appState.activeCashier ? appState.activeCashier.name : 'Nurlinda Sari'));
     setEl('rcptCustomer', trx.customerName || '-');
     setEl('rcptTier', trx.tierLabel || 'Retail');
 
@@ -969,6 +1255,7 @@ function sendPosReceiptViaWhatsApp() {
   msg += `----------------------------------------\n`;
   msg += `No. Nota: *${trx.id || '-'}*\n`;
   msg += `Tanggal: ${trx.dateTime || '-'}\n`;
+  msg += `Kasir: *${trx.cashierName || (typeof appState !== 'undefined' && appState.activeCashier ? appState.activeCashier.name : 'Nurlinda Sari')}*\n`;
   msg += `Pelanggan: *${trx.customerName || '-'}* (${trx.tierLabel || 'Retail'})\n`;
   msg += `----------------------------------------\n`;
   msg += `*DAFTAR PRODUK:*\n`;
@@ -1921,4 +2208,19 @@ window.scrollPosToCheckout = function() {
     if (nameInput) setTimeout(() => nameInput.focus(), 400);
   }
 };
+
+window.switchAbsensiTab = switchAbsensiTab;
+window.handleSelectCashierPreset = handleSelectCashierPreset;
+window.handleClockInSubmit = handleClockInSubmit;
+window.handleClockOutCashier = handleClockOutCashier;
+window.clearAbsensiLogs = clearAbsensiLogs;
+window.updateCashierBadgeUI = updateCashierBadgeUI;
+window.initCashierAttendanceState = initCashierAttendanceState;
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initCashierAttendanceState);
+} else {
+  initCashierAttendanceState();
+}
+
 
