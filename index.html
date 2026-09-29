@@ -171,12 +171,12 @@
             <span>🔐</span> <span class="btn-login-text">Login Distributor</span>
           </button>
           <div id="distributorProfileBadge" style="display: none; align-items: center; gap: 6px;">
-            <div style="background: #ecfdf5; border: 1px solid #a7f3d0; padding: 5px 11px; border-radius: var(--radius-full); display: flex; align-items: center; gap: 6px;">
-              <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #10b981;"></span>
-              <span style="font-size: 0.78rem; font-weight: 800; color: #065f46;" id="loggedDistributorName">Ibu Aisyah (Distributor)</span>
+            <div style="background: #ecfdf5; border: 1px solid #a7f3d0; padding: 4px 10px; border-radius: var(--radius-full); display: flex; align-items: center; gap: 6px; max-width: 170px;">
+              <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #10b981; flex-shrink: 0;"></span>
+              <span style="font-size: 0.76rem; font-weight: 800; color: #065f46; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" id="loggedDistributorName">Ibu Aisyah</span>
             </div>
-            <button type="button" onclick="handleDistributorLogout()" title="Keluar ke Tampilan Pembeli" style="background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; padding: 5px 9px; border-radius: var(--radius-full); font-size: 0.72rem; font-weight: 700; cursor: pointer;">
-              Keluar ➔
+            <button type="button" onclick="handleDistributorLogout()" title="Keluar ke Tampilan Pembeli" style="background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; padding: 4px 8px; border-radius: var(--radius-full); font-size: 0.72rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;">
+              <span>🚪</span> <span class="dist-logout-text">Keluar</span>
             </button>
           </div>
         </div>
@@ -1443,9 +1443,12 @@
   </main>
 
   <!-- FOOTER RESMI TOKO -->
-  <footer style="margin-top: 50px; padding: 36px 20px 48px; border-top: 1px solid var(--border-subtle); text-align: center; font-size: 0.8rem; color: var(--dark-500); background: #ffffff; user-select: none;">
-    <p style="font-weight: 700; color: var(--dark-700); margin-bottom: 4px; cursor: default;">SR12 Herbal Skin Care Official Partner Store</p>
-    <p style="cursor: default;">Diproses secara aman &middot; Terverifikasi BPOM & Halal MUI</p>
+  <footer style="margin-top: 50px; padding: 32px 20px 48px; border-top: 1px solid var(--border-subtle); text-align: center; font-size: 0.78rem; color: var(--dark-500); background: #ffffff;">
+    <p style="font-weight: 700; color: var(--dark-800); margin-bottom: 4px;">SR12 Herbal Skin Care &bull; Jaringan Toko Mitra Resmi Distributor</p>
+    <p style="margin-bottom: 8px;">Terverifikasi BPOM RI & Sertifikasi Halal MUI &middot; Produk 100% Original</p>
+    <p style="max-width: 680px; margin: 0 auto; font-size: 0.7rem; color: #94a3b8; line-height: 1.5;">
+      <b>Disclaimer Kemitraan:</b> Platform web aplikasi ini dikelola secara independen oleh Mitra Distributor Resmi SR12 untuk melayani jaringan Agen, Sub Agen, Reseller, dan Konsumen. Seluruh hak cipta, merek dagang, dan logo resmi SR12 Herbal Skin Care adalah milik sah PT. SR12 Herbal Perkasa.
+    </p>
   </footer>
 
 
@@ -2029,6 +2032,7 @@
           <span style="background: var(--dark-100); padding: 4px 10px; border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 700;">BPOM: <span id="modalProdBpom"></span></span>
           <span style="background: #f0fdf4; color: #166534; padding: 4px 10px; border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 700;">Halal: <span id="modalProdHalal"></span></span>
           <span style="background: var(--primary-100); color: var(--primary-900); padding: 4px 10px; border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 700;">HET: <span id="modalProdHet"></span></span>
+          <span style="background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; padding: 4px 10px; border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 700;">📦 Stok: <span id="modalProdStock"></span></span>
         </div>
         <div style="background: var(--dark-50); border: 1px solid var(--border-subtle); padding: 12px; border-radius: var(--radius-md); margin-bottom: 14px;">
           <div style="font-size: 0.75rem; color: var(--dark-500); font-weight: 600;">Harga Anda Saat Ini:</div>

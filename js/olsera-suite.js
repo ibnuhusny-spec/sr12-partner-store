@@ -444,6 +444,7 @@ function renderPosProducts(category = 'all', query = '') {
           <img src="${thumb}" alt="${prod.name}" loading="lazy" onerror="this.src='assets/hero-banner.jpg'" />
           <span class="badge-bpom-clean">🌿 BPOM</span>
           ${!isRetail ? `<span class="badge-disc-clean">-${discountPct}%</span>` : ''}
+          <span class="badge-stock-clean ${(prod.stock ?? 85) <= 15 ? 'low' : ''}">Stok: ${prod.stock ?? 85}</span>
           ${inCartQty > 0 ? `<span class="pos-badge-qty-floating">✓ ${inCartQty} di Kasir</span>` : ''}
         </div>
 

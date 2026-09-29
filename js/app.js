@@ -15,8 +15,8 @@ const DEFAULT_PARTNER_STORES = [
     storeLogoText: 'SR12',
     storeLogoUrl: 'assets/sr12-logo.png',
     storeWaNumber: '6281200001212',
-    storeCity: 'Jakarta Pusat (Gudang Pusat Nasional)',
-    storeOwner: 'PT. SR12 Herbal Perkasa (Kantor Pusat)',
+    storeCity: 'Jakarta Pusat (Gudang Distribusi Nasional)',
+    storeOwner: 'Distributor Pusat Nasional',
     partnerTier: 'distributor',
     feePayer: 'buyer',
     storeAdminPin: '1234',
@@ -117,6 +117,11 @@ function getStoredPartnerStores() {
     try {
       const parsed = JSON.parse(stored);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        parsed.forEach(s => {
+          if (s.storeOwner === 'PT. SR12 Herbal Perkasa (Kantor Pusat)') {
+            s.storeOwner = 'Distributor Pusat Nasional';
+          }
+        });
         if (!parsed.some(s => s.slug === 'sr12-central')) {
           parsed.unshift(DEFAULT_PARTNER_STORES[0]);
           saveStoredPartnerStores(parsed);
@@ -1974,6 +1979,9 @@ function initEventListeners() {
             previewImg.src = event.target.result;
             previewImg.style.display = 'block';
           }
+          const urlInput = document.getElementById('editProdImgUrl');
+          if (urlInput) urlInput.value = '';
+          showToast(`📷 Foto produk "${file.name}" berhasil dipilih!`);
         };
         reader.readAsDataURL(file);
       }
@@ -2371,6 +2379,7 @@ function renderProducts() {
           <img src="${prod.image}" alt="${prod.name}" loading="lazy" />
           <span class="badge-bpom-clean">🌿 BPOM</span>
           ${!isRetail ? `<span class="badge-disc-clean">-${currentTier.discountPct}%</span>` : ''}
+          <span class="badge-stock-clean ${(prod.stock ?? 85) <= 15 ? 'low' : ''}">Stok: ${prod.stock ?? 85}</span>
 
           ${appState.isAdminMode ? `
             <button class="btn-quick-edit-image" title="Ubah Gambar atau Detail Produk" onclick="openEditProductModal('${prod.id}')">
@@ -3032,6 +3041,8 @@ function openProductDetailModal(productId) {
   if (bpom) bpom.textContent = prod.bpom;
   if (halal) halal.textContent = prod.halal || 'MUI Terdaftar';
   if (het) het.textContent = formatRupiah(prod.het);
+  const stockEl = document.getElementById('modalProdStock');
+  if (stockEl) stockEl.textContent = `${typeof prod.stock !== 'undefined' ? prod.stock : 85} pcs`;
   
   const currentPrice = getProductTierPrice(prod, appState.currentTier);
   if (tierPrice) {
@@ -3074,18 +3085,20 @@ function openEditProductModal(productId) {
   const summaryInput = document.getElementById('editProdSummary');
   const imgUrlInput = document.getElementById('editProdImgUrl');
   const imgPreview = document.getElementById('editProdImgPreview');
+  const fileInput = document.getElementById('editProdFileInput');
 
+  if (fileInput) fileInput.value = '';
   if (nameInput) nameInput.value = prod.name;
   if (catInput) catInput.value = prod.category;
   if (hetInput) {
     hetInput.value = prod.het;
     updateEditProdTierCalc(prod.het);
   }
-  if (stockInput) stockInput.value = prod.stock || 100;
+  if (stockInput) stockInput.value = (typeof prod.stock !== 'undefined') ? prod.stock : 85;
   if (summaryInput) summaryInput.value = prod.summary || '';
-  if (imgUrlInput) imgUrlInput.value = prod.image.startsWith('data:') ? '' : prod.image;
+  if (imgUrlInput) imgUrlInput.value = prod.image && !prod.image.startsWith('data:') ? prod.image : '';
   if (imgPreview) {
-    imgPreview.src = prod.image;
+    imgPreview.src = prod.image || 'assets/hero-banner.jpg';
     imgPreview.style.display = 'block';
   }
 
@@ -3103,15 +3116,15 @@ function handleEditProductSubmit(e) {
   const newCat = document.getElementById('editProdCategory')?.value;
   const newHet = Number(document.getElementById('editProdHet')?.value);
   const stockRaw = document.getElementById('editProdStock')?.value;
-  const newStock = (stockRaw !== '' && !isNaN(Number(stockRaw))) ? Number(stockRaw) : (typeof prod.stock !== 'undefined' ? prod.stock : 100);
+  const newStock = (stockRaw !== '' && !isNaN(Number(stockRaw))) ? Math.max(0, parseInt(stockRaw, 10)) : (typeof prod.stock !== 'undefined' ? prod.stock : 85);
   const newSummary = document.getElementById('editProdSummary')?.value.trim();
   const newImgUrl = document.getElementById('editProdImgUrl')?.value.trim();
 
+  // Pilih gambar baru jika ada unggahan/preset atau jika input URL diisi baru
   let finalImage = prod.image;
-  if (appState.tempEditImageBase64) {
+  if (appState.tempEditImageBase64 && appState.tempEditImageBase64 !== prod.image) {
     finalImage = appState.tempEditImageBase64;
-  }
-  if (newImgUrl) {
+  } else if (newImgUrl && newImgUrl !== prod.image) {
     finalImage = newImgUrl;
   }
 
@@ -3132,7 +3145,7 @@ function handleEditProductSubmit(e) {
   if (typeof renderPosProducts === 'function') renderPosProducts();
 
   closeModal('modalEditProduct');
-  showToast(`✅ Berhasil! Stok "${prod.name}" menjadi ${prod.stock} pcs dan data HET Rp ${(prod.het || 0).toLocaleString('id-ID')} berhasil diperbarui.`);
+  showToast(`✅ Berhasil! Produk "${prod.name}" disimpan (Stok: ${prod.stock} pcs, HET: ${formatRupiah(prod.het)}).`);
 }
 
 function setEditImagePreset(presetType) {
@@ -3150,6 +3163,7 @@ function setEditImagePreset(presetType) {
     imgPreview.src = selectedImg;
     imgPreview.style.display = 'block';
   }
+  showToast(`🖼️ Foto kemasan produk dipilih: ${presetType}`);
 }
 
 function openStoreSettingsModal() {
