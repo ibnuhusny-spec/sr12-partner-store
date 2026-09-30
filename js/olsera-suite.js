@@ -181,10 +181,23 @@ function updateOlseraHeaderMeta() {
   const sOwner = store.storeOwner || 'Nurlinda Sari';
   const activeCashierName = (typeof appState !== 'undefined' && appState.activeCashier && appState.activeCashier.name) ? appState.activeCashier.name : sOwner;
 
-  if (nameEl) nameEl.textContent = sName;
-  if (ownerEl) ownerEl.textContent = `${activeCashierName} (Kasir Aktif)`;
-  if (topbarNameEl) topbarNameEl.textContent = sName;
-  if (topbarOwnerEl) topbarOwnerEl.textContent = `${activeCashierName} (Kasir) • Distributor Resmi SR12`;
+  const isCentral = store.slug === 'sr12-central';
+  const displayName = isCentral ? 'PT. SR12 Herbal Perkasa (Kantor Pusat)' : sName;
+
+  if (nameEl) nameEl.textContent = displayName;
+  if (ownerEl) {
+    ownerEl.textContent = isCentral 
+      ? `${activeCashierName} (Admin Pusat)` 
+      : `${activeCashierName} (Kasir Aktif)`;
+  }
+  if (topbarNameEl) topbarNameEl.textContent = displayName;
+  if (topbarOwnerEl) {
+    if (isCentral) {
+      topbarOwnerEl.textContent = `${activeCashierName} (Admin Pusat) • Pusat Distribusi Nasional`;
+    } else {
+      topbarOwnerEl.textContent = `${activeCashierName} (Kasir) • Distributor Resmi SR12 (${store.storeCity || 'Mitra'})`;
+    }
+  }
   if (topbarQuotaEl) {
     const q = (appState && typeof appState.storeSettings?.orderQuota !== 'undefined') ? appState.storeSettings.orderQuota : 15;
     topbarQuotaEl.textContent = `${q}`;

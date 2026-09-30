@@ -118,8 +118,11 @@
       <a href="#" class="brand-wrapper">
         <div class="brand-logo-badge" id="brandLogoContainer">SR12</div>
         <div class="brand-text">
-          <h1 id="brandStoreName">SR12 Partner Hub</h1>
-          <p id="brandStoreTagline">Herbal Skin Care Ecosystem</p>
+          <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+            <h1 id="brandStoreName">SR12 Official Central Hub</h1>
+            <span id="brandModePill" style="font-size: 0.65rem; font-weight: 800; padding: 2px 7px; border-radius: 999px; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d;">🏛️ KANTOR PUSAT</span>
+          </div>
+          <p id="brandStoreTagline">Pusat Distribusi Nasional &amp; Kemitraan Resmi SR12</p>
         </div>
       </a>
 
@@ -932,6 +935,24 @@
 
   <!-- DEDICATED DEVELOPER SUPER ADMIN WORKSPACE CONTAINER -->
   <div id="devSuperAdminWorkspace" class="dev-workspace-container" style="display: none; max-width: 1320px; margin: 20px auto 50px auto; padding: 20px;">
+    <!-- HERO HEADER KHUSUS MODE DEVELOPER SUPER ADMIN -->
+    <div class="dev-mode-hero-header">
+      <div class="dev-hero-left">
+        <div class="dev-cyber-badge">⚡ SUPER ADMIN DEVELOPER</div>
+        <h2 class="dev-hero-title">SR12 Master Developer Command Center</h2>
+        <p class="dev-hero-subtitle">
+          Akses Master Pengembang Sistem &bull; Monitoring Multi-Tenant Toko Mitra se-Indonesia &bull; Manajemen Finansial Platform
+        </p>
+      </div>
+      <div class="dev-hero-right" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <span class="dev-status-pill">☁️ Supabase Cloud LIVE</span>
+        <span class="dev-pin-pill">🔑 Master PIN: <b id="devConsoleMasterPin">8899</b></span>
+        <button type="button" class="btn-dev-nav-icon" onclick="showDeveloperWorkspaceView(false)" title="Tinjau tampilan web toko dari sudut pandang pembeli">
+          <span>👁️</span> Tinjau Etalase Pembeli
+        </button>
+      </div>
+    </div>
+
     <!-- TAB NAVIGATION FOR DEVELOPER SUPER ADMIN WORKSPACE -->
     <div class="dev-tabs-bar" style="display: flex; gap: 8px; border-bottom: 1.5px solid #334155; margin-bottom: 20px; overflow-x: auto; padding-bottom: 10px;">
       <button type="button" class="dev-tab-btn active" id="devTabBtn_ws_overview" onclick="switchDevPortalTab('overview')">
@@ -1170,8 +1191,114 @@
   <!-- 4. MAIN CONTAINER (TOKO ONLINE PEMBELI RETAIL & MITRA) -->
   <main class="main-wrapper" id="publicStorefrontMain">
 
-    <!-- HERO PROMO BANNER (KUSTOMISASI TIAP TOKO) -->
-    <section class="hero-single-banner">
+    <!-- 4.A MODE 1: SHOWCASE RESMI KANTOR PUSAT (OFFICIAL CENTRAL HUB) -->
+    <section id="officialCentralHubHero" class="official-central-hub-hero" style="display: none;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 14px;">
+        <div>
+          <span class="central-hub-header-badge">🏛️ KANTOR PUSAT NASIONAL SR12 &bull; CENTRAL SUPPLY HUB</span>
+          <h2 class="central-hub-title" id="centralHubTitleDisplay">PT. SR12 Herbal Perkasa (Kantor Pusat)</h2>
+          <p class="central-hub-subtitle" id="centralHubSubtitleDisplay">
+            Pusat pasokan &amp; jaringan distribusi nasional produk SR12 Herbal Skin Care. Melayani pengadaan stok resmi untuk seluruh jaringan Distributor, Agen, Sub Agen, Reseller, dan Konsumen di Indonesia.
+          </p>
+        </div>
+        <div style="background: rgba(255,255,255,0.1); border: 1.5px solid rgba(255,255,255,0.25); border-radius: 12px; padding: 12px 18px; text-align: center; min-width: 140px;">
+          <div style="font-size: 0.72rem; color: #a7f3d0; text-transform: uppercase; font-weight: 800;">Status Operasional:</div>
+          <div style="font-size: 1.05rem; font-weight: 900; color: #fde68a;">🟢 PUSAT LIVE</div>
+          <div style="font-size: 0.7rem; color: #cbd5e1; margin-top: 3px;">Gudang Pusat Siap Kirim</div>
+        </div>
+      </div>
+
+      <!-- Trust Credentials -->
+      <div class="central-hub-trust-grid">
+        <div class="central-trust-item">
+          <span>🌿</span> <span>100% Herbal &amp; Bersertifikat BPOM</span>
+        </div>
+        <div class="central-trust-item">
+          <span>📜</span> <span>Terdaftar Resmi Kemenkumham RI</span>
+        </div>
+        <div class="central-trust-item">
+          <span>🏭</span> <span>Pabrik Standar CPKB &amp; Halal MUI</span>
+        </div>
+        <div class="central-trust-item">
+          <span>🚚</span> <span>Pasokan Nasional Seluruh Indonesia</span>
+        </div>
+      </div>
+
+      <!-- Notice & Switcher ke Toko Distributor Terdekat -->
+      <div class="central-hub-switch-notice">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 1.2rem;">💡</span>
+          <span style="font-size: 0.82rem; color: #f1f5f9;">
+            <b>Ingin ongkos kirim lebih murah &amp; cepat sampai?</b> Anda dapat berbelanja di Toko Distributor Resmi di kota Anda.
+          </span>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button type="button" onclick="openShareStoreModal()" style="background: #fbbf24; color: #78350f; border: none; padding: 7px 14px; border-radius: 999px; font-weight: 800; font-size: 0.76rem; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+            <span>🏪</span> Pilih Toko Distributor
+          </button>
+          <button type="button" onclick="openRegisterStoreModal()" style="background: rgba(255,255,255,0.2); color: #fff; border: 1px solid #fff; padding: 7px 14px; border-radius: 999px; font-weight: 700; font-size: 0.76rem; cursor: pointer;">
+            ➕ Buka Toko Mitra
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4.B MODE 2: TOKO DISTRIBUTOR HERO CARD (LOGO DI TENGAH, NAMA TOKO DI BAWAHNYA) -->
+    <section id="distributorStoreHeroCard" class="distributor-store-hero-card" style="display: none;">
+      <!-- 1. Logo Toko di Tengah -->
+      <div class="distributor-hero-logo-box">
+        <img id="distHeroLogoImg" src="assets/sr12-logo.png" alt="Logo Toko Distributor">
+      </div>
+
+      <!-- 2. Nama Toko Tepat di Bawah Logo -->
+      <h2 class="distributor-hero-store-name">
+        <span id="distHeroStoreName">Alzam Agency</span>
+        <span class="badge-verified-tick" title="Toko Mitra Terverifikasi Resmi SR12">✓</span>
+      </h2>
+
+      <!-- 3. Badge Kemitraan Toko -->
+      <div style="text-align: center; margin-bottom: 10px;">
+        <span id="distHeroTierBadge" class="distributor-hero-tier-badge">👑 DISTRIBUTOR UTAMA RESMI SR12</span>
+      </div>
+
+      <!-- 4. Slogan & Deskripsi Toko -->
+      <p id="distHeroTagline" class="distributor-hero-tagline">
+        Distributor Resmi SR12 Herbal Skin Care Wilayah Bandung &amp; Sekitarnya &bull; Melayani Agen, Reseller &amp; Konsumen
+      </p>
+
+      <!-- 5. Metadata Toko (Pemilik, Kota, WhatsApp) -->
+      <div class="distributor-hero-meta-row">
+        <div class="distributor-hero-chip">
+          <span>👤</span> Pemilik: <b id="distHeroOwner">Nurlinda Sari</b>
+        </div>
+        <div class="distributor-hero-chip">
+          <span>📍</span> Kota: <b id="distHeroCity">Bandung</b>
+        </div>
+        <div class="distributor-hero-chip">
+          <span>📱</span> WhatsApp: <b id="distHeroWa">+62 812-3456-7890</b>
+        </div>
+      </div>
+
+      <!-- 6. Tombol Aksi Toko Distributor -->
+      <div class="distributor-hero-actions">
+        <a id="btnDistChatWa" href="https://wa.me/6281234567890" target="_blank" class="btn-dist-wa-action">
+          <span>💬</span> Chat WhatsApp Toko
+        </a>
+        <button type="button" id="btnDistCheckSk" onclick="showCurrentStoreSk()" class="btn-dist-sk-action">
+          <span>📜</span> Cek SK Resmi Distributor
+        </button>
+        <button type="button" onclick="openShareStoreModal()" class="btn-dist-share-action">
+          <span>🔗</span> Bagikan Toko Ini
+        </button>
+      </div>
+
+      <div style="margin-top: 16px; font-size: 0.74rem; color: #94a3b8; text-align: center;">
+        🛡️ Toko Resmi Berlisensi PT. SR12 Herbal Perkasa &middot; Produk 100% Original BPOM &amp; Halal MUI
+      </div>
+    </section>
+
+    <!-- HERO PROMO BANNER (KUSTOMISASI TIAP TOKO / CADANGAN) -->
+    <section class="hero-single-banner" id="genericStoreHeroBanner" style="display: none;">
       <img id="heroBannerImg" src="assets/hero-banner.jpg" alt="Banner Toko SR12">
       <div class="hero-single-overlay">
         <span class="hero-tag">DISTRIBUTOR RESMI SR12</span>
