@@ -182,18 +182,18 @@ function updateOlseraHeaderMeta() {
   const activeCashierName = (typeof appState !== 'undefined' && appState.activeCashier && appState.activeCashier.name) ? appState.activeCashier.name : sOwner;
 
   const isCentral = store.slug === 'sr12-central';
-  const displayName = isCentral ? 'PT. SR12 Herbal Perkasa (Kantor Pusat)' : sName;
+  const displayName = isCentral ? 'SR12-Ku Pro (SR12 Official Central Hub)' : sName;
 
   if (nameEl) nameEl.textContent = displayName;
   if (ownerEl) {
     ownerEl.textContent = isCentral 
-      ? `${activeCashierName} (Admin Pusat)` 
+      ? `${activeCashierName} (Admin) • SR12 Official Central Hub` 
       : `${activeCashierName} (Kasir Aktif)`;
   }
   if (topbarNameEl) topbarNameEl.textContent = displayName;
   if (topbarOwnerEl) {
     if (isCentral) {
-      topbarOwnerEl.textContent = `${activeCashierName} (Admin Pusat) • Pusat Distribusi Nasional`;
+      topbarOwnerEl.textContent = `${activeCashierName} (Admin) • SR12 Official Central Hub`;
     } else {
       topbarOwnerEl.textContent = `${activeCashierName} (Kasir) • Distributor Resmi SR12 (${store.storeCity || 'Mitra'})`;
     }

@@ -119,13 +119,13 @@
         <div class="brand-logo-badge" id="brandLogoContainer">SR12</div>
         <div class="brand-text">
           <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-            <h1 id="brandStoreName">SR12 Official Central Hub</h1>
-            <span id="brandModePill" style="font-size: 0.65rem; font-weight: 800; padding: 2px 7px; border-radius: 999px; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d;">🏛️ KANTOR PUSAT</span>
-            <button type="button" id="btnHeaderBackToCentral" onclick="switchPartnerStore('sr12-central')" class="btn-header-back-central" style="display: none;" title="Kembali ke Direktori Toko Distributor Resmi Pusat">
-              <span>🏛️</span> Kembali ke Pusat
+            <h1 id="brandStoreName">SR12-Ku Pro</h1>
+            <span id="brandModePill" style="font-size: 0.65rem; font-weight: 800; padding: 2px 7px; border-radius: 999px; background: #fef3c7; color: #92400e; border: 1px solid #fcd34d;">🏛️ SR12 OFFICIAL CENTRAL HUB</span>
+            <button type="button" id="btnHeaderBackToCentral" onclick="switchPartnerStore('sr12-central')" class="btn-header-back-central" style="display: none;" title="Kembali ke SR12 Official Central Hub">
+              <span>🏛️</span> SR12 Official Central Hub
             </button>
           </div>
-          <p id="brandStoreTagline">Pusat Distribusi Nasional &amp; Kemitraan Resmi SR12</p>
+          <p id="brandStoreTagline">SR12 Official Central Hub &bull; Direktori Kemitraan Resmi SR12</p>
         </div>
       </a>
 
@@ -142,49 +142,13 @@
         </select>
       </div>
 
-      <!-- Header Actions -->
+      <!-- Header Actions (Bersih, Rapi & Elegan Tanpa Keranjang, Poin, Lonceng, Gembok) -->
       <div class="header-actions">
         <!-- Tombol Pengaturan Toko (Hanya muncul saat Admin Mode) -->
         <button class="btn-store-settings" id="btnOpenStoreSettings" style="display: none;" title="Ubah Nama Toko, Slogan, Logo, Tema Warna, dan No WhatsApp">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
           Pengaturan Toko
         </button>
-
-        <!-- Poin Reward Mitra -->
-        <div class="header-points-chip" style="font-size: 0.8rem; font-weight: 700; color: var(--gold-600); display: flex; align-items: center; gap: 4px; background: var(--gold-50); padding: 6px 12px; border-radius: var(--radius-full); border: 1px solid var(--gold-400);" title="Poin Belanja Mitra">
-          <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
-          <span id="headerUserPointsVal">640 <span class="header-points-text">Poin</span></span>
-        </div>
-
-        <!-- Tombol Keranjang (Simbol Bersih & Badge Mengambang Modern) -->
-        <button class="btn-cart-bubble" id="btnOpenCart" aria-label="Buka Keranjang Belanja" title="Keranjang Belanja">
-          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-          <span class="btn-cart-text">Keranjang</span>
-          <span class="cart-count-badge" id="cartItemCountBadge">0</span>
-        </button>
-
-        <!-- Tombol Notifikasi Pesanan Masuk (Khusus Admin / Distributor) -->
-        <button type="button" id="btnAdminOrderNotif" onclick="openAdminOrdersModal()" style="display: none; background: #fffbeb; border: 1px solid #fde68a; color: #b45309; padding: 6px 12px; border-radius: var(--radius-full); font-weight: 800; font-size: 0.8rem; cursor: pointer; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: all 0.2s ease;">
-          <span style="font-size: 1rem;">🔔</span>
-          <span class="btn-notif-text">Pesanan Masuk</span>
-          <span id="adminPendingOrderCountBadge" style="background: #ef4444; color: #fff; font-size: 0.7rem; font-weight: 800; padding: 1px 6px; border-radius: 999px;">0</span>
-        </button>
-
-        <!-- Tombol Login / Profil Distributor (Pengganti Mode Switcher) -->
-        <div id="distributorAuthContainer">
-          <button type="button" id="btnDistributorLogin" onclick="openDistributorLoginModal()" style="background: transparent; color: var(--dark-700); border: 1px solid #cbd5e1; padding: 7px 12px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.8rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;" title="Login Pemilik Toko / Distributor">
-            <span>🔐</span> <span class="btn-login-text">Login Distributor</span>
-          </button>
-          <div id="distributorProfileBadge" style="display: none; align-items: center; gap: 6px;">
-            <div style="background: #ecfdf5; border: 1px solid #a7f3d0; padding: 4px 10px; border-radius: var(--radius-full); display: flex; align-items: center; gap: 6px; max-width: 170px;">
-              <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #10b981; flex-shrink: 0;"></span>
-              <span style="font-size: 0.76rem; font-weight: 800; color: #065f46; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" id="loggedDistributorName">Ibu Aisyah</span>
-            </div>
-            <button type="button" onclick="handleDistributorLogout()" title="Keluar ke Tampilan Pembeli" style="background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; padding: 4px 8px; border-radius: var(--radius-full); font-size: 0.72rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;">
-              <span>🚪</span> <span class="dist-logout-text">Keluar</span>
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   </header>
@@ -1194,20 +1158,20 @@
   <!-- 4. MAIN CONTAINER (TOKO ONLINE PEMBELI RETAIL & MITRA) -->
   <main class="main-wrapper" id="publicStorefrontMain">
 
-    <!-- 4.A MODE 1: SHOWCASE RESMI KANTOR PUSAT (OFFICIAL CENTRAL HUB) -->
+    <!-- 4.A MODE 1: SHOWCASE RESMI SR12-KU PRO (SR12 OFFICIAL CENTRAL HUB) -->
     <section id="officialCentralHubHero" class="official-central-hub-hero" style="display: none;">
       <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 14px;">
         <div>
-          <span class="central-hub-header-badge">🏛️ KANTOR PUSAT NASIONAL SR12 &bull; CENTRAL SUPPLY HUB</span>
-          <h2 class="central-hub-title" id="centralHubTitleDisplay">PT. SR12 Herbal Perkasa (Kantor Pusat)</h2>
+          <span class="central-hub-header-badge">🌐 SR12-KU PRO &bull; SR12 OFFICIAL CENTRAL HUB</span>
+          <h2 class="central-hub-title" id="centralHubTitleDisplay">SR12-Ku Pro</h2>
           <p class="central-hub-subtitle" id="centralHubSubtitleDisplay">
-            Pusat pasokan &amp; jaringan distribusi nasional produk SR12 Herbal Skin Care. Melayani pengadaan stok resmi untuk seluruh jaringan Distributor, Agen, Sub Agen, Reseller, dan Konsumen di Indonesia.
+            SR12 Official Central Hub &bull; Pusat pasokan &amp; jaringan kemitraan resmi produk SR12 Herbal Skin Care se-Indonesia. Silakan pilih Toko Distributor atau Agen terdekat di kota Anda untuk berbelanja produk asli SR12.
           </p>
         </div>
         <div style="background: rgba(255,255,255,0.1); border: 1.5px solid rgba(255,255,255,0.25); border-radius: 12px; padding: 12px 18px; text-align: center; min-width: 140px;">
           <div style="font-size: 0.72rem; color: #a7f3d0; text-transform: uppercase; font-weight: 800;">Status Operasional:</div>
-          <div style="font-size: 1.05rem; font-weight: 900; color: #fde68a;">🟢 PUSAT LIVE</div>
-          <div style="font-size: 0.7rem; color: #cbd5e1; margin-top: 3px;">Gudang Pusat Siap Kirim</div>
+          <div style="font-size: 1.05rem; font-weight: 900; color: #fde68a;">🟢 CENTRAL HUB LIVE</div>
+          <div style="font-size: 0.7rem; color: #cbd5e1; margin-top: 3px;">Pusat Pasokan Resmi</div>
         </div>
       </div>
 
@@ -1236,7 +1200,7 @@
           </span>
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button type="button" onclick="openShareStoreModal()" style="background: #fbbf24; color: #78350f; border: none; padding: 7px 14px; border-radius: 999px; font-weight: 800; font-size: 0.76rem; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+          <button type="button" onclick="document.getElementById('officialDistributorDirectorySection').scrollIntoView({behavior: 'smooth'})" style="background: #fbbf24; color: #78350f; border: none; padding: 7px 14px; border-radius: 999px; font-weight: 800; font-size: 0.76rem; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
             <span>🏪</span> Pilih Toko Distributor
           </button>
           <button type="button" onclick="openRegisterStoreModal()" style="background: rgba(255,255,255,0.2); color: #fff; border: 1px solid #fff; padding: 7px 14px; border-radius: 999px; font-weight: 700; font-size: 0.76rem; cursor: pointer;">
@@ -1340,7 +1304,7 @@
           <span>🔗</span> Bagikan Toko Ini
         </button>
         <button type="button" onclick="switchPartnerStore('sr12-central'); window.scrollTo({top: 0, behavior: 'smooth'});" class="btn-dist-share-action" style="background: #fef3c7; color: #92400e; border-color: #fcd34d;">
-          <span>🏛️</span> Direktori Toko Pusat
+          <span>🏛️</span> SR12 Official Central Hub
         </button>
       </div>
 
@@ -3664,6 +3628,16 @@
   </div>
 
 
+
+  <!-- FLOATING CART BUTTON (HANYA MUNCUL DI TOKO DISTRIBUTOR KETIKA ADA ISI KERANJANG) -->
+  <div id="distributorFloatingCart" style="display: none; position: fixed; bottom: 20px; left: 20px; z-index: 9998;">
+    <button type="button" onclick="document.getElementById('cartDrawer').classList.add('open'); document.getElementById('cartBackdrop').classList.add('open');" style="background: linear-gradient(135deg, #059669, #047857); color: #ffffff; border: none; border-radius: 9999px; padding: 12px 20px; font-weight: 800; font-size: 0.88rem; box-shadow: 0 10px 25px -5px rgba(5,150,105,0.45); cursor: pointer; display: inline-flex; align-items: center; gap: 10px; transition: transform 0.2s ease, box-shadow 0.2s ease;">
+      <span style="font-size: 1.15rem;">🛒</span>
+      <span>Keranjang (<span id="distributorFloatingCartCount">0</span>)</span>
+      <span style="opacity: 0.6;">&bull;</span>
+      <span id="distributorFloatingCartTotal" style="color: #a7f3d0;">Rp 0</span>
+    </button>
+  </div>
 
   <!-- FLOATING QUICK DEVELOPER FAB ON MOBILE/DESKTOP -->
   <div id="devFloatingFab" style="display: none; position: fixed; bottom: 20px; right: 20px; z-index: 9999;">

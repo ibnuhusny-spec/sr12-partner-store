@@ -6,17 +6,17 @@
 const DEFAULT_PARTNER_STORES = [
   {
     slug: 'sr12-central',
-    storeName: 'SR12 Official Central Hub',
-    storeTagline: 'Pusat Distribusi Nasional & Jaringan Kemitraan Resmi SR12',
+    storeName: 'SR12-Ku Pro',
+    storeTagline: 'SR12 Official Central Hub • Direktori Kemitraan & Pasokan Resmi',
     storeTheme: 'emerald',
-    heroTitle: 'Pusat Belanja & Jaringan Distribusi Resmi SR12 Herbal Skin Care',
-    heroSubtitle: 'Pesan langsung dari Gudang Pusat Nasional atau pilih Distributor Resmi terdekat di kota Anda untuk pengiriman lebih cepat & hemat ongkir.',
+    heroTitle: 'SR12-Ku Pro',
+    heroSubtitle: 'SR12 Official Central Hub • Pusat pasokan resmi dan direktori jaringan Toko Distributor & Agen berlisensi BPOM & Halal MUI se-Indonesia.',
     heroBannerUrl: 'assets/hero-banner.jpg',
     storeLogoText: 'SR12',
-    storeLogoUrl: 'assets/sr12-logo.png',
+    storeLogoUrl: '',
     storeWaNumber: '6281200001212',
-    storeCity: 'Jakarta Pusat (Gudang Distribusi Nasional)',
-    storeOwner: 'Distributor Pusat Nasional',
+    storeCity: 'SR12 Official Central Hub',
+    storeOwner: 'SR12 Official Central Hub',
     partnerTier: 'distributor',
     feePayer: 'buyer',
     storeAdminPin: '1234',
@@ -118,8 +118,12 @@ function getStoredPartnerStores() {
       const parsed = JSON.parse(stored);
       if (Array.isArray(parsed) && parsed.length > 0) {
         parsed.forEach(s => {
-          if (s.storeOwner === 'PT. SR12 Herbal Perkasa (Kantor Pusat)') {
-            s.storeOwner = 'Distributor Pusat Nasional';
+          if (s.slug === 'sr12-central' || s.storeOwner === 'PT. SR12 Herbal Perkasa (Kantor Pusat)') {
+            s.storeName = 'SR12-Ku Pro';
+            s.heroTitle = 'SR12-Ku Pro';
+            s.storeTagline = 'SR12 Official Central Hub • Direktori Kemitraan & Pasokan Resmi';
+            s.storeOwner = 'SR12 Official Central Hub';
+            s.storeCity = 'SR12 Official Central Hub';
           }
         });
         if (!parsed.some(s => s.slug === 'sr12-central')) {
@@ -1361,7 +1365,7 @@ function openShareStoreModal() {
 
   const currentStore = appState.partnerStores.find(s => s.slug === appState.currentStoreSlug) || appState.storeSettings;
   const isCentral = (currentStore.slug || appState.currentStoreSlug) === 'sr12-central';
-  const storeName = currentStore.storeName || (isCentral ? 'PT. SR12 Herbal Perkasa (Kantor Pusat)' : 'Toko SR12 Anda');
+  const storeName = isCentral ? 'SR12-Ku Pro (SR12 Official Central Hub)' : (currentStore.storeName || 'Toko SR12 Anda');
   const fullUrl = window.location.origin + window.location.pathname + '?store=' + (currentStore.slug || appState.currentStoreSlug);
 
   if (targetName) targetName.textContent = storeName;
@@ -1371,19 +1375,19 @@ function openShareStoreModal() {
       infoBadge.innerHTML = `
         <div style="font-size: 0.78rem; color: #047857; display: flex; flex-direction: column; gap: 5px;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span>🏛️ <b>Kantor Pusat:</b></span>
-            <span style="font-weight: 700; color: #065f46;">PT. SR12 Herbal Perkasa (Kantor Pusat)</span>
+            <span>🏛️ <b>Platform Resmi:</b></span>
+            <span style="font-weight: 700; color: #065f46;">SR12-Ku Pro (SR12 Official Central Hub)</span>
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span>📱 <b>Customer Care Pusat:</b></span>
-            <span style="font-family: monospace; font-weight: 700; color: #047857;">+${currentStore.storeWaNumber || '6281234567890'}</span>
+            <span>📱 <b>Customer Care Resmi:</b></span>
+            <span style="font-family: monospace; font-weight: 700; color: #047857;">+${currentStore.storeWaNumber || '6281200001212'}</span>
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span>📍 <b>Gudang Pusat Nasional:</b></span>
-            <span style="font-weight: 600;">Bogor / Jakarta Hub</span>
+            <span>📍 <b>Jaringan Pasokan:</b></span>
+            <span style="font-weight: 600;">SR12 Official Central Hub (Nasional)</span>
           </div>
           <div style="margin-top: 4px; padding-top: 6px; border-top: 1px dashed #bbf7d0; font-size: 0.74rem; color: #047857;">
-            🔑 <b>ID Mode:</b> <code style="background: #e2e8f0; color: #0f172a; padding: 2px 6px; border-radius: 4px; font-weight: 700;">?store=sr12-central</code> (Pusat Pasokan Nasional).
+            🔑 <b>ID Mode:</b> <code style="background: #e2e8f0; color: #0f172a; padding: 2px 6px; border-radius: 4px; font-weight: 700;">?store=sr12-central</code> (Direktori Distributor & Agen Resmi).
           </div>
         </div>
       `;
@@ -1488,7 +1492,7 @@ function getStoreEmblemSvgUrl(store) {
     mainColor = '#064e3b';
     accentColor = '#f59e0b';
     badgeColor = '#92400e';
-    badgeText = 'KANTOR PUSAT';
+    badgeText = 'CENTRAL HUB';
   } else if (store.slug === 'alzam-agency') {
     mainColor = '#047857';
     accentColor = '#fbbf24';
@@ -1535,8 +1539,8 @@ function getStoreEmblemSvgUrl(store) {
     </g>
 
     <!-- Monogram / Store Acronym -->
-    <text x="100" y="118" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="23" font-weight="900" fill="${mainColor}" letter-spacing="1.5">${monogram}</text>
-    <text x="100" y="135" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="8.5" font-weight="800" fill="#64748b" letter-spacing="1.8">SR12 HERBAL</text>
+    <text x="100" y="118" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="23" font-weight="900" fill="${mainColor}" letter-spacing="1.5">${isCentral ? 'SR12' : monogram}</text>
+    <text x="100" y="135" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="8.5" font-weight="800" fill="#64748b" letter-spacing="1.8">${isCentral ? 'SR12-KU PRO' : 'SR12 HERBAL'}</text>
 
     <!-- Bottom Ribbon Pill -->
     <rect x="25" y="152" width="150" height="26" rx="13" fill="${badgeColor}"/>
@@ -1707,17 +1711,17 @@ function renderStoreBranding() {
 
   if (nameEl) {
     nameEl.innerHTML = isCentralHub 
-      ? 'PT. SR12 Herbal Perkasa (Kantor Pusat)' 
+      ? 'SR12-Ku Pro' 
       : `${cfg.storeName} <span class="badge-verified-tick" style="width: 17px; height: 17px; font-size: 0.65rem;" title="Terverifikasi Resmi">✓</span>`;
   }
   if (tagEl) {
     tagEl.textContent = isCentralHub 
-      ? 'Pusat Distribusi Nasional & Jaringan Kemitraan Resmi SR12' 
+      ? 'SR12 Official Central Hub • Direktori Kemitraan & Pasokan Resmi' 
       : (cfg.storeTagline || `Distributor Resmi SR12 • ${cfg.storeCity || 'Indonesia'}`);
   }
   if (brandPill) {
     if (isCentralHub) {
-      brandPill.textContent = '🏛️ KANTOR PUSAT NASIONAL';
+      brandPill.textContent = '🏛️ SR12 OFFICIAL CENTRAL HUB';
       brandPill.style.background = '#fef3c7';
       brandPill.style.color = '#92400e';
       brandPill.style.borderColor = '#fcd34d';
@@ -1732,6 +1736,7 @@ function renderStoreBranding() {
   // Tombol Kembali ke Pusat di Header (hanya muncul di Mode Toko Distributor)
   if (btnBackCentral) {
     btnBackCentral.style.display = isCentralHub ? 'none' : 'inline-flex';
+    btnBackCentral.innerHTML = '<span>🏛️</span> SR12 Official Central Hub';
   }
 
   // Logo di Header: Lingkaran bersih dan tajam
@@ -1739,8 +1744,8 @@ function renderStoreBranding() {
     logoBox.innerHTML = `<img src="${storeLogo}" alt="Logo ${cfg.storeName}" style="width: 100%; height: 100%; object-fit: contain !important; object-position: center center !important; border-radius: 50%; display: block; margin: 0 auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">`;
   }
 
-  // Sembunyikan Selector Harga, Keranjang, dan Tier Quick Banner di Kantor Pusat
-  // (karena Kantor Pusat menampilkan Direktori Toko Distributor, bukan produk retail)
+  // Sembunyikan Selector Harga, Keranjang, dan Tier Quick Banner di Central Hub
+  // (karena Central Hub menampilkan Direktori Toko Distributor, bukan produk retail)
   if (headerTierBox) {
     headerTierBox.style.display = isCentralHub ? 'none' : 'flex';
   }
@@ -1760,19 +1765,20 @@ function renderStoreBranding() {
 
   if (isCentralHub) {
     // ==========================================
-    // MODE 1: OFFICIAL CENTRAL HUB
+    // MODE 1: SR12-KU PRO (SR12 OFFICIAL CENTRAL HUB)
     // Tanpa produk, tampilkan Direktori Distributor & Agen Resmi
     // ==========================================
     if (centralHero) centralHero.style.display = 'block';
     if (directorySection) directorySection.style.display = 'block';
     if (distHero) distHero.style.display = 'none';
-    if (genericHero) genericHero.style.display = 'none';
     if (commerceWrapper) commerceWrapper.style.display = 'none';
+    const distCartFab = document.getElementById('distributorFloatingCart');
+    if (distCartFab) distCartFab.style.display = 'none';
 
     const cTitle = document.getElementById('centralHubTitleDisplay');
     const cSub = document.getElementById('centralHubSubtitleDisplay');
-    if (cTitle) cTitle.textContent = cfg.storeName || 'PT. SR12 Herbal Perkasa (Kantor Pusat)';
-    if (cSub) cSub.textContent = cfg.heroSubtitle || 'Pusat pasokan & jaringan distribusi nasional resmi berlisensi BPOM & Halal MUI. Silakan pilih Toko Distributor resmi di kota Anda untuk belanja produk SR12 dengan pengiriman lebih cepat & hemat ongkir.';
+    if (cTitle) cTitle.textContent = 'SR12-Ku Pro';
+    if (cSub) cSub.textContent = 'SR12 Official Central Hub • Pusat pasokan & jaringan kemitraan resmi produk SR12 Herbal Skin Care se-Indonesia. Silakan pilih Toko Distributor atau Agen terdekat di kota Anda untuk berbelanja produk asli SR12.';
 
     renderOfficialDistributorDirectory();
   } else {
@@ -1812,8 +1818,9 @@ function renderStoreBranding() {
   // 3. Sinkronisasi Preview Strip (Jika Mode Developer sedang meninjau)
   const devPreviewStoreDisplay = document.getElementById('devPreviewStoreNameDisplay');
   if (devPreviewStoreDisplay) {
-    const typeLabel = isCentralHub ? '🏛️ Official Central Hub' : '🏪 Toko Distributor';
-    devPreviewStoreDisplay.innerHTML = `${cfg.storeName} <span style="font-size: 0.72rem; color: #a5f3fc; font-weight: normal;">(${typeLabel})</span>`;
+    const typeLabel = isCentralHub ? '🏛️ SR12 Official Central Hub' : '🏪 Toko Distributor';
+    const displayName = isCentralHub ? 'SR12-Ku Pro' : cfg.storeName;
+    devPreviewStoreDisplay.innerHTML = `${displayName} <span style="font-size: 0.72rem; color: #a5f3fc; font-weight: normal;">(${typeLabel})</span>`;
   }
 
   // Fallback update untuk elemen generic bila diperlukan
@@ -2594,10 +2601,9 @@ function showDeveloperWorkspaceView(showWorkspace) {
 
     if (appState.isDevMasterLoggedIn) {
       if (devPreviewStrip) {
-        devPreviewStrip.style.display = 'flex';
-        const sName = (appState.storeSettings && appState.storeSettings.storeName) || 'SR12 Official Central Hub';
         const isCentral = appState.storeSettings?.slug === 'sr12-central';
-        const typeLabel = isCentral ? '🏛️ Official Central Hub' : '🏪 Toko Distributor';
+        const sName = isCentral ? 'SR12-Ku Pro' : ((appState.storeSettings && appState.storeSettings.storeName) || 'SR12-Ku Pro');
+        const typeLabel = isCentral ? '🏛️ SR12 Official Central Hub' : '🏪 Toko Distributor';
         const previewDisplay = document.getElementById('devPreviewStoreNameDisplay');
         if (previewDisplay) {
           previewDisplay.innerHTML = `${sName} <span style="font-size: 0.72rem; color: #a5f3fc; font-weight: normal; margin-left: 4px;">(${typeLabel})</span>`;
@@ -3068,6 +3074,22 @@ function updateCartSummary() {
   }
 
   if (totalLine) totalLine.textContent = formatRupiah(grandTotal);
+
+  // Update floating cart pill on distributor store mode
+  const distCartFab = document.getElementById('distributorFloatingCart');
+  const distCartCount = document.getElementById('distributorFloatingCartCount');
+  const distCartTotal = document.getElementById('distributorFloatingCartTotal');
+  if (distCartFab) {
+    const isCentral = appState.storeSettings?.slug === 'sr12-central';
+    const totalQty = appState.cart.reduce((sum, item) => sum + item.qty, 0);
+    if (!isCentral && totalQty > 0) {
+      distCartFab.style.display = 'block';
+      if (distCartCount) distCartCount.textContent = totalQty;
+      if (distCartTotal) distCartTotal.textContent = formatRupiah(subtotal);
+    } else {
+      distCartFab.style.display = 'none';
+    }
+  }
 
   // Status Kemitraan & MOQ
   const isVerifiedPartner = !!appState.verifiedMitra && appState.verifiedMitra.tier === appState.currentTier;
@@ -4013,8 +4035,8 @@ function updateDevPortalMetrics() {
   const stripQuota = document.getElementById('devStripOrderQuota');
   const consolePin = document.getElementById('devConsoleMasterPin');
   const isCentral = appState.storeSettings?.slug === 'sr12-central';
-  const sName = (appState.storeSettings && appState.storeSettings.storeName) || 'Toko Aktif';
-  const typeLabel = isCentral ? '🏛️ Official Central Hub' : '🏪 Toko Distributor';
+  const sName = isCentral ? 'SR12-Ku Pro' : ((appState.storeSettings && appState.storeSettings.storeName) || 'Toko Aktif');
+  const typeLabel = isCentral ? '🏛️ SR12 Official Central Hub' : '🏪 Toko Distributor';
 
   if (stripName) {
     stripName.innerHTML = `${sName} <span style="font-size: 0.72rem; color: #a5f3fc; font-weight: normal; margin-left: 4px;">(${typeLabel})</span>`;
