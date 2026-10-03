@@ -1256,60 +1256,77 @@
       </div>
     </section>
 
-    <!-- 4.B MODE 2: TOKO DISTRIBUTOR HERO CARD (LOGO DI TENGAH, NAMA TOKO DI BAWAHNYA) -->
+    <!-- 4.B MODE 2: TOKO DISTRIBUTOR HERO CARD (FOTO LATAR BELAKANG / COVER + LOGO DI TENGAH, NAMA TOKO DI BAWAHNYA) -->
     <section id="distributorStoreHeroCard" class="distributor-store-hero-card" style="display: none;">
-      <!-- 1. Logo Toko di Tengah -->
-      <div class="distributor-hero-logo-box">
-        <img id="distHeroLogoImg" src="assets/sr12-logo.png" alt="Logo Toko Distributor">
-      </div>
-
-      <!-- 2. Nama Toko Tepat di Bawah Logo -->
-      <h2 class="distributor-hero-store-name">
-        <span id="distHeroStoreName">Alzam Agency</span>
-        <span class="badge-verified-tick" title="Toko Mitra Terverifikasi Resmi SR12">✓</span>
-      </h2>
-
-      <!-- 3. Badge Kemitraan Toko -->
-      <div style="text-align: center; margin-bottom: 10px;">
-        <span id="distHeroTierBadge" class="distributor-hero-tier-badge">👑 DISTRIBUTOR UTAMA RESMI SR12</span>
-      </div>
-
-      <!-- 4. Slogan & Deskripsi Toko -->
-      <p id="distHeroTagline" class="distributor-hero-tagline">
-        Distributor Resmi SR12 Herbal Skin Care Wilayah Bandung &amp; Sekitarnya &bull; Melayani Agen, Reseller &amp; Konsumen
-      </p>
-
-      <!-- 5. Metadata Toko (Pemilik, Kota, WhatsApp) -->
-      <div class="distributor-hero-meta-row">
-        <div class="distributor-hero-chip">
-          <span>👤</span> Pemilik: <b id="distHeroOwner">Nurlinda Sari</b>
-        </div>
-        <div class="distributor-hero-chip">
-          <span>📍</span> Kota: <b id="distHeroCity">Bandung</b>
-        </div>
-        <div class="distributor-hero-chip">
-          <span>📱</span> WhatsApp: <b id="distHeroWa">+62 812-3456-7890</b>
-        </div>
-      </div>
-
-      <!-- 6. Tombol Aksi Toko Distributor -->
-      <div class="distributor-hero-actions">
-        <a id="btnDistChatWa" href="https://wa.me/6281234567890" target="_blank" class="btn-dist-wa-action">
-          <span>💬</span> Chat WhatsApp Toko
-        </a>
-        <button type="button" id="btnDistCheckSk" onclick="showCurrentStoreSk()" class="btn-dist-sk-action">
-          <span>📜</span> Cek SK Resmi Distributor
-        </button>
-        <button type="button" onclick="openShareStoreModal()" class="btn-dist-share-action">
-          <span>🔗</span> Bagikan Toko Ini
-        </button>
-        <button type="button" onclick="switchPartnerStore('sr12-central'); window.scrollTo({top: 0, behavior: 'smooth'});" class="btn-dist-share-action" style="background: #fef3c7; color: #92400e; border-color: #fcd34d;">
-          <span>🏛️</span> SR12 Official Central Hub
+      <!-- Cover Banner / Foto Latar Belakang Toko (Bisa Diubah Bebas oleh Distributor) -->
+      <div class="distributor-hero-cover-wrap">
+        <img id="distHeroCoverImg" src="assets/hero-banner.jpg" alt="Latar Belakang Toko" class="distributor-hero-cover-img">
+        <div class="distributor-hero-cover-gradient"></div>
+        <button type="button" id="btnEditStoreCover" onclick="openStoreSettingsModalWithFocus('banner')" class="btn-edit-cover-quick" style="display: none;" title="Ubah Foto Latar Belakang / Banner Toko">
+          <span>📷</span> <span>Ubah Latar Belakang</span>
         </button>
       </div>
 
-      <div style="margin-top: 16px; font-size: 0.74rem; color: #94a3b8; text-align: center;">
-        🛡️ Toko Resmi Berlisensi PT. SR12 Herbal Perkasa &middot; Produk 100% Original BPOM &amp; Halal MUI
+      <div class="distributor-hero-content-wrap">
+        <!-- 1. Logo / Foto Profil Toko di Tengah (Menimpa Latar Belakang / Overlapping Avatar) -->
+        <div class="distributor-hero-logo-box">
+          <img id="distHeroLogoImg" src="assets/sr12-logo.png" alt="Logo Toko Distributor">
+          <button type="button" id="btnEditStoreLogo" onclick="openStoreSettingsModalWithFocus('logo')" class="btn-edit-logo-quick" style="display: none;" title="Ubah Foto Profil / Logo Toko">
+            📷
+          </button>
+        </div>
+
+        <!-- 2. Nama Toko Tepat di Bawah Logo -->
+        <h2 class="distributor-hero-store-name">
+          <span id="distHeroStoreName">Alzam Agency</span>
+          <span class="badge-verified-tick" title="Toko Mitra Terverifikasi Resmi SR12">✓</span>
+        </h2>
+
+        <!-- 3. Badge Kemitraan Toko -->
+        <div style="text-align: center; margin-bottom: 10px;">
+          <span id="distHeroTierBadge" class="distributor-hero-tier-badge">👑 DISTRIBUTOR UTAMA RESMI SR12</span>
+        </div>
+
+        <!-- 4. Slogan & Deskripsi Toko -->
+        <p id="distHeroTagline" class="distributor-hero-tagline">
+          Distributor Resmi SR12 Herbal Skin Care Wilayah Bandung &amp; Sekitarnya &bull; Melayani Agen, Reseller &amp; Konsumen
+        </p>
+
+        <!-- 5. Metadata Toko (Pemilik, Kota, WhatsApp) -->
+        <div class="distributor-hero-meta-row">
+          <div class="distributor-hero-chip">
+            <span>👤</span> Pemilik: <b id="distHeroOwner">Nurlinda Sari</b>
+          </div>
+          <div class="distributor-hero-chip">
+            <span>📍</span> Kota: <b id="distHeroCity">Bandung</b>
+          </div>
+          <div class="distributor-hero-chip">
+            <span>📱</span> WhatsApp: <b id="distHeroWa">+62 812-3456-7890</b>
+          </div>
+        </div>
+
+        <!-- 6. Tombol Aksi Toko Distributor -->
+        <div class="distributor-hero-actions">
+          <a id="btnDistChatWa" href="https://wa.me/6281234567890" target="_blank" class="btn-dist-wa-action">
+            <span>💬</span> Chat WhatsApp Toko
+          </a>
+          <button type="button" id="btnDistCheckSk" onclick="showCurrentStoreSk()" class="btn-dist-sk-action">
+            <span>📜</span> Cek SK Resmi Distributor
+          </button>
+          <button type="button" onclick="openShareStoreModal()" class="btn-dist-share-action">
+            <span>🔗</span> Bagikan Toko Ini
+          </button>
+          <button type="button" id="btnDistSettingsHero" onclick="openStoreSettingsModal()" class="btn-dist-share-action" style="display: none; background: #e0f2fe; color: #0369a1; border-color: #7dd3fc;" title="Pengaturan Identitas & Tema Toko">
+            <span>🎨</span> Pengaturan Toko
+          </button>
+          <button type="button" onclick="switchPartnerStore('sr12-central'); window.scrollTo({top: 0, behavior: 'smooth'});" class="btn-dist-share-action" style="background: #fef3c7; color: #92400e; border-color: #fcd34d;">
+            <span>🏛️</span> SR12 Official Central Hub
+          </button>
+        </div>
+
+        <div style="margin-top: 16px; font-size: 0.74rem; color: #94a3b8; text-align: center;">
+          🛡️ Toko Resmi Berlisensi PT. SR12 Herbal Perkasa &middot; Produk 100% Original BPOM &amp; Halal MUI
+        </div>
       </div>
     </section>
 

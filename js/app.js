@@ -1594,11 +1594,20 @@ function renderOfficialDistributorDirectory(filter = currentDirectoryFilter, sea
     const tierObj = SR12_TIERS[store.partnerTier] || SR12_TIERS.distributor;
     const logoUrl = getStoreEmblemSvgUrl(store);
     const cleanCity = (store.storeCity || 'Indonesia').split('(')[0].trim();
-    const cleanWa = (store.storeWaNumber || '081234567890').replace(/[^0-9]/g, '');
+    const coverUrl = store.heroBannerUrl || 'assets/hero-banner.jpg';
 
     return `
       <div class="distributor-card">
-        <!-- 1. Logo Toko di Tengah Card -->
+        <!-- Mini Cover Banner Toko di Card Direktori -->
+        <div class="dist-card-cover-wrap">
+          <img src="${coverUrl}" alt="Cover ${store.storeName}" class="dist-card-cover-img">
+          <div class="dist-card-cover-overlay"></div>
+          <span class="dist-card-tier-pill tier-${store.partnerTier || 'distributor'}" style="position: absolute; top: 10px; right: 10px; margin: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+            👑 ${tierObj.name.toUpperCase()} RESMI
+          </span>
+        </div>
+
+        <!-- 1. Logo / Foto Profil Toko di Tengah Card (Overlap Mini Cover) -->
         <div class="dist-card-logo-box">
           <img src="${logoUrl}" alt="${store.storeName}">
         </div>
@@ -1608,11 +1617,6 @@ function renderOfficialDistributorDirectory(filter = currentDirectoryFilter, sea
           <span>${store.storeName}</span>
           <span class="badge-verified-tick" style="width: 18px; height: 18px; font-size: 0.65rem;" title="Toko Mitra Terverifikasi Resmi SR12">✓</span>
         </h3>
-
-        <!-- 3. Badge Kemitraan Toko -->
-        <span class="dist-card-tier-pill tier-${store.partnerTier || 'distributor'}">
-          👑 ${tierObj.name.toUpperCase()} RESMI
-        </span>
 
         <!-- 4. Info Detail Pemilik & Wilayah -->
         <div class="dist-card-info-box">
@@ -1801,6 +1805,14 @@ function renderStoreBranding() {
     const distWa = document.getElementById('distHeroWa');
     const distChatBtn = document.getElementById('btnDistChatWa');
 
+    const distCover = document.getElementById('distHeroCoverImg');
+    const btnEditCover = document.getElementById('btnEditStoreCover');
+    const btnEditLogo = document.getElementById('btnEditStoreLogo');
+    const btnDistSettingsHero = document.getElementById('btnDistSettingsHero');
+
+    if (distCover) {
+      distCover.src = cfg.heroBannerUrl || 'assets/hero-banner.jpg';
+    }
     if (distLogo) distLogo.src = storeLogo;
     if (distName) distName.textContent = cfg.storeName;
     if (distTier) distTier.textContent = `👑 ${tierObj.name.toUpperCase()} RESMI SR12`;
@@ -1813,6 +1825,12 @@ function renderStoreBranding() {
     if (distChatBtn) {
       distChatBtn.href = `https://wa.me/${cleanWa}?text=${encodeURIComponent(`Halo ${cfg.storeName}, saya ingin bertanya seputar produk SR12...`)}`;
     }
+
+    // Tampilkan tombol edit foto profil & foto latar belakang saat Mode Admin aktif
+    const isAdmin = !!appState.isAdminMode;
+    if (btnEditCover) btnEditCover.style.display = isAdmin ? 'inline-flex' : 'none';
+    if (btnEditLogo) btnEditLogo.style.display = isAdmin ? 'flex' : 'none';
+    if (btnDistSettingsHero) btnDistSettingsHero.style.display = isAdmin ? 'inline-flex' : 'none';
   }
 
   // 3. Sinkronisasi Preview Strip (Jika Mode Developer sedang meninjau)
@@ -2067,6 +2085,13 @@ function updateViewModeUI() {
   if (btnAddProduct) btnAddProduct.style.display = isLogged ? 'inline-flex' : 'none';
   if (btnAddPromo) btnAddPromo.style.display = isLogged ? 'inline-flex' : 'none';
   if (btnAddMkit) btnAddMkit.style.display = isLogged ? 'inline-flex' : 'none';
+
+  const btnEditCover = document.getElementById('btnEditStoreCover');
+  const btnEditLogo = document.getElementById('btnEditStoreLogo');
+  const btnDistSettingsHero = document.getElementById('btnDistSettingsHero');
+  if (btnEditCover) btnEditCover.style.display = isLogged ? 'inline-flex' : 'none';
+  if (btnEditLogo) btnEditLogo.style.display = isLogged ? 'flex' : 'none';
+  if (btnDistSettingsHero) btnDistSettingsHero.style.display = isLogged ? 'inline-flex' : 'none';
 
   if (btnLogin) btnLogin.style.display = isLogged ? 'none' : 'inline-flex';
   if (badgeProfile) badgeProfile.style.display = isLogged ? 'inline-flex' : 'none';
@@ -3672,6 +3697,26 @@ function openStoreSettingsModal() {
   if (modal) modal.classList.add('open');
 }
 
+function openStoreSettingsModalWithFocus(target) {
+  openStoreSettingsModal();
+  setTimeout(() => {
+    if (target === 'banner') {
+      const bannerInput = document.getElementById('settingBannerFileInput');
+      if (bannerInput) {
+        bannerInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        bannerInput.click();
+      }
+    } else if (target === 'logo') {
+      const logoInput = document.getElementById('settingLogoFileInput');
+      if (logoInput) {
+        logoInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        logoInput.click();
+      }
+    }
+  }, 200);
+}
+window.openStoreSettingsModalWithFocus = openStoreSettingsModalWithFocus;
+
 function selectThemePreset(themeName) {
   appState.storeSettings.storeTheme = themeName;
   applyStoreTheme(themeName);
@@ -3706,6 +3751,7 @@ function handleSaveStoreSettingsSubmit(e) {
   }
 
   appState.storeSettings = {
+    ...appState.storeSettings,
     storeName: name || 'SR12 Partner Hub',
     storeTagline: tagline || 'Herbal Skin Care Ecosystem',
     storeTheme: appState.storeSettings.storeTheme || 'emerald',
@@ -3714,12 +3760,22 @@ function handleSaveStoreSettingsSubmit(e) {
     heroBannerUrl: bannerUrl,
     storeLogoText: logoText,
     storeLogoUrl: logoUrl,
-    storeWaNumber: wa || '6281234567890',
-    storeCity: city || 'Jakarta',
-    storeOwner: owner || 'Mitra Resmi',
+    storeWaNumber: wa || (appState.storeSettings && appState.storeSettings.storeWaNumber) || '6281234567890',
+    storeCity: city || (appState.storeSettings && appState.storeSettings.storeCity) || 'Jakarta',
+    storeOwner: owner || (appState.storeSettings && appState.storeSettings.storeOwner) || 'Mitra Resmi',
     feePayer: feePayer,
     storeAdminPin: storeAdminPin
   };
+
+  // Sinkronkan ke daftar partnerStores agar direktori pusat terupdate seketika
+  const currentIdx = (appState.partnerStores || []).findIndex(s => s.slug === appState.currentStoreSlug);
+  if (currentIdx > -1) {
+    appState.partnerStores[currentIdx] = {
+      ...appState.partnerStores[currentIdx],
+      ...appState.storeSettings
+    };
+    saveStoredPartnerStores(appState.partnerStores);
+  }
 
   localStorage.setItem('sr12_store_settings_v4', JSON.stringify(appState.storeSettings));
   renderStoreBranding();
