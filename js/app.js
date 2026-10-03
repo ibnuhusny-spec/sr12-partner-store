@@ -327,11 +327,10 @@ const INITIAL_DEMO_PENDING_STORE_APPS = [getInitialDemoPendingStoreApp()];
 
 function getStoredPendingStores() {
   const stored = localStorage.getItem('sr12_pending_store_apps_v1');
-  if (stored) {
+  if (stored !== null) {
     try {
       const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        // Hydrate demo application if missing KTP
+      if (Array.isArray(parsed)) {
         parsed.forEach(app => {
           if (!app.ktpDocUrl) {
             app.ktpDocUrl = getMockKtpSvgUrl(app.storeOwner, app.nikNumber, app.storeCity);
@@ -350,11 +349,138 @@ function getStoredPendingStores() {
       }
     } catch (e) {}
   }
-  return INITIAL_DEMO_PENDING_STORE_APPS.slice();
+  return [];
 }
 
 function saveStoredPendingStores(apps) {
   localStorage.setItem('sr12_pending_store_apps_v1', JSON.stringify(apps));
+}
+
+function getApiBaseUrl() {
+  if (typeof window !== 'undefined' && window.location) {
+    if (window.location.port === '3000') return '';
+    if (window.location.hostname && window.location.hostname !== '') {
+      return `${window.location.protocol}//${window.location.hostname}:3000`;
+    }
+  }
+  return 'http://127.0.0.1:3000';
+}
+
+async function syncStoresWithServer() {
+  if (typeof fetch !== 'function') return;
+  try {
+    const res = await fetch(getApiBaseUrl() + '/api/stores');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.success && Array.isArray(data.data)) {
+      let changed = false;
+
+      // 1. Pull server stores into appState.partnerStores
+      data.data.forEach(apiStore => {
+        if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central') return;
+        const idx = appState.partnerStores.findIndex(s => s.slug === apiStore.slug);
+        if (idx >= 0) {
+          appState.partnerStores[idx] = Object.assign({}, appState.partnerStores[idx], apiStore);
+        } else {
+          appState.partnerStores.push(apiStore);
+          changed = true;
+        }
+      });
+
+      // 2. Bidirectional sync: Push local stores (e.g. from HP) to server if not on server yet
+      const localStoresToUpload = appState.partnerStores.filter(localStore => {
+        if (!localStore || !localStore.slug || localStore.slug === 'sr12-central') return false;
+        return !data.data.some(serverStore => serverStore.slug === localStore.slug);
+      });
+
+      if (localStoresToUpload.length > 0) {
+        for (const storeToUpload of localStoresToUpload) {
+          try {
+            await fetch(getApiBaseUrl() + '/api/stores', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(storeToUpload)
+            });
+          } catch (upErr) {
+            console.warn('Failed pushing local store to server:', upErr);
+          }
+        }
+      }
+
+      if (changed || localStoresToUpload.length > 0) {
+        saveStoredPartnerStores(appState.partnerStores);
+        renderStoreDropdown();
+        if (appState.storeSettings?.slug === 'sr12-central') {
+          renderOfficialDistributorDirectory();
+        }
+        updateDevPortalMetrics();
+      }
+    }
+  } catch (err) {
+    console.warn('Could not sync /api/stores:', err);
+  }
+}
+
+async function syncPendingStoresWithServer() {
+  if (typeof fetch !== 'function') return;
+  try {
+    const res = await fetch(getApiBaseUrl() + '/api/pending-stores');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.success && Array.isArray(data.data)) {
+      let changed = false;
+      if (!appState.pendingStoreApps) appState.pendingStoreApps = [];
+
+      // 1. Pull server pending apps into appState.pendingStoreApps
+      data.data.forEach(apiApp => {
+        if (!apiApp || !apiApp.id) return;
+        const idx = appState.pendingStoreApps.findIndex(a => a.id === apiApp.id);
+        if (idx >= 0) {
+          appState.pendingStoreApps[idx] = Object.assign({}, appState.pendingStoreApps[idx], apiApp);
+        } else {
+          appState.pendingStoreApps.push(apiApp);
+          changed = true;
+        }
+      });
+
+      // 2. Bidirectional sync: Push local pending apps (from HP) to server
+      const localAppsToUpload = appState.pendingStoreApps.filter(localApp => {
+        if (!localApp || !localApp.id) return false;
+        return !data.data.some(serverApp => serverApp.id === localApp.id);
+      });
+
+      if (localAppsToUpload.length > 0) {
+        for (const appToUpload of localAppsToUpload) {
+          try {
+            await fetch(getApiBaseUrl() + '/api/pending-stores', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(appToUpload)
+            });
+          } catch (upErr) {
+            console.warn('Failed pushing local pending app to server:', upErr);
+          }
+        }
+      }
+
+      if (changed || localAppsToUpload.length > 0) {
+        saveStoredPendingStores(appState.pendingStoreApps);
+        updateDevPortalMetrics();
+      }
+    }
+  } catch (err) {
+    console.warn('Could not sync /api/pending-stores:', err);
+  }
+}
+
+function quickApproveFromPendingModal() {
+  const appId = appState.lastSubmittedPendingAppId || (appState.pendingStoreApps && appState.pendingStoreApps[0] && appState.pendingStoreApps[0].id);
+  if (!appId) {
+    closeModal('modalStoreAppPendingSuccess');
+    return;
+  }
+  closeModal('modalStoreAppPendingSuccess');
+  approvePendingStore(appId);
 }
 
 function getInitialStoreSlug(stores) {
@@ -606,10 +732,13 @@ function formatRupiah(amount) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Sesi Simulasi Bersih Baru: jika belum di-reset ke kanvas kosong, bersihkan semua data dummy lama
-  if (localStorage.getItem('sr12_clean_slate_sim_v4') !== 'ready') {
-    clearAllDummyData(true);
-    localStorage.setItem('sr12_clean_slate_sim_v4', 'ready');
+  // Sesi Simulasi Bersih Baru: hanya bersihkan jika belum pernah diinisialisasi DAN belum ada toko buatan user
+  if (localStorage.getItem('sr12_clean_slate_sim_v5') !== 'ready') {
+    const customStores = getStoredPartnerStores().filter(s => s.slug !== 'sr12-central');
+    if (customStores.length === 0) {
+      clearAllDummyData(true);
+    }
+    localStorage.setItem('sr12_clean_slate_sim_v5', 'ready');
   }
   appState.partnerStores = getStoredPartnerStores();
 
@@ -664,41 +793,20 @@ document.addEventListener('DOMContentLoaded', () => {
   renderStoreDropdown();
   initEventListeners();
 
-  // Sinkronisasi data Toko Distributor Resmi dari Server API (/api/stores)
-  if (typeof fetch === 'function') {
-    fetch('/api/stores')
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.success && Array.isArray(data.data) && data.data.length > 0) {
-          let updated = false;
-          data.data.forEach(apiStore => {
-            const idx = appState.partnerStores.findIndex(s => s.slug === apiStore.slug);
-            if (idx >= 0) {
-              appState.partnerStores[idx] = Object.assign({}, appState.partnerStores[idx], apiStore);
-              updated = true;
-            } else {
-              appState.partnerStores.push(apiStore);
-              updated = true;
-            }
-          });
-          // Pastikan Alzam Agency selalu di posisi index 1 (tepat setelah sr12-central)
-          const alzamIdx = appState.partnerStores.findIndex(s => s.slug === 'alzam-agency');
-          if (alzamIdx > 1) {
-            const alzamStore = appState.partnerStores.splice(alzamIdx, 1)[0];
-            appState.partnerStores.splice(1, 0, alzamStore);
-            updated = true;
-          }
-          if (updated) {
-            saveStoredPartnerStores(appState.partnerStores);
-            renderStoreDropdown();
-            if (appState.storeSettings?.slug === 'sr12-central') {
-              renderOfficialDistributorDirectory();
-            }
-          }
-        }
-      })
-      .catch(err => console.warn('Could not sync /api/stores:', err));
-  }
+  // Sinkronisasi otomatis dua arah (Client <-> Server API)
+  syncStoresWithServer();
+  syncPendingStoresWithServer();
+
+  // Real-time synchronization interval (tiap 3 detik) & saat tab browser difokuskan
+  setInterval(() => {
+    syncStoresWithServer();
+    syncPendingStoresWithServer();
+  }, 3000);
+
+  window.addEventListener('focus', () => {
+    syncStoresWithServer();
+    syncPendingStoresWithServer();
+  });
   renderTierQuickBanner();
   renderProducts();
   renderRewards();
@@ -1119,6 +1227,15 @@ function handleRegisterStoreSubmit(e) {
   appState.pendingStoreApps.unshift(newApp);
   saveStoredPendingStores(appState.pendingStoreApps);
 
+  // Sinkronisasi otomatis ke server database API
+  if (typeof fetch === 'function') {
+    fetch(getApiBaseUrl() + '/api/pending-stores', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newApp)
+    }).catch(e => console.warn('Could not POST /api/pending-stores:', e));
+  }
+
   // Close registration form
   closeModal('modalRegisterStore');
 
@@ -1144,6 +1261,8 @@ function openStoreAppPendingSuccessModal(app) {
   if (nameEl) nameEl.textContent = app.storeName;
   if (ownerEl) ownerEl.textContent = `${app.storeOwner} (${app.storeCity})`;
   if (tierEl) tierEl.textContent = `${tierObj.name} (Diskon ${tierObj.discountPct}%)`;
+
+  appState.lastSubmittedPendingAppId = app.id;
 
   if (modal) modal.classList.add('open');
 }
@@ -1405,11 +1524,15 @@ function approvePendingStore(appId) {
 
   // Sinkronisasi otomatis ke server database API
   if (typeof fetch === 'function') {
-    fetch('/api/stores', {
+    fetch(getApiBaseUrl() + '/api/stores', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(approvedStore)
     }).catch(e => console.warn('Could not POST /api/stores:', e));
+
+    fetch(getApiBaseUrl() + `/api/pending-stores/${appId}`, {
+      method: 'DELETE'
+    }).catch(e => console.warn('Could not DELETE /api/pending-stores:', e));
   }
 
   // Jika merupakan toko Agen/Sub Agen di bawah Distributor aktif, otomatis daftarkan ke buku mitra distributor
@@ -1484,6 +1607,12 @@ function rejectPendingStore(appId) {
   // Remove from pending
   appState.pendingStoreApps.splice(index, 1);
   saveStoredPendingStores(appState.pendingStoreApps);
+
+  if (typeof fetch === 'function') {
+    fetch(getApiBaseUrl() + `/api/pending-stores/${appId}`, {
+      method: 'DELETE'
+    }).catch(e => console.warn('Could not DELETE /api/pending-stores:', e));
+  }
 
   closeModal('modalPreviewSkDoc');
   updateDevPortalMetrics();
@@ -6447,5 +6576,8 @@ function openOlseraPosDirect() {
   showToast('🏪 Membuka Olsera POS & Backoffice Alzam Agency!');
 }
 window.openOlseraPosDirect = openOlseraPosDirect;
+window.quickApproveFromPendingModal = quickApproveFromPendingModal;
+window.syncStoresWithServer = syncStoresWithServer;
+window.syncPendingStoresWithServer = syncPendingStoresWithServer;
 
 

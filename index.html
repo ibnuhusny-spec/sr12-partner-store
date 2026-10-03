@@ -2558,9 +2558,14 @@
           Untuk mencegah pendaftar fiktif/iseng dan melindungi konsumen dari produk palsu, Admin/Developer Pusat PT. SR12 Herbal Perkasa akan memeriksa keabsahan Surat Keputusan (SK) Distributor Anda. Anda akan menerima notifikasi aktivasi via WhatsApp begitu disetujui.
         </div>
 
-        <button type="button" onclick="closeModal('modalStoreAppPendingSuccess')" style="width: 100%; background: #0284c7; color: #fff; border: none; padding: 11px; border-radius: 8px; font-weight: 700; font-size: 0.88rem; cursor: pointer;">
-          Saya Mengerti, Terima Kasih 👍
-        </button>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <button type="button" id="btnQuickApprovePendingSim" onclick="quickApproveFromPendingModal()" style="width: 100%; background: linear-gradient(135deg, #10b981, #059669); color: #fff; border: none; padding: 11px; border-radius: 8px; font-weight: 800; font-size: 0.88rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 3px 10px rgba(16, 185, 129, 0.35);">
+            <span>⚡</span> Verifikasi &amp; Aktifkan Toko Langsung (Simulasi)
+          </button>
+          <button type="button" onclick="closeModal('modalStoreAppPendingSuccess')" style="width: 100%; background: #f8fafc; color: #475569; border: 1px solid #cbd5e1; padding: 10px; border-radius: 8px; font-weight: 700; font-size: 0.84rem; cursor: pointer;">
+            Saya Mengerti (Tunggu Verifikasi Admin) 👍
+          </button>
+        </div>
       </div>
     </div>
   </div>

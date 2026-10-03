@@ -27,6 +27,7 @@ const INITIAL_DATABASE = {
     totalGMV: 0,
     totalPlatformFee: 0
   },
+  pending_stores: [],
   sessions: []
 };
 
@@ -287,6 +288,56 @@ function clearAllData() {
   return true;
 }
 
+// ==========================================
+// PENDING STORE APPLICATIONS (CROSS-DEVICE SYNC)
+// ==========================================
+function getPendingStores() {
+  const db = readDb();
+  return db.pending_stores || [];
+}
+
+function addPendingStore(appData) {
+  const db = readDb();
+  if (!db.pending_stores) db.pending_stores = [];
+  const idx = db.pending_stores.findIndex(a => a.id === appData.id || a.slug === appData.slug);
+  if (idx >= 0) {
+    db.pending_stores[idx] = Object.assign({}, db.pending_stores[idx], appData);
+  } else {
+    db.pending_stores.unshift(appData);
+  }
+  writeDb(db);
+  return appData;
+}
+
+function removePendingStore(id) {
+  const db = readDb();
+  if (!db.pending_stores) return false;
+  const initialLen = db.pending_stores.length;
+  db.pending_stores = db.pending_stores.filter(a => a.id !== id && a.slug !== id);
+  const changed = db.pending_stores.length !== initialLen;
+  if (changed) writeDb(db);
+  return changed;
+}
+
+function syncStores(storesArray) {
+  if (!Array.isArray(storesArray)) return getAllStores();
+  const db = readDb();
+  if (!db.stores) db.stores = [];
+
+  storesArray.forEach(incomingStore => {
+    if (!incomingStore || !incomingStore.slug || incomingStore.slug === 'sr12-central') return;
+    const idx = db.stores.findIndex(s => s.slug === incomingStore.slug);
+    if (idx >= 0) {
+      db.stores[idx] = Object.assign({}, db.stores[idx], incomingStore);
+    } else {
+      db.stores.push(incomingStore);
+    }
+  });
+
+  writeDb(db);
+  return getAllStores();
+}
+
 module.exports = {
   ensureDbExists,
   getAllStores,
@@ -303,5 +354,9 @@ module.exports = {
   getDeveloperSettings,
   updateDeveloperSettings,
   addStore,
+  syncStores,
+  getPendingStores,
+  addPendingStore,
+  removePendingStore,
   clearAllData
 };
