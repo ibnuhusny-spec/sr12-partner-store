@@ -9,229 +9,14 @@ const path = require('path');
 const DB_DIR = path.join(__dirname);
 const DB_FILE = path.join(DB_DIR, 'db.json');
 
-// Default initial database seeds
+// Default initial database seeds (Clean slate - ready for fresh simulation)
 const INITIAL_DATABASE = {
-  stores: [
-    {
-      slug: 'aisyah-herbal',
-      storeName: 'Aisyah SR12 Distributor Hub',
-      storeTagline: 'Distributor Resmi SR12 Wilayah Jawa Barat',
-      storeTheme: 'emerald',
-      heroTitle: 'Pusat Distribusi & Grosir Resmi SR12 Jawa Barat',
-      heroSubtitle: 'Melayani Agen, Sub Agen, Reseller & Konsumen. Order instan via WhatsApp, stok ready gudang distributor.',
-      heroBannerUrl: 'assets/hero-banner.jpg',
-      storeLogoText: 'SR12',
-      storeLogoUrl: '',
-      storeWaNumber: '6281234567890',
-      storeCity: 'Bandung',
-      storeOwner: 'Ibu Aisyah (Distributor Utama)',
-      ownerEmail: 'aisyah-herbal@sr12.co.id',
-      ownerPassword: '1234',
-      partnerTier: 'distributor',
-      feePayer: 'buyer',
-      orderQuota: 15,
-      walletBalance: 15000,
-      totalTopupPaid: 0,
-      createdAt: '2026-09-01'
-    },
-    {
-      slug: 'griya-cantik',
-      storeName: 'Griya Cantik SR12 Jakarta',
-      storeTagline: 'Agen Resmi Herbal Skin Care & Kosmetik',
-      storeTheme: 'rose',
-      heroTitle: 'Rahasia Kulit Sehat & Glowing Alami SR12',
-      heroSubtitle: 'Belanja aman terverifikasi BPOM & Halal MUI. Konsultasi kecantikan gratis via WhatsApp.',
-      heroBannerUrl: 'assets/hero-banner.jpg',
-      storeLogoText: 'GRIYA',
-      storeLogoUrl: '',
-      storeWaNumber: '6285712345678',
-      storeCity: 'Jakarta Selatan',
-      storeOwner: 'dr. Linda Sp.KK (Agen)',
-      ownerEmail: 'linda@sr12.co.id',
-      ownerPassword: '1234',
-      partnerTier: 'agen',
-      feePayer: 'buyer',
-      orderQuota: 10,
-      walletBalance: 10000,
-      totalTopupPaid: 0,
-      createdAt: '2026-09-05'
-    },
-    {
-      slug: 'berkah-herbal',
-      storeName: 'Berkah Herbal SR12 Surabaya',
-      storeTagline: 'Sub Agen Resmi Jawa Timur Ready Stock',
-      storeTheme: 'blue',
-      heroTitle: 'Pusat Grosir SR12 Jawa Timur Terpercaya',
-      heroSubtitle: 'Stok ribuan pcs selalu ready, pengiriman cepat ke seluruh Indonesia.',
-      heroBannerUrl: 'assets/hero-banner.jpg',
-      storeLogoText: 'BERKAH',
-      storeLogoUrl: '',
-      storeWaNumber: '6287890123456',
-      storeCity: 'Surabaya',
-      storeOwner: 'Haji Ahmad Fauzi (Sub Agen)',
-      ownerEmail: 'ahmad@sr12.co.id',
-      ownerPassword: '1234',
-      partnerTier: 'sub_agen',
-      feePayer: 'buyer',
-      orderQuota: 10,
-      walletBalance: 10000,
-      totalTopupPaid: 0,
-      createdAt: '2026-09-10'
-    }
-  ],
-  mitra: [
-    {
-      id: 'AG-001',
-      store_slug: 'aisyah-herbal',
-      name: 'dr. Linda Sp.KK',
-      phone: '085712345678',
-      city: 'Jakarta Selatan',
-      tier: 'agen',
-      bankName: 'BCA',
-      bankAccount: '1234567890',
-      bankHolder: 'dr. Linda',
-      qualificationDate: '2026-06-10',
-      lastOrderDate: '2026-09-12',
-      accumulatedSpent90Days: 8500000,
-      totalOrdersCount: 14,
-      status: 'active'
-    },
-    {
-      id: 'SUB-001',
-      store_slug: 'aisyah-herbal',
-      name: 'Haji Ahmad Fauzi',
-      phone: '087890123456',
-      city: 'Surabaya',
-      tier: 'sub_agen',
-      bankName: 'BRI',
-      bankAccount: '4455667788',
-      bankHolder: 'Ahmad Fauzi',
-      qualificationDate: '2026-07-05',
-      lastOrderDate: '2026-09-15',
-      accumulatedSpent90Days: 2400000,
-      totalOrdersCount: 6,
-      status: 'active'
-    },
-    {
-      id: 'RS-001',
-      store_slug: 'aisyah-herbal',
-      name: 'Ibu Ratna Dewi',
-      phone: '085798765432',
-      city: 'Jakarta Selatan',
-      tier: 'reseller',
-      bankName: 'Mandiri',
-      bankAccount: '9988776655',
-      bankHolder: 'Ratna Dewi',
-      qualificationDate: '2026-08-15',
-      lastOrderDate: '2026-09-20',
-      accumulatedSpent90Days: 780000,
-      totalOrdersCount: 4,
-      status: 'active'
-    },
-    {
-      id: 'RS-002',
-      store_slug: 'aisyah-herbal',
-      name: 'Siti Nurhaliza',
-      phone: '081234567890',
-      city: 'Bandung Barat',
-      tier: 'reseller',
-      bankName: 'BCA',
-      bankAccount: '3322114455',
-      bankHolder: 'Siti Nurhaliza',
-      qualificationDate: '2026-07-28',
-      lastOrderDate: '2026-08-10',
-      accumulatedSpent90Days: 350000,
-      totalOrdersCount: 2,
-      status: 'active'
-    },
-    {
-      id: 'MKT-001',
-      store_slug: 'aisyah-herbal',
-      name: 'Rian Pratama',
-      phone: '085811223344',
-      city: 'Bandung',
-      tier: 'marketer',
-      bankName: 'BCA',
-      bankAccount: '5220394811',
-      bankHolder: 'Rian Pratama',
-      qualificationDate: '2026-07-01',
-      lastOrderDate: '2026-09-26',
-      accumulatedSpent90Days: 1070000,
-      totalOrdersCount: 3,
-      status: 'active'
-    },
-    {
-      id: 'MKT-002',
-      store_slug: 'aisyah-herbal',
-      name: 'Dina Lestari',
-      phone: '087722334455',
-      city: 'Cimahi',
-      tier: 'marketer',
-      bankName: 'Dana',
-      bankAccount: '087722334455',
-      bankHolder: 'Dina Lestari',
-      qualificationDate: '2026-08-10',
-      lastOrderDate: '2026-09-26',
-      accumulatedSpent90Days: 820000,
-      totalOrdersCount: 2,
-      status: 'active'
-    }
-  ],
-  marketer_sales: [
-    {
-      orderId: 'ORD-MKT-101',
-      store_slug: 'aisyah-herbal',
-      marketerId: 'MKT-001',
-      date: '2026-09-15',
-      monthPeriod: '2026-09',
-      customerName: 'Ibu Ningsih (Jakarta)',
-      customerPhone: '081299887766',
-      customerAddress: 'Jl. Kemang Raya No. 45 Jakarta Selatan',
-      fulfillmentType: 'dropship',
-      itemsDesc: '2x Deodorant Spray, 1x GoMilku Original',
-      omsetHet: 200000,
-      commissionPct: 15,
-      commissionAmount: 30000,
-      paidStatus: 'paid',
-      paidDate: '2026-09-20'
-    },
-    {
-      orderId: 'ORD-MKT-102',
-      store_slug: 'aisyah-herbal',
-      marketerId: 'MKT-001',
-      date: '2026-09-22',
-      monthPeriod: '2026-09',
-      customerName: 'Kak Cindy (Bogor)',
-      customerPhone: '087812994455',
-      customerAddress: 'Ambil di gudang',
-      fulfillmentType: 'pickup',
-      itemsDesc: '1x Paket Acne Glow, 2x Sabun Bulus',
-      omsetHet: 450000,
-      commissionPct: 15,
-      commissionAmount: 67500,
-      paidStatus: 'unpaid',
-      paidDate: null
-    },
-    {
-      orderId: 'ORD-MKT-103',
-      store_slug: 'aisyah-herbal',
-      marketerId: 'MKT-001',
-      date: '2026-09-25',
-      monthPeriod: '2026-09',
-      customerName: 'Mbak Tari (Tangerang)',
-      customerPhone: '085699443322',
-      customerAddress: 'Jl. Merdeka No. 10 Tangerang',
-      fulfillmentType: 'dropship',
-      itemsDesc: '3x GoMilku Cokelat',
-      omsetHet: 420000,
-      commissionPct: 15,
-      commissionAmount: 63000,
-      paidStatus: 'unpaid',
-      paidDate: null
-    }
-  ],
+  stores: [],
+  mitra: [],
+  marketer_sales: [],
+  orders: [],
+  cashflow: [],
   developer: {
-    masterPin: '8899',
     bankName: 'BCA',
     bankAccount: '7820-1234-5678',
     bankHolder: 'Developer Resmi SR12 Ecosystem',
@@ -482,6 +267,26 @@ function updateDeveloperSettings(settings) {
   return db.developer;
 }
 
+function addStore(storeData) {
+  const db = readDb();
+  if (!db.stores) db.stores = [];
+  const idx = db.stores.findIndex(s => s.slug === storeData.slug);
+  if (idx >= 0) {
+    db.stores[idx] = Object.assign({}, db.stores[idx], storeData);
+  } else {
+    db.stores.unshift(storeData);
+  }
+  writeDb(db);
+  const copy = Object.assign({}, storeData);
+  delete copy.ownerPassword;
+  return copy;
+}
+
+function clearAllData() {
+  writeDb(JSON.parse(JSON.stringify(INITIAL_DATABASE)));
+  return true;
+}
+
 module.exports = {
   ensureDbExists,
   getAllStores,
@@ -496,5 +301,7 @@ module.exports = {
   toggleMarketerPayrollStatus,
   topupStoreQuota,
   getDeveloperSettings,
-  updateDeveloperSettings
+  updateDeveloperSettings,
+  addStore,
+  clearAllData
 };

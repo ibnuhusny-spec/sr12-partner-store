@@ -24,90 +24,6 @@ const DEFAULT_PARTNER_STORES = [
     walletBalance: 500000,
     totalTopupPaid: 0,
     totalTx: 0
-  },
-  {
-    slug: 'alzam-agency',
-    storeName: 'Alzam Agency',
-    storeTagline: 'Distributor Resmi SR12 Herbal Skin Care',
-    storeTheme: 'emerald',
-    heroTitle: 'Pusat Belanja & Grosir Resmi SR12 - Alzam Agency',
-    heroSubtitle: 'Melayani Agen, Sub Agen, Reseller & Konsumen. Order instan via WhatsApp, stok ready gudang distributor.',
-    heroBannerUrl: 'assets/hero-banner.jpg',
-    storeLogoText: 'ALZAM',
-    storeLogoUrl: 'assets/sr12-logo.png',
-    storeWaNumber: '6281234567890',
-    storeCity: 'Bandung (Distributor Resmi)',
-    storeOwner: 'Nurlinda Sari',
-    partnerTier: 'distributor',
-    feePayer: 'buyer',
-    storeAdminPin: '1234',
-    orderQuota: 15,
-    walletBalance: 25000,
-    totalTopupPaid: 0,
-    totalTx: 0
-  },
-  {
-    slug: 'aisyah-herbal',
-    storeName: 'Aisyah SR12 Distributor Hub',
-    storeTagline: 'Distributor Resmi SR12 Wilayah Jawa Barat',
-    storeTheme: 'emerald',
-    heroTitle: 'Pusat Distribusi & Grosir Resmi SR12 Jawa Barat',
-    heroSubtitle: 'Melayani Agen, Sub Agen, Reseller & Konsumen. Order instan via WhatsApp, stok ready gudang distributor.',
-    heroBannerUrl: 'assets/hero-banner.jpg',
-    storeLogoText: 'SR12',
-    storeLogoUrl: 'assets/sr12-logo.png',
-    storeWaNumber: '6281234567890',
-    storeCity: 'Bandung',
-    storeOwner: 'Ibu Aisyah (Distributor Utama)',
-    partnerTier: 'distributor',
-    feePayer: 'buyer',
-    storeAdminPin: '1234',
-    orderQuota: 10,
-    walletBalance: 10000,
-    totalTopupPaid: 0,
-    totalTx: 0
-  },
-  {
-    slug: 'griya-cantik',
-    storeName: 'Griya Cantik SR12 Jakarta',
-    storeTagline: 'Agen Resmi Herbal Skin Care & Kosmetik',
-    storeTheme: 'rose',
-    heroTitle: 'Rahasia Kulit Sehat & Glowing Alami SR12',
-    heroSubtitle: 'Belanja aman terverifikasi BPOM & Halal MUI. Konsultasi kecantikan gratis via WhatsApp.',
-    heroBannerUrl: 'assets/hero-banner.jpg',
-    storeLogoText: 'GRIYA',
-    storeLogoUrl: 'assets/sr12-logo.png',
-    storeWaNumber: '6285712345678',
-    storeCity: 'Jakarta Selatan',
-    storeOwner: 'dr. Linda Sp.KK (Agen)',
-    partnerTier: 'agen',
-    feePayer: 'buyer',
-    storeAdminPin: '1234',
-    orderQuota: 10,
-    walletBalance: 10000,
-    totalTopupPaid: 0,
-    totalTx: 0
-  },
-  {
-    slug: 'berkah-herbal',
-    storeName: 'Berkah Herbal SR12 Surabaya',
-    storeTagline: 'Sub Agen Resmi Jawa Timur Ready Stock',
-    storeTheme: 'blue',
-    heroTitle: 'Pusat Grosir SR12 Jawa Timur Terpercaya',
-    heroSubtitle: 'Stok ribuan pcs selalu ready, pengiriman cepat ke seluruh Indonesia.',
-    heroBannerUrl: 'assets/hero-banner.jpg',
-    storeLogoText: 'BERKAH',
-    storeLogoUrl: 'assets/sr12-logo.png',
-    storeWaNumber: '6287890123456',
-    storeCity: 'Surabaya',
-    storeOwner: 'Haji Ahmad Fauzi (Sub Agen)',
-    partnerTier: 'sub_agen',
-    feePayer: 'buyer',
-    storeAdminPin: '1234',
-    orderQuota: 10,
-    walletBalance: 10000,
-    totalTopupPaid: 0,
-    totalTx: 0
   }
 ];
 
@@ -125,14 +41,14 @@ function getStoredPartnerStores() {
     }
   }
 
-  // Jika belum ada data tersimpan, gunakan template default
+  // Jika belum ada data tersimpan, gunakan template default (hanya sr12-central sebagai platform hub)
   if (stores.length === 0) {
     stores = DEFAULT_PARTNER_STORES.map(s => Object.assign({}, s));
     saveStoredPartnerStores(stores);
     return stores;
   }
 
-  // 1. Pastikan SR12-Ku Pro (sr12-central) selalu ada di index 0
+  // Pastikan SR12-Ku Pro (sr12-central) selalu ada di index 0 sebagai platform hub
   let centralIdx = stores.findIndex(s => s.slug === 'sr12-central');
   if (centralIdx === -1) {
     stores.unshift(Object.assign({}, DEFAULT_PARTNER_STORES[0]));
@@ -151,37 +67,6 @@ function getStoredPartnerStores() {
       stores.unshift(central);
     }
   }
-
-  // 2. Pastikan Toko Alzam Agency selalu ada di index 1 (Distributor Utama teratas di direktori pusat)
-  let alzamIdx = stores.findIndex(s => s.slug === 'alzam-agency');
-  if (alzamIdx === -1) {
-    stores.splice(1, 0, Object.assign({}, DEFAULT_PARTNER_STORES[1]));
-  } else {
-    stores[alzamIdx] = Object.assign({}, DEFAULT_PARTNER_STORES[1], stores[alzamIdx], {
-      slug: 'alzam-agency',
-      storeName: stores[alzamIdx].storeName || 'Alzam Agency',
-      partnerTier: 'distributor',
-      storeCity: stores[alzamIdx].storeCity || 'Bandung (Distributor Resmi)',
-      storeOwner: stores[alzamIdx].storeOwner || 'Nurlinda Sari',
-      storeWaNumber: stores[alzamIdx].storeWaNumber || '6281234567890'
-    });
-    if (alzamIdx !== 1) {
-      const alzam = stores.splice(alzamIdx, 1)[0];
-      stores.splice(1, 0, alzam);
-    }
-  }
-
-  // 3. Pastikan toko resmi lainnya (Aisyah, Griya, Berkah) tetap ada jika hilang
-  DEFAULT_PARTNER_STORES.slice(2).forEach(defStore => {
-    const foundIdx = stores.findIndex(s => s.slug === defStore.slug);
-    if (foundIdx === -1) {
-      stores.push(Object.assign({}, defStore));
-    } else {
-      if (!stores[foundIdx].partnerTier) {
-        stores[foundIdx].partnerTier = defStore.partnerTier;
-      }
-    }
-  });
 
   saveStoredPartnerStores(stores);
   return stores;
@@ -721,6 +606,11 @@ function formatRupiah(amount) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Sesi Simulasi Bersih Baru: jika belum di-reset ke kanvas kosong, bersihkan semua data dummy lama
+  if (localStorage.getItem('sr12_clean_slate_sim_v4') !== 'ready') {
+    clearAllDummyData(true);
+    localStorage.setItem('sr12_clean_slate_sim_v4', 'ready');
+  }
   appState.partnerStores = getStoredPartnerStores();
 
   // Reset dummy inflated numbers from previous sessions if present
@@ -930,6 +820,90 @@ function autoGenerateSlug(name) {
   }
 }
 
+
+function getMockRecommendationSvgUrl(applicantName, distributorName, recCode, storeName) {
+  const safeApp = (applicantName || 'CALON MITRA').toUpperCase();
+  const safeDist = (distributorName || 'DISTRIBUTOR RESMI').toUpperCase();
+  const safeCode = recCode || 'REK-DIST-2026-001';
+  const safeStore = (storeName || 'TOKO RESMI').toUpperCase();
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 420" width="100%" height="100%" style="font-family:'Arial',sans-serif;background:#fff;border-radius:10px;">
+    <rect width="100%" height="100%" fill="#ffffff" stroke="#2563eb" stroke-width="8" rx="10"/>
+    <rect x="15" y="15" width="570" height="390" fill="none" stroke="#93c5fd" stroke-width="2" stroke-dasharray="6 4" rx="8"/>
+    
+    <text x="300" y="52" text-anchor="middle" font-size="16" font-weight="900" fill="#1e3a8a" letter-spacing="1">SURAT REKOMENDASI KEMITRAAN RESMI</text>
+    <text x="300" y="70" text-anchor="middle" font-size="9.5" font-weight="700" fill="#64748b">JARINGAN DISTRIBUTOR RESMI PT. SR12 HERBAL PERKASA</text>
+    <line x1="60" y1="84" x2="540" y2="84" stroke="#cbd5e1" stroke-width="1.5"/>
+
+    <text x="300" y="108" text-anchor="middle" font-size="10" font-weight="800" fill="#2563eb">Nomor Surat Rekomendasi: ${safeCode}</text>
+
+    <text x="60" y="140" font-size="10.5" fill="#475569">Yang bertanda tangan di bawah ini:</text>
+    <text x="60" y="160" font-size="11" font-weight="800" fill="#0f172a">Distributor Pemberi Rekomendasi : <tspan fill="#1e40af">${safeDist}</tspan></text>
+    
+    <text x="60" y="195" font-size="10.5" fill="#475569">Dengan ini memberikan REKOMENDASI RESMI &amp; PENUH kepada:</text>
+    <text x="60" y="218" font-size="11" font-weight="800" fill="#0f172a">Nama Calon Pemilik : <tspan fill="#059669">${safeApp}</tspan></text>
+    <text x="60" y="238" font-size="11" font-weight="800" fill="#0f172a">Nama Toko Mitra    : <tspan fill="#059669">${safeStore}</tspan></text>
+
+    <text x="60" y="272" font-size="10" fill="#334155">Untuk diangkat dan disetujui pembukaan toko resmi di aplikasi SR12-Ku Pro.</text>
+    <text x="60" y="288" font-size="10" fill="#334155">Seluruh pemenuhan stok &amp; pembinaan produk akan dinaungi oleh Distributor tersebut.</text>
+
+    <rect x="60" y="315" width="480" height="38" rx="6" fill="#eff6ff" stroke="#bfdbfe"/>
+    <text x="300" y="339" text-anchor="middle" font-size="10" font-weight="900" fill="#1e40af">STATUS: REKOMENDASI TERVERIFIKASI SAH OLEH DISTRIBUTOR RESMI</text>
+  </svg>`;
+
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+window.getMockRecommendationSvgUrl = getMockRecommendationSvgUrl;
+
+function populateRecommenderDistributors() {
+  const select = document.getElementById('regRecommenderDistributorSelect');
+  if (!select) return;
+
+  const activeDistributors = (appState.partnerStores || []).filter(s => s.slug !== 'sr12-central' && s.partnerTier === 'distributor');
+
+  let html = '';
+  if (activeDistributors.length > 0) {
+    html += '<option value="" disabled selected>-- Pilih Toko Distributor Resmi Terdaftar --</option>';
+    activeDistributors.forEach(dist => {
+      const city = (dist.storeCity || 'Indonesia').split('(')[0].trim();
+      html += `<option value="${dist.slug}">👑 ${dist.storeName} (${city} - ${dist.storeOwner})</option>`;
+    });
+    html += '<option value="manual">➕ Distributor Lain (Input Manual Nama &amp; No. WA)</option>';
+  } else {
+    html += '<option value="manual" selected>Distributor Belum Terdaftar di Web (Input Manual Nama &amp; WA)</option>';
+  }
+  select.innerHTML = html;
+  handleRecommenderDistributorChange(select.value);
+}
+
+function handleRecommenderDistributorChange(val) {
+  const manualFields = document.getElementById('regRecommenderManualFields');
+  if (manualFields) {
+    manualFields.style.display = (val === 'manual') ? 'block' : 'none';
+  }
+}
+
+function handleRegStoreTierChange(tier) {
+  const recSection = document.getElementById('regDistributorRecommendationSection');
+  const skTitle = document.getElementById('regSkSectionTitle');
+  const skInput = document.getElementById('regSkNumber');
+
+  if (tier === 'distributor') {
+    if (recSection) recSection.style.display = 'none';
+    if (skTitle) skTitle.innerHTML = '<span>📜</span> 2. Dokumen SK Distributor Resmi (Dari Kantor Pusat SR12):';
+    if (skInput) skInput.placeholder = 'Contoh: SK-DIST-SR12-2026-001';
+  } else {
+    if (recSection) recSection.style.display = 'block';
+    populateRecommenderDistributors();
+    const tierName = tier === 'agen' ? 'Agen Resmi' : (tier === 'sub_agen' ? 'Sub Agen' : (tier === 'marketer' ? 'Marketer' : 'Reseller Resmi'));
+    if (skTitle) skTitle.innerHTML = `<span>📜</span> 2. Dokumen SK / Kontrak ${tierName} SR12:`;
+    if (skInput) skInput.placeholder = `Contoh: SK-${tier.toUpperCase()}-SR12-2026-001`;
+  }
+}
+window.populateRecommenderDistributors = populateRecommenderDistributors;
+window.handleRecommenderDistributorChange = handleRecommenderDistributorChange;
+window.handleRegStoreTierChange = handleRegStoreTierChange;
+
 function openRegisterStoreModal() {
   const modal = document.getElementById('modalRegisterStore');
   appState.tempRegLogoBase64 = null;
@@ -991,6 +965,26 @@ function openRegisterStoreModal() {
   const notesInput = document.getElementById('regStoreNotes');
   if (notesInput) notesInput.value = '';
 
+  // Recommendation fields reset
+  appState.tempRegRecBase64 = null;
+  appState.tempRegRecDocName = null;
+  const recFileInput = document.getElementById('regRecommendationFileInput');
+  if (recFileInput) recFileInput.value = '';
+  const recCodeInput = document.getElementById('regRecommendationCode');
+  if (recCodeInput) recCodeInput.value = '';
+  const recManualName = document.getElementById('regRecommenderManualName');
+  if (recManualName) recManualName.value = '';
+  const recManualWa = document.getElementById('regRecommenderManualWa');
+  if (recManualWa) recManualWa.value = '';
+  const recPreviewBox = document.getElementById('regRecommendationPreviewBox');
+  if (recPreviewBox) recPreviewBox.style.display = 'none';
+
+  const tierSelect = document.getElementById('regStoreTier');
+  if (tierSelect) {
+    tierSelect.value = 'distributor';
+    handleRegStoreTierChange('distributor');
+  }
+
   if (modal) modal.classList.add('open');
 }
 
@@ -1023,10 +1017,47 @@ function handleRegisterStoreSubmit(e) {
   }
 
   if (!skNumber) {
-    alert('Mohon masukkan Nomor SK Distributor Resmi atau Nomor Kontrak SR12 Anda untuk verifikasi keabsahan!');
+    alert('Mohon masukkan Nomor SK Resmi atau Nomor Kontrak SR12 Anda untuk verifikasi keabsahan!');
     const skInput = document.getElementById('regSkNumber');
     if (skInput) skInput.focus();
     return;
+  }
+
+  // Validasi Wajib Rekomendasi Distributor untuk Agen dan Kemitraan di Bawahnya
+  const recSelect = document.getElementById('regRecommenderDistributorSelect');
+  const recCode = document.getElementById('regRecommendationCode')?.value.trim() || '';
+  const recManualName = document.getElementById('regRecommenderManualName')?.value.trim() || '';
+  const recManualWa = document.getElementById('regRecommenderManualWa')?.value.trim() || '';
+
+  let recommenderDistributor = '';
+  let recommenderWa = '';
+  let recommenderSlug = '';
+
+  if (tier !== 'distributor') {
+    if (recSelect && recSelect.value && recSelect.value !== 'manual') {
+      const foundDist = (appState.partnerStores || []).find(s => s.slug === recSelect.value);
+      if (foundDist) {
+        recommenderDistributor = foundDist.storeName;
+        recommenderWa = foundDist.storeWaNumber;
+        recommenderSlug = foundDist.slug;
+      }
+    } else {
+      if (!recManualName || !recManualWa) {
+        alert('⚠️ PERHATIAN:\n\nUntuk pembukaan toko tingkat Agen, Sub Agen, atau Reseller, Anda WAJIB menyertakan Nama & Nomor WhatsApp Distributor Resmi SR12 pemberi rekomendasi!');
+        if (document.getElementById('regRecommenderManualName')) document.getElementById('regRecommenderManualName').focus();
+        return;
+      }
+      recommenderDistributor = recManualName;
+      recommenderWa = recManualWa;
+      recommenderSlug = 'manual';
+    }
+
+    if (!recCode) {
+      alert('Mohon masukkan Nomor atau Kode Surat Rekomendasi dari Distributor Anda!');
+      const codeInput = document.getElementById('regRecommendationCode');
+      if (codeInput) codeInput.focus();
+      return;
+    }
   }
 
   // Documents processing (with fallback to sharp official SVG certificates)
@@ -1073,6 +1104,12 @@ function handleRegisterStoreSubmit(e) {
     skDocName: skDocName,
     selfieDocUrl: selfieDocUrl,
     selfieDocName: selfieDocName,
+    recommenderDistributor: recommenderDistributor,
+    recommenderWa: recommenderWa,
+    recommenderSlug: recommenderSlug,
+    recommendationCode: recCode,
+    recommendationDocUrl: appState.tempRegRecBase64 || '',
+    recommendationDocName: appState.tempRegRecDocName || (recCode ? `Surat_Rekomendasi_${recCode}.pdf` : ''),
     notes: notes,
     submittedAt: new Date().toISOString(),
     status: 'pending'
@@ -1287,6 +1324,12 @@ function previewSkDocument(appId) {
         </div>
         <div style="color: #94a3b8; font-size: 0.7rem;">Waktu Masuk: ${dateFormatted}</div>
       </div>
+      ${(app.recommenderDistributor) ? `
+        <div style="margin-top: 8px; padding: 8px 10px; background: rgba(37, 99, 235, 0.15); border: 1.5px solid #3b82f6; border-radius: 6px; font-size: 0.76rem; color: #93c5fd;">
+          👑 <b>Rekomendasi Distributor Resmi:</b> <span style="color: #fff; font-weight: 800;">${app.recommenderDistributor}</span> 
+          &middot; Kode/No: <code style="color: #fbbf24; font-weight: 700;">${app.recommendationCode || '-'}</code> 
+          &middot; WA: <span style="color: #4ade80;">+${app.recommenderWa || '-'}</span>
+        </div>` : (app.partnerTier === 'distributor' ? '<div style="margin-top: 6px; font-size: 0.72rem; color: #94a3b8;">👑 <i>Level Distributor Utama: Verifikasi Langsung oleh Kantor Pusat SR12.</i></div>' : '')}
       ${app.notes ? `<div style="margin-top: 6px; font-size: 0.72rem; color: #cbd5e1; background: rgba(255,255,255,0.04); padding: 5px 8px; border-radius: 4px;">📝 <i>Catatan: ${app.notes}</i></div>` : ''}
     `;
   }
@@ -1343,6 +1386,10 @@ function approvePendingStore(appId) {
     storeCity: app.storeCity,
     storeOwner: app.storeOwner,
     partnerTier: app.partnerTier,
+    recommenderDistributor: app.recommenderDistributor || '',
+    recommenderWa: app.recommenderWa || '',
+    recommenderSlug: app.recommenderSlug || '',
+    recommendationCode: app.recommendationCode || '',
     feePayer: 'buyer',
     storeAdminPin: app.storeAdminPin || '1234',
     orderQuota: 15,
@@ -1353,8 +1400,37 @@ function approvePendingStore(appId) {
     approvedAt: new Date().toISOString()
   };
 
-  appState.partnerStores.unshift(approvedStore);
+  appState.partnerStores.push(approvedStore);
   saveStoredPartnerStores(appState.partnerStores);
+
+  // Sinkronisasi otomatis ke server database API
+  if (typeof fetch === 'function') {
+    fetch('/api/stores', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(approvedStore)
+    }).catch(e => console.warn('Could not POST /api/stores:', e));
+  }
+
+  // Jika merupakan toko Agen/Sub Agen di bawah Distributor aktif, otomatis daftarkan ke buku mitra distributor
+  if (app.recommenderSlug && app.recommenderSlug !== 'manual') {
+    const newMitra = {
+      id: generateNextMitraId(app.partnerTier),
+      store_slug: app.recommenderSlug,
+      name: app.storeOwner,
+      phone: app.storeWaNumber,
+      city: app.storeCity,
+      tier: app.partnerTier,
+      status: 'active',
+      qualificationDate: new Date().toISOString().slice(0, 10),
+      lastOrderDate: new Date().toISOString().slice(0, 10),
+      accumulatedSpent90Days: 0,
+      totalOrdersCount: 0
+    };
+    if (!appState.mitraList) appState.mitraList = [];
+    appState.mitraList.push(newMitra);
+    saveStoredMitra(appState.mitraList);
+  }
 
   // Close preview modal
   closeModal('modalPreviewSkDoc');
@@ -1657,16 +1733,31 @@ function renderOfficialDistributorDirectory(filter = currentDirectoryFilter, sea
   });
 
   if (filtered.length === 0) {
-    grid.innerHTML = `
-      <div style="grid-column: 1/-1; text-align: center; padding: 40px 20px; background: #fff; border-radius: 14px; border: 1.5px dashed #cbd5e1;">
-        <div style="font-size: 2.2rem; margin-bottom: 8px;">🔍</div>
-        <p style="font-weight: 800; font-size: 1rem; color: #1e293b; margin-bottom: 4px;">Tidak Ditemukan Distributor di Kota Tersebut</p>
-        <p style="font-size: 0.82rem; color: #64748b; margin-bottom: 14px;">Silakan coba kata kunci lain atau pilih distributor resmi di kota terdekat.</p>
-        <button type="button" onclick="filterDirectoryTier('all'); const input = document.getElementById('directorySearchInput'); if (input) input.value='';" style="background: #10b981; color: #fff; border: none; padding: 8px 18px; border-radius: 9999px; font-weight: 700; font-size: 0.78rem; cursor: pointer;">
-          Tampilkan Semua Distributor Resmi
-        </button>
-      </div>
-    `;
+    if (partnerList.length === 0) {
+      grid.innerHTML = `
+        <div style="grid-column: 1/-1; text-align: center; padding: 48px 20px; background: #fff; border-radius: 16px; border: 2px dashed #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+          <div style="font-size: 3rem; margin-bottom: 12px;">🏪</div>
+          <h3 style="font-weight: 900; font-size: 1.25rem; color: #0f172a; margin-bottom: 6px;">Belum Ada Toko Mitra Terdaftar</h3>
+          <p style="font-size: 0.88rem; color: #64748b; margin-bottom: 18px; max-width: 520px; margin-left: auto; margin-right: auto; line-height: 1.5;">
+            Seluruh data simulasi awal telah dikosongkan. Silakan mulai simulasi mandiri dengan membuka <b>Toko Distributor Utama</b> pertama, lalu tambahkan toko <b>Agen Resmi</b> di bawah rekomendasi Distributor tersebut!
+          </p>
+          <button type="button" onclick="openRegisterStoreModal()" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; border: none; padding: 12px 24px; border-radius: 9999px; font-weight: 800; font-size: 0.88rem; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);">
+            <span>➕</span> Buka Toko Mitra Pertama Sekarang
+          </button>
+        </div>
+      `;
+    } else {
+      grid.innerHTML = `
+        <div style="grid-column: 1/-1; text-align: center; padding: 40px 20px; background: #fff; border-radius: 14px; border: 1.5px dashed #cbd5e1;">
+          <div style="font-size: 2.2rem; margin-bottom: 8px;">🔍</div>
+          <p style="font-weight: 800; font-size: 1rem; color: #1e293b; margin-bottom: 4px;">Tidak Ditemukan Toko di Kategori Ini</p>
+          <p style="font-size: 0.82rem; color: #64748b; margin-bottom: 14px;">Silakan coba kata kunci lain atau pilih tab Semua Mitra.</p>
+          <button type="button" onclick="filterDirectoryTier('all'); const input = document.getElementById('directorySearchInput'); if (input) input.value='';" style="background: #10b981; color: #fff; border: none; padding: 8px 18px; border-radius: 9999px; font-weight: 700; font-size: 0.78rem; cursor: pointer;">
+            Tampilkan Semua Mitra
+          </button>
+        </div>
+      `;
+    }
     return;
   }
 
@@ -1704,6 +1795,7 @@ function renderOfficialDistributorDirectory(filter = currentDirectoryFilter, sea
           <div>👤 <b>Pemilik:</b> ${store.storeOwner}</div>
           <div>📍 <b>Wilayah:</b> ${cleanCity}</div>
           <div>📱 <b>WhatsApp:</b> +${cleanWa}</div>
+          ${(store.recommenderDistributor) ? `<div style="font-size: 0.73rem; color: #1e40af; background: #eff6ff; padding: 3px 8px; border-radius: 4px; margin-top: 4px; border: 1px solid #bfdbfe;">👑 <b>Rekomendasi:</b> ${store.recommenderDistributor}</div>` : ''}
         </div>
 
         <div class="dist-card-stock-status">
@@ -5091,20 +5183,62 @@ function updateEditProdTierCalc(het) {
   });
 }
 
-function resetAllDummyDataToZero() {
-  if (!confirm('Apakah Anda ingin me-reset seluruh metrik dan statistik platform ke 0?\n\n• Total Transaksi: 0\n• Fee Developer: Rp 0\n• Kas Top-Up: Rp 0\n• Omzet GMV: Rp 0')) {
-    return;
-  }
+
+function clearAllDummyData(silent = false) {
+  // 1. Reset partner stores ke HANYA sr12-central (0 toko mitra)
+  appState.partnerStores = [Object.assign({}, DEFAULT_PARTNER_STORES[0])];
+  saveStoredPartnerStores(appState.partnerStores);
+
+  // 2. Bersihkan transaksi
+  appState.transactions = [];
+  localStorage.setItem('sr12_pos_transactions_v1', JSON.stringify([]));
+
+  // 3. Bersihkan mitra & reseller
+  appState.mitraList = [];
+  appState.resellers = [];
+  localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify([]));
+  localStorage.setItem('sr12_resellers_v2', JSON.stringify([]));
+
+  // 4. Bersihkan marketer sales
+  appState.marketerSales = [];
+  localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify([]));
+
+  // 5. Bersihkan cashflow
+  appState.cashflow = [];
+  localStorage.setItem('sr12_cashflow_entries_v1', JSON.stringify([]));
+
+  // 6. Bersihkan antrean pengajuan toko
+  appState.pendingStoreApps = [];
+  saveStoredPendingStores([]);
+
+  // 7. Bersihkan sesi login & shift kasir
+  localStorage.removeItem('sr12_distributor_session');
+  localStorage.removeItem('sr12_active_cashier_shift_v1');
+  appState.isAdminMode = false;
+  appState.isDistributorLoggedIn = false;
+
+  // 8. Reset metrik developer
   appState.devMetrics.totalPlatformTransactions = 0;
   appState.devMetrics.totalGMV = 0;
   appState.devMetrics.totalRegisteredStores = 0;
-  appState.partnerStores.forEach(s => {
-    s.totalTx = 0;
-    s.totalTopupPaid = 0;
-  });
-  saveStoredPartnerStores(appState.partnerStores);
+
+  // 9. Muat sr12-central sebagai default
+  loadStoreBySlug('sr12-central');
+  renderStoreDropdown();
   updateDevPortalMetrics();
-  showToast('✅ Seluruh data simulasi platform berhasil di-reset ke 0!');
+  renderOfficialDistributorDirectory();
+
+  if (!silent) {
+    showToast('✨ Seluruh data dummy telah dikosongkan! Kanvas bersih siap disimulasikan.');
+  }
+}
+window.clearAllDummyData = clearAllDummyData;
+
+function resetAllDummyDataToZero() {
+  if (!confirm('Apakah Anda ingin mengosongkan seluruh data dummy toko & platform?\n\n• Seluruh toko dummy akan dihapus (tersisa hanya Kantor Pusat SR12-Ku Pro)\n• Seluruh transaksi, mitra, dan riwayat akan di-reset ke 0\n• Anda dapat mensimulasikan pembuatan toko baru dari awal.')) {
+    return;
+  }
+  clearAllDummyData(false);
 }
 
 // ==========================================

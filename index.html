@@ -2326,12 +2326,12 @@
             </div>
             <div>
               <label style="font-size: 0.8rem; font-weight: 700; color: var(--dark-800); display: block; margin-bottom: 4px;">Level Kemitraan:</label>
-              <select id="regStoreTier" style="width: 100%; padding: 8px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: var(--font-main);">
-                <option value="distributor">Distributor Utama (50%)</option>
-                <option value="agen">Agen Resmi (40%)</option>
-                <option value="sub_agen">Sub Agen (30%)</option>
-                <option value="reseller" selected>Reseller Resmi (20%)</option>
-                <option value="marketer">Marketer (15%)</option>
+              <select id="regStoreTier" onchange="handleRegStoreTierChange(this.value)" style="width: 100%; padding: 8px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: var(--font-main);">
+                <option value="distributor" selected>👑 Distributor Utama (50%)</option>
+                <option value="agen">⭐ Agen Resmi (40%)</option>
+                <option value="sub_agen">🌟 Sub Agen (30%)</option>
+                <option value="reseller">🌿 Reseller Resmi (20%)</option>
+                <option value="marketer">💼 Marketer (15%)</option>
               </select>
             </div>
           </div>
@@ -2344,6 +2344,56 @@
             <div>
               <label style="font-size: 0.8rem; font-weight: 700; color: var(--dark-800); display: block; margin-bottom: 4px;">Kota Asal Pengiriman:</label>
               <input type="text" id="regStoreCity" placeholder="Contoh: Bandung" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: var(--font-main);">
+            </div>
+          </div>
+
+          <!-- BAGIAN REKOMENDASI DISTRIBUTOR (WAJIB UNTUK AGEN, SUB AGEN, RESELLER & MARKETER) -->
+          <div id="regDistributorRecommendationSection" style="display: none; background: #eff6ff; border: 1.5px dashed #2563eb; border-radius: 8px; padding: 14px; margin-bottom: 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label style="font-size: 0.82rem; font-weight: 800; color: #1e40af; display: flex; align-items: center; gap: 6px;">
+                <span>👑</span> Rekomendasi Resmi dari Distributor SR12:
+              </label>
+              <span id="regRecBadgeTag" style="font-size: 0.68rem; background: #2563eb; color: #fff; padding: 2px 8px; border-radius: 4px; font-weight: 800;">WAJIB UNTUK AGEN</span>
+            </div>
+            <p id="regRecNoticeText" style="font-size: 0.74rem; color: #1d4ed8; margin: 0 0 10px 0; line-height: 1.4;">
+              Untuk membuka toko tingkat <b>Agen, Sub Agen, atau Reseller</b>, Anda wajib mendapatkan rekomendasi dari Distributor Resmi SR12 yang mengampu wilayah Anda.
+            </p>
+
+            <div style="margin-bottom: 8px;">
+              <label style="font-size: 0.72rem; color: #1e40af; display: block; margin-bottom: 3px; font-weight: 700;">Pilih Distributor Pemberi Rekomendasi:</label>
+              <select id="regRecommenderDistributorSelect" onchange="handleRecommenderDistributorChange(this.value)" style="width: 100%; padding: 8px 10px; border: 1px solid #93c5fd; border-radius: 4px; font-size: 0.78rem; font-family: var(--font-main);">
+                <!-- Populated dynamically via JS -->
+              </select>
+            </div>
+
+            <!-- Input Manual jika Distributor belum terdaftar di aplikasi -->
+            <div id="regRecommenderManualFields" style="display: none; background: #fff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 10px; margin-bottom: 8px;">
+              <div class="grid-2col-resp" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <div>
+                  <label style="font-size: 0.7rem; color: #1e3a8a; display: block; margin-bottom: 2px; font-weight: 700;">Nama Distributor Pemberi Rekomendasi:</label>
+                  <input type="text" id="regRecommenderManualName" placeholder="Contoh: Ibu Nurlinda Sari (Distributor Bandung)" style="width: 100%; padding: 6px 8px; border: 1px solid #93c5fd; border-radius: 4px; font-size: 0.75rem;">
+                </div>
+                <div>
+                  <label style="font-size: 0.7rem; color: #1e3a8a; display: block; margin-bottom: 2px; font-weight: 700;">No. WhatsApp Distributor:</label>
+                  <input type="text" id="regRecommenderManualWa" placeholder="081234567890" style="width: 100%; padding: 6px 8px; border: 1px solid #93c5fd; border-radius: 4px; font-size: 0.75rem;">
+                </div>
+              </div>
+            </div>
+
+            <div class="grid-2col-resp" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <div>
+                <label style="font-size: 0.72rem; color: #1e40af; display: block; margin-bottom: 2px; font-weight: 700;">No. / Kode Surat Rekomendasi:</label>
+                <input type="text" id="regRecommendationCode" placeholder="Contoh: REK-DIST-2026-001" style="width: 100%; padding: 7px 10px; border: 1px solid #93c5fd; border-radius: 4px; font-size: 0.78rem; font-family: monospace;">
+              </div>
+              <div>
+                <label style="font-size: 0.72rem; color: #1e40af; display: block; margin-bottom: 2px; font-weight: 700;">Upload Surat Rekomendasi (Opsional):</label>
+                <input type="file" id="regRecommendationFileInput" accept="image/*,application/pdf" style="width: 100%; font-size: 0.72rem;">
+              </div>
+            </div>
+            <div id="regRecommendationPreviewBox" style="display: none; align-items: center; gap: 8px; margin-top: 6px; padding: 4px 8px; background: #fff; border-radius: 4px; border: 1px solid #93c5fd;">
+              <span style="font-size: 0.72rem; color: #1e40af; font-weight: 700;">Berkas Rekomendasi:</span>
+              <img id="regRecommendationPreviewImg" src="" alt="Preview Rekomendasi" style="width: 36px; height: 26px; object-fit: cover; border-radius: 4px; display: none;">
+              <span id="regRecommendationDocName" style="font-size: 0.72rem; color: #1d4ed8; font-family: monospace;"></span>
             </div>
           </div>
 
@@ -3215,6 +3265,9 @@
           </button>
           <button type="button" id="tabDocBtnSelfie" onclick="switchPreviewDocTab('selfie')" style="flex: 1; min-width: 150px; background: #1e293b; color: #cbd5e1; border: 1px solid #475569; padding: 8px 12px; border-radius: 6px; font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s ease;">
             <span>🤳</span> 3. Selfie &amp; Biometrik
+          </button>
+          <button type="button" id="tabDocBtnRec" onclick="switchPreviewDocTab('rec')" style="display: none; flex: 1; min-width: 170px; background: #1e293b; color: #cbd5e1; border: 1px solid #475569; padding: 8px 12px; border-radius: 6px; font-weight: 700; font-size: 0.78rem; cursor: pointer; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s ease;">
+            <span>👑</span> 4. Rekomendasi Distributor
           </button>
         </div>
 
