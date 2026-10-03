@@ -173,3 +173,12 @@ CREATE INDEX IF NOT EXISTS idx_pending_stores_slug ON pending_stores(slug);
 CREATE INDEX IF NOT EXISTS idx_mitra_store_slug ON mitra_downlines(store_slug);
 CREATE INDEX IF NOT EXISTS idx_marketer_sales_store_month ON marketer_sales(store_slug, month_period);
 CREATE INDEX IF NOT EXISTS idx_products_store_slug ON products(store_slug);
+
+-- ========================================================
+-- KEAMANAN STORAGE: IZIN UPLOAD & AKSES FOTO BUCKET PRODUCTS
+-- ========================================================
+CREATE POLICY "Public Access Products" ON storage.objects FOR SELECT USING (bucket_id = 'products');
+CREATE POLICY "Public Upload Products" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'products');
+CREATE POLICY "Public Update Products" ON storage.objects FOR UPDATE USING (bucket_id = 'products');
+CREATE POLICY "Public Delete Products" ON storage.objects FOR DELETE USING (bucket_id = 'products');
+
