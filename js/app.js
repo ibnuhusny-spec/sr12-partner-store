@@ -367,109 +367,163 @@ function getApiBaseUrl() {
 }
 
 async function syncStoresWithServer() {
-  if (typeof fetch !== 'function') return;
-  try {
-    const res = await fetch(getApiBaseUrl() + '/api/stores');
-    if (!res.ok) return;
-    const data = await res.json();
-    if (data && data.success && Array.isArray(data.data)) {
-      let changed = false;
+  let changed = false;
 
-      // 1. Pull server stores into appState.partnerStores
-      data.data.forEach(apiStore => {
-        if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central') return;
-        const idx = appState.partnerStores.findIndex(s => s.slug === apiStore.slug);
-        if (idx >= 0) {
-          appState.partnerStores[idx] = Object.assign({}, appState.partnerStores[idx], apiStore);
-        } else {
-          appState.partnerStores.push(apiStore);
-          changed = true;
+  // 1. Sinkronisasi dari Supabase Cloud (jika aktif)
+  if (typeof syncStoresFromSupabase === 'function') {
+    try {
+      const supaStores = await syncStoresFromSupabase();
+      if (Array.isArray(supaStores) && supaStores.length > 0) {
+        supaStores.forEach(apiStore => {
+          if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central') return;
+          const idx = appState.partnerStores.findIndex(s => s.slug === apiStore.slug);
+          if (idx >= 0) {
+            appState.partnerStores[idx] = Object.assign({}, appState.partnerStores[idx], apiStore);
+          } else {
+            appState.partnerStores.push(apiStore);
+            changed = true;
+          }
+        });
+      }
+
+      // Upload toko lokal ke Supabase jika belum ada di Cloud
+      if (Array.isArray(supaStores) && typeof saveStoreToSupabase === 'function') {
+        const toUploadSupa = appState.partnerStores.filter(localStore => {
+          if (!localStore || !localStore.slug || localStore.slug === 'sr12-central') return false;
+          return !supaStores.some(s => s.slug === localStore.slug);
+        });
+        for (const s of toUploadSupa) {
+          await saveStoreToSupabase(s);
         }
-      });
+      }
+    } catch (e) {
+      console.warn('Supabase store sync warning:', e);
+    }
+  }
 
-      // 2. Bidirectional sync: Push local stores (e.g. from HP) to server if not on server yet
-      const localStoresToUpload = appState.partnerStores.filter(localStore => {
-        if (!localStore || !localStore.slug || localStore.slug === 'sr12-central') return false;
-        return !data.data.some(serverStore => serverStore.slug === localStore.slug);
-      });
+  // 2. Sinkronisasi dari Local REST Server API (/api/stores)
+  if (typeof fetch === 'function') {
+    try {
+      const res = await fetch(getApiBaseUrl() + '/api/stores');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.success && Array.isArray(data.data)) {
+          data.data.forEach(apiStore => {
+            if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central') return;
+            const idx = appState.partnerStores.findIndex(s => s.slug === apiStore.slug);
+            if (idx >= 0) {
+              appState.partnerStores[idx] = Object.assign({}, appState.partnerStores[idx], apiStore);
+            } else {
+              appState.partnerStores.push(apiStore);
+              changed = true;
+            }
+          });
 
-      if (localStoresToUpload.length > 0) {
-        for (const storeToUpload of localStoresToUpload) {
-          try {
-            await fetch(getApiBaseUrl() + '/api/stores', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(storeToUpload)
-            });
-          } catch (upErr) {
-            console.warn('Failed pushing local store to server:', upErr);
+          // Upload toko lokal ke local server jika belum ada
+          const localStoresToUpload = appState.partnerStores.filter(localStore => {
+            if (!localStore || !localStore.slug || localStore.slug === 'sr12-central') return false;
+            return !data.data.some(serverStore => serverStore.slug === localStore.slug);
+          });
+
+          for (const storeToUpload of localStoresToUpload) {
+            try {
+              await fetch(getApiBaseUrl() + '/api/stores', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(storeToUpload)
+              });
+            } catch (upErr) {}
           }
         }
       }
+    } catch (err) {}
+  }
 
-      if (changed || localStoresToUpload.length > 0) {
-        saveStoredPartnerStores(appState.partnerStores);
-        renderStoreDropdown();
-        if (appState.storeSettings?.slug === 'sr12-central') {
-          renderOfficialDistributorDirectory();
-        }
-        updateDevPortalMetrics();
-      }
+  if (changed) {
+    saveStoredPartnerStores(appState.partnerStores);
+    renderStoreDropdown();
+    if (appState.storeSettings?.slug === 'sr12-central') {
+      renderOfficialDistributorDirectory();
     }
-  } catch (err) {
-    console.warn('Could not sync /api/stores:', err);
+    updateDevPortalMetrics();
   }
 }
 
 async function syncPendingStoresWithServer() {
-  if (typeof fetch !== 'function') return;
-  try {
-    const res = await fetch(getApiBaseUrl() + '/api/pending-stores');
-    if (!res.ok) return;
-    const data = await res.json();
-    if (data && data.success && Array.isArray(data.data)) {
-      let changed = false;
-      if (!appState.pendingStoreApps) appState.pendingStoreApps = [];
+  let changed = false;
+  if (!appState.pendingStoreApps) appState.pendingStoreApps = [];
 
-      // 1. Pull server pending apps into appState.pendingStoreApps
-      data.data.forEach(apiApp => {
-        if (!apiApp || !apiApp.id) return;
-        const idx = appState.pendingStoreApps.findIndex(a => a.id === apiApp.id);
-        if (idx >= 0) {
-          appState.pendingStoreApps[idx] = Object.assign({}, appState.pendingStoreApps[idx], apiApp);
-        } else {
-          appState.pendingStoreApps.push(apiApp);
-          changed = true;
-        }
-      });
+  // 1. Sinkronisasi antrean dari Supabase Cloud
+  if (typeof syncPendingStoresFromSupabase === 'function') {
+    try {
+      const supaPending = await syncPendingStoresFromSupabase();
+      if (Array.isArray(supaPending)) {
+        supaPending.forEach(apiApp => {
+          if (!apiApp || !apiApp.id) return;
+          const idx = appState.pendingStoreApps.findIndex(a => a.id === apiApp.id);
+          if (idx >= 0) {
+            appState.pendingStoreApps[idx] = Object.assign({}, appState.pendingStoreApps[idx], apiApp);
+          } else {
+            appState.pendingStoreApps.push(apiApp);
+            changed = true;
+          }
+        });
 
-      // 2. Bidirectional sync: Push local pending apps (from HP) to server
-      const localAppsToUpload = appState.pendingStoreApps.filter(localApp => {
-        if (!localApp || !localApp.id) return false;
-        return !data.data.some(serverApp => serverApp.id === localApp.id);
-      });
-
-      if (localAppsToUpload.length > 0) {
-        for (const appToUpload of localAppsToUpload) {
-          try {
-            await fetch(getApiBaseUrl() + '/api/pending-stores', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(appToUpload)
-            });
-          } catch (upErr) {
-            console.warn('Failed pushing local pending app to server:', upErr);
+        if (typeof savePendingStoreToSupabase === 'function') {
+          const toUpload = appState.pendingStoreApps.filter(localApp => {
+            if (!localApp || !localApp.id) return false;
+            return !supaPending.some(s => s.id === localApp.id);
+          });
+          for (const a of toUpload) {
+            await savePendingStoreToSupabase(a);
           }
         }
       }
-
-      if (changed || localAppsToUpload.length > 0) {
-        saveStoredPendingStores(appState.pendingStoreApps);
-        updateDevPortalMetrics();
-      }
+    } catch (e) {
+      console.warn('Supabase pending store sync warning:', e);
     }
-  } catch (err) {
-    console.warn('Could not sync /api/pending-stores:', err);
+  }
+
+  // 2. Sinkronisasi antrean dari Local REST Server API (/api/pending-stores)
+  if (typeof fetch === 'function') {
+    try {
+      const res = await fetch(getApiBaseUrl() + '/api/pending-stores');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.success && Array.isArray(data.data)) {
+          data.data.forEach(apiApp => {
+            if (!apiApp || !apiApp.id) return;
+            const idx = appState.pendingStoreApps.findIndex(a => a.id === apiApp.id);
+            if (idx >= 0) {
+              appState.pendingStoreApps[idx] = Object.assign({}, appState.pendingStoreApps[idx], apiApp);
+            } else {
+              appState.pendingStoreApps.push(apiApp);
+              changed = true;
+            }
+          });
+
+          const localAppsToUpload = appState.pendingStoreApps.filter(localApp => {
+            if (!localApp || !localApp.id) return false;
+            return !data.data.some(serverApp => serverApp.id === localApp.id);
+          });
+
+          for (const appToUpload of localAppsToUpload) {
+            try {
+              await fetch(getApiBaseUrl() + '/api/pending-stores', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(appToUpload)
+              });
+            } catch (upErr) {}
+          }
+        }
+      }
+    } catch (err) {}
+  }
+
+  if (changed) {
+    saveStoredPendingStores(appState.pendingStoreApps);
+    updateDevPortalMetrics();
   }
 }
 
@@ -1227,13 +1281,17 @@ function handleRegisterStoreSubmit(e) {
   appState.pendingStoreApps.unshift(newApp);
   saveStoredPendingStores(appState.pendingStoreApps);
 
-  // Sinkronisasi otomatis ke server database API
+  // Sinkronisasi otomatis ke server database API & Supabase Cloud
   if (typeof fetch === 'function') {
     fetch(getApiBaseUrl() + '/api/pending-stores', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newApp)
     }).catch(e => console.warn('Could not POST /api/pending-stores:', e));
+  }
+
+  if (typeof savePendingStoreToSupabase === 'function') {
+    savePendingStoreToSupabase(newApp);
   }
 
   // Close registration form
@@ -1522,7 +1580,7 @@ function approvePendingStore(appId) {
   appState.partnerStores.push(approvedStore);
   saveStoredPartnerStores(appState.partnerStores);
 
-  // Sinkronisasi otomatis ke server database API
+  // Sinkronisasi otomatis ke server database API & Supabase Cloud
   if (typeof fetch === 'function') {
     fetch(getApiBaseUrl() + '/api/stores', {
       method: 'POST',
@@ -1533,6 +1591,13 @@ function approvePendingStore(appId) {
     fetch(getApiBaseUrl() + `/api/pending-stores/${appId}`, {
       method: 'DELETE'
     }).catch(e => console.warn('Could not DELETE /api/pending-stores:', e));
+  }
+
+  if (typeof saveStoreToSupabase === 'function') {
+    saveStoreToSupabase(approvedStore);
+  }
+  if (typeof deletePendingStoreFromSupabase === 'function') {
+    deletePendingStoreFromSupabase(appId);
   }
 
   // Jika merupakan toko Agen/Sub Agen di bawah Distributor aktif, otomatis daftarkan ke buku mitra distributor
@@ -1612,6 +1677,10 @@ function rejectPendingStore(appId) {
     fetch(getApiBaseUrl() + `/api/pending-stores/${appId}`, {
       method: 'DELETE'
     }).catch(e => console.warn('Could not DELETE /api/pending-stores:', e));
+  }
+
+  if (typeof deletePendingStoreFromSupabase === 'function') {
+    deletePendingStoreFromSupabase(appId);
   }
 
   closeModal('modalPreviewSkDoc');

@@ -3,8 +3,8 @@
  * Konfigurasi resmi Supabase Cloud untuk database multi-tenant & image storage
  */
 
-const SUPABASE_URL = 'https://htdmdzbbwltesopfrmoc.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0ZG1kemJid2x0ZXNvcGZybW9jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0NDk5MjgsImV4cCI6MjEwNjAyNTkyOH0.Ko907etVaBnwUG7uLtaVxtDhe-mVQMiSiVaQiICIFiE';
+const SUPABASE_URL = 'https://ogjlmzugeggnpavoiukv.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9namxtenVnZWdnbnBhdm9pdWt2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEwNTczNDQsImV4cCI6MjEwNjYzMzM0NH0.5_93l0rvmpQv2J1-sGwMMWT8DuYyGyZn3wJx7N-o5L8';
 
 let supabase = null;
 
@@ -29,11 +29,9 @@ async function uploadProductImageToSupabase(fileObj, storeSlug = 'global') {
     throw new Error('Supabase client belum terinisialisasi!');
   }
 
-  // Nama file unik
   const fileExt = fileObj.name.split('.').pop();
   const fileName = `${storeSlug}/${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
 
-  // Upload ke bucket 'products'
   const { data, error } = await supabase.storage
     .from('products')
     .upload(fileName, fileObj, {
@@ -46,7 +44,6 @@ async function uploadProductImageToSupabase(fileObj, storeSlug = 'global') {
     throw error;
   }
 
-  // Dapatkan Public URL
   const { data: publicUrlData } = supabase.storage
     .from('products')
     .getPublicUrl(fileName);
@@ -55,28 +52,224 @@ async function uploadProductImageToSupabase(fileObj, storeSlug = 'global') {
 }
 
 /**
- * Sinkronisasi data dari Supabase Cloud
+ * Sinkronisasi data Toko Resmi dari Supabase Cloud
  */
-async function syncFromSupabase(storeSlug) {
+async function syncStoresFromSupabase() {
   if (!supabase) return null;
   try {
-    const { data: storeData } = await supabase
+    const { data, error } = await supabase
       .from('stores')
-      .select('*')
-      .eq('slug', storeSlug)
-      .maybeSingle();
-
-    const { data: mitraList } = await supabase
-      .from('mitra_downlines')
       .select('*');
 
-    const { data: salesList } = await supabase
-      .from('marketer_sales')
-      .select('*');
+    if (error) {
+      console.warn('Supabase fetch stores error:', error);
+      return null;
+    }
 
-    return { store: storeData, mitra: mitraList || [], sales: salesList || [] };
-  } catch (err) {
-    console.warn('Gagal sync dari Supabase Cloud:', err);
+    return (data || []).map(row => ({
+      slug: row.slug,
+      storeName: row.store_name,
+      storeTagline: row.store_tagline || '',
+      storeTheme: row.store_theme || 'emerald',
+      heroTitle: row.hero_title || row.store_name,
+      heroSubtitle: row.hero_subtitle || '',
+      heroBannerUrl: row.hero_banner_url || 'assets/hero-banner.jpg',
+      storeLogoText: row.store_logo_text || 'SR12',
+      storeLogoUrl: row.store_logo_url || '',
+      storeWaNumber: row.store_wa_number || '',
+      storeCity: row.store_city || '',
+      storeOwner: row.store_owner || '',
+      partnerTier: row.partner_tier || 'distributor',
+      recommenderDistributor: row.recommender_distributor || '',
+      recommenderWa: row.recommender_wa || '',
+      recommenderSlug: row.recommender_slug || '',
+      recommendationCode: row.recommendation_code || '',
+      feePayer: row.fee_payer || 'buyer',
+      storeAdminPin: row.store_admin_pin || '1234',
+      orderQuota: typeof row.order_quota === 'number' ? row.order_quota : 15,
+      walletBalance: typeof row.wallet_balance === 'number' ? row.wallet_balance : 10000,
+      totalTopupPaid: typeof row.total_topup_paid === 'number' ? row.total_topup_paid : 0,
+      totalTx: typeof row.total_tx === 'number' ? row.total_tx : 0,
+      verifiedSkNumber: row.verified_sk_number || '',
+      approvedAt: row.approved_at || row.created_at
+    }));
+  } catch (e) {
+    console.warn('Exception fetching stores from Supabase:', e);
     return null;
   }
 }
+
+/**
+ * Simpan/Update data Toko Resmi ke Supabase Cloud
+ */
+async function saveStoreToSupabase(store) {
+  if (!supabase || !store || !store.slug || store.slug === 'sr12-central') return;
+  try {
+    const payload = {
+      slug: store.slug,
+      store_name: store.storeName,
+      store_tagline: store.storeTagline,
+      store_theme: store.storeTheme || 'emerald',
+      hero_title: store.heroTitle,
+      hero_subtitle: store.heroSubtitle,
+      hero_banner_url: store.heroBannerUrl,
+      store_logo_text: store.storeLogoText,
+      store_logo_url: store.storeLogoUrl,
+      store_wa_number: store.storeWaNumber,
+      store_city: store.storeCity,
+      store_owner: store.storeOwner,
+      partner_tier: store.partnerTier,
+      recommender_distributor: store.recommenderDistributor || '',
+      recommender_wa: store.recommenderWa || '',
+      recommender_slug: store.recommenderSlug || '',
+      recommendation_code: store.recommendationCode || '',
+      fee_payer: store.feePayer || 'buyer',
+      store_admin_pin: store.storeAdminPin || '1234',
+      order_quota: store.orderQuota || 15,
+      wallet_balance: store.walletBalance || 10000,
+      total_topup_paid: store.totalTopupPaid || 0,
+      total_tx: store.totalTx || 0,
+      verified_sk_number: store.verifiedSkNumber || '',
+      approved_at: store.approvedAt || new Date().toISOString()
+    };
+
+    const { error } = await supabase
+      .from('stores')
+      .upsert(payload, { onConflict: 'slug' });
+
+    if (error) console.warn('Supabase upsert store error:', error);
+  } catch (e) {
+    console.warn('Exception saving store to Supabase:', e);
+  }
+}
+
+/**
+ * Sinkronisasi data Pengajuan Buka Toko (Pending) dari Supabase Cloud
+ */
+async function syncPendingStoresFromSupabase() {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from('pending_stores')
+      .select('*');
+
+    if (error) {
+      console.warn('Supabase fetch pending stores error:', error);
+      return null;
+    }
+
+    return (data || []).map(row => ({
+      id: row.id,
+      slug: row.slug,
+      storeName: row.store_name,
+      storeTagline: row.store_tagline || '',
+      storeTheme: row.store_theme || 'emerald',
+      heroTitle: row.hero_title || row.store_name,
+      heroSubtitle: row.hero_subtitle || '',
+      heroBannerUrl: row.hero_banner_url || 'assets/hero-banner.jpg',
+      storeLogoText: row.store_logo_text || 'SR12',
+      storeLogoUrl: row.store_logo_url || '',
+      storeWaNumber: row.store_wa_number || '',
+      storeCity: row.store_city || '',
+      storeOwner: row.store_owner || '',
+      partnerTier: row.partner_tier || 'distributor',
+      storeAdminPin: row.store_admin_pin || '1234',
+      nikNumber: row.nik_number || '',
+      ktpDocUrl: row.ktp_doc_url || '',
+      ktpDocName: row.ktp_doc_name || '',
+      skNumber: row.sk_number || '',
+      skDocUrl: row.sk_doc_url || '',
+      skDocName: row.sk_doc_name || '',
+      selfieDocUrl: row.selfie_doc_url || '',
+      selfieDocName: row.selfie_doc_name || '',
+      recommenderDistributor: row.recommender_distributor || '',
+      recommenderWa: row.recommender_wa || '',
+      recommenderSlug: row.recommender_slug || '',
+      recommendationCode: row.recommendation_code || '',
+      recommendationDocUrl: row.recommendation_doc_url || '',
+      recommendationDocName: row.recommendation_doc_name || '',
+      notes: row.notes || '',
+      submittedAt: row.submitted_at,
+      status: row.status || 'pending'
+    }));
+  } catch (e) {
+    console.warn('Exception fetching pending stores from Supabase:', e);
+    return null;
+  }
+}
+
+/**
+ * Simpan Pengajuan Toko Baru ke Supabase Cloud
+ */
+async function savePendingStoreToSupabase(app) {
+  if (!supabase || !app || !app.id) return;
+  try {
+    const payload = {
+      id: app.id,
+      slug: app.slug,
+      store_name: app.storeName,
+      store_tagline: app.storeTagline,
+      store_theme: app.storeTheme || 'emerald',
+      hero_title: app.heroTitle,
+      hero_subtitle: app.heroSubtitle,
+      hero_banner_url: app.heroBannerUrl,
+      store_logo_text: app.storeLogoText,
+      store_logo_url: app.storeLogoUrl,
+      store_wa_number: app.storeWaNumber,
+      store_city: app.storeCity,
+      store_owner: app.storeOwner,
+      partner_tier: app.partnerTier,
+      store_admin_pin: app.storeAdminPin || '1234',
+      nik_number: app.nikNumber || '',
+      ktp_doc_url: app.ktpDocUrl || '',
+      ktp_doc_name: app.ktpDocName || '',
+      sk_number: app.skNumber || '',
+      sk_doc_url: app.skDocUrl || '',
+      sk_doc_name: app.skDocName || '',
+      selfie_doc_url: app.selfieDocUrl || '',
+      selfie_doc_name: app.selfieDocName || '',
+      recommender_distributor: app.recommenderDistributor || '',
+      recommender_wa: app.recommenderWa || '',
+      recommender_slug: app.recommenderSlug || '',
+      recommendation_code: app.recommendationCode || '',
+      recommendation_doc_url: app.recommendationDocUrl || '',
+      recommendation_doc_name: app.recommendationDocName || '',
+      notes: app.notes || '',
+      submitted_at: app.submittedAt || new Date().toISOString(),
+      status: app.status || 'pending'
+    };
+
+    const { error } = await supabase
+      .from('pending_stores')
+      .upsert(payload, { onConflict: 'id' });
+
+    if (error) console.warn('Supabase upsert pending store error:', error);
+  } catch (e) {
+    console.warn('Exception saving pending store to Supabase:', e);
+  }
+}
+
+/**
+ * Hapus Pengajuan Toko dari Supabase Cloud (Setelah Disetujui/Ditolak)
+ */
+async function deletePendingStoreFromSupabase(id) {
+  if (!supabase || !id) return;
+  try {
+    const { error } = await supabase
+      .from('pending_stores')
+      .delete()
+      .eq('id', id);
+
+    if (error) console.warn('Supabase delete pending store error:', error);
+  } catch (e) {
+    console.warn('Exception deleting pending store from Supabase:', e);
+  }
+}
+
+// Window global exports
+window.syncStoresFromSupabase = syncStoresFromSupabase;
+window.saveStoreToSupabase = saveStoreToSupabase;
+window.syncPendingStoresFromSupabase = syncPendingStoresFromSupabase;
+window.savePendingStoreToSupabase = savePendingStoreToSupabase;
+window.deletePendingStoreFromSupabase = deletePendingStoreFromSupabase;
+window.uploadProductImageToSupabase = uploadProductImageToSupabase;
