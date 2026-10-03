@@ -113,34 +113,78 @@ const DEFAULT_PARTNER_STORES = [
 
 function getStoredPartnerStores() {
   const stored = localStorage.getItem('sr12_partner_stores_v2');
+  let stores = [];
   if (stored) {
     try {
       const parsed = JSON.parse(stored);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        parsed.forEach(s => {
-          if (s.slug === 'sr12-central' || s.storeOwner === 'PT. SR12 Herbal Perkasa (Kantor Pusat)') {
-            s.storeName = 'SR12-Ku Pro';
-            s.heroTitle = 'SR12-Ku Pro';
-            s.storeTagline = 'SR12 Official Central Hub • Direktori Kemitraan & Pasokan Resmi';
-            s.storeOwner = 'SR12 Official Central Hub';
-            s.storeCity = 'SR12 Official Central Hub';
-          }
-        });
-        if (!parsed.some(s => s.slug === 'sr12-central')) {
-          parsed.unshift(DEFAULT_PARTNER_STORES[0]);
-          saveStoredPartnerStores(parsed);
-        }
-        if (!parsed.some(s => s.slug === 'alzam-agency')) {
-          parsed.splice(1, 0, DEFAULT_PARTNER_STORES[1]);
-          saveStoredPartnerStores(parsed);
-        }
-        return parsed;
+        stores = parsed;
       }
     } catch (e) {
-      console.error(e);
+      console.error('Error parsing stored partner stores:', e);
     }
   }
-  return [...DEFAULT_PARTNER_STORES];
+
+  // Jika belum ada data tersimpan, gunakan template default
+  if (stores.length === 0) {
+    stores = DEFAULT_PARTNER_STORES.map(s => Object.assign({}, s));
+    saveStoredPartnerStores(stores);
+    return stores;
+  }
+
+  // 1. Pastikan SR12-Ku Pro (sr12-central) selalu ada di index 0
+  let centralIdx = stores.findIndex(s => s.slug === 'sr12-central');
+  if (centralIdx === -1) {
+    stores.unshift(Object.assign({}, DEFAULT_PARTNER_STORES[0]));
+  } else {
+    stores[centralIdx] = Object.assign({}, DEFAULT_PARTNER_STORES[0], stores[centralIdx], {
+      slug: 'sr12-central',
+      storeName: 'SR12-Ku Pro',
+      heroTitle: 'SR12-Ku Pro',
+      storeTagline: 'SR12 Official Central Hub • Direktori Kemitraan & Pasokan Resmi',
+      storeOwner: 'SR12 Official Central Hub',
+      storeCity: 'SR12 Official Central Hub',
+      partnerTier: 'distributor'
+    });
+    if (centralIdx !== 0) {
+      const central = stores.splice(centralIdx, 1)[0];
+      stores.unshift(central);
+    }
+  }
+
+  // 2. Pastikan Toko Alzam Agency selalu ada di index 1 (Distributor Utama teratas di direktori pusat)
+  let alzamIdx = stores.findIndex(s => s.slug === 'alzam-agency');
+  if (alzamIdx === -1) {
+    stores.splice(1, 0, Object.assign({}, DEFAULT_PARTNER_STORES[1]));
+  } else {
+    stores[alzamIdx] = Object.assign({}, DEFAULT_PARTNER_STORES[1], stores[alzamIdx], {
+      slug: 'alzam-agency',
+      storeName: stores[alzamIdx].storeName || 'Alzam Agency',
+      partnerTier: 'distributor',
+      storeCity: stores[alzamIdx].storeCity || 'Bandung (Distributor Resmi)',
+      storeOwner: stores[alzamIdx].storeOwner || 'Nurlinda Sari',
+      storeWaNumber: stores[alzamIdx].storeWaNumber || '6281234567890'
+    });
+    if (alzamIdx !== 1) {
+      const alzam = stores.splice(alzamIdx, 1)[0];
+      stores.splice(1, 0, alzam);
+    }
+  }
+
+  // 3. Pastikan toko resmi lainnya (Aisyah, Griya, Berkah) tetap ada jika hilang
+  DEFAULT_PARTNER_STORES.slice(2).forEach(defStore => {
+    const foundIdx = stores.findIndex(s => s.slug === defStore.slug);
+    if (foundIdx === -1) {
+      stores.push(Object.assign({}, defStore));
+    } else {
+      if (!stores[foundIdx].partnerTier) {
+        stores[foundIdx].partnerTier = defStore.partnerTier;
+      }
+    }
+  });
+
+  saveStoredPartnerStores(stores);
+  return stores;
 }
 
 function saveStoredPartnerStores(stores) {
@@ -729,6 +773,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
   renderStoreDropdown();
   initEventListeners();
+
+  // Sinkronisasi data Toko Distributor Resmi dari Server API (/api/stores)
+  if (typeof fetch === 'function') {
+    fetch('/api/stores')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.success && Array.isArray(data.data) && data.data.length > 0) {
+          let updated = false;
+          data.data.forEach(apiStore => {
+            const idx = appState.partnerStores.findIndex(s => s.slug === apiStore.slug);
+            if (idx >= 0) {
+              appState.partnerStores[idx] = Object.assign({}, appState.partnerStores[idx], apiStore);
+              updated = true;
+            } else {
+              appState.partnerStores.push(apiStore);
+              updated = true;
+            }
+          });
+          // Pastikan Alzam Agency selalu di posisi index 1 (tepat setelah sr12-central)
+          const alzamIdx = appState.partnerStores.findIndex(s => s.slug === 'alzam-agency');
+          if (alzamIdx > 1) {
+            const alzamStore = appState.partnerStores.splice(alzamIdx, 1)[0];
+            appState.partnerStores.splice(1, 0, alzamStore);
+            updated = true;
+          }
+          if (updated) {
+            saveStoredPartnerStores(appState.partnerStores);
+            renderStoreDropdown();
+            if (appState.storeSettings?.slug === 'sr12-central') {
+              renderOfficialDistributorDirectory();
+            }
+          }
+        }
+      })
+      .catch(err => console.warn('Could not sync /api/stores:', err));
+  }
   renderTierQuickBanner();
   renderProducts();
   renderRewards();
@@ -1595,6 +1675,7 @@ function renderOfficialDistributorDirectory(filter = currentDirectoryFilter, sea
     const logoUrl = getStoreEmblemSvgUrl(store);
     const cleanCity = (store.storeCity || 'Indonesia').split('(')[0].trim();
     const coverUrl = store.heroBannerUrl || 'assets/hero-banner.jpg';
+    const cleanWa = (store.storeWaNumber || '6281234567890').replace(/[^0-9]/g, '');
 
     return `
       <div class="distributor-card">
