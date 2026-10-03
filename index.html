@@ -144,10 +144,10 @@
 
       <!-- Header Actions (Bersih, Rapi & Elegan Tanpa Keranjang, Poin, Lonceng, Gembok) -->
       <div class="header-actions">
-        <!-- Tombol Pengaturan Toko (Hanya muncul saat Admin Mode) -->
-        <button class="btn-store-settings" id="btnOpenStoreSettings" style="display: none;" title="Ubah Nama Toko, Slogan, Logo, Tema Warna, dan No WhatsApp">
+        <!-- Tombol Pengaturan Toko (Aktif di Toko Distributor) -->
+        <button class="btn-store-settings" id="btnOpenStoreSettings" onclick="openStoreSettingsModal()" style="display: none;" title="Ubah Foto Profil, Foto Latar Belakang, Nama Toko, Slogan, dan Tema Warna">
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-          Pengaturan Toko
+          <span>Pengaturan Toko</span>
         </button>
       </div>
     </div>
@@ -1262,7 +1262,7 @@
       <div class="distributor-hero-cover-wrap">
         <img id="distHeroCoverImg" src="assets/hero-banner.jpg" alt="Latar Belakang Toko" class="distributor-hero-cover-img">
         <div class="distributor-hero-cover-gradient"></div>
-        <button type="button" id="btnEditStoreCover" onclick="openStoreSettingsModalWithFocus('banner')" class="btn-edit-cover-quick" style="display: none;" title="Ubah Foto Latar Belakang / Banner Toko">
+        <button type="button" id="btnEditStoreCover" onclick="openStoreSettingsModalWithFocus('banner')" class="btn-edit-cover-quick" title="Ubah Foto Latar Belakang / Banner Toko">
           <span>📷</span> <span>Ubah Latar Belakang</span>
         </button>
       </div>
@@ -1271,7 +1271,7 @@
         <!-- 1. Logo / Foto Profil Toko di Tengah (Menimpa Latar Belakang / Overlapping Avatar) -->
         <div class="distributor-hero-logo-box">
           <img id="distHeroLogoImg" src="assets/sr12-logo.png" alt="Logo Toko Distributor">
-          <button type="button" id="btnEditStoreLogo" onclick="openStoreSettingsModalWithFocus('logo')" class="btn-edit-logo-quick" style="display: none;" title="Ubah Foto Profil / Logo Toko">
+          <button type="button" id="btnEditStoreLogo" onclick="openStoreSettingsModalWithFocus('logo')" class="btn-edit-logo-quick" title="Ubah Foto Profil / Logo Toko">
             📷
           </button>
         </div>
@@ -1310,14 +1310,14 @@
           <a id="btnDistChatWa" href="https://wa.me/6281234567890" target="_blank" class="btn-dist-wa-action">
             <span>💬</span> Chat WhatsApp Toko
           </a>
+          <button type="button" id="btnDistSettingsHero" onclick="openStoreSettingsModal()" class="btn-dist-settings-action" title="Pengaturan & Kustomisasi Foto Profil, Foto Latar Belakang, Nama, Slogan, dan Tema Toko">
+            <span>⚙️</span> Pengaturan Toko
+          </button>
           <button type="button" id="btnDistCheckSk" onclick="showCurrentStoreSk()" class="btn-dist-sk-action">
-            <span>📜</span> Cek SK Resmi Distributor
+            <span>📜</span> Cek SK Resmi
           </button>
           <button type="button" onclick="openShareStoreModal()" class="btn-dist-share-action">
-            <span>🔗</span> Bagikan Toko Ini
-          </button>
-          <button type="button" id="btnDistSettingsHero" onclick="openStoreSettingsModal()" class="btn-dist-share-action" style="display: none; background: #e0f2fe; color: #0369a1; border-color: #7dd3fc;" title="Pengaturan Identitas & Tema Toko">
-            <span>🎨</span> Pengaturan Toko
+            <span>🔗</span> Bagikan Toko
           </button>
           <button type="button" onclick="switchPartnerStore('sr12-central'); window.scrollTo({top: 0, behavior: 'smooth'});" class="btn-dist-share-action" style="background: #fef3c7; color: #92400e; border-color: #fcd34d;">
             <span>🏛️</span> SR12 Official Central Hub
@@ -1633,6 +1633,14 @@
 
   <!-- FOOTER RESMI TOKO -->
   <footer style="margin-top: 50px; padding: 32px 20px 48px; border-top: 1px solid var(--border-subtle); text-align: center; font-size: 0.78rem; color: var(--dark-500); background: #ffffff;">
+    <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
+      <button type="button" onclick="openStoreSettingsModal()" style="background: #ecfdf5; border: 1.5px solid #a7f3d0; color: #065f46; padding: 7px 16px; border-radius: 9999px; font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.04);">
+        <span>⚙️</span> Pengaturan Toko Distributor
+      </button>
+      <button type="button" onclick="switchPartnerStore('sr12-central'); window.scrollTo({top: 0, behavior: 'smooth'});" style="background: #fef3c7; border: 1.5px solid #fcd34d; color: #92400e; padding: 7px 16px; border-radius: 9999px; font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.04);">
+        <span>🏛️</span> SR12 Official Central Hub
+      </button>
+    </div>
     <p style="font-weight: 700; color: var(--dark-800); margin-bottom: 4px;">SR12 Herbal Skin Care &bull; Jaringan Toko Mitra Resmi Distributor</p>
     <p style="margin-bottom: 8px;">Terverifikasi BPOM RI & Sertifikasi Halal MUI &middot; Produk 100% Original</p>
     <p style="max-width: 680px; margin: 0 auto; font-size: 0.7rem; color: #94a3b8; line-height: 1.5;">
@@ -1842,36 +1850,48 @@
             <input type="text" id="settingStoreTagline" placeholder="Contoh: Distributor Resmi SR12 Jawa Barat" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: var(--font-main);">
           </div>
 
-          <!-- Kustomisasi Banner Utama -->
-          <div style="background: var(--dark-50); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 14px; margin-bottom: 14px;">
-            <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 6px;">Kustomisasi Banner Promo Beranda:</label>
+          <!-- 1. Kustomisasi Foto Latar Belakang (Cover Banner Toko) -->
+          <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: var(--radius-md); padding: 14px; margin-bottom: 14px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+              <label style="font-size: 0.84rem; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 6px;">
+                <span>🖼️</span> 1. Foto Latar Belakang / Cover Banner Toko:
+              </label>
+              <span style="font-size: 0.7rem; color: #0284c7; background: #e0f2fe; padding: 2px 8px; border-radius: 4px; font-weight: 700;">Etalase Atas</span>
+            </div>
+            <p style="font-size: 0.74rem; color: #64748b; margin-bottom: 8px;">Upload foto ruko/toko fisik, etalase stok gudang SR12, atau banner promosi toko Anda.</p>
             <div style="margin-bottom: 8px;">
               <input type="text" id="settingHeroTitle" placeholder="Judul Banner Utama (cth: Promo Spesial SR12 Cantik Alami)" style="width: 100%; padding: 7px 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 0.82rem; margin-bottom: 6px;">
               <input type="text" id="settingHeroSubtitle" placeholder="Sub-judul Banner (cth: Dapatkan harga mitra reseller diskon hingga 40%)" style="width: 100%; padding: 7px 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 0.82rem;">
             </div>
             <div>
-              <label style="font-size: 0.75rem; color: var(--dark-500); display: block; margin-bottom: 3px;">Upload Gambar Banner Sendiri:</label>
-              <input type="file" id="settingBannerFileInput" accept="image/*" style="font-size: 0.75rem; width: 100%;">
-              <img id="settingBannerPreview" src="" alt="Preview Banner" style="width: 100%; height: 90px; object-fit: cover; border-radius: 8px; margin-top: 6px; display: none;">
+              <label style="font-size: 0.75rem; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Pilih File Foto Latar Belakang (JPG / PNG):</label>
+              <input type="file" id="settingBannerFileInput" accept="image/*" style="font-size: 0.75rem; width: 100%; padding: 6px; background: #ffffff; border: 1px dashed #94a3b8; border-radius: 6px;">
+              <img id="settingBannerPreview" src="" alt="Preview Banner" style="width: 100%; height: 95px; object-fit: cover; border-radius: 8px; margin-top: 8px; display: none; border: 1px solid #cbd5e1;">
             </div>
           </div>
 
-          <!-- Logo Settings -->
-          <div style="background: var(--dark-50); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 14px; margin-bottom: 14px;">
-            <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 6px;">Logo Toko (Upload Gambar atau Pilih Teks):</label>
+          <!-- 2. Kustomisasi Foto Profil / Logo Toko -->
+          <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: var(--radius-md); padding: 14px; margin-bottom: 14px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+              <label style="font-size: 0.84rem; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 6px;">
+                <span>👤</span> 2. Foto Profil / Logo Toko (Lingkaran Tengah):
+              </label>
+              <span style="font-size: 0.7rem; color: #059669; background: #ecfdf5; padding: 2px 8px; border-radius: 4px; font-weight: 700;">Avatar Tengah</span>
+            </div>
+            <p style="font-size: 0.74rem; color: #64748b; margin-bottom: 8px;">Upload logo toko Anda sendiri atau gunakan inisial teks resmi.</p>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
               <div>
-                <label style="font-size: 0.75rem; color: var(--dark-500); display: block; margin-bottom: 3px;">Teks Singkat Logo Badge:</label>
+                <label style="font-size: 0.75rem; color: #475569; display: block; margin-bottom: 3px;">Teks Inisial Logo (Bila Tanpa Foto):</label>
                 <input type="text" id="settingLogoText" maxlength="6" placeholder="SR12" style="width: 100%; padding: 7px 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-weight: 700;">
               </div>
               <div>
-                <label style="font-size: 0.75rem; color: var(--dark-500); display: block; margin-bottom: 3px;">Atau Upload File Gambar Logo:</label>
-                <input type="file" id="settingLogoFileInput" accept="image/*" style="font-size: 0.75rem; width: 100%;">
+                <label style="font-size: 0.75rem; font-weight: 700; color: #334155; display: block; margin-bottom: 3px;">Upload File Foto Logo / Profil:</label>
+                <input type="file" id="settingLogoFileInput" accept="image/*" style="font-size: 0.75rem; width: 100%; padding: 6px; background: #ffffff; border: 1px dashed #94a3b8; border-radius: 6px;">
               </div>
             </div>
             <div style="display: flex; align-items: center; gap: 10px; margin-top: 6px;">
-              <span style="font-size: 0.75rem; color: var(--dark-500);">Preview Logo:</span>
-              <img id="settingLogoPreview" src="" alt="Preview Logo" style="width: 36px; height: 36px; object-fit: cover; border-radius: 8px; border: 1px solid #cbd5e1; display: none;">
+              <span style="font-size: 0.75rem; color: #475569; font-weight: 700;">Preview Foto Profil:</span>
+              <img id="settingLogoPreview" src="" alt="Preview Logo" style="width: 44px; height: 44px; object-fit: contain; border-radius: 50%; border: 2px solid #059669; background: #ffffff; display: none;">
             </div>
           </div>
 

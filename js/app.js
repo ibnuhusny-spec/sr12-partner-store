@@ -1641,6 +1641,9 @@ function renderOfficialDistributorDirectory(filter = currentDirectoryFilter, sea
             <button type="button" onclick="showSpecificStoreSk('${store.slug}')" class="btn-card-sub">
               <span>📜</span> SK Resmi
             </button>
+            <button type="button" onclick="switchPartnerStore('${store.slug}'); openStoreSettingsModal();" class="btn-card-sub" title="Pengaturan & Kustomisasi Toko Ini" style="background: #ecfdf5; color: #065f46; border-color: #a7f3d0; font-weight: 800;">
+              <span>⚙️</span> Atur Toko
+            </button>
           </div>
         </div>
       </div>
@@ -1753,6 +1756,10 @@ function renderStoreBranding() {
   if (headerTierBox) {
     headerTierBox.style.display = isCentralHub ? 'none' : 'flex';
   }
+  const btnStoreSettings = document.getElementById('btnOpenStoreSettings');
+  if (btnStoreSettings) {
+    btnStoreSettings.style.display = isCentralHub ? 'none' : 'inline-flex';
+  }
   if (cartBtn) {
     cartBtn.style.display = isCentralHub ? 'none' : 'inline-flex';
   }
@@ -1826,11 +1833,10 @@ function renderStoreBranding() {
       distChatBtn.href = `https://wa.me/${cleanWa}?text=${encodeURIComponent(`Halo ${cfg.storeName}, saya ingin bertanya seputar produk SR12...`)}`;
     }
 
-    // Tampilkan tombol edit foto profil & foto latar belakang saat Mode Admin aktif
-    const isAdmin = !!appState.isAdminMode;
-    if (btnEditCover) btnEditCover.style.display = isAdmin ? 'inline-flex' : 'none';
-    if (btnEditLogo) btnEditLogo.style.display = isAdmin ? 'flex' : 'none';
-    if (btnDistSettingsHero) btnDistSettingsHero.style.display = isAdmin ? 'inline-flex' : 'none';
+    // Tombol edit foto profil & foto latar belakang, dan tombol pengaturan toko
+    if (btnEditCover) btnEditCover.style.display = 'inline-flex';
+    if (btnEditLogo) btnEditLogo.style.display = 'flex';
+    if (btnDistSettingsHero) btnDistSettingsHero.style.display = 'inline-flex';
   }
 
   // 3. Sinkronisasi Preview Strip (Jika Mode Developer sedang meninjau)
@@ -2081,7 +2087,8 @@ function updateViewModeUI() {
 
   if (typeof updateOlseraHeaderMeta === 'function') updateOlseraHeaderMeta();
 
-  if (btnStoreSettings) btnStoreSettings.style.display = isLogged ? 'inline-flex' : 'none';
+  const isCentral = appState.storeSettings?.slug === 'sr12-central';
+  if (btnStoreSettings) btnStoreSettings.style.display = isCentral ? 'none' : 'inline-flex';
   if (btnAddProduct) btnAddProduct.style.display = isLogged ? 'inline-flex' : 'none';
   if (btnAddPromo) btnAddPromo.style.display = isLogged ? 'inline-flex' : 'none';
   if (btnAddMkit) btnAddMkit.style.display = isLogged ? 'inline-flex' : 'none';
@@ -2089,9 +2096,9 @@ function updateViewModeUI() {
   const btnEditCover = document.getElementById('btnEditStoreCover');
   const btnEditLogo = document.getElementById('btnEditStoreLogo');
   const btnDistSettingsHero = document.getElementById('btnDistSettingsHero');
-  if (btnEditCover) btnEditCover.style.display = isLogged ? 'inline-flex' : 'none';
-  if (btnEditLogo) btnEditLogo.style.display = isLogged ? 'flex' : 'none';
-  if (btnDistSettingsHero) btnDistSettingsHero.style.display = isLogged ? 'inline-flex' : 'none';
+  if (btnEditCover) btnEditCover.style.display = isCentral ? 'none' : 'inline-flex';
+  if (btnEditLogo) btnEditLogo.style.display = isCentral ? 'none' : 'flex';
+  if (btnDistSettingsHero) btnDistSettingsHero.style.display = isCentral ? 'none' : 'inline-flex';
 
   if (btnLogin) btnLogin.style.display = isLogged ? 'none' : 'inline-flex';
   if (badgeProfile) badgeProfile.style.display = isLogged ? 'inline-flex' : 'none';
