@@ -705,17 +705,16 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ========================================================
-   MAIN NAVIGATION HEADER
+   BERSIH TOTAL: SEMBUNYIKAN HEADER & TOPBAR BERTUMPUK DI ATAS BANNER
    ======================================================== */
-.site-header {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border-subtle);
-  padding: 12px 24px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+.site-header,
+header.site-header,
+.platform-topbar,
+#platformTopbar,
+.tier-quick-banner,
+#devPreviewStrip,
+#distributorPreviewStrip {
+  display: none !important;
 }
 
 .header-inner {
@@ -1291,6 +1290,29 @@ h1, h2, h3, h4, h5, h6 {
   background: #fde68a;
   border-color: #f59e0b;
   color: #92400e;
+}
+
+.btn-dist-olsera-action {
+  background: #fdf2f8;
+  color: #db2777;
+  border-color: #fbcfe8;
+  box-shadow: 0 4px 12px rgba(219, 39, 119, 0.15);
+}
+.btn-dist-olsera-action:hover {
+  background: #db2777;
+  color: #ffffff;
+  border-color: #be185d;
+}
+
+.catalog-tier-selector-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f8fafc;
+  border: 1.5px solid var(--border-subtle);
+  padding: 6px 14px;
+  border-radius: 9999px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 /* ========================================================

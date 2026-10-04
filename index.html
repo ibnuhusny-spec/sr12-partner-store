@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SR12 Partner Hub - Toko Resmi Herbal Skin Care</title>
   <meta name="description" content="Toko resmi kemitraan SR12 Herbal Skin Care dengan harga otomatis Reseller, Sub Agen, Agen, & Distributor, serta belanja aman terverifikasi BPOM.">
-  <link rel="stylesheet" href="css/style.css?v=3.7">
+  <link rel="stylesheet" href="css/style.css?v=3.8">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
 </head>
 <body>
@@ -1339,6 +1339,9 @@
           <button type="button" id="btnDistSettingsHero" onclick="openStoreSettingsModal()" class="btn-dist-icon-action btn-dist-settings-action" title="Pengaturan & Kustomisasi Toko" aria-label="Atur Toko">
             <span>⚙️</span>
           </button>
+          <button type="button" onclick="openOlseraPosDirect()" class="btn-dist-icon-action btn-dist-olsera-action" title="Buka Aplikasi Olsera POS Kasir & Backoffice" aria-label="Olsera POS">
+            <span>🛒</span>
+          </button>
           <button type="button" onclick="openShareStoreModal()" class="btn-dist-icon-action btn-dist-share-action" title="Bagikan Link Toko Ini" aria-label="Bagikan Toko">
             <span>🔗</span>
           </button>
@@ -1442,6 +1445,18 @@
           <button class="chip-btn" data-category="Herbal">Herbal & Kesehatan</button>
           <button class="chip-btn" data-category="Nutrisi">Susu & Nutrisi</button>
           <button class="chip-btn" data-category="Sabun">Sabun Herbal</button>
+        </div>
+
+        <div class="catalog-tier-selector-wrap" style="display: inline-flex; align-items: center; gap: 6px; background: #f8fafc; border: 1.5px solid var(--border-subtle); padding: 5px 12px; border-radius: 9999px;">
+          <span style="font-size: 0.76rem; color: #64748b; font-weight: 700;">🏷️ Tampilan Harga:</span>
+          <select id="catalogTierSelect" onchange="setTier(this.value)" style="border: none; background: transparent; font-size: 0.8rem; font-weight: 800; color: #065f46; outline: none; cursor: pointer;">
+            <option value="konsumen" selected>Konsumen Retail (HET)</option>
+            <option value="marketer">Mitra Marketer (15%)</option>
+            <option value="reseller">Reseller Resmi (20%)</option>
+            <option value="sub_agen">Sub Agen (30%)</option>
+            <option value="agen">Agen Resmi (40%)</option>
+            <option value="distributor">Distributor Utama (50%)</option>
+          </select>
         </div>
 
         <!-- Tombol Tambah Produk Baru (Hanya muncul saat Admin Mode) -->
@@ -3816,9 +3831,9 @@
 
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=3.7"></script>
-  <script src="js/data.js?v=3.7"></script>
-  <script src="js/app.js?v=3.7"></script>
-  <script src="js/olsera-suite.js?v=3.7"></script>
+  <script src="js/supabase-config.js?v=3.8"></script>
+  <script src="js/data.js?v=3.8"></script>
+  <script src="js/app.js?v=3.8"></script>
+  <script src="js/olsera-suite.js?v=3.8"></script>
 </body>
 </html>

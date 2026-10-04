@@ -3232,6 +3232,8 @@ function setTier(tierId) {
   
   const tierSelect = document.getElementById('globalTierSelect');
   if (tierSelect) tierSelect.value = tierId;
+  const catTierSelect = document.getElementById('catalogTierSelect');
+  if (catTierSelect) catTierSelect.value = tierId;
 
   renderTierQuickBanner();
   renderProducts();
