@@ -6,17 +6,24 @@
 const SUPABASE_URL = 'https://ogjlmzugeggnpavoiukv.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9namxtenVnZWdnbnBhdm9pdWt2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEwNTczNDQsImV4cCI6MjEwNjYzMzM0NH0.5_93l0rvmpQv2J1-sGwMMWT8DuYyGyZn3wJx7N-o5L8';
 
-let supabase = null;
+let supaClient = null;
 
-if (window.supabase) {
-  try {
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    window.supabaseClient = supabase;
-    console.log('⚡ Supabase Cloud Connected successfully:', SUPABASE_URL);
-  } catch (err) {
-    console.error('Failed to initialize Supabase client:', err);
+function initSupabaseClient() {
+  if (supaClient) return supaClient;
+  if (typeof window !== 'undefined' && window.supabase && typeof window.supabase.createClient === 'function') {
+    try {
+      supaClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      window.supabaseClient = supaClient;
+      console.log('⚡ Supabase Cloud Connected successfully:', SUPABASE_URL);
+    } catch (err) {
+      console.error('Failed to initialize Supabase client:', err);
+    }
   }
+  return supaClient;
 }
+
+// Auto-init immediately if library is ready
+initSupabaseClient();
 
 /**
  * Upload gambar produk ke Supabase Storage (bucket: products)
@@ -25,14 +32,15 @@ if (window.supabase) {
  * @returns {Promise<string>} URL publik gambar
  */
 async function uploadProductImageToSupabase(fileObj, storeSlug = 'global') {
-  if (!supabase) {
+  const client = initSupabaseClient();
+  if (!client) {
     throw new Error('Supabase client belum terinisialisasi!');
   }
 
   const fileExt = fileObj.name.split('.').pop();
   const fileName = `${storeSlug}/${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
 
-  const { data, error } = await supabase.storage
+  const { data, error } = await client.storage
     .from('products')
     .upload(fileName, fileObj, {
       cacheControl: '3600',
@@ -44,7 +52,7 @@ async function uploadProductImageToSupabase(fileObj, storeSlug = 'global') {
     throw error;
   }
 
-  const { data: publicUrlData } = supabase.storage
+  const { data: publicUrlData } = client.storage
     .from('products')
     .getPublicUrl(fileName);
 
@@ -55,9 +63,10 @@ async function uploadProductImageToSupabase(fileObj, storeSlug = 'global') {
  * Sinkronisasi data Toko Resmi dari Supabase Cloud
  */
 async function syncStoresFromSupabase() {
-  if (!supabase) return null;
+  const client = initSupabaseClient();
+  if (!client) return null;
   try {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('stores')
       .select('*');
 
@@ -103,7 +112,8 @@ async function syncStoresFromSupabase() {
  * Simpan/Update data Toko Resmi ke Supabase Cloud
  */
 async function saveStoreToSupabase(store) {
-  if (!supabase || !store || !store.slug || store.slug === 'sr12-central') return;
+  const client = initSupabaseClient();
+  if (!client || !store || !store.slug || store.slug === 'sr12-central') return;
   try {
     const payload = {
       slug: store.slug,
@@ -133,11 +143,15 @@ async function saveStoreToSupabase(store) {
       approved_at: store.approvedAt || new Date().toISOString()
     };
 
-    const { error } = await supabase
+    const { error } = await client
       .from('stores')
       .upsert(payload, { onConflict: 'slug' });
 
-    if (error) console.warn('Supabase upsert store error:', error);
+    if (error) {
+      console.warn('Supabase upsert store error:', error);
+    } else {
+      console.log('✅ Berhasil sinkronisasi toko ke Supabase Cloud:', store.storeName);
+    }
   } catch (e) {
     console.warn('Exception saving store to Supabase:', e);
   }
@@ -147,9 +161,10 @@ async function saveStoreToSupabase(store) {
  * Sinkronisasi data Pengajuan Buka Toko (Pending) dari Supabase Cloud
  */
 async function syncPendingStoresFromSupabase() {
-  if (!supabase) return null;
+  const client = initSupabaseClient();
+  if (!client) return null;
   try {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('pending_stores')
       .select('*');
 
@@ -202,7 +217,8 @@ async function syncPendingStoresFromSupabase() {
  * Simpan Pengajuan Toko Baru ke Supabase Cloud
  */
 async function savePendingStoreToSupabase(app) {
-  if (!supabase || !app || !app.id) return;
+  const client = initSupabaseClient();
+  if (!client || !app || !app.id) return;
   try {
     const payload = {
       id: app.id,
@@ -239,11 +255,15 @@ async function savePendingStoreToSupabase(app) {
       status: app.status || 'pending'
     };
 
-    const { error } = await supabase
+    const { error } = await client
       .from('pending_stores')
       .upsert(payload, { onConflict: 'id' });
 
-    if (error) console.warn('Supabase upsert pending store error:', error);
+    if (error) {
+      console.warn('Supabase upsert pending store error:', error);
+    } else {
+      console.log('✅ Berhasil mendaftarkan permohonan toko ke Supabase Cloud:', app.storeName);
+    }
   } catch (e) {
     console.warn('Exception saving pending store to Supabase:', e);
   }
@@ -253,9 +273,10 @@ async function savePendingStoreToSupabase(app) {
  * Hapus Pengajuan Toko dari Supabase Cloud (Setelah Disetujui/Ditolak)
  */
 async function deletePendingStoreFromSupabase(id) {
-  if (!supabase || !id) return;
+  const client = initSupabaseClient();
+  if (!client || !id) return;
   try {
-    const { error } = await supabase
+    const { error } = await client
       .from('pending_stores')
       .delete()
       .eq('id', id);
@@ -267,6 +288,7 @@ async function deletePendingStoreFromSupabase(id) {
 }
 
 // Window global exports
+window.initSupabaseClient = initSupabaseClient;
 window.syncStoresFromSupabase = syncStoresFromSupabase;
 window.saveStoreToSupabase = saveStoreToSupabase;
 window.syncPendingStoresFromSupabase = syncPendingStoresFromSupabase;
