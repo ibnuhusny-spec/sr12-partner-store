@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SR12 Partner Hub - Toko Resmi Herbal Skin Care</title>
   <meta name="description" content="Toko resmi kemitraan SR12 Herbal Skin Care dengan harga otomatis Reseller, Sub Agen, Agen, & Distributor, serta belanja aman terverifikasi BPOM.">
-  <link rel="stylesheet" href="css/style.css?v=2.6">
+  <link rel="stylesheet" href="css/style.css?v=3.4">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
 </head>
 <body>
@@ -52,16 +52,16 @@
   <aside class="platform-topbar" id="platformTopbar">
     <div class="platform-topbar-inner">
       <div class="platform-brand">
-        <span class="platform-badge">SaaS Platform</span>
+        <span class="platform-badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.3);">🌿 Resmi</span>
         <span>Jaringan Toko Online Mitra SR12</span>
       </div>
       <div class="platform-store-tools">
-        <!-- Badge Toko Resmi Aktif (Eksklusif tanpa dropdown ke kompetitor) -->
+        <!-- Badge Toko Resmi Aktif -->
         <div class="active-store-chip" title="Toko Resmi SR12 Terverifikasi">
           <span style="font-size: 0.72rem; color: #94a3b8;">🏪 Toko:</span>
           <span id="activeStorePublicBadge" style="font-size: 0.76rem; font-weight: 800; color: #38bdf8;">SR12 Official Central Hub</span>
         </div>
-        <!-- Tombol Buka Olsera POS Langsung (Aplikasi Kasir Seperti Screenshot) -->
+        <!-- Tombol Buka Olsera POS Langsung -->
         <button class="btn-topbar-olsera" onclick="openOlseraPosDirect()" title="Buka Aplikasi Olsera POS Kasir & Backoffice" aria-label="Olsera POS">
           🛒 <span class="topbar-btn-text">Olsera POS</span>
         </button>
@@ -72,10 +72,6 @@
         <!-- Tombol Buka Toko Baru Gratis -->
         <button class="btn-topbar-primary" onclick="openRegisterStoreModal()" title="Daftarkan Toko Online SR12 Milik Anda Sendiri" aria-label="Buka Toko Baru">
           ➕ <span class="topbar-btn-text">Buka Toko</span>
-        </button>
-        <!-- Tombol Khusus Akses Dashboard Developer (Sangat Mudah Diakses di HP & Desktop) -->
-        <button class="btn-topbar-dev" onclick="openDevPinPrompt()" title="Masuk ke Super Admin Developer Platform (PIN: 8899)" aria-label="Dashboard Developer">
-          🔐 <span class="topbar-btn-text">Dev</span>
         </button>
       </div>
     </div>
@@ -1305,22 +1301,22 @@
           </div>
         </div>
 
-        <!-- 6. Tombol Aksi Toko Distributor -->
+        <!-- 6. Tombol Aksi Toko Distributor (Simbol Bersih Tanpa Teks) -->
         <div class="distributor-hero-actions">
-          <a id="btnDistChatWa" href="https://wa.me/6281234567890" target="_blank" class="btn-dist-wa-action">
-            <span>💬</span> Chat WhatsApp Toko
+          <a id="btnDistChatWa" href="https://wa.me/6281234567890" target="_blank" class="btn-dist-icon-action btn-dist-wa-action" title="Hubungi Toko via WhatsApp" aria-label="WhatsApp">
+            <span>💬</span>
           </a>
-          <button type="button" id="btnDistSettingsHero" onclick="openStoreSettingsModal()" class="btn-dist-settings-action" title="Pengaturan & Kustomisasi Foto Profil, Foto Latar Belakang, Nama, Slogan, dan Tema Toko">
-            <span>⚙️</span> Pengaturan Toko
+          <button type="button" id="btnDistCheckSk" onclick="showCurrentStoreSk()" class="btn-dist-icon-action btn-dist-sk-action" title="Periksa Dokumen SK Resmi Distributor" aria-label="SK Resmi">
+            <span>📜</span>
           </button>
-          <button type="button" id="btnDistCheckSk" onclick="showCurrentStoreSk()" class="btn-dist-sk-action">
-            <span>📜</span> Cek SK Resmi
+          <button type="button" id="btnDistSettingsHero" onclick="openStoreSettingsModal()" class="btn-dist-icon-action btn-dist-settings-action" title="Pengaturan & Kustomisasi Toko" aria-label="Atur Toko">
+            <span>⚙️</span>
           </button>
-          <button type="button" onclick="openShareStoreModal()" class="btn-dist-share-action">
-            <span>🔗</span> Bagikan Toko
+          <button type="button" onclick="openShareStoreModal()" class="btn-dist-icon-action btn-dist-share-action" title="Bagikan Link Toko Ini" aria-label="Bagikan Toko">
+            <span>🔗</span>
           </button>
-          <button type="button" onclick="switchPartnerStore('sr12-central'); window.scrollTo({top: 0, behavior: 'smooth'});" class="btn-dist-share-action" style="background: #fef3c7; color: #92400e; border-color: #fcd34d;">
-            <span>🏛️</span> SR12 Official Central Hub
+          <button type="button" onclick="switchPartnerStore('sr12-central'); window.scrollTo({top: 0, behavior: 'smooth'});" class="btn-dist-icon-action btn-dist-central-action" title="Kembali ke SR12 Official Central Hub" aria-label="Central Hub">
+            <span>🏛️</span>
           </button>
         </div>
 
@@ -1639,6 +1635,9 @@
       </button>
       <button type="button" onclick="switchPartnerStore('sr12-central'); window.scrollTo({top: 0, behavior: 'smooth'});" style="background: #fef3c7; border: 1.5px solid #fcd34d; color: #92400e; padding: 7px 16px; border-radius: 9999px; font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.04);">
         <span>🏛️</span> SR12 Official Central Hub
+      </button>
+      <button type="button" onclick="openDevPinPrompt()" style="background: #f8fafc; border: 1.5px solid #e2e8f0; color: #64748b; padding: 7px 16px; border-radius: 9999px; font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.04);" title="Masuk ke Super Admin Developer Platform">
+        <span>🔐</span> Developer
       </button>
     </div>
     <p style="font-weight: 700; color: var(--dark-800); margin-bottom: 4px;">SR12 Herbal Skin Care &bull; Jaringan Toko Mitra Resmi Distributor</p>
@@ -3744,9 +3743,9 @@
 
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=3.3"></script>
-  <script src="js/data.js?v=3.3"></script>
-  <script src="js/app.js?v=3.3"></script>
-  <script src="js/olsera-suite.js?v=3.3"></script>
+  <script src="js/supabase-config.js?v=3.4"></script>
+  <script src="js/data.js?v=3.4"></script>
+  <script src="js/app.js?v=3.4"></script>
+  <script src="js/olsera-suite.js?v=3.4"></script>
 </body>
 </html>

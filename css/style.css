@@ -1015,13 +1015,14 @@ h1, h2, h3, h4, h5, h6 {
   overflow: hidden;
 }
 
-/* Cover Banner Latar Belakang Toko */
+/* Cover Banner Latar Belakang Toko (Diperbesar Luas & Elegan) */
 .distributor-hero-cover-wrap {
   position: relative;
   width: 100%;
-  height: 165px;
+  height: 320px;
   overflow: hidden;
   background: linear-gradient(135deg, #064e3b, #047857);
+  border-radius: 20px 20px 0 0;
 }
 
 .distributor-hero-cover-img {
@@ -1040,7 +1041,8 @@ h1, h2, h3, h4, h5, h6 {
 .distributor-hero-cover-gradient {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(0,0,0,0.12) 0%, rgba(0,0,0,0.45) 60%, rgba(0,0,0,0.7) 100%);
+  background: linear-gradient(180deg, rgba(0,0,0,0.03) 0%, rgba(0,0,0,0.12) 55%, rgba(0,0,0,0.52) 100%);
+  pointer-events: none;
 }
 
 .btn-edit-cover-quick {
@@ -1202,66 +1204,93 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
+}
+
+/* Tombol Aksi Simbol Toko Distributor (Hanya Simbol, Tanpa Teks) */
+.btn-dist-icon-action {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  text-decoration: none;
+  border: 1.5px solid transparent;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.btn-dist-icon-action:hover {
+  transform: translateY(-3px) scale(1.08);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16);
+}
+
+.btn-dist-icon-action:active {
+  transform: scale(0.95);
 }
 
 .btn-dist-wa-action {
   background: #25d366;
   color: #ffffff;
-  border: none;
-  padding: 9px 18px;
-  border-radius: 9999px;
-  font-weight: 800;
-  font-size: 0.84rem;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  box-shadow: 0 4px 14px rgba(37, 211, 102, 0.3);
-  transition: all 0.2s ease;
-  text-decoration: none;
+  border-color: #20bd5a;
+  box-shadow: 0 4px 14px rgba(37, 211, 102, 0.35);
 }
 .btn-dist-wa-action:hover {
   background: #1eb754;
-  transform: translateY(-1px);
 }
 
 .btn-dist-sk-action {
-  background: #f8fafc;
-  color: #0369a1;
-  border: 1px solid #7dd3fc;
-  padding: 8px 16px;
-  border-radius: 9999px;
-  font-weight: 700;
-  font-size: 0.82rem;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  transition: all 0.2s ease;
+  background: #f0f9ff;
+  color: #0284c7;
+  border-color: #7dd3fc;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.15);
 }
 .btn-dist-sk-action:hover {
-  background: #f0f9ff;
+  background: #e0f2fe;
   border-color: #0284c7;
+}
+
+.btn-dist-settings-action {
+  background: #ecfdf5;
+  color: #059669;
+  border-color: #a7f3d0;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.15);
+}
+.btn-dist-settings-action:hover {
+  background: #059669;
+  color: #ffffff;
+  border-color: #047857;
 }
 
 .btn-dist-share-action {
   background: #f8fafc;
-  color: var(--dark-700);
-  border: 1px solid var(--border-subtle);
-  padding: 8px 16px;
-  border-radius: 9999px;
-  font-weight: 700;
-  font-size: 0.82rem;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  transition: all 0.2s ease;
+  color: #475569;
+  border-color: #cbd5e1;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.06);
 }
 .btn-dist-share-action:hover {
   background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #1e293b;
+}
+
+.btn-dist-central-action {
+  background: #fef3c7;
+  color: #b45309;
+  border-color: #fcd34d;
+  box-shadow: 0 3px 10px rgba(245, 158, 11, 0.15);
+}
+.btn-dist-central-action:hover {
+  background: #fde68a;
+  border-color: #f59e0b;
+  color: #92400e;
 }
 
 /* ========================================================
@@ -1500,10 +1529,10 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 14px 30px rgba(16, 185, 129, 0.15);
 }
 
-/* Mini Cover Banner Toko di Card Direktori */
+/* Mini Cover Banner Toko di Card Direktori (Diperbesar) */
 .dist-card-cover-wrap {
   width: 100%;
-  height: 80px;
+  height: 125px;
   position: relative;
   overflow: hidden;
   background: linear-gradient(135deg, #064e3b, #047857);
@@ -1662,9 +1691,9 @@ h1, h2, h3, h4, h5, h6 {
   background: #f8fafc;
   color: var(--dark-700);
   border: 1px solid var(--border-subtle);
-  padding: 6px 10px;
+  padding: 8px 12px;
   border-radius: 9999px;
-  font-size: 0.74rem;
+  font-size: 1.15rem;
   font-weight: 700;
   cursor: pointer;
   display: inline-flex;
@@ -1679,6 +1708,7 @@ h1, h2, h3, h4, h5, h6 {
 .btn-card-sub:hover {
   background: #f1f5f9;
   border-color: #cbd5e1;
+  transform: translateY(-2px);
 }
 
 .directory-register-callout {
@@ -4491,41 +4521,12 @@ h1, h2, h3, h4, h5, h6 {
     background: transparent !important;
   }
 
-  /* 2. Platform Topbar Ramping di HP */
-  .platform-topbar {
-    padding: 6px 10px !important;
-  }
-
-  .platform-topbar-inner {
-    gap: 6px !important;
-  }
-
-  .platform-brand span:not(.platform-badge) {
+  /* 2. Platform Topbar & Dev Strip Disembunyikan di HP agar Bebas Kotak Hitam & Sangat Rapi */
+  .platform-topbar,
+  #platformTopbar,
+  .dev-preview-strip,
+  #devPreviewStrip {
     display: none !important;
-  }
-
-  .active-store-chip span:first-child {
-    display: none !important;
-  }
-
-  .topbar-btn-text {
-    display: none !important;
-  }
-
-  .btn-topbar-olsera,
-  .btn-topbar-action,
-  .btn-topbar-primary,
-  .btn-topbar-dev {
-    width: 34px !important;
-    height: 34px !important;
-    padding: 0 !important;
-    border-radius: 50% !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    font-size: 0.95rem !important;
-    flex-shrink: 0 !important;
-    gap: 0 !important;
   }
 
   /* 3. Developer Portal Modal di HP (Tab Bersih & Kartu Halus) */
@@ -5645,21 +5646,10 @@ h1, h2, h3, h4, h5, h6 {
     white-space: nowrap !important;
   }
 
-  /* 12. Kop Tinjau Etalase Pembeli (Dev Preview Strip) Ringkas di HP */
-  .dev-preview-strip {
-    padding: 5px 8px !important;
-  }
-  .dev-strip-info {
-    font-size: 0.74rem !important;
-  }
-  .btn-dev-strip-icon .desktop-only-label {
+  /* 12. Kop Tinjau Etalase Pembeli (Dev Preview Strip) Disembunyikan di HP */
+  .dev-preview-strip,
+  #devPreviewStrip {
     display: none !important;
-  }
-  .btn-dev-strip-icon {
-    padding: 5px 8px !important;
-    min-width: 32px !important;
-    height: 32px !important;
-    justify-content: center !important;
   }
 
   /* 13. Kop Dashboard Developer Console di HP */
@@ -5846,18 +5836,19 @@ h1, h2, h3, h4, h5, h6 {
     margin-bottom: 20px !important;
   }
   .distributor-hero-cover-wrap {
-    height: 120px !important;
+    height: 220px !important;
+    border-radius: 16px 16px 0 0 !important;
   }
   .distributor-hero-content-wrap {
     padding: 0 14px 22px 14px !important;
   }
   .distributor-hero-logo-box {
-    width: 84px !important;
-    height: 84px !important;
-    margin: -42px auto 10px auto !important;
+    width: 88px !important;
+    height: 88px !important;
+    margin: -44px auto 10px auto !important;
   }
   .dist-card-cover-wrap {
-    height: 70px !important;
+    height: 110px !important;
   }
   .dist-card-logo-box {
     width: 70px !important;
@@ -5872,13 +5863,21 @@ h1, h2, h3, h4, h5, h6 {
     margin-bottom: 12px !important;
   }
   .distributor-hero-actions {
-    flex-direction: column !important;
+    flex-direction: row !important;
+    justify-content: center !important;
+    gap: 12px !important;
+    flex-wrap: wrap !important;
     width: 100% !important;
-    gap: 8px !important;
   }
   .distributor-hero-actions > a,
   .distributor-hero-actions > button {
-    width: 100% !important;
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 48px !important;
+    border-radius: 50% !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
     justify-content: center !important;
     box-sizing: border-box !important;
   }

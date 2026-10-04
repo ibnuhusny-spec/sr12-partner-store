@@ -900,7 +900,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Pulihkan sesi Developer Super Admin jika sebelumnya aktif
   try {
     const devSession = localStorage.getItem('sr12_dev_session');
-    if (devSession === 'active') {
+    if (devSession === 'active' && window.innerWidth > 768) {
       appState.isDevMasterLoggedIn = true;
       const devStrip = document.getElementById('devPreviewStrip');
       if (devStrip) {
@@ -2015,14 +2015,14 @@ function renderOfficialDistributorDirectory(filter = currentDirectoryFilter, sea
             <span>🛍️</span> Belanja di Toko Ini
           </button>
           <div class="dist-card-sub-actions">
-            <a href="https://wa.me/${cleanWa}?text=${encodeURIComponent(`Halo ${store.storeName}, saya melihat toko resmi Anda di direktori Pusat SR12...`)}" target="_blank" class="btn-card-sub">
-              <span>💬</span> WhatsApp
+            <a href="https://wa.me/${cleanWa}?text=${encodeURIComponent(`Halo ${store.storeName}, saya melihat toko resmi Anda di direktori Pusat SR12...`)}" target="_blank" class="btn-card-sub" title="Hubungi Toko via WhatsApp" aria-label="WhatsApp">
+              <span>💬</span>
             </a>
-            <button type="button" onclick="showSpecificStoreSk('${store.slug}')" class="btn-card-sub">
-              <span>📜</span> SK Resmi
+            <button type="button" onclick="showSpecificStoreSk('${store.slug}')" class="btn-card-sub" title="Periksa Dokumen SK Resmi Distributor" aria-label="SK Resmi">
+              <span>📜</span>
             </button>
-            <button type="button" onclick="switchPartnerStore('${store.slug}'); openStoreSettingsModal();" class="btn-card-sub" title="Pengaturan & Kustomisasi Toko Ini" style="background: #ecfdf5; color: #065f46; border-color: #a7f3d0; font-weight: 800;">
-              <span>⚙️</span> Atur Toko
+            <button type="button" onclick="switchPartnerStore('${store.slug}'); openStoreSettingsModal();" class="btn-card-sub" title="Pengaturan & Kustomisasi Toko Ini" aria-label="Atur Toko" style="background: #ecfdf5; color: #065f46; border-color: #a7f3d0; font-weight: 800;">
+              <span>⚙️</span>
             </button>
           </div>
         </div>
