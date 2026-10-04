@@ -4,11 +4,11 @@ server.js
 node_modules/
 dist/
 build.js
-package.json
-package-lock.json
 
 # Environment & Logs
 *.log
 .DS_Store
 Thumbs.db
+.vercel
+
 .vercel

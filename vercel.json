@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "cleanUrls": true,
+  "framework": null,
   "rewrites": [
-    { "source": "/p", "destination": "/api/share.js" },
-    { "source": "/share", "destination": "/api/share.js" }
+    { "source": "/p", "destination": "/api/share" },
+    { "source": "/share", "destination": "/api/share" }
   ]
 }
