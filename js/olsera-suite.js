@@ -204,12 +204,33 @@ function updateOlseraHeaderMeta() {
   const topbarOwnerEl = document.getElementById('olseraTopbarOwnerName');
   const topbarQuotaEl = document.getElementById('olseraTopbarQuotaDisplay');
 
-  const sName = store.storeName || 'Alzam Agency';
-  const sOwner = store.storeOwner || 'Nurlinda Sari';
-  const activeCashierName = (typeof appState !== 'undefined' && appState.activeCashier && appState.activeCashier.name) ? appState.activeCashier.name : sOwner;
+  const isCentral = !store.slug || store.slug === 'sr12-central';
+  const sName = isCentral ? 'SR12-Ku Pro (Pusat)' : (store.storeName || 'SR12 Partner Store');
+  const sOwner = isCentral ? 'Administrator Pusat' : (store.storeOwner || 'Pemilik Toko');
 
-  const isCentral = store.slug === 'sr12-central';
-  const displayName = isCentral ? 'SR12-Ku Pro (SR12 Official Central Hub)' : sName;
+  // Selaraskan kasir aktif dengan pemilik toko saat ini jika belum ada kasir atau toko berpindah
+  if (typeof appState !== 'undefined') {
+    if (!appState.activeCashier || (appState.activeCashier.storeSlug && appState.activeCashier.storeSlug !== store.slug)) {
+      appState.activeCashier = {
+        name: sOwner,
+        storeSlug: store.slug || 'sr12-central',
+        shift: 'Shift Pagi (08:00 - 15:00)',
+        clockInTime: '08:00 WIB',
+        openingCash: 100000,
+        trxCount: 0,
+        totalSales: 0,
+        cashSales: 0,
+        nonCashSales: 0,
+        status: 'Aktif'
+      };
+      if (typeof saveStoredActiveCashier === 'function') {
+        saveStoredActiveCashier(appState.activeCashier);
+      }
+    }
+  }
+
+  const activeCashierName = (typeof appState !== 'undefined' && appState.activeCashier && appState.activeCashier.name) ? appState.activeCashier.name : sOwner;
+  const displayName = sName;
 
   if (nameEl) nameEl.textContent = displayName;
   if (ownerEl) {
@@ -233,6 +254,15 @@ function updateOlseraHeaderMeta() {
   if (staticStoreNameEl) staticStoreNameEl.textContent = displayName;
   if (staticStoreRoleEl) staticStoreRoleEl.textContent = isCentral ? 'SR12 Official Central Hub' : `Distributor Resmi SR12 (${store.storeCity || 'Indonesia'})`;
   if (staticCashierLabelEl) staticCashierLabelEl.textContent = `Kasir: ${activeCashierName}`;
+
+  // Update POS Cashier Pills
+  const posCashierPill = document.getElementById('posActiveCashierLabel');
+  if (posCashierPill) {
+    const shift = (appState && appState.activeCashier && appState.activeCashier.shift) ? appState.activeCashier.shift.split('(')[0].trim() : 'Shift Pagi';
+    posCashierPill.textContent = `Kasir: ${activeCashierName} (${shift})`;
+  }
+  const topbarCashier = document.getElementById('topbarActiveCashierName');
+  if (topbarCashier) topbarCashier.textContent = activeCashierName;
 
   const q = (appState && typeof appState.storeSettings?.orderQuota !== 'undefined') ? appState.storeSettings.orderQuota : 15;
   if (topbarQuotaEl) topbarQuotaEl.textContent = `${q}`;

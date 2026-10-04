@@ -662,7 +662,7 @@ function deleteProduct(productId) {
 window.deleteProduct = deleteProduct;
 
 function resetAllAppData(confirmFirst = true) {
-  if (confirmFirst && !confirm('⚠️ PERINGATAN: Kosongkan seluruh data aplikasi?\n\nSemua riwayat transaksi kasir, buku kas masuk-keluar, kartu mutasi stok, dan keranjang belanja akan dikosongkan. Inventori akan direset ke 44 produk resmi SR12.')) {
+  if (confirmFirst && !confirm('⚠️ PERINGATAN: Kosongkan seluruh data simulasi?\n\n• Semua toko demo (Alzam Agency, dll) akan dihapus total (Kembali ke 0 toko mitra)\n• Riwayat transaksi kasir, buku kas masuk-keluar, dan kartu stok akan dikosongkan\n• Antrean pendaftaran baru akan dibersihkan\n• Kanvas bersih siap disimulasikan dari awal pembukaan toko.')) {
     return;
   }
   localStorage.removeItem('sr12_pos_transactions_v1');
@@ -671,7 +671,14 @@ function resetAllAppData(confirmFirst = true) {
   localStorage.removeItem('sr12_stock_mutations_v1');
   localStorage.removeItem('sr12_cashier_attendance_v1');
   localStorage.removeItem('sr12_active_cashier_shift_v1');
+  localStorage.removeItem('sr12_active_cashier');
+  localStorage.removeItem('sr12_distributor_session');
   localStorage.removeItem('sr12_cart');
+  localStorage.removeItem('sr12_pending_store_apps_v2');
+  
+  // Reset daftar toko: Hanya tersisa platform pusat sr12-central (0 toko mitra aktif)
+  const freshCentralStore = Object.assign({}, DEFAULT_PARTNER_STORES[0]);
+  localStorage.setItem('sr12_partner_stores_v2', JSON.stringify([freshCentralStore]));
   localStorage.setItem('sr12_all_products_v4', JSON.stringify(DEFAULT_SR12_PRODUCTS));
   
   if (typeof appState !== 'undefined') {
@@ -679,17 +686,38 @@ function resetAllAppData(confirmFirst = true) {
     appState.cashflow = [];
     appState.cart = [];
     appState.posCart = [];
+    appState.pendingStoreApps = [];
+    appState.partnerStores = [freshCentralStore];
+    appState.storeSettings = Object.assign({}, freshCentralStore);
+    appState.currentStoreSlug = 'sr12-central';
     appState.products = [...DEFAULT_SR12_PRODUCTS];
+    appState.activeCashier = {
+      name: 'Administrator Pusat',
+      storeSlug: 'sr12-central',
+      shift: 'Shift Pagi (08:00 - 15:00)',
+      clockInTime: '08:00 WIB',
+      openingCash: 100000,
+      trxCount: 0,
+      totalSales: 0,
+      cashSales: 0,
+      nonCashSales: 0,
+      status: 'Aktif'
+    };
+    appState.isAdminMode = false;
+    appState.isDistributorLoggedIn = false;
   }
 
+  if (typeof loadStoreBySlug === 'function') loadStoreBySlug('sr12-central');
+  if (typeof updateOlseraHeaderMeta === 'function') updateOlseraHeaderMeta();
   if (typeof renderProducts === 'function') renderProducts();
   if (typeof renderInventoryTable === 'function') renderInventoryTable();
   if (typeof renderPosProducts === 'function') renderPosProducts();
   if (typeof renderPosTransactions === 'function') renderPosTransactions();
   if (typeof renderCashflowTable === 'function') renderCashflowTable();
   if (typeof renderReportsView === 'function') renderReportsView();
+  if (typeof renderStoreDropdown === 'function') renderStoreDropdown();
   if (typeof updateCartUI === 'function') updateCartUI();
-  if (typeof showToast === 'function') showToast('🗑️ Seluruh data aplikasi telah berhasil dikosongkan dan direset ke 44 produk resmi!');
+  if (typeof showToast === 'function') showToast('✨ Data berhasil dikosongkan! Kanvas bersih tanpa toko demo.');
 }
 window.resetAllAppData = resetAllAppData;
 
@@ -1038,6 +1066,9 @@ function loadStoreBySlug(slug) {
   renderStoreDropdown();
   updateStoreQuotaUI();
   updateViewModeUI();
+  if (typeof updateOlseraHeaderMeta === 'function') {
+    updateOlseraHeaderMeta();
+  }
 }
 
 function switchPartnerStore(slug) {
