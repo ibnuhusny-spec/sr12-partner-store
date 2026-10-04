@@ -3345,14 +3345,16 @@ function renderProducts() {
               <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
               <span class="btn-add-cart-text">Beli</span>
             </button>
-            <button class="btn-detail-preview" title="Lihat Detail & Khasiat" onclick="${appState.isAdminMode ? `openEditProductModal('${prod.id}')` : `openProductDetailModal('${prod.id}')`}">
+            <button class="btn-detail-preview" title="Lihat Detail Produk" onclick="${appState.isAdminMode ? `openEditProductModal('${prod.id}')` : `openProductDetailModal('${prod.id}')`}">
               ${appState.isAdminMode ? '✏️' : '👁️'}
             </button>
+            <button type="button" class="btn-product-share-icon" onclick="openProductPromoShareModal('${prod.id}')" title="Bagikan & Iklankan Produk Ini (Gaya Shopee)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 8l5 4-5 4"/>
+                <path d="M20 12H9a5 5 0 0 0-5 5v2"/>
+              </svg>
+            </button>
           </div>
-
-          <button type="button" class="btn-product-promo-share" onclick="openProductPromoShareModal('${prod.id}')" title="Bagikan & Iklankan Produk Ini (Gaya Shopee)">
-            <span>📤</span> <span>Iklankan (Shopee Style)</span>
-          </button>
         </div>
       </div>
     `;
