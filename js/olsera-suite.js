@@ -1558,11 +1558,33 @@ function confirmWebOrder(trxId) {
   if (typeof appState === 'undefined') return;
   const trx = (appState.transactions || []).find(t => t.id === trxId);
   if (!trx) return;
+  if (trx.status === 'Lunas / Selesai') {
+    showToast(`Pesanan ${trxId} sudah berstatus lunas.`);
+    return;
+  }
   trx.status = 'Lunas / Selesai';
   saveStoredTransactions(appState.transactions);
   renderPosTransactions();
+
+  // Catat arus kas masuk ke rekening bank begitu pesanan web diverifikasi & dikonfirmasi oleh pemilik/admin
+  if (!appState.cashflow) appState.cashflow = [];
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  appState.cashflow.unshift({
+    id: 'CSH-' + Math.floor(1000 + Math.random() * 9000),
+    date: dateStr,
+    type: 'in',
+    account: 'TRANSFER',
+    category: `Penjualan Toko Online (${trx.tierLabel || 'Retail'})`,
+    notes: `${trx.id} - ${trx.customerName} (${trx.paymentMethod}) [Transfer Bank Terverifikasi]`,
+    amount: Number(trx.grandTotal) || 0
+  });
+  saveStoredCashflow(appState.cashflow);
+  renderCashflowTable();
+  if (typeof renderReportsView === 'function') renderReportsView();
+
   if (typeof showToast === 'function') {
-    showToast(`✅ Pesanan ${trxId} (${trx.customerName}) berhasil dikonfirmasi lunas/selesai!`);
+    showToast(`✅ Pesanan ${trxId} (${trx.customerName}) dikonfirmasi lunas! Saldo Bank bertambah Rp ${Number(trx.grandTotal).toLocaleString('id-ID')}`);
   }
 }
 window.confirmWebOrder = confirmWebOrder;
@@ -1736,7 +1758,9 @@ function renderCashflowTable() {
 
   records.forEach(r => {
     const amt = Number(r.amount) || 0;
-    const isCashAcc = (r.account === 'CASH' || (!r.account && r.category && r.category.includes('Tunai')));
+    const catLower = String(r.category || '').toLowerCase();
+    const notesLower = String(r.notes || '').toLowerCase();
+    const isCashAcc = r.account ? (r.account === 'CASH') : (!catLower.includes('bank') && !catLower.includes('transfer') && !catLower.includes('online') && !notesLower.includes('transfer bank'));
     if (r.type === 'in') {
       totalIn += amt;
       if (isCashAcc) totalCashIn += amt;
@@ -1773,7 +1797,9 @@ function renderCashflowTable() {
 
   tbody.innerHTML = records.map(r => {
     const isIn = r.type === 'in';
-    const isCashAcc = (r.account === 'CASH' || (!r.account && r.category && r.category.includes('Tunai')));
+    const catLower = String(r.category || '').toLowerCase();
+    const notesLower = String(r.notes || '').toLowerCase();
+    const isCashAcc = r.account ? (r.account === 'CASH') : (!catLower.includes('bank') && !catLower.includes('transfer') && !catLower.includes('online') && !notesLower.includes('transfer bank'));
     return `
       <tr>
         <td data-label="Tanggal" style="font-size: 0.8rem; color: #64748b;">${r.date}</td>
@@ -1821,6 +1847,7 @@ function openAddCashflowModal(type = 'in') {
       btnSubmit.textContent = 'Simpan Kas Masuk';
     }
     catSelect.innerHTML = `
+      <option value="Saldo Awal Kas Toko (Modal Usaha)">Saldo Awal Kas Toko (Modal Usaha Pertama)</option>
       <option value="Penjualan Toko / Kasir POS">Penjualan Toko / Kasir POS</option>
       <option value="Penjualan Grosir Mitra">Penjualan Grosir Mitra (Agen/Reseller)</option>
       <option value="Setoran Modal Tambahan">Setoran Modal Tambahan</option>
@@ -1844,6 +1871,11 @@ function openAddCashflowModal(type = 'in') {
     `;
   }
 
+  const accSelect = document.getElementById('cashflowAccountInput');
+  if (accSelect) {
+    accSelect.value = 'CASH';
+  }
+
   document.getElementById('cashflowAmountInput').value = '';
   document.getElementById('cashflowNotesInput').value = '';
 
@@ -1856,6 +1888,7 @@ function handleSaveCashflowSubmit(e) {
 
   const type = document.getElementById('cashflowTypeInput')?.value || 'in';
   const category = document.getElementById('cashflowCategoryInput')?.value || 'Lain-lain';
+  const account = document.getElementById('cashflowAccountInput')?.value || 'CASH';
   const amount = parseInt(document.getElementById('cashflowAmountInput')?.value, 10) || 0;
   const notes = document.getElementById('cashflowNotesInput')?.value.trim() || '-';
 
@@ -1871,8 +1904,9 @@ function handleSaveCashflowSubmit(e) {
     id: 'CSH-' + Math.floor(1000 + Math.random() * 9000),
     date: dateStr,
     type,
+    account,
     category,
-    notes,
+    notes: `${notes} [${account === 'CASH' ? 'Kas Tunai' : 'Transfer Bank'}]`,
     amount
   };
 

@@ -760,7 +760,7 @@
             <div style="font-size: 0.72rem; color: #64748b; margin-top: 4px;">Biaya operasional &amp; stok</div>
           </div>
           <div class="cashflow-card" style="border-left: 4px solid #6366f1; background: #f5f3ff;">
-            <div class="cashflow-label">🏦 Total Likuiditas Kas Toko</div>
+            <div class="cashflow-label">🏦 Sisa Uang Kas Toko Saat Ini</div>
             <div class="cashflow-val" id="cashflowNetDisplay" style="color: #4f46e5; font-size: 1.25rem;">Rp 0</div>
             <div style="font-size: 0.72rem; color: #6366f1; margin-top: 4px; font-weight: 700;">Kas Tunai + Saldo Bank</div>
           </div>
@@ -3917,6 +3917,14 @@
             <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Kategori:</label>
             <select id="cashflowCategoryInput" style="width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem;">
               <!-- Populated dynamically via JS based on type -->
+            </select>
+          </div>
+
+          <div style="margin-bottom: 12px;">
+            <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Pilih Akun Kas / Rekening:</label>
+            <select id="cashflowAccountInput" style="width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; font-weight: 600;">
+              <option value="CASH">💵 Kas Tunai (Laci Kasir Fisik)</option>
+              <option value="TRANSFER">💳 Kas Rekening Bank (BCA / BRI / Mandiri)</option>
             </select>
           </div>
 
