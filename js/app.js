@@ -466,8 +466,16 @@ async function syncPendingStoresWithServer() {
     try {
       const supaPending = await syncPendingStoresFromSupabase();
       if (Array.isArray(supaPending)) {
+        const activeSlugs = new Set((appState.partnerStores || []).map(s => s.slug));
+        
         supaPending.forEach(apiApp => {
           if (!apiApp || !apiApp.id) return;
+          if (activeSlugs.has(apiApp.slug) || apiApp.status === 'approved') {
+            if (typeof deletePendingStoreFromSupabase === 'function') {
+              deletePendingStoreFromSupabase(apiApp.id);
+            }
+            return;
+          }
           const idx = appState.pendingStoreApps.findIndex(a => a.id === apiApp.id);
           if (idx >= 0) {
             appState.pendingStoreApps[idx] = Object.assign({}, appState.pendingStoreApps[idx], apiApp);
@@ -477,9 +485,14 @@ async function syncPendingStoresWithServer() {
           }
         });
 
+        const oldLen = appState.pendingStoreApps.length;
+        appState.pendingStoreApps = appState.pendingStoreApps.filter(a => !activeSlugs.has(a.slug) && a.status !== 'approved');
+        if (appState.pendingStoreApps.length !== oldLen) changed = true;
+
         if (typeof savePendingStoreToSupabase === 'function') {
           const toUpload = appState.pendingStoreApps.filter(localApp => {
             if (!localApp || !localApp.id) return false;
+            if (activeSlugs.has(localApp.slug) || localApp.status === 'approved') return false;
             return !supaPending.some(s => s.id === localApp.id);
           });
           for (const a of toUpload) {
@@ -1725,25 +1738,47 @@ function contactApplicantWA(appId) {
 }
 
 function updateDistributorPendingBadges() {
-  const currentDistSlug = (appState.storeSettings && appState.storeSettings.slug) || 'alzam-agency';
-  const apps = (appState.pendingStoreApps || []).filter(a => {
-    return a.recommenderSlug === currentDistSlug || a.recommenderDistributor?.toLowerCase().includes('alzam') || appState.isDevMasterLoggedIn;
-  });
-
   const alertBox = document.getElementById('distributorPendingAlert');
   const alertCount = document.getElementById('distPendingAlertCount');
   const olseraBadge = document.getElementById('olseraPendingBadge');
 
-  if (apps.length > 0) {
-    if (alertBox) alertBox.style.display = 'block';
-    if (alertCount) alertCount.textContent = apps.length;
-    if (olseraBadge) {
-      olseraBadge.style.display = 'inline-block';
-      olseraBadge.textContent = `${apps.length} Baru`;
+  const curStore = appState.storeSettings || {};
+  const currentSlug = curStore.slug || appState.currentStoreSlug || 'sr12-central';
+  const isDistributor = curStore.partnerTier === 'distributor';
+
+  // Toko yang sudah aktif di partnerStores tidak boleh dihitung lagi
+  const activeSlugs = new Set((appState.partnerStores || []).map(s => s.slug));
+  const unapprovedApps = (appState.pendingStoreApps || []).filter(a => {
+    return !activeSlugs.has(a.slug) && a.status !== 'approved';
+  });
+
+  // HANYA MUNCUL JIKA:
+  // 1. Toko yang sedang aktif dibuka adalah Toko DISTRIBUTOR (Bukan Toko Agen seperti Iyoutique!)
+  // 2. Calon agen memilih toko distributor ini sebagai pembina (recommenderSlug === currentSlug)
+  // 3. Hanya muncul jika sedang mode Admin / Distributor login / Developer
+  const isAuthorized = appState.isAdminMode || appState.isDistributorLoggedIn || appState.isDevMasterLoggedIn;
+
+  const relevantApps = unapprovedApps.filter(a => {
+    if (!isDistributor && !appState.isDevMasterLoggedIn) return false;
+    return a.recommenderSlug === currentSlug || (currentSlug === 'alzam-agency' && (a.recommenderDistributor || '').toLowerCase().includes('alzam'));
+  });
+
+  if (alertBox) {
+    if (isAuthorized && isDistributor && relevantApps.length > 0) {
+      alertBox.style.display = 'block';
+      if (alertCount) alertCount.textContent = relevantApps.length;
+    } else {
+      alertBox.style.display = 'none';
     }
-  } else {
-    if (alertBox) alertBox.style.display = 'none';
-    if (olseraBadge) olseraBadge.style.display = 'none';
+  }
+
+  if (olseraBadge) {
+    if (isAuthorized && isDistributor && relevantApps.length > 0) {
+      olseraBadge.style.display = 'inline-block';
+      olseraBadge.textContent = `${relevantApps.length} Baru`;
+    } else {
+      olseraBadge.style.display = 'none';
+    }
   }
 }
 window.updateDistributorPendingBadges = updateDistributorPendingBadges;
@@ -1753,9 +1788,18 @@ function openDistributorPendingStoresModal() {
   const mount = document.getElementById('distributorPendingStoresContainer');
   if (!modal || !mount) return;
 
-  const currentDistSlug = (appState.storeSettings && appState.storeSettings.slug) || 'alzam-agency';
-  const apps = (appState.pendingStoreApps || []).filter(a => {
-    return a.recommenderSlug === currentDistSlug || a.recommenderDistributor?.toLowerCase().includes('alzam') || appState.isDevMasterLoggedIn;
+  const curStore = appState.storeSettings || {};
+  const currentSlug = curStore.slug || appState.currentStoreSlug || 'sr12-central';
+  const isDistributor = curStore.partnerTier === 'distributor';
+
+  const activeSlugs = new Set((appState.partnerStores || []).map(s => s.slug));
+  const unapprovedApps = (appState.pendingStoreApps || []).filter(a => {
+    return !activeSlugs.has(a.slug) && a.status !== 'approved';
+  });
+
+  const apps = unapprovedApps.filter(a => {
+    if (!isDistributor && !appState.isDevMasterLoggedIn) return false;
+    return a.recommenderSlug === currentSlug || (currentSlug === 'alzam-agency' && (a.recommenderDistributor || '').toLowerCase().includes('alzam'));
   });
 
   if (apps.length === 0) {
@@ -2301,6 +2345,7 @@ function renderStoreBranding() {
       distCover.src = cfg.heroBannerUrl || 'assets/hero-banner.jpg';
     }
     if (distLogo) distLogo.src = storeLogo;
+    if (distName) distName.textContent = cfg.storeName;
     let cleanTierName = (tierObj.name || '').toUpperCase().replace(/RESMI SR12/g, '').replace(/SR12/g, '').trim();
     if (!cleanTierName) cleanTierName = 'DISTRIBUTOR';
     distTier.textContent = `👑 ${cleanTierName} RESMI`;
