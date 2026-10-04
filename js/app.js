@@ -2301,8 +2301,9 @@ function renderStoreBranding() {
       distCover.src = cfg.heroBannerUrl || 'assets/hero-banner.jpg';
     }
     if (distLogo) distLogo.src = storeLogo;
-    if (distName) distName.textContent = cfg.storeName;
-    if (distTier) distTier.textContent = `👑 ${tierObj.name.toUpperCase()} RESMI SR12`;
+    let cleanTierName = (tierObj.name || '').toUpperCase().replace(/RESMI SR12/g, '').replace(/SR12/g, '').trim();
+    if (!cleanTierName) cleanTierName = 'DISTRIBUTOR';
+    distTier.textContent = `👑 ${cleanTierName} RESMI`;
     if (distTagline) distTagline.textContent = cfg.storeTagline || (`Distributor Resmi SR12 Wilayah ${cfg.storeCity || 'Indonesia'} • Melayani Grosir & Eceran`);
     if (distOwner) distOwner.textContent = cfg.storeOwner;
     const cleanCity = (cfg.storeCity || 'Indonesia').split('(')[0].trim();
@@ -3348,6 +3349,10 @@ function renderProducts() {
               ${appState.isAdminMode ? '✏️' : '👁️'}
             </button>
           </div>
+
+          <button type="button" class="btn-product-promo-share" onclick="openProductPromoShareModal('${prod.id}')" title="Bagikan & Iklankan Produk Ini (Gaya Shopee)">
+            <span>📤</span> <span>Iklankan (Shopee Style)</span>
+          </button>
         </div>
       </div>
     `;
@@ -6759,5 +6764,119 @@ window.openOlseraPosDirect = openOlseraPosDirect;
 window.quickApproveFromPendingModal = quickApproveFromPendingModal;
 window.syncStoresWithServer = syncStoresWithServer;
 window.syncPendingStoresWithServer = syncPendingStoresWithServer;
+
+// ==========================================
+// PROMO SHARE GAYA SHOPEE UNTUK SETIAP PRODUK
+// ==========================================
+let currentPromoShareData = null;
+
+function openProductPromoShareModal(productId) {
+  const prod = (appState.products || []).find(p => p.id === productId);
+  if (!prod) return;
+
+  const curStore = appState.storeSettings || {};
+  const storeName = curStore.storeName || 'SR12 Official Store';
+  const cleanSlug = curStore.slug || 'sr12-central';
+  const tierPrice = getProductTierPrice(prod, appState.currentTier);
+  const isPromo = prod.het > tierPrice;
+  const storeUrl = `${window.location.origin}${window.location.pathname}?store=${cleanSlug}`;
+
+  currentPromoShareData = {
+    prod,
+    storeName,
+    tierPrice,
+    storeUrl
+  };
+
+  const imgEl = document.getElementById('promoShareImage');
+  const catEl = document.getElementById('promoShareCategory');
+  const titleEl = document.getElementById('promoShareTitle');
+  const priceEl = document.getElementById('promoSharePrice');
+  const hetEl = document.getElementById('promoShareHet');
+  const descEl = document.getElementById('promoShareDesc');
+  const textEl = document.getElementById('promoShareCopywritingText');
+
+  if (imgEl) imgEl.src = prod.image;
+  if (catEl) catEl.textContent = prod.category;
+  if (titleEl) titleEl.textContent = prod.name;
+  if (priceEl) priceEl.textContent = formatRupiah(tierPrice);
+  if (hetEl) {
+    if (isPromo) {
+      hetEl.style.display = 'inline';
+      hetEl.textContent = formatRupiah(prod.het);
+    } else {
+      hetEl.style.display = 'none';
+    }
+  }
+  if (descEl) descEl.textContent = prod.summary || (prod.benefits && prod.benefits[0]) || '';
+
+  const benefitsText = (prod.benefits && prod.benefits.length > 0)
+    ? prod.benefits.slice(0, 3).map(b => `✅ ${b}`).join('\n')
+    : `✅ 100% Produk Herbal Terdaftar BPOM\n✅ Formulasi Lembut & Aman Digunakan Tiap Hari\n✅ Garansi Keaslian Resmi Pabrik SR12`;
+
+  const copyText = 
+`✨ *PROMO SPESIAL: ${prod.name.toUpperCase()}* ✨
+${prod.summary || 'Produk perawatan kulit herbal berkualitas resmi SR12.'} 🌿
+
+⭐ *Rating Pembeli:* 4.9 / 5.0 (Terbukti Berkhasiat)
+🛡️ *Izin Edar:* 100% Terverifikasi BPOM & Halal MUI
+
+🔥 *Keunggulan Produk:*
+${benefitsText}
+
+💰 *Harga Promo Toko:* ${formatRupiah(tierPrice)}${isPromo ? ` (Harga Normal: ~${formatRupiah(prod.het)}~)` : ''}
+🚚 *Pengiriman Cepat, Aman & Garansi Original!*
+
+👇 *Pesan Langsung di Toko Resmi Kami (${storeName}):*
+${storeUrl}
+
+Silakan klik link di atas untuk melihat katalog lengkap & langsung order via WhatsApp! 🌸`;
+
+  if (textEl) textEl.value = copyText;
+
+  const modal = document.getElementById('modalProductPromoShare');
+  if (modal) {
+    document.body.classList.add('modal-open');
+    modal.classList.add('open');
+  }
+}
+window.openProductPromoShareModal = openProductPromoShareModal;
+
+function sharePromoToWhatsApp() {
+  if (!currentPromoShareData) return;
+  const textEl = document.getElementById('promoShareCopywritingText');
+  const text = textEl ? textEl.value : '';
+  const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+  window.open(url, '_blank');
+}
+window.sharePromoToWhatsApp = sharePromoToWhatsApp;
+
+function copyPromoCopywriting() {
+  const textEl = document.getElementById('promoShareCopywritingText');
+  if (!textEl) return;
+  textEl.select();
+  navigator.clipboard.writeText(textEl.value).then(() => {
+    showToast('📋 Teks iklan & link toko berhasil disalin!');
+  }).catch(() => {
+    showToast('Teks iklan disalin!');
+  });
+}
+window.copyPromoCopywriting = copyPromoCopywriting;
+
+function sharePromoNative() {
+  if (!currentPromoShareData) return;
+  const textEl = document.getElementById('promoShareCopywritingText');
+  const text = textEl ? textEl.value : '';
+  if (navigator.share) {
+    navigator.share({
+      title: currentPromoShareData.prod.name,
+      text: text,
+      url: currentPromoShareData.storeUrl
+    }).catch(() => {});
+  } else {
+    copyPromoCopywriting();
+  }
+}
+window.sharePromoNative = sharePromoNative;
 
 
