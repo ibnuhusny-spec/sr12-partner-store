@@ -106,8 +106,8 @@ function showDistributorPortalView(showPortal) {
     if (previewStrip) previewStrip.style.display = 'none';
     if (devStrip) devStrip.style.display = 'none';
 
-    // Tampilkan HANYA SATU Olsera App Navbar dan Portal Olsera
-    if (olseraNav) olseraNav.style.display = 'flex';
+    // Tampilkan Portal Olsera dan pastikan Tab Hitam Atas (olseraNav) Disembunyikan Sesuai Permintaan User
+    if (olseraNav) olseraNav.style.display = 'none';
     if (portal) portal.style.display = 'flex';
 
     // Jika Developer Super Admin yang sedang masuk:
@@ -144,28 +144,9 @@ function showDistributorPortalView(showPortal) {
     if (tierBanner) tierBanner.style.display = 'block';
     if (platformTopbar) platformTopbar.style.display = 'none';
 
-    // Jika Developer Master login, tampilkan Dev Preview Strip di paling atas
-    if (typeof appState !== 'undefined' && appState.isDevMasterLoggedIn) {
-      if (devStrip) {
-        devStrip.style.display = 'flex';
-        const devStripName = document.getElementById('devStripStoreName');
-        const devStripQuota = document.getElementById('devStripOrderQuota');
-        if (devStripName) devStripName.textContent = (appState.storeSettings && appState.storeSettings.storeName) || 'Toko Aktif';
-        if (devStripQuota) devStripQuota.textContent = typeof appState.storeSettings?.orderQuota === 'number' ? appState.storeSettings.orderQuota : 10;
-      }
-      if (previewStrip) previewStrip.style.display = 'none';
-    } else if (previewStrip && appState && appState.isAdminMode) {
-      // Distributor Biasa
-      if (devStrip) devStrip.style.display = 'none';
-      previewStrip.style.display = 'flex';
-      const previewNameEl = document.getElementById('previewStripDistName');
-      if (previewNameEl) {
-        previewNameEl.textContent = (appState.storeSettings && appState.storeSettings.storeOwner) || 'Distributor Utama';
-      }
-    } else {
-      if (previewStrip) previewStrip.style.display = 'none';
-      if (devStrip) devStrip.style.display = 'none';
-    }
+    // Sembunyikan semua strip/tab hitam atas agar toko online pembeli benar-benar bersih
+    if (previewStrip) previewStrip.style.display = 'none';
+    if (devStrip) devStrip.style.display = (typeof appState !== 'undefined' && appState.isDevMasterLoggedIn) ? 'flex' : 'none';
   }
 }
 
@@ -198,9 +179,17 @@ function updateOlseraHeaderMeta() {
       topbarOwnerEl.textContent = `${activeCashierName} (Kasir) • Distributor Resmi SR12 (${store.storeCity || 'Mitra'})`;
     }
   }
-  if (topbarQuotaEl) {
-    const q = (appState && typeof appState.storeSettings?.orderQuota !== 'undefined') ? appState.storeSettings.orderQuota : 15;
-    topbarQuotaEl.textContent = `${q}`;
+  const q = (appState && typeof appState.storeSettings?.orderQuota !== 'undefined') ? appState.storeSettings.orderQuota : 15;
+  if (topbarQuotaEl) topbarQuotaEl.textContent = `${q}`;
+  const drawerQuotaEl = document.getElementById('olseraDrawerQuotaBadge');
+  if (drawerQuotaEl) drawerQuotaEl.textContent = `${q}`;
+
+  const drawerOrderEl = document.getElementById('olseraDrawerOrderBadge');
+  if (drawerOrderEl) {
+    const pendingOrders = (typeof getStoredCustomerOrders === 'function') 
+      ? getStoredCustomerOrders().filter(o => o.status === 'pending').length 
+      : 0;
+    drawerOrderEl.textContent = `${pendingOrders}`;
   }
 
   // Update logo di sidebar & topbar dengan logo resmi tanpa kotak (sesuai gaya Olsera)

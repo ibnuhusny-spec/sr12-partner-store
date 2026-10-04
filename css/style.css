@@ -705,7 +705,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ========================================================
-   BERSIH TOTAL: SEMBUNYIKAN HEADER & TOPBAR BERTUMPUK DI ATAS BANNER
+   BERSIH TOTAL: SEMBUNYIKAN SEMUA TAB HITAM & HEADER BERTUMPUK DI ATAS
    ======================================================== */
 .site-header,
 header.site-header,
@@ -713,8 +713,65 @@ header.site-header,
 #platformTopbar,
 .tier-quick-banner,
 #devPreviewStrip,
-#distributorPreviewStrip {
+#distributorPreviewStrip,
+.olsera-app-navbar,
+#olseraAppNavbar,
+.admin-mode-banner,
+#adminModeBanner {
   display: none !important;
+}
+
+/* Tombol Akses Tunggal Menu Distributor di Depan (Hero) */
+.btn-dist-open-drawer-action {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #ffffff;
+  border: none;
+  border-radius: 9999px;
+  padding: 8px 18px;
+  font-weight: 800;
+  font-size: 0.82rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+.btn-dist-open-drawer-action:hover {
+  background: linear-gradient(135deg, #0369a1, #075985);
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 6px 18px rgba(2, 132, 199, 0.45);
+}
+
+/* Tombol Floating Menu Olsera (Pengganti Tab Hitam di Layar Kasir / Backoffice) */
+.btn-floating-olsera-drawer {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 1040;
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #ffffff;
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  border-radius: 9999px;
+  padding: 7px 15px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 800;
+  font-size: 0.82rem;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.btn-floating-olsera-drawer:hover {
+  background: linear-gradient(135deg, #0369a1, #075985);
+  transform: translateY(-1px) scale(1.04);
+}
+@media (min-width: 1024px) {
+  .btn-floating-olsera-drawer {
+    display: none !important;
+  }
 }
 
 .header-inner {

@@ -2637,7 +2637,7 @@ function handleDistributorLogout() {
   if (storefront) storefront.style.display = 'block';
   if (siteHeader) siteHeader.style.display = 'block';
   if (tierBanner) tierBanner.style.display = 'block';
-  if (platformTopbar) platformTopbar.style.display = 'block';
+  if (platformTopbar) platformTopbar.style.display = 'none';
 
   updateViewModeUI();
   switchTab('products');
@@ -2678,35 +2678,24 @@ function updateViewModeUI() {
   // 1. KONTROL HERO SECTION TOKO (SEPARASI TOTAL PUBLIK vs ADMIN DISTRIBUTOR)
   const adminActiveBadge = document.getElementById('distributorAdminActiveBadge');
   const btnDistLogin = document.getElementById('btnDistLoginHero');
-  const btnDistLogout = document.getElementById('btnDistLogoutHero');
-  const btnDistOlseraPos = document.getElementById('btnDistOlseraPos');
-  const btnDistSettingsHero = document.getElementById('btnDistSettingsHero');
-  const btnDistCheckSk = document.getElementById('btnDistCheckSk');
-  const btnDistShareStore = document.getElementById('btnDistShareStore');
+  const btnDistOpenDrawer = document.getElementById('btnDistOpenDrawerHero');
   const btnEditCover = document.getElementById('btnEditStoreCover');
   const btnEditLogo = document.getElementById('btnEditStoreLogo');
   const distPendingAlert = document.getElementById('distributorPendingAlert');
 
   if (isLogged && !isCentral) {
-    // Mode Pemilik Toko (Admin Distributor): Buka akses fitur manajemen & kasir
+    // Mode Pemilik Toko (Admin Distributor): Cukup 1 tombol menu elegan yang memuat seluruh fitur di Drawer
     if (adminActiveBadge) adminActiveBadge.style.display = 'inline-flex';
+    if (btnDistOpenDrawer) btnDistOpenDrawer.style.display = 'inline-flex';
     if (btnDistLogin) btnDistLogin.style.display = 'none';
-    if (btnDistLogout) btnDistLogout.style.display = 'inline-flex';
-    if (btnDistOlseraPos) btnDistOlseraPos.style.display = 'inline-flex';
-    if (btnDistSettingsHero) btnDistSettingsHero.style.display = 'inline-flex';
-    if (btnDistCheckSk) btnDistCheckSk.style.display = 'inline-flex';
-    if (btnDistShareStore) btnDistShareStore.style.display = 'inline-flex';
-    if (btnEditCover) btnEditCover.style.display = 'inline-flex';
-    if (btnEditLogo) btnEditLogo.style.display = 'flex';
+    if (btnEditCover) btnEditCover.style.display = 'none';
+    if (btnEditLogo) btnEditLogo.style.display = 'none';
+    if (distPendingAlert) distPendingAlert.style.display = 'none';
   } else {
-    // Mode Toko Online Pembeli (PUBLIK): SEMBUNYIKAN TOTAL FITUR PRIVAT!
+    // Mode Toko Online Pembeli (PUBLIK): HANYA TOMBOL PEMBELI (WhatsApp, Cabang, Login)
     if (adminActiveBadge) adminActiveBadge.style.display = 'none';
+    if (btnDistOpenDrawer) btnDistOpenDrawer.style.display = 'none';
     if (btnDistLogin) btnDistLogin.style.display = isCentral ? 'none' : 'inline-flex';
-    if (btnDistLogout) btnDistLogout.style.display = 'none';
-    if (btnDistOlseraPos) btnDistOlseraPos.style.display = 'none';
-    if (btnDistSettingsHero) btnDistSettingsHero.style.display = 'none';
-    if (btnDistCheckSk) btnDistCheckSk.style.display = 'none';
-    if (btnDistShareStore) btnDistShareStore.style.display = 'none';
     if (btnEditCover) btnEditCover.style.display = 'none';
     if (btnEditLogo) btnEditLogo.style.display = 'none';
     if (distPendingAlert) distPendingAlert.style.display = 'none';
@@ -3262,8 +3251,7 @@ function showDeveloperWorkspaceView(showWorkspace) {
     if (distStrip) distStrip.style.display = 'none';
 
     if (storefront) storefront.style.display = 'block';
-    // Sembunyikan platformTopbar jika Developer Preview aktif agar kop etalase tidak bertumpuk/penuh tulisan
-    if (platformTopbar) platformTopbar.style.display = appState.isDevMasterLoggedIn ? 'none' : 'flex';
+    if (platformTopbar) platformTopbar.style.display = 'none';
     if (siteHeader) siteHeader.style.display = 'block';
     if (tierBanner) tierBanner.style.display = 'block';
 
@@ -3313,7 +3301,7 @@ function handleDeveloperLogout() {
   if (devFab) devFab.style.display = 'none';
 
   if (storefront) storefront.style.display = 'block';
-  if (platformTopbar) platformTopbar.style.display = 'flex';
+  if (platformTopbar) platformTopbar.style.display = 'none';
   if (siteHeader) siteHeader.style.display = 'block';
   if (tierBanner) tierBanner.style.display = 'block';
 
