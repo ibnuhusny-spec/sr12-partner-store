@@ -680,6 +680,11 @@ function unlockOlseraScreen() {
 }
 
 function openStoreSwitchDropdownFromDrawer() {
+  closeOlseraSidebarDrawer();
+  if (typeof openStoreSwitchModal === 'function') {
+    openStoreSwitchModal();
+    return;
+  }
   const storeNames = appState.partnerStores.map((s, idx) => `${idx + 1}. ${s.storeName} (${s.storeOwner})`).join('\n');
   const choice = prompt(`🏪 Pilih Cabang / Toko Olsera yang ingin dibuka:\n\n${storeNames}\n\nMasukkan nomor toko (1 - ${appState.partnerStores.length}):`, '1');
   if (choice) {
@@ -688,7 +693,6 @@ function openStoreSwitchDropdownFromDrawer() {
       const selected = appState.partnerStores[idx];
       switchPartnerStore(selected.slug);
       updateOlseraHeaderMeta();
-      closeOlseraSidebarDrawer();
       showToast(`🏪 Berhasil beralih ke: ${selected.storeName}!`);
     }
   }
@@ -2249,6 +2253,12 @@ function populateOlseraSettingsForm() {
   // Inisialisasi preview logo
   appState.tempOlseraLogoUrl = store.storeLogoUrl || '';
   updateOlseraSettingsLogoPreview(store.storeLogoUrl);
+
+  // Tampilkan zona bahaya hapus toko hanya untuk toko mitra (bukan central)
+  const dangerZone = document.getElementById('olseraDangerZoneDeleteStore');
+  if (dangerZone) {
+    dangerZone.style.display = store.slug === 'sr12-central' ? 'none' : 'block';
+  }
 }
 
 /**

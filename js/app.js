@@ -27,14 +27,25 @@ const DEFAULT_PARTNER_STORES = [
   }
 ];
 
+function getDeletedStoreSlugs() {
+  try {
+    const raw = localStorage.getItem('sr12_deleted_store_slugs');
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch(e) {
+    return [];
+  }
+}
+
 function getStoredPartnerStores() {
   const stored = localStorage.getItem('sr12_partner_stores_v2');
+  const deletedSlugs = getDeletedStoreSlugs();
   let stores = [];
   if (stored) {
     try {
       const parsed = JSON.parse(stored);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        stores = parsed.filter(s => s && s.slug && s.slug !== 'toko-supa-distributor' && !s.slug.startsWith('deleted_') && !s.slug.includes('toko-supa'));
+        stores = parsed.filter(s => s && s.slug && s.slug !== 'toko-supa-distributor' && !s.slug.startsWith('deleted_') && !s.slug.includes('toko-supa') && !deletedSlugs.includes(s.slug));
       }
     } catch (e) {
       console.error('Error parsing stored partner stores:', e);
@@ -368,9 +379,10 @@ function getApiBaseUrl() {
 
 async function syncStoresWithServer() {
   let changed = false;
+  const deletedSlugs = getDeletedStoreSlugs();
 
-  // Bersihkan data toko test/dummy dari memori lokal
-  const cleanLocal = (appState.partnerStores || []).filter(s => s && s.slug && s.slug !== 'toko-supa-distributor' && !s.slug.startsWith('deleted_') && !s.slug.includes('toko-supa'));
+  // Bersihkan data toko test/dummy dan toko yang sudah dihapus dari memori lokal
+  const cleanLocal = (appState.partnerStores || []).filter(s => s && s.slug && s.slug !== 'toko-supa-distributor' && !s.slug.startsWith('deleted_') && !s.slug.includes('toko-supa') && !deletedSlugs.includes(s.slug));
   if (cleanLocal.length !== appState.partnerStores.length) {
     appState.partnerStores = cleanLocal;
     saveStoredPartnerStores(appState.partnerStores);
@@ -383,7 +395,7 @@ async function syncStoresWithServer() {
       const supaStores = await syncStoresFromSupabase();
       if (Array.isArray(supaStores) && supaStores.length > 0) {
         supaStores.forEach(apiStore => {
-          if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central' || apiStore.slug === 'toko-supa-distributor' || apiStore.slug.startsWith('deleted_') || apiStore.slug.includes('toko-supa')) return;
+          if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central' || apiStore.slug === 'toko-supa-distributor' || apiStore.slug.startsWith('deleted_') || apiStore.slug.includes('toko-supa') || deletedSlugs.includes(apiStore.slug)) return;
           const idx = appState.partnerStores.findIndex(s => s.slug === apiStore.slug);
           if (idx >= 0) {
             appState.partnerStores[idx] = Object.assign({}, appState.partnerStores[idx], apiStore);
@@ -397,7 +409,7 @@ async function syncStoresWithServer() {
       // Upload toko lokal ke Supabase jika belum ada di Cloud
       if (Array.isArray(supaStores) && typeof saveStoreToSupabase === 'function') {
         const toUploadSupa = appState.partnerStores.filter(localStore => {
-          if (!localStore || !localStore.slug || localStore.slug === 'sr12-central' || localStore.slug === 'toko-supa-distributor' || localStore.slug.startsWith('deleted_') || localStore.slug.includes('toko-supa')) return false;
+          if (!localStore || !localStore.slug || localStore.slug === 'sr12-central' || localStore.slug === 'toko-supa-distributor' || localStore.slug.startsWith('deleted_') || localStore.slug.includes('toko-supa') || deletedSlugs.includes(localStore.slug)) return false;
           return !supaStores.some(s => s.slug === localStore.slug);
         });
         for (const s of toUploadSupa) {
@@ -417,7 +429,7 @@ async function syncStoresWithServer() {
         const data = await res.json();
         if (data && data.success && Array.isArray(data.data)) {
           data.data.forEach(apiStore => {
-            if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central' || apiStore.slug === 'toko-supa-distributor' || apiStore.slug.startsWith('deleted_') || apiStore.slug.includes('toko-supa')) return;
+            if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central' || apiStore.slug === 'toko-supa-distributor' || apiStore.slug.startsWith('deleted_') || apiStore.slug.includes('toko-supa') || deletedSlugs.includes(apiStore.slug)) return;
             const idx = appState.partnerStores.findIndex(s => s.slug === apiStore.slug);
             if (idx >= 0) {
               appState.partnerStores[idx] = Object.assign({}, appState.partnerStores[idx], apiStore);
@@ -429,7 +441,7 @@ async function syncStoresWithServer() {
 
           // Upload toko lokal ke local server jika belum ada
           const localStoresToUpload = appState.partnerStores.filter(localStore => {
-            if (!localStore || !localStore.slug || localStore.slug === 'sr12-central' || localStore.slug === 'toko-supa-distributor' || localStore.slug.startsWith('deleted_') || localStore.slug.includes('toko-supa')) return false;
+            if (!localStore || !localStore.slug || localStore.slug === 'sr12-central' || localStore.slug === 'toko-supa-distributor' || localStore.slug.startsWith('deleted_') || localStore.slug.includes('toko-supa') || deletedSlugs.includes(localStore.slug)) return false;
             return !data.data.some(serverStore => serverStore.slug === localStore.slug);
           });
 
@@ -1118,6 +1130,15 @@ function renderStoreDropdown() {
   const devSelect = document.getElementById('devStoreSelect');
   if (devSelect) {
     devSelect.innerHTML = appState.partnerStores.map(s => {
+      const t = SR12_TIERS[s.partnerTier]?.name || 'Mitra';
+      return `<option value="${s.slug}" ${s.slug === appState.currentStoreSlug ? 'selected' : ''}>${s.storeName} (${t} - ${s.storeCity})</option>`;
+    }).join('');
+  }
+
+  // Update Dev Workspace Store Switcher
+  const devSelectWs = document.getElementById('devStoreSelect_ws');
+  if (devSelectWs) {
+    devSelectWs.innerHTML = appState.partnerStores.map(s => {
       const t = SR12_TIERS[s.partnerTier]?.name || 'Mitra';
       return `<option value="${s.slug}" ${s.slug === appState.currentStoreSlug ? 'selected' : ''}>${s.storeName} (${t} - ${s.storeCity})</option>`;
     }).join('');
@@ -3235,12 +3256,16 @@ function openDevPinPrompt() {
     showDeveloperWorkspaceView(true);
     return;
   }
-  const modal = document.getElementById('modalDevPin');
   const pinInput = document.getElementById('devPinInput');
   const pinError = document.getElementById('devPinError');
   if (pinInput) pinInput.value = '';
   if (pinError) pinError.style.display = 'none';
-  if (modal) modal.classList.add('open');
+  if (typeof openModal === 'function') {
+    openModal('modalDevPin');
+  } else {
+    const modal = document.getElementById('modalDevPin');
+    if (modal) modal.classList.add('open');
+  }
   if (pinInput) setTimeout(() => pinInput.focus(), 200);
 }
 
@@ -3291,11 +3316,15 @@ function verifyDevPinSubmit(e) {
   if (e) e.preventDefault();
   const pinInput = document.getElementById('devPinInput')?.value.trim();
   const pinError = document.getElementById('devPinError');
-  const modalDevPin = document.getElementById('modalDevPin');
 
   if (pinInput === appState.masterDevPin) {
-    // Correct PIN! Langsung buka Workspace Dedicated Layar Penuh
-    if (modalDevPin) modalDevPin.classList.remove('open');
+    // Correct PIN! Tutup modal PIN dengan bersih & buka Console Developer Layar Penuh
+    if (typeof closeModal === 'function') {
+      closeModal('modalDevPin');
+    } else {
+      const modalDevPin = document.getElementById('modalDevPin');
+      if (modalDevPin) modalDevPin.classList.remove('open');
+    }
     showDeveloperWorkspaceView(true);
     showToast('🔓 Akses Master Diterima! Membuka Console Developer.');
   } else {
@@ -3321,8 +3350,7 @@ function showDeveloperWorkspaceView(showWorkspace) {
   const olseraPortal = document.getElementById('distributorOlseraPortal');
   const distStrip = document.getElementById('distributorPreviewStrip');
   const modalDevPortal = document.getElementById('modalDevPortal');
-
-  if (modalDevPortal) modalDevPortal.classList.remove('open');
+  const modalDevPin = document.getElementById('modalDevPin');
 
   if (showWorkspace) {
     appState.isDevMasterLoggedIn = true;
@@ -3330,7 +3358,29 @@ function showDeveloperWorkspaceView(showWorkspace) {
       localStorage.setItem('sr12_dev_session', 'active');
     } catch(e) {}
 
-    // Sembunyikan Storefront & Distributor Olsera
+    // 1. Bersihkan seluruh backdrop modal & BUKA KUNCI SCROLL LAYAR SECARA TOTAL
+    if (modalDevPortal) modalDevPortal.classList.remove('open');
+    if (modalDevPin) modalDevPin.classList.remove('open');
+    document.querySelectorAll('.modal-backdrop.open').forEach(m => m.classList.remove('open'));
+    
+    document.body.classList.remove('modal-open');
+    if (document.documentElement) document.documentElement.classList.remove('modal-open');
+    document.body.classList.add('dev-mode-active');
+    if (document.documentElement) document.documentElement.classList.add('dev-mode-active');
+
+    // Reset inline styling overflow & touch-action agar layar dapat digulir bebas
+    document.body.style.overflow = '';
+    document.body.style.overflowY = 'auto';
+    document.body.style.height = 'auto';
+    document.body.style.touchAction = 'auto';
+    if (document.documentElement) {
+      document.documentElement.style.overflow = '';
+      document.documentElement.style.overflowY = 'auto';
+      document.documentElement.style.height = 'auto';
+      document.documentElement.style.touchAction = 'auto';
+    }
+
+    // 2. Sembunyikan Storefront & Distributor Olsera
     if (storefront) storefront.style.display = 'none';
     if (platformTopbar) platformTopbar.style.display = 'none';
     if (siteHeader) siteHeader.style.display = 'none';
@@ -3341,9 +3391,13 @@ function showDeveloperWorkspaceView(showWorkspace) {
     if (devPreviewStrip) devPreviewStrip.style.display = 'none';
     if (devFab) devFab.style.display = 'none';
 
-    // Tampilkan Developer Super Admin Workspace
+    // 3. Tampilkan Developer Super Admin Workspace
     if (devNav) devNav.style.display = 'flex';
-    if (devWorkspace) devWorkspace.style.display = 'block';
+    if (devWorkspace) {
+      devWorkspace.style.display = 'block';
+      devWorkspace.style.overflowY = 'visible';
+      devWorkspace.style.touchAction = 'auto';
+    }
 
     const consolePin = document.getElementById('devConsoleMasterPin');
     if (consolePin) consolePin.textContent = appState.masterDevPin || '8899';
@@ -3352,6 +3406,11 @@ function showDeveloperWorkspaceView(showWorkspace) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } else {
     // Mode Tinjau Etalase Toko (Storefront Preview) dengan Developer Preview Strip
+    document.body.classList.remove('dev-mode-active');
+    if (document.documentElement) document.documentElement.classList.remove('dev-mode-active');
+    document.body.style.overflowY = '';
+    if (document.documentElement) document.documentElement.style.overflowY = '';
+
     if (devWorkspace) devWorkspace.style.display = 'none';
     if (devNav) devNav.style.display = 'none';
     if (olseraNav) olseraNav.style.display = 'none';
@@ -3391,6 +3450,11 @@ function handleDeveloperLogout() {
   try {
     localStorage.removeItem('sr12_dev_session');
   } catch(e) {}
+
+  document.body.classList.remove('dev-mode-active');
+  if (document.documentElement) document.documentElement.classList.remove('dev-mode-active');
+  document.body.style.overflowY = '';
+  if (document.documentElement) document.documentElement.style.overflowY = '';
 
   const devWorkspace = document.getElementById('devSuperAdminWorkspace');
   const devNav = document.getElementById('devSuperAdminNavbar');
@@ -4697,8 +4761,229 @@ function openStoreSettingsModal() {
     s.classList.toggle('active', s.dataset.theme === (cfg.storeTheme || 'emerald'));
   });
 
+  const dangerZone = document.getElementById('dangerZoneDeleteStore');
+  if (dangerZone) {
+    dangerZone.style.display = cfg.slug === 'sr12-central' ? 'none' : 'block';
+  }
+
   if (modal) modal.classList.add('open');
 }
+
+/**
+ * Hapus Toko Mitra Secara Permanen
+ */
+async function deletePartnerStore(slug) {
+  if (!slug) return;
+  if (slug === 'sr12-central') {
+    alert('⚠️ Toko Utama Pusat (SR12-Ku Pro) adalah fondasi platform pusat dan tidak dapat dihapus.');
+    return;
+  }
+
+  const targetStore = (appState.partnerStores || []).find(s => s.slug === slug);
+  const storeName = targetStore ? targetStore.storeName : slug;
+
+  const confirmed = confirm(
+    `⚠️ KONFIRMASI HAPUS TOKO PERMANEN\n\n` +
+    `Apakah Anda yakin ingin MENGHAPUS toko mitra:\n` +
+    `"${storeName}" (Slug: ${slug})?\n\n` +
+    `• Toko ini akan dihapus dari daftar toko aktif, database lokal, dan cloud server.\n` +
+    `• Seluruh pengaturan identitas toko, tema, dan etalase khusus akan dihapus permanen.\n` +
+    `• Tindakan ini TIDAK DAPAT dibatalkan.\n\n` +
+    `Lanjutkan penghapusan?`
+  );
+
+  if (!confirmed) return;
+
+  // 1. Simpan slug ke daftar tombstone (blacklist) agar sinkronisasi cloud tidak memunculkannya lagi
+  try {
+    const rawDeleted = localStorage.getItem('sr12_deleted_store_slugs');
+    let deletedSlugs = rawDeleted ? JSON.parse(rawDeleted) : [];
+    if (!Array.isArray(deletedSlugs)) deletedSlugs = [];
+    if (!deletedSlugs.includes(slug)) {
+      deletedSlugs.push(slug);
+      localStorage.setItem('sr12_deleted_store_slugs', JSON.stringify(deletedSlugs));
+    }
+  } catch (e) {
+    console.warn('Gagal menyimpan tombstone toko terhapus:', e);
+  }
+
+  // 2. Hapus dari appState.partnerStores
+  appState.partnerStores = (appState.partnerStores || []).filter(s => s.slug !== slug);
+  saveStoredPartnerStores(appState.partnerStores);
+
+  // 3. Hapus juga dari antrean pending jika ada
+  if (Array.isArray(appState.pendingStoreApps)) {
+    appState.pendingStoreApps = appState.pendingStoreApps.filter(a => a.slug !== slug);
+    saveStoredPendingStoreApps(appState.pendingStoreApps);
+  }
+
+  // 4. Hapus sesi distributor lokal jika sedang login di toko yang dihapus
+  try {
+    const savedSess = localStorage.getItem('sr12_distributor_session');
+    if (savedSess) {
+      const parsed = JSON.parse(savedSess);
+      if (parsed && parsed.slug === slug) {
+        localStorage.removeItem('sr12_distributor_session');
+        appState.isDistributorLoggedIn = false;
+        appState.isAdminMode = false;
+      }
+    }
+  } catch (e) {}
+
+  // 5. Hapus dari Supabase Cloud (jika Supabase aktif)
+  if (typeof deleteStoreFromSupabase === 'function') {
+    try {
+      await deleteStoreFromSupabase(slug);
+    } catch (supaErr) {
+      console.warn('Error deleting from Supabase:', supaErr);
+    }
+  }
+
+  // 6. Hapus dari Local REST Server (jika aktif)
+  if (typeof fetch === 'function') {
+    try {
+      await fetch(getApiBaseUrl() + '/api/stores/' + slug, { method: 'DELETE' });
+    } catch (apiErr) {}
+  }
+
+  // 7. Jika toko yang dihapus adalah toko yang sedang aktif dibuka, beralih ke sr12-central
+  if (appState.currentStoreSlug === slug) {
+    switchPartnerStore('sr12-central');
+    if (typeof history !== 'undefined' && history.replaceState) {
+      history.replaceState(null, '', window.location.pathname);
+    }
+  } else {
+    renderStoreDropdown();
+    renderStoreBranding();
+  }
+
+  // 8. Tutup modal pengaturan jika terbuka
+  if (typeof closeModal === 'function') {
+    closeModal('modalStoreSettings');
+  }
+
+  // 9. Perbarui metrik Developer Workspace, Olsera headers, dan modal switcher
+  if (typeof updateDeveloperMetricsUI === 'function') {
+    updateDeveloperMetricsUI();
+  }
+  if (typeof renderDistributorNetworkMitraTable === 'function') {
+    renderDistributorNetworkMitraTable();
+  }
+  if (typeof checkDistributorPendingStoreRegistrations === 'function') {
+    checkDistributorPendingStoreRegistrations();
+  }
+  if (typeof updateOlseraHeaderMeta === 'function') {
+    updateOlseraHeaderMeta();
+  }
+  if (typeof renderSwitchStoreModal === 'function') {
+    renderSwitchStoreModal();
+  }
+
+  showToast(`🗑️ Toko "${storeName}" berhasil dihapus secara permanen.`);
+}
+
+function deleteCurrentActiveStore() {
+  if (!appState.storeSettings || !appState.storeSettings.slug) return;
+  deletePartnerStore(appState.storeSettings.slug);
+}
+
+window.deletePartnerStore = deletePartnerStore;
+window.deleteCurrentActiveStore = deleteCurrentActiveStore;
+
+/**
+ * MODAL: Ganti & Kelola Toko Mitra
+ */
+function openStoreSwitchModal() {
+  const modal = document.getElementById('modalSwitchStore');
+  if (!modal) return;
+  renderSwitchStoreModal();
+  modal.classList.add('open');
+}
+
+function renderSwitchStoreModal(filterText = '') {
+  const container = document.getElementById('switchStoreCardsContainer');
+  if (!container) return;
+
+  const q = (filterText || '').trim().toLowerCase();
+  const stores = (appState.partnerStores || []).filter(s => {
+    if (!q) return true;
+    return (s.storeName && s.storeName.toLowerCase().includes(q)) ||
+           (s.storeOwner && s.storeOwner.toLowerCase().includes(q)) ||
+           (s.storeCity && s.storeCity.toLowerCase().includes(q)) ||
+           (s.slug && s.slug.toLowerCase().includes(q));
+  });
+
+  const totalStoresBadge = document.getElementById('switchStoreTotalBadge');
+  if (totalStoresBadge) {
+    totalStoresBadge.textContent = `${appState.partnerStores.length} Toko`;
+  }
+
+  if (stores.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 30px 10px; color: #94a3b8;">
+        <span style="font-size: 2rem; display: block; margin-bottom: 8px;">🔍</span>
+        <div style="font-weight: 700; font-size: 0.9rem;">Tidak ada toko yang cocok</div>
+        <p style="font-size: 0.76rem; margin: 4px 0 0 0;">Coba kata kunci lain atau daftarkan toko mitra baru.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = stores.map(s => {
+    const isCurrent = s.slug === appState.currentStoreSlug;
+    const isCentral = s.slug === 'sr12-central';
+    const tierObj = SR12_TIERS[s.partnerTier] || SR12_TIERS.reseller;
+    const initial = (s.storeName || 'SR').replace(/[^a-zA-Z0-9]/g, '').slice(0, 2).toUpperCase();
+
+    return `
+      <div style="background: ${isCurrent ? '#f0fdf4' : '#ffffff'}; border: 1.5px solid ${isCurrent ? '#10b981' : '#e2e8f0'}; border-radius: 12px; padding: 12px 16px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: all 0.2s ease;">
+        <div style="display: flex; align-items: center; gap: 12px; min-width: 200px; flex: 1;">
+          <div style="width: 44px; height: 44px; border-radius: 50%; background: ${isCentral ? 'linear-gradient(135deg, #059669, #047857)' : 'linear-gradient(135deg, #0284c7, #0369a1)'}; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.9rem; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.12);">
+            ${s.storeLogoUrl ? `<img src="${s.storeLogoUrl}" alt="${s.storeName}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">` : initial}
+          </div>
+          <div>
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+              <span style="font-weight: 800; font-size: 0.92rem; color: #0f172a;">${s.storeName}</span>
+              ${isCurrent ? `<span style="background: #dcfce7; color: #15803d; font-size: 0.66rem; font-weight: 800; padding: 2px 7px; border-radius: 999px; border: 1px solid #86efac;">🟢 Sedang Aktif</span>` : ''}
+              <span style="background: rgba(56, 189, 248, 0.12); color: #0284c7; font-size: 0.66rem; font-weight: 700; padding: 2px 6px; border-radius: 4px;">${tierObj.name}</span>
+            </div>
+            <div style="font-size: 0.74rem; color: #64748b; margin-top: 3px; display: flex; gap: 8px; flex-wrap: wrap;">
+              <span>👤 ${s.storeOwner || '-'}</span>
+              <span>📍 ${s.storeCity || '-'}</span>
+              <span>📱 +${s.storeWaNumber || '-'}</span>
+            </div>
+            <div style="font-size: 0.7rem; color: #94a3b8; font-family: monospace; margin-top: 2px;">?store=${s.slug}</div>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end;">
+          ${!isCurrent ? `
+            <button type="button" onclick="switchPartnerStore('${s.slug}'); closeModal('modalSwitchStore');" style="background: #0284c7; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 0.76rem; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 5px rgba(2, 132, 199, 0.25);">
+              🏪 Buka
+            </button>
+          ` : `
+            <button type="button" disabled style="background: #e2e8f0; color: #64748b; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 0.76rem; cursor: default;">
+              ✓ Aktif
+            </button>
+          `}
+          ${!isCentral ? `
+            <button type="button" onclick="deletePartnerStore('${s.slug}')" style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 6px 10px; border-radius: 6px; font-weight: 700; font-size: 0.76rem; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s;" title="Hapus Toko Permanen">
+              🗑️ Hapus
+            </button>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function filterSwitchStoreModalList(text) {
+  renderSwitchStoreModal(text);
+}
+
+window.openStoreSwitchModal = openStoreSwitchModal;
+window.renderSwitchStoreModal = renderSwitchStoreModal;
+window.filterSwitchStoreModalList = filterSwitchStoreModalList;
 
 function openStoreSettingsModalWithFocus(target) {
   openStoreSettingsModal();
@@ -5125,9 +5410,15 @@ function updateDevPortalMetrics() {
             </span>
           </td>
           <td style="padding: 6px 8px; text-align: center;">
-            <button onclick="switchPartnerStore('${s.slug}'); closeModal('modalDevPortal');" style="background: #0284c7; color: #fff; border: none; padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer;">
-              Buka Toko
-            </button>
+            <div style="display: inline-flex; gap: 4px; justify-content: center; align-items: center;">
+              <button onclick="switchPartnerStore('${s.slug}'); closeModal('modalDevPortal');" style="background: #0284c7; color: #fff; border: none; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer;">
+                Buka
+              </button>
+              ${s.slug !== 'sr12-central' ? `
+              <button onclick="deletePartnerStore('${s.slug}')" style="background: #ef4444; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer;" title="Hapus Toko Permanen">
+                🗑️
+              </button>` : ''}
+            </div>
           </td>
         </tr>
       `;
@@ -5164,6 +5455,10 @@ function updateDevPortalMetrics() {
               <button type="button" onclick="openDevStoreAdminBackoffice('${s.slug}')" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(245, 158, 11, 0.3);">
                 👑 Masuk Backoffice
               </button>
+              ${s.slug !== 'sr12-central' ? `
+              <button type="button" onclick="deletePartnerStore('${s.slug}')" style="background: #ef4444; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(239, 68, 68, 0.25);" title="Hapus Toko Permanen">
+                🗑️ Hapus Toko
+              </button>` : ''}
             </div>
           </td>
         </tr>

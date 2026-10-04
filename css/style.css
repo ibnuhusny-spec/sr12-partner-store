@@ -608,7 +608,22 @@ h1, h2, h3, h4, h5, h6 {
   color: #fff;
 }
 
-/* Workspace Container */
+/* Workspace Container & Mode Developer Scroll Unlock */
+body.dev-mode-active,
+html.dev-mode-active,
+html:has(body.dev-mode-active) {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  height: auto !important;
+  min-height: 100% !important;
+  touch-action: auto !important;
+  overscroll-behavior-y: auto !important;
+}
+
+body.dev-mode-active {
+  background: #090d16 !important;
+}
+
 .dev-workspace-container {
   background: #0f172a;
   color: #e2e8f0;
@@ -617,6 +632,21 @@ h1, h2, h3, h4, h5, h6 {
   padding: 24px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
   min-height: calc(100vh - 120px);
+  overflow-y: visible !important;
+  touch-action: auto !important;
+}
+
+.dev-tab-pane {
+  overflow-y: visible !important;
+  touch-action: auto !important;
+}
+
+.dev-table-scroll-wrap {
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  max-height: none !important;
+  touch-action: auto !important;
+  -webkit-overflow-scrolling: touch !important;
 }
 
 /* ========================================================
@@ -4931,6 +4961,9 @@ html:has(body.modal-open) {
     margin: 8px !important;
     max-height: calc(100vh - 16px) !important;
     border-radius: 16px !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
   }
 
   #modalDevPortal .modal-header {
@@ -4939,6 +4972,8 @@ html:has(body.modal-open) {
 
   #modalDevPortal .modal-body {
     padding: 14px 12px !important;
+    overflow-y: visible !important;
+    touch-action: pan-y !important;
   }
 
   .dev-tabs-bar {

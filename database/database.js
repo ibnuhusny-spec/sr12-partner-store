@@ -89,6 +89,18 @@ function updateStoreSettings(slug, updateData) {
   return copy;
 }
 
+function deleteStore(slug) {
+  if (!slug || slug === 'sr12-central') return false;
+  const db = readDb();
+  const initLen = db.stores.length;
+  db.stores = db.stores.filter(s => s.slug !== slug);
+  if (db.stores.length !== initLen) {
+    writeDb(db);
+    return true;
+  }
+  return false;
+}
+
 function loginDistributor(emailOrPhone, password) {
   const db = readDb();
   const cleanPhone = (emailOrPhone || '').replace(/[^0-9]/g, '');
@@ -354,6 +366,7 @@ module.exports = {
   getDeveloperSettings,
   updateDeveloperSettings,
   addStore,
+  deleteStore,
   syncStores,
   getPendingStores,
   addPendingStore,

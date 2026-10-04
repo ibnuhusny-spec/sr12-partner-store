@@ -115,8 +115,14 @@ async function syncStoresFromSupabase() {
  */
 async function deleteStoreFromSupabase(slug) {
   const client = initSupabaseClient();
-  if (!client || !slug) return false;
+  if (!client || !slug || slug === 'sr12-central') return false;
   try {
+    // 1. Berikan tanda __deleted__ pada store_tagline agar query filter tidak pernah menariknya lagi
+    try {
+      await client.from('stores').update({ store_tagline: '__deleted__' }).eq('slug', slug);
+    } catch(tagErr) {}
+
+    // 2. Hapus baris toko secara permanen dari tabel stores
     const { error } = await client
       .from('stores')
       .delete()

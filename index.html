@@ -18,7 +18,7 @@
   <meta name="twitter:title" content="SR12 Partner Hub - Toko Resmi Herbal Skin Care">
   <meta name="twitter:description" content="Toko resmi kemitraan SR12 Herbal Skin Care terverifikasi BPOM. Dapatkan harga terbaik dan pengiriman cepat.">
   <meta name="twitter:image" content="https://sr12-partner-store.vercel.app/assets/sr12-logo.png">
-  <link rel="stylesheet" href="css/style.css?v=5.1">
+  <link rel="stylesheet" href="css/style.css?v=5.2">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
 </head>
 <body>
@@ -989,6 +989,22 @@
               </button>
             </div>
           </form>
+
+          <!-- ZONA BAHAYA DI OLSERA VIEW SETTINGS -->
+          <div id="olseraDangerZoneDeleteStore" style="display: none; margin-top: 24px; padding: 16px 18px; border: 1.5px dashed #fca5a5; background: #fff1f2; border-radius: 10px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+              <b style="color: #991b1b; font-size: 0.86rem; display: flex; align-items: center; gap: 6px;">
+                <span>⚠️</span> Zona Bahaya: Hapus Toko Mitra Ini
+              </b>
+              <span style="font-size: 0.68rem; background: #fee2e2; color: #b91c1c; font-weight: 800; padding: 2px 8px; border-radius: 4px;">Permanen</span>
+            </div>
+            <p style="font-size: 0.74rem; color: #7f1d1d; margin: 0 0 12px 0; line-height: 1.4;">
+              Hapus toko mitra ini secara permanen dari sistem jaringan cloud. Seluruh data pengaturan, riwayat mutasi kasir, dan link etalase toko ini akan dihapus.
+            </p>
+            <button type="button" onclick="deleteCurrentActiveStore()" style="background: #dc2626; color: #fff; border: none; padding: 9px 16px; border-radius: 6px; font-weight: 800; font-size: 0.82rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(220, 38, 38, 0.3);">
+              <span>🗑️</span> Hapus Toko Ini Secara Permanen
+            </button>
+          </div>
         </div>
       </div>
     </main>
@@ -1168,7 +1184,7 @@
           </h4>
           <span id="devTotalStoresCounter_ws" style="font-size: 0.74rem; background: #0284c7; color: #fff; padding: 3px 10px; border-radius: 9999px; font-weight: 700;">4 Toko Terdaftar</span>
         </div>
-        <div style="overflow-x: auto; max-height: 400px; overflow-y: auto;">
+        <div class="dev-table-scroll-wrap" style="overflow-x: auto; max-height: none; overflow-y: visible; touch-action: auto;">
           <table class="dev-table-responsive" style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;">
             <thead>
               <tr style="border-bottom: 1.5px solid #475569; color: #94a3b8;">
@@ -1203,7 +1219,7 @@
         <p style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 14px; line-height: 1.5;">
           Periksa berkas Surat Keputusan (SK) dan identitas calon pendaftar toko mitra sebelum memberikan akses toko online resmi.
         </p>
-        <div style="overflow-x: auto; max-height: 420px; overflow-y: auto;">
+        <div class="dev-table-scroll-wrap" style="overflow-x: auto; max-height: none; overflow-y: visible; touch-action: auto;">
           <table class="dev-table-responsive" style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;">
             <thead>
               <tr style="border-bottom: 1.5px solid #475569; color: #fbbf24;">
@@ -1233,7 +1249,7 @@
           </h4>
           <span style="font-size: 0.74rem; background: #0284c7; color: #fff; padding: 3px 10px; border-radius: 9999px; font-weight: 700;">Global Network</span>
         </div>
-        <div style="overflow-x: auto; max-height: 400px; overflow-y: auto;">
+        <div class="dev-table-scroll-wrap" style="overflow-x: auto; max-height: none; overflow-y: visible; touch-action: auto;">
           <table class="dev-table-responsive" style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;">
             <thead>
               <tr style="border-bottom: 1.5px solid #475569; color: #94a3b8;">
@@ -1783,6 +1799,45 @@
 
 
 
+  <!-- MODAL: DAFTAR & KELOLA TOKO MITRA (GANTI & HAPUS TOKO) -->
+  <div class="modal-backdrop" id="modalSwitchStore">
+    <div class="modal-dialog" style="max-width: 650px;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #0f172a, #1e293b); color: #ffffff;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.4rem;">🏪</span>
+          <div>
+            <h3 style="margin: 0; font-size: 1.05rem; color: #ffffff; font-weight: 800;">Daftar &amp; Kelola Cabang Toko Mitra</h3>
+            <p style="margin: 2px 0 0 0; font-size: 0.74rem; color: #94a3b8;">Beralih ke toko mitra lain atau hapus toko yang sudah tidak aktif.</p>
+          </div>
+        </div>
+        <button class="btn-close-modal" onclick="closeModal('modalSwitchStore')" style="color: #ffffff;">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 18px 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap;">
+          <div style="position: relative; flex: 1; min-width: 220px;">
+            <input type="text" id="inputFilterStoresList" placeholder="🔍 Cari toko, pemilik, kota..." oninput="filterSwitchStoreModalList(this.value)" style="width: 100%; padding: 8px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.82rem; outline: none;">
+          </div>
+          <span id="switchStoreTotalBadge" style="font-size: 0.72rem; font-weight: 700; background: #e0f2fe; color: #0284c7; padding: 4px 10px; border-radius: 9999px;">
+            4 Toko
+          </span>
+        </div>
+
+        <div id="switchStoreCardsContainer" style="max-height: 380px; overflow-y: auto; padding-right: 4px;">
+          <!-- Populated dynamically via JS -->
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 16px; padding-top: 14px; border-top: 1px solid #e2e8f0; flex-wrap: wrap;">
+          <button type="button" onclick="closeModal('modalSwitchStore'); openRegisterStoreModal();" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; border: none; padding: 8px 16px; border-radius: 9999px; font-weight: 700; font-size: 0.8rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);">
+            <span>➕</span> Buka Toko Mitra Baru
+          </button>
+          <button type="button" onclick="closeModal('modalSwitchStore'); showDeveloperWorkspaceView(true);" style="background: #0f172a; color: #38bdf8; border: 1px solid #334155; padding: 8px 14px; border-radius: 9999px; font-weight: 700; font-size: 0.8rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+            <span>⚡</span> Developer Console
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 6. SHOPPING CART DRAWER (SIDE PANEL) -->
   <div class="modal-backdrop" id="cartBackdrop"></div>
   <aside class="cart-drawer" id="cartDrawer">
@@ -2067,6 +2122,22 @@
             Simpan Perubahan Identitas & Tema Toko
           </button>
         </form>
+
+        <!-- ZONA BAHAYA: HAPUS TOKO MITRA (Hanya tampil pada toko mitra, bukan SR12 Central) -->
+        <div id="dangerZoneDeleteStore" style="display: none; margin-top: 22px; padding: 14px 16px; border: 1.5px dashed #fca5a5; background: #fff1f2; border-radius: var(--radius-md);">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+            <b style="color: #991b1b; font-size: 0.85rem; display: flex; align-items: center; gap: 6px;">
+              <span>⚠️</span> Zona Bahaya: Hapus Toko Mitra Ini
+            </b>
+            <span style="font-size: 0.68rem; background: #fee2e2; color: #b91c1c; font-weight: 800; padding: 2px 8px; border-radius: 4px;">Permanen</span>
+          </div>
+          <p style="font-size: 0.74rem; color: #7f1d1d; margin: 0 0 10px 0; line-height: 1.4;">
+            Hapus toko mitra ini secara permanen dari direktori platform &amp; cloud server. Seluruh pengaturan identitas, link toko khusus, dan kasir toko ini akan dihapus.
+          </p>
+          <button type="button" onclick="deleteCurrentActiveStore()" style="width: 100%; background: #dc2626; color: #fff; border: none; padding: 10px 14px; border-radius: var(--radius-sm); font-weight: 800; font-size: 0.82rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 6px rgba(220, 38, 38, 0.3);">
+            <span>🗑️</span> Hapus Toko Ini Secara Permanen
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -4131,9 +4202,9 @@
 
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=5.0"></script>
-  <script src="js/data.js?v=5.1"></script>
-  <script src="js/app.js?v=5.1"></script>
-  <script src="js/olsera-suite.js?v=5.1"></script>
+  <script src="js/supabase-config.js?v=5.2"></script>
+  <script src="js/data.js?v=5.2"></script>
+  <script src="js/app.js?v=5.2"></script>
+  <script src="js/olsera-suite.js?v=5.2"></script>
 </body>
 </html>
