@@ -533,6 +533,7 @@ async function syncPendingStoresWithServer() {
     saveStoredPendingStores(appState.pendingStoreApps);
     updateDevPortalMetrics();
   }
+  updateDistributorPendingBadges();
 }
 
 function quickApproveFromPendingModal() {
@@ -944,6 +945,9 @@ function switchPartnerStore(slug) {
   loadStoreBySlug(slug);
   const newUrl = window.location.pathname + '?store=' + slug;
   window.history.pushState({ store: slug }, '', newUrl);
+  if (typeof updateDistributorPendingBadges === 'function') {
+    updateDistributorPendingBadges();
+  }
   showToast(`🏪 Berhasil beralih ke: "${appState.storeSettings.storeName}"!`);
 }
 
@@ -1719,6 +1723,100 @@ function contactApplicantWA(appId) {
   );
   window.open(`https://wa.me/${app.storeWaNumber}?text=${msg}`, '_blank');
 }
+
+function updateDistributorPendingBadges() {
+  const currentDistSlug = (appState.storeSettings && appState.storeSettings.slug) || 'alzam-agency';
+  const apps = (appState.pendingStoreApps || []).filter(a => {
+    return a.recommenderSlug === currentDistSlug || a.recommenderDistributor?.toLowerCase().includes('alzam') || appState.isDevMasterLoggedIn;
+  });
+
+  const alertBox = document.getElementById('distributorPendingAlert');
+  const alertCount = document.getElementById('distPendingAlertCount');
+  const olseraBadge = document.getElementById('olseraPendingBadge');
+
+  if (apps.length > 0) {
+    if (alertBox) alertBox.style.display = 'block';
+    if (alertCount) alertCount.textContent = apps.length;
+    if (olseraBadge) {
+      olseraBadge.style.display = 'inline-block';
+      olseraBadge.textContent = `${apps.length} Baru`;
+    }
+  } else {
+    if (alertBox) alertBox.style.display = 'none';
+    if (olseraBadge) olseraBadge.style.display = 'none';
+  }
+}
+window.updateDistributorPendingBadges = updateDistributorPendingBadges;
+
+function openDistributorPendingStoresModal() {
+  const modal = document.getElementById('modalDistributorPendingStores');
+  const mount = document.getElementById('distributorPendingStoresContainer');
+  if (!modal || !mount) return;
+
+  const currentDistSlug = (appState.storeSettings && appState.storeSettings.slug) || 'alzam-agency';
+  const apps = (appState.pendingStoreApps || []).filter(a => {
+    return a.recommenderSlug === currentDistSlug || a.recommenderDistributor?.toLowerCase().includes('alzam') || appState.isDevMasterLoggedIn;
+  });
+
+  if (apps.length === 0) {
+    mount.innerHTML = `
+      <div style="text-align: center; padding: 36px 20px; color: #64748b;">
+        <span style="font-size: 2.5rem; display: block; margin-bottom: 8px;">✨</span>
+        <h4 style="margin: 0 0 6px 0; color: #1e293b; font-size: 1rem; font-weight: 800;">Tidak Ada Pengajuan Menunggu</h4>
+        <p style="margin: 0; font-size: 0.82rem;">Semua permohonan pembukaan toko Agen untuk toko Anda telah diverifikasi &amp; disetujui.</p>
+      </div>
+    `;
+  } else {
+    mount.innerHTML = apps.map(app => {
+      const tierObj = SR12_TIERS[app.partnerTier] || SR12_TIERS.agen || SR12_TIERS.distributor;
+      return `
+        <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 18px; margin-bottom: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.03);">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 12px;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <h4 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #0f172a;">${app.storeName}</h4>
+                <span style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; padding: 2px 10px; border-radius: 9999px; font-size: 0.72rem; font-weight: 800;">
+                  👑 ${tierObj.name.toUpperCase()} (DISKON 40%)
+                </span>
+                <span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 9999px; font-size: 0.7rem; font-weight: 800;">
+                  ⏳ Menunggu Persetujuan Anda
+                </span>
+              </div>
+              <div style="font-size: 0.8rem; color: #475569; margin-top: 6px;">
+                👤 Calon Pemilik: <b>${app.storeOwner}</b> &bull; 📍 Wilayah: <b>${app.storeCity}</b>
+              </div>
+              <div style="font-size: 0.78rem; color: #059669; font-weight: 700; margin-top: 2px;">
+                📱 WhatsApp: +${app.storeWaNumber}
+              </div>
+              ${app.skNumber ? `<div style="font-size: 0.76rem; color: #0369a1; font-family: monospace; font-weight: 700; margin-top: 4px;">📜 No. SK / Kontrak: ${app.skNumber}</div>` : ''}
+              ${app.notes ? `<div style="font-size: 0.76rem; color: #475569; background: #fff; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 6px 10px; margin-top: 8px;">💬 Catatan Pemohon: <i>"${app.notes}"</i></div>` : ''}
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button type="button" onclick="contactApplicantWA('${app.id}')" style="background: #25d366; color: #fff; border: none; padding: 8px 14px; border-radius: 8px; font-size: 0.78rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(37, 211, 102, 0.25);">
+                <span>💬</span> Chat WhatsApp
+              </button>
+              <button type="button" onclick="previewSkDocument('${app.id}')" style="background: #0284c7; color: #fff; border: none; padding: 8px 14px; border-radius: 8px; font-size: 0.78rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);">
+                <span>📄</span> Cek Dokumen SK
+              </button>
+            </div>
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #e2e8f0; padding-top: 14px; flex-wrap: wrap;">
+            <button type="button" onclick="rejectPendingStore('${app.id}'); openDistributorPendingStoresModal(); updateDistributorPendingBadges();" style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 9px 18px; border-radius: 8px; font-weight: 700; font-size: 0.8rem; cursor: pointer;">
+              ❌ Tolak Pengajuan
+            </button>
+            <button type="button" onclick="approvePendingStore('${app.id}'); closeModal('modalDistributorPendingStores'); updateDistributorPendingBadges();" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; border: none; padding: 9px 22px; border-radius: 8px; font-weight: 800; font-size: 0.84rem; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);">
+              <span>✅</span> Setujui &amp; Aktifkan Toko Agen Ini
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  document.body.classList.add('modal-open');
+  modal.classList.add('open');
+}
+window.openDistributorPendingStoresModal = openDistributorPendingStoresModal;
 
 function openShareStoreModal() {
   const modal = document.getElementById('modalShareStore');

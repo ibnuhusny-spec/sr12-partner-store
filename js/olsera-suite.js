@@ -655,6 +655,7 @@ function switchOlseraTab(tabId) {
     'olseraViewCashflow',
     'olseraViewReports',
     'olseraViewMitra',
+    'olseraViewPending',
     'olseraViewMarketer',
     'olseraViewSettings'
   ];
@@ -695,6 +696,9 @@ function switchOlseraTab(tabId) {
     case 'mitra':
       mountMitraInOlsera();
       break;
+    case 'pending':
+      renderOlseraPendingStores();
+      break;
     case 'marketer':
       mountMarketerInOlsera();
       break;
@@ -703,6 +707,80 @@ function switchOlseraTab(tabId) {
       break;
   }
 }
+
+function renderOlseraPendingStores() {
+  const mount = document.getElementById('olseraPendingStoresMount');
+  if (!mount || typeof appState === 'undefined') return;
+
+  const currentDistSlug = (appState.storeSettings && appState.storeSettings.slug) || 'alzam-agency';
+  const apps = (appState.pendingStoreApps || []).filter(a => {
+    return a.recommenderSlug === currentDistSlug || a.recommenderDistributor?.toLowerCase().includes('alzam') || appState.isDevMasterLoggedIn;
+  });
+
+  if (apps.length === 0) {
+    mount.innerHTML = `
+      <div style="text-align: center; padding: 48px 20px; color: #64748b;">
+        <span style="font-size: 3rem; display: block; margin-bottom: 12px;">✨</span>
+        <h3 style="margin: 0 0 8px 0; color: #1e293b; font-size: 1.15rem; font-weight: 800;">Tidak Ada Antrean Pengajuan Toko Baru</h3>
+        <p style="margin: 0; font-size: 0.86rem; color: #64748b; max-width: 480px; margin: 0 auto;">Semua permohonan pembukaan toko Agen yang memilih toko Anda sebagai Distributor Pembina telah selesai diverifikasi &amp; disetujui.</p>
+      </div>
+    `;
+    return;
+  }
+
+  mount.innerHTML = `
+    <div style="margin-bottom: 16px; font-size: 0.86rem; color: #475569;">
+      Terdapat <b style="color: #d97706;">${apps.length} calon mitra</b> yang mengajukan pembukaan toko dan memilih toko Anda sebagai <b>Distributor Pembina</b>:
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+      ${apps.map(app => {
+        const tierObj = (typeof SR12_TIERS !== 'undefined' && SR12_TIERS[app.partnerTier]) || { name: 'Agen Resmi' };
+        return `
+          <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 14px;">
+              <div>
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                  <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #0f172a;">${app.storeName}</h3>
+                  <span style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; padding: 2px 10px; border-radius: 9999px; font-size: 0.72rem; font-weight: 800;">
+                    👑 ${tierObj.name.toUpperCase()} (DISKON 40%)
+                  </span>
+                  <span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 9999px; font-size: 0.7rem; font-weight: 800;">
+                    ⏳ Menunggu Persetujuan Anda
+                  </span>
+                </div>
+                <div style="font-size: 0.82rem; color: #475569; margin-top: 6px;">
+                  👤 Calon Pemilik: <b>${app.storeOwner}</b> &bull; 📍 Wilayah: <b>${app.storeCity}</b>
+                </div>
+                <div style="font-size: 0.8rem; color: #059669; font-weight: 700; margin-top: 3px;">
+                  📱 WhatsApp: +${app.storeWaNumber}
+                </div>
+                ${app.skNumber ? `<div style="font-size: 0.76rem; color: #0369a1; font-family: monospace; font-weight: 700; margin-top: 4px;">📜 No. SK / Kontrak: ${app.skNumber}</div>` : ''}
+                ${app.notes ? `<div style="font-size: 0.76rem; color: #475569; background: #fff; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 6px 10px; margin-top: 8px;">💬 Catatan Pemohon: <i>"${app.notes}"</i></div>` : ''}
+              </div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button type="button" onclick="contactApplicantWA('${app.id}')" style="background: #25d366; color: #fff; border: none; padding: 8px 14px; border-radius: 8px; font-size: 0.78rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(37, 211, 102, 0.25);">
+                  <span>💬</span> Chat WhatsApp
+                </button>
+                <button type="button" onclick="previewSkDocument('${app.id}')" style="background: #0284c7; color: #fff; border: none; padding: 8px 14px; border-radius: 8px; font-size: 0.78rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);">
+                  <span>📄</span> Cek Dokumen SK
+                </button>
+              </div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #e2e8f0; padding-top: 14px; flex-wrap: wrap;">
+              <button type="button" onclick="rejectPendingStore('${app.id}'); renderOlseraPendingStores(); if(typeof updateDistributorPendingBadges==='function') updateDistributorPendingBadges();" style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 9px 18px; border-radius: 8px; font-weight: 700; font-size: 0.8rem; cursor: pointer;">
+                ❌ Tolak Pengajuan
+              </button>
+              <button type="button" onclick="approvePendingStore('${app.id}'); renderOlseraPendingStores(); if(typeof updateDistributorPendingBadges==='function') updateDistributorPendingBadges();" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; border: none; padding: 9px 22px; border-radius: 8px; font-weight: 800; font-size: 0.84rem; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);">
+                <span>✅</span> Setujui &amp; Aktifkan Toko Agen Ini
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+window.renderOlseraPendingStores = renderOlseraPendingStores;
 
 // ==========================================
 // 4. POINT OF SALE (POS) LOGIC
