@@ -75,7 +75,9 @@ async function syncStoresFromSupabase() {
       return null;
     }
 
-    return (data || []).map(row => ({
+    return (data || [])
+      .filter(row => row && row.slug && row.slug !== 'sr12-central' && row.slug !== 'toko-supa-distributor' && !row.slug.startsWith('deleted_') && !row.slug.includes('toko-supa') && row.store_tagline !== '__deleted__')
+      .map(row => ({
       slug: row.slug,
       storeName: row.store_name,
       storeTagline: row.store_tagline || '',
@@ -109,11 +111,34 @@ async function syncStoresFromSupabase() {
 }
 
 /**
+ * Hapus Toko dari Supabase Cloud
+ */
+async function deleteStoreFromSupabase(slug) {
+  const client = initSupabaseClient();
+  if (!client || !slug) return false;
+  try {
+    const { error } = await client
+      .from('stores')
+      .delete()
+      .eq('slug', slug);
+
+    if (error) {
+      console.warn('Supabase delete store error:', error);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.warn('Exception deleting store from Supabase:', e);
+    return false;
+  }
+}
+
+/**
  * Simpan/Update data Toko Resmi ke Supabase Cloud
  */
 async function saveStoreToSupabase(store) {
   const client = initSupabaseClient();
-  if (!client || !store || !store.slug || store.slug === 'sr12-central') return;
+  if (!client || !store || !store.slug || store.slug === 'sr12-central' || store.slug === 'toko-supa-distributor' || store.slug.startsWith('deleted_') || store.slug.includes('toko-supa')) return;
   try {
     const payload = {
       slug: store.slug,
@@ -291,6 +316,7 @@ async function deletePendingStoreFromSupabase(id) {
 window.initSupabaseClient = initSupabaseClient;
 window.syncStoresFromSupabase = syncStoresFromSupabase;
 window.saveStoreToSupabase = saveStoreToSupabase;
+window.deleteStoreFromSupabase = deleteStoreFromSupabase;
 window.syncPendingStoresFromSupabase = syncPendingStoresFromSupabase;
 window.savePendingStoreToSupabase = savePendingStoreToSupabase;
 window.deletePendingStoreFromSupabase = deletePendingStoreFromSupabase;

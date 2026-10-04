@@ -34,7 +34,7 @@ function getStoredPartnerStores() {
     try {
       const parsed = JSON.parse(stored);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        stores = parsed;
+        stores = parsed.filter(s => s && s.slug && s.slug !== 'toko-supa-distributor' && !s.slug.startsWith('deleted_') && !s.slug.includes('toko-supa'));
       }
     } catch (e) {
       console.error('Error parsing stored partner stores:', e);
@@ -369,13 +369,21 @@ function getApiBaseUrl() {
 async function syncStoresWithServer() {
   let changed = false;
 
+  // Bersihkan data toko test/dummy dari memori lokal
+  const cleanLocal = (appState.partnerStores || []).filter(s => s && s.slug && s.slug !== 'toko-supa-distributor' && !s.slug.startsWith('deleted_') && !s.slug.includes('toko-supa'));
+  if (cleanLocal.length !== appState.partnerStores.length) {
+    appState.partnerStores = cleanLocal;
+    saveStoredPartnerStores(appState.partnerStores);
+    changed = true;
+  }
+
   // 1. Sinkronisasi dari Supabase Cloud (jika aktif)
   if (typeof syncStoresFromSupabase === 'function') {
     try {
       const supaStores = await syncStoresFromSupabase();
       if (Array.isArray(supaStores) && supaStores.length > 0) {
         supaStores.forEach(apiStore => {
-          if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central') return;
+          if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central' || apiStore.slug === 'toko-supa-distributor' || apiStore.slug.startsWith('deleted_') || apiStore.slug.includes('toko-supa')) return;
           const idx = appState.partnerStores.findIndex(s => s.slug === apiStore.slug);
           if (idx >= 0) {
             appState.partnerStores[idx] = Object.assign({}, appState.partnerStores[idx], apiStore);
@@ -389,7 +397,7 @@ async function syncStoresWithServer() {
       // Upload toko lokal ke Supabase jika belum ada di Cloud
       if (Array.isArray(supaStores) && typeof saveStoreToSupabase === 'function') {
         const toUploadSupa = appState.partnerStores.filter(localStore => {
-          if (!localStore || !localStore.slug || localStore.slug === 'sr12-central') return false;
+          if (!localStore || !localStore.slug || localStore.slug === 'sr12-central' || localStore.slug === 'toko-supa-distributor' || localStore.slug.startsWith('deleted_') || localStore.slug.includes('toko-supa')) return false;
           return !supaStores.some(s => s.slug === localStore.slug);
         });
         for (const s of toUploadSupa) {
@@ -409,7 +417,7 @@ async function syncStoresWithServer() {
         const data = await res.json();
         if (data && data.success && Array.isArray(data.data)) {
           data.data.forEach(apiStore => {
-            if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central') return;
+            if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central' || apiStore.slug === 'toko-supa-distributor' || apiStore.slug.startsWith('deleted_') || apiStore.slug.includes('toko-supa')) return;
             const idx = appState.partnerStores.findIndex(s => s.slug === apiStore.slug);
             if (idx >= 0) {
               appState.partnerStores[idx] = Object.assign({}, appState.partnerStores[idx], apiStore);
@@ -421,7 +429,7 @@ async function syncStoresWithServer() {
 
           // Upload toko lokal ke local server jika belum ada
           const localStoresToUpload = appState.partnerStores.filter(localStore => {
-            if (!localStore || !localStore.slug || localStore.slug === 'sr12-central') return false;
+            if (!localStore || !localStore.slug || localStore.slug === 'sr12-central' || localStore.slug === 'toko-supa-distributor' || localStore.slug.startsWith('deleted_') || localStore.slug.includes('toko-supa')) return false;
             return !data.data.some(serverStore => serverStore.slug === localStore.slug);
           });
 
@@ -794,7 +802,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     localStorage.setItem('sr12_clean_slate_sim_v5', 'ready');
   }
-  appState.partnerStores = getStoredPartnerStores();
+  appState.partnerStores = getStoredPartnerStores().filter(s => s && s.slug && s.slug !== 'toko-supa-distributor' && !s.slug.startsWith('deleted_') && !s.slug.includes('toko-supa'));
+  saveStoredPartnerStores(appState.partnerStores);
 
   // Reset dummy inflated numbers from previous sessions if present
   let needsStoreSave = false;

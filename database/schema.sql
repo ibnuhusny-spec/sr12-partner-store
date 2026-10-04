@@ -154,6 +154,7 @@ ALTER TABLE platform_ledger ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public read stores" ON stores FOR SELECT USING (true);
 CREATE POLICY "Public insert stores" ON stores FOR INSERT WITH CHECK (true);
 CREATE POLICY "Public update stores" ON stores FOR UPDATE USING (true);
+CREATE POLICY "Public delete stores" ON stores FOR DELETE USING (true);
 
 CREATE POLICY "Public read pending_stores" ON pending_stores FOR SELECT USING (true);
 CREATE POLICY "Public insert pending_stores" ON pending_stores FOR INSERT WITH CHECK (true);
