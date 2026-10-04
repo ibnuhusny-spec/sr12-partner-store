@@ -464,6 +464,17 @@ async function syncStoresWithServer() {
     }
     updateDevPortalMetrics();
   }
+
+  // Auto-switch jika URL meminta toko spesifik (?store=...) tetapi saat awal render belum selesai terunduh dari Cloud
+  const currentUrlParams = new URLSearchParams(window.location.search);
+  const targetUrlStore = currentUrlParams.get('store');
+  if (targetUrlStore && targetUrlStore !== 'sr12-central' && appState.currentStoreSlug !== targetUrlStore) {
+    const matchedStore = appState.partnerStores.find(s => s.slug === targetUrlStore);
+    if (matchedStore) {
+      console.log('🏪 [Auto-Switch URL] Membuka toko mitra sesuai parameter URL:', targetUrlStore);
+      loadStoreBySlug(targetUrlStore);
+    }
+  }
 }
 
 async function syncPendingStoresWithServer() {
@@ -917,7 +928,7 @@ function formatRupiah(amount) {
   return 'Rp\u00A0' + Number(amount || 0).toLocaleString('id-ID');
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   // Sesi Simulasi Bersih Baru: hanya bersihkan jika belum pernah diinisialisasi DAN belum ada toko buatan user
   if (localStorage.getItem('sr12_clean_slate_sim_v5') !== 'ready') {
     const customStores = getStoredPartnerStores().filter(s => s.slug !== 'sr12-central');
@@ -945,6 +956,29 @@ document.addEventListener('DOMContentLoaded', () => {
   if (appState.devMetrics.totalPlatformTransactions >= 3640) {
     appState.devMetrics.totalPlatformTransactions = 0;
     appState.devMetrics.totalGMV = 0;
+  }
+
+  // JIKA URL MEMINTA TOKO SPESIFIK (?store=...) YANG BELUM ADA DI LOCALSTORAGE:
+  // Segera unduh data toko dari Supabase Cloud SEBELUM menentukan toko awal agar langsung terbuka!
+  const urlCheckOnBoot = new URLSearchParams(window.location.search);
+  const requestedSlugOnBoot = urlCheckOnBoot.get('store');
+  if (requestedSlugOnBoot && requestedSlugOnBoot !== 'sr12-central' && !appState.partnerStores.some(s => s.slug === requestedSlugOnBoot)) {
+    if (typeof syncStoresFromSupabase === 'function') {
+      try {
+        const cloudStores = await syncStoresFromSupabase();
+        if (Array.isArray(cloudStores)) {
+          cloudStores.forEach(apiStore => {
+            if (!apiStore || !apiStore.slug) return;
+            const idx = appState.partnerStores.findIndex(s => s.slug === apiStore.slug);
+            if (idx >= 0) appState.partnerStores[idx] = Object.assign({}, appState.partnerStores[idx], apiStore);
+            else appState.partnerStores.push(apiStore);
+          });
+          saveStoredPartnerStores(appState.partnerStores);
+        }
+      } catch(bootFetchErr) {
+        console.warn('Boot store fetch warning:', bootFetchErr);
+      }
+    }
   }
 
   const initSlug = getInitialStoreSlug(appState.partnerStores);
