@@ -1233,6 +1233,13 @@ header.site-header,
   box-sizing: border-box;
 }
 
+.btn-dist-icon-action[style*="display: none"],
+.btn-dist-icon-action[hidden],
+.btn-edit-cover-quick[style*="display: none"],
+.btn-edit-logo-quick[style*="display: none"] {
+  display: none !important;
+}
+
 .btn-dist-icon-action:hover {
   transform: translateY(-2px) scale(1.06);
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16);
@@ -6165,12 +6172,22 @@ html:has(body.modal-open) {
     max-width: 36px !important;
     border-radius: 50% !important;
     padding: 0 !important;
-    display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
     box-sizing: border-box !important;
     font-size: 1.05rem !important;
     flex-shrink: 0 !important;
+  }
+  .distributor-hero-actions > a:not([style*="display: none"]),
+  .distributor-hero-actions > button:not([style*="display: none"]) {
+    display: inline-flex !important;
+  }
+  .distributor-hero-actions > [style*="display: none"],
+  .distributor-hero-actions [style*="display: none"],
+  .btn-dist-icon-action[style*="display: none"],
+  .btn-edit-cover-quick[style*="display: none"],
+  .btn-edit-logo-quick[style*="display: none"] {
+    display: none !important;
   }
 
   .official-central-hub-hero {

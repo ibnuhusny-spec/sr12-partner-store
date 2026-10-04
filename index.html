@@ -18,7 +18,7 @@
   <meta name="twitter:title" content="SR12 Partner Hub - Toko Resmi Herbal Skin Care">
   <meta name="twitter:description" content="Toko resmi kemitraan SR12 Herbal Skin Care terverifikasi BPOM. Dapatkan harga terbaik dan pengiriman cepat.">
   <meta name="twitter:image" content="https://sr12-partner-store.vercel.app/assets/sr12-logo.png">
-  <link rel="stylesheet" href="css/style.css?v=4.4">
+  <link rel="stylesheet" href="css/style.css?v=4.5">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
 </head>
 <body>
@@ -1307,7 +1307,7 @@
       <div class="distributor-hero-cover-wrap">
         <img id="distHeroCoverImg" src="assets/hero-banner.jpg" alt="Latar Belakang Toko" class="distributor-hero-cover-img">
         <div class="distributor-hero-cover-gradient"></div>
-        <button type="button" id="btnEditStoreCover" onclick="openStoreSettingsModalWithFocus('banner')" class="btn-edit-cover-quick" title="Ubah Foto Latar Belakang / Banner Toko">
+        <button type="button" id="btnEditStoreCover" onclick="openStoreSettingsModalWithFocus('banner')" class="btn-edit-cover-quick" title="Ubah Foto Latar Belakang / Banner Toko" style="display: none;">
           <span>📷</span> <span>Ubah Latar Belakang</span>
         </button>
       </div>
@@ -1316,7 +1316,7 @@
         <!-- 1. Logo / Foto Profil Toko di Tengah (Menimpa Latar Belakang / Overlapping Avatar) -->
         <div class="distributor-hero-logo-box">
           <img id="distHeroLogoImg" src="assets/sr12-logo.png" alt="Logo Toko Distributor">
-          <button type="button" id="btnEditStoreLogo" onclick="openStoreSettingsModalWithFocus('logo')" class="btn-edit-logo-quick" title="Ubah Foto Profil / Logo Toko">
+          <button type="button" id="btnEditStoreLogo" onclick="openStoreSettingsModalWithFocus('logo')" class="btn-edit-logo-quick" title="Ubah Foto Profil / Logo Toko" style="display: none;">
             📷
           </button>
         </div>
@@ -1366,9 +1366,6 @@
           <a id="btnDistChatWa" href="https://wa.me/6281234567890" target="_blank" class="btn-dist-icon-action btn-dist-wa-action" title="Hubungi Toko via WhatsApp" aria-label="WhatsApp">
             <span>💬</span>
           </a>
-          <button type="button" id="btnDistShareStore" onclick="openShareStoreModal()" class="btn-dist-icon-action btn-dist-share-action" title="Bagikan Link Toko Ini" aria-label="Bagikan Toko">
-            <span>🔗</span>
-          </button>
           <button type="button" id="btnDistCentralAction" onclick="switchPartnerStore('sr12-central'); window.scrollTo({top: 0, behavior: 'smooth'});" class="btn-dist-icon-action btn-dist-central-action" title="Daftar Cabang / Central Hub" aria-label="Central Hub">
             <span>🏛️</span>
           </button>
@@ -1376,6 +1373,11 @@
           <!-- Tombol Login Resmi Pemilik Toko (Terproteksi Password / PIN) -->
           <button type="button" id="btnDistLoginHero" onclick="openDistributorLoginModal()" class="btn-dist-icon-action btn-dist-login-action" title="Login Pemilik Toko / Distributor (Akses Kasir & Pengaturan)" aria-label="Login Distributor">
             <span>🔐</span>
+          </button>
+
+          <!-- Aksi Rahasia Khusus Admin Distributor (HANYA MUNCUL SETELAH LOGIN PASSWORD/PIN) -->
+          <button type="button" id="btnDistShareStore" onclick="openShareStoreModal()" class="btn-dist-icon-action btn-dist-share-action" title="Bagikan Link Toko Ini" aria-label="Bagikan Toko" style="display: none;">
+            <span>🔗</span>
           </button>
 
           <!-- Aksi Rahasia Khusus Admin Distributor (HANYA MUNCUL SETELAH LOGIN PASSWORD/PIN) -->
@@ -3955,7 +3957,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/supabase-config.js?v=4.4"></script>
   <script src="js/data.js?v=4.4"></script>
-  <script src="js/app.js?v=4.4"></script>
+  <script src="js/app.js?v=4.5"></script>
   <script src="js/olsera-suite.js?v=4.4"></script>
 </body>
 </html>

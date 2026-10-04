@@ -846,8 +846,13 @@ document.addEventListener('DOMContentLoaded', () => {
     window.history.replaceState({ store: initSlug }, '', defaultUrl);
   }
 
-  // Periksa sesi login Distributor resmi tersimpan
-  const savedDistributorSession = localStorage.getItem('sr12_distributor_session');
+  // DEFAULT: Selalu mulai dari MODE PEMBELI UMUM (BERSIH) saat membuka tautan toko!
+  // Mode Pemilik Toko hanya aktif jika pemilik secara eksplisit login di tab ini (sessionStorage)
+  // atau secara eksplisit meminta mode admin lewat ?admin=1
+  const urlParamsCheck = new URLSearchParams(window.location.search);
+  const wantsAdmin = urlParamsCheck.get('admin') === '1' || urlParamsCheck.get('mode') === 'admin';
+  const savedDistributorSession = sessionStorage.getItem('sr12_distributor_session') || (wantsAdmin ? localStorage.getItem('sr12_distributor_session') : null);
+
   if (savedDistributorSession) {
     try {
       const parsedSession = JSON.parse(savedDistributorSession);
@@ -2512,12 +2517,14 @@ async function handleDistributorLoginSubmit(e) {
       appState.isDistributorLoggedIn = true;
 
       try {
-        localStorage.setItem('sr12_distributor_session', JSON.stringify({
+        const sessionPayload = JSON.stringify({
           slug: appState.currentStoreSlug,
           owner: result.store?.storeOwner || appState.storeSettings.storeOwner,
           token: result.session?.token,
           loggedAt: Date.now()
-        }));
+        });
+        sessionStorage.setItem('sr12_distributor_session', sessionPayload);
+        localStorage.setItem('sr12_distributor_session', sessionPayload);
       } catch (err) {}
 
       // Hydrate dari database server
@@ -2553,11 +2560,13 @@ async function handleDistributorLoginSubmit(e) {
     appState.isAdminMode = true;
     appState.isDistributorLoggedIn = true;
     try {
-      localStorage.setItem('sr12_distributor_session', JSON.stringify({
+      const fallbackPayload = JSON.stringify({
         slug: appState.currentStoreSlug,
         owner: store.storeOwner,
         loggedAt: Date.now()
-      }));
+      });
+      sessionStorage.setItem('sr12_distributor_session', fallbackPayload);
+      localStorage.setItem('sr12_distributor_session', fallbackPayload);
     } catch (e) {}
 
     updateViewModeUI();
@@ -2605,6 +2614,7 @@ function handleDistributorLogout() {
   appState.isDistributorLoggedIn = false;
   appState.isOlseraPortalOpen = false;
   try {
+    sessionStorage.removeItem('sr12_distributor_session');
     localStorage.removeItem('sr12_distributor_session');
   } catch (e) {}
 
