@@ -936,6 +936,11 @@ document.addEventListener('DOMContentLoaded', () => {
       showDistributorPortalView(false);
     }
   }
+
+  // Inisialisasi pengontrol gestur geser & penahan scroll latar belakang untuk seluruh modal
+  if (typeof initUniversalModalGestures === 'function') {
+    initUniversalModalGestures();
+  }
 });
 
 function loadStoreBySlug(slug) {
@@ -4013,12 +4018,59 @@ function openWhatsAppPreviewModal(text, url) {
   if (modal) modal.classList.add('open');
 }
 
-function closeModal(modalId) {
+// ========================================================
+// SISTEM KONTROL GESTUR & PENGUNCI SCROLL LATAR MODAL
+// ========================================================
+let isModalHistoryPushed = false;
+
+function openModal(modalId) {
   const modal = document.getElementById(modalId);
-  if (modal) modal.classList.remove('open');
+  if (!modal) return;
+
+  document.body.classList.add('modal-open');
+  modal.classList.add('open');
+
+  const dialog = modal.querySelector('.modal-dialog');
+  if (dialog) {
+    dialog.style.transform = '';
+    dialog.style.opacity = '';
+    dialog.style.transition = '';
+  }
+
+  // Daftarkan ke History Browser agar gestur geser tepi layar (back gesture bawaan HP) otomatis menutup modal
+  try {
+    if (!history.state || history.state.openModalId !== modalId) {
+      history.pushState({ openModalId: modalId, isModal: true }, '');
+      isModalHistoryPushed = true;
+    }
+  } catch(e) {}
+}
+window.openModal = openModal;
+
+function closeModal(modalId, isFromPopstate = false) {
+  const modal = document.getElementById(modalId);
+  if (modal) {
+    modal.classList.remove('open');
+    const dialog = modal.querySelector('.modal-dialog');
+    if (dialog) {
+      dialog.style.transform = '';
+      dialog.style.opacity = '';
+      dialog.style.transition = '';
+    }
+  }
+
+  // Jika ditutup bukan via popstate dan history state tercatat modal, kembalikan history agar bersih
+  if (!isFromPopstate && isModalHistoryPushed && history.state && history.state.isModal) {
+    try {
+      history.back();
+      isModalHistoryPushed = false;
+    } catch(e) {}
+  }
+
   const remainingModals = document.querySelectorAll('.modal-backdrop.open');
   if (remainingModals.length === 0) {
     document.body.classList.remove('modal-open');
+    isModalHistoryPushed = false;
     if (typeof appState !== 'undefined' && appState.activeOlseraTab === 'pos' && appState.posCart && appState.posCart.length > 0) {
       const bBar = document.getElementById('posMobileBottomBar');
       if (bBar) {
@@ -4028,6 +4080,176 @@ function closeModal(modalId) {
     }
   }
 }
+window.closeModal = closeModal;
+
+// Tangkap gestur Back bawaan HP (geser tepi layar kiri/kanan di Android / iOS)
+window.addEventListener('popstate', (e) => {
+  const openModals = Array.from(document.querySelectorAll('.modal-backdrop.open'));
+  if (openModals.length > 0) {
+    const topModal = openModals[openModals.length - 1];
+    closeModal(topModal.id, true);
+  }
+});
+
+function initUniversalModalGestures() {
+  const backdrops = document.querySelectorAll('.modal-backdrop');
+  backdrops.forEach(backdrop => {
+    // 1. Ketuk area gelap di luar kotak modal untuk langsung menutup
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) {
+        closeModal(backdrop.id);
+      }
+    });
+
+    // 2. Kunci total touchmove pada area gelap backdrop agar halaman di belakang TIDAK PERNAH bergerak
+    backdrop.addEventListener('touchmove', (e) => {
+      if (e.target === backdrop) {
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    // 3. Deteksi Gestur Geser Sentuhan Layar (Swipe to Dismiss)
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchStartTime = 0;
+    let isEdgeSwipe = false;
+    let isPullDown = false;
+    let isSwiping = false;
+    let activeDialog = null;
+
+    backdrop.addEventListener('touchstart', (e) => {
+      if (e.touches.length !== 1) return;
+      const touch = e.touches[0];
+      touchStartX = touch.clientX;
+      touchStartY = touch.clientY;
+      touchStartTime = Date.now();
+      activeDialog = backdrop.querySelector('.modal-dialog');
+      if (!activeDialog) return;
+
+      const screenWidth = window.innerWidth;
+      // Sentuhan dari dekat tepi layar (<= 65px dari tepi kiri atau kanan)
+      isEdgeSwipe = (touchStartX <= 65 || touchStartX >= screenWidth - 65);
+      
+      // Sentuhan di bagian atas modal ketika belum di-scroll
+      const scrollTop = activeDialog.scrollTop || 0;
+      isPullDown = (scrollTop <= 5 && touchStartY - activeDialog.getBoundingClientRect().top < 90);
+      isSwiping = false;
+    }, { passive: true });
+
+    backdrop.addEventListener('touchmove', (e) => {
+      if (e.touches.length !== 1 || !activeDialog) return;
+      const touch = e.touches[0];
+      const diffX = touch.clientX - touchStartX;
+      const diffY = touch.clientY - touchStartY;
+      const screenWidth = window.innerWidth;
+
+      // Kasus A: Geser dari tepi layar ke tengah (Edge swipe inward)
+      if (isEdgeSwipe) {
+        const isSwipingInward = (touchStartX <= 65 && diffX > 15) || (touchStartX >= screenWidth - 65 && diffX < -15);
+        if (isSwipingInward && Math.abs(diffX) > Math.abs(diffY)) {
+          isSwiping = true;
+          const moveAmount = touchStartX <= 65 ? Math.min(diffX, 150) : Math.max(diffX, -150);
+          activeDialog.style.transition = 'none';
+          activeDialog.style.transform = `translateX(${moveAmount}px)`;
+          activeDialog.style.opacity = `${Math.max(0.4, 1 - Math.abs(diffX) / 300)}`;
+          e.preventDefault(); // Kunci scroll halaman saat sedang swipe
+          return;
+        }
+      }
+
+      // Kasus B: Geser ke bawah (Pull down to dismiss)
+      if (isPullDown && diffY > 15 && Math.abs(diffY) > Math.abs(diffX)) {
+        isSwiping = true;
+        activeDialog.style.transition = 'none';
+        activeDialog.style.transform = `translateY(${Math.min(diffY, 160)}px)`;
+        activeDialog.style.opacity = `${Math.max(0.4, 1 - diffY / 350)}`;
+        e.preventDefault(); // Kunci scroll agar modal tidak tertarik ke background
+        return;
+      }
+    }, { passive: false });
+
+    backdrop.addEventListener('touchend', (e) => {
+      if (!activeDialog || !isSwiping) {
+        isEdgeSwipe = false;
+        isPullDown = false;
+        isSwiping = false;
+        activeDialog = null;
+        return;
+      }
+
+      const touch = e.changedTouches[0];
+      const diffX = touch.clientX - touchStartX;
+      const diffY = touch.clientY - touchStartY;
+      const screenWidth = window.innerWidth;
+
+      let shouldClose = false;
+
+      // Kondisi tutup 1: Edge swipe melebihi 50px
+      if (isEdgeSwipe) {
+        if (touchStartX <= 65 && diffX > 50) shouldClose = true;
+        if (touchStartX >= screenWidth - 65 && diffX < -50) shouldClose = true;
+      }
+
+      // Kondisi tutup 2: Pull down melebihi 65px
+      if (isPullDown && diffY > 65) {
+        shouldClose = true;
+      }
+
+      if (shouldClose) {
+        activeDialog.style.transition = 'transform 0.22s ease-out, opacity 0.22s ease-out';
+        if (isPullDown && diffY > 60) {
+          activeDialog.style.transform = 'translateY(100%)';
+        } else {
+          activeDialog.style.transform = diffX > 0 ? 'translateX(100%)' : 'translateX(-100%)';
+        }
+        activeDialog.style.opacity = '0';
+        setTimeout(() => {
+          closeModal(backdrop.id);
+          activeDialog.style.transition = '';
+          activeDialog.style.transform = '';
+          activeDialog.style.opacity = '';
+        }, 190);
+      } else {
+        activeDialog.style.transition = 'transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.22s ease';
+        activeDialog.style.transform = '';
+        activeDialog.style.opacity = '';
+        setTimeout(() => {
+          if (activeDialog) activeDialog.style.transition = '';
+        }, 220);
+      }
+
+      isEdgeSwipe = false;
+      isPullDown = false;
+      isSwiping = false;
+      activeDialog = null;
+    }, { passive: true });
+  });
+
+  // Pasang MutationObserver agar jika ada modal yang dibuka via classList.add('open'), otomatis terdaftar
+  const modalObserver = new MutationObserver((mutations) => {
+    mutations.forEach(mutation => {
+      if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+        const target = mutation.target;
+        if (target.classList.contains('modal-backdrop')) {
+          if (target.classList.contains('open')) {
+            document.body.classList.add('modal-open');
+            try {
+              if (!history.state || history.state.openModalId !== target.id) {
+                history.pushState({ openModalId: target.id, isModal: true }, '');
+                isModalHistoryPushed = true;
+              }
+            } catch(e) {}
+          }
+        }
+      }
+    });
+  });
+
+  backdrops.forEach(b => {
+    modalObserver.observe(b, { attributes: true, attributeFilter: ['class'] });
+  });
+}
+window.initUniversalModalGestures = initUniversalModalGestures;
 
 function openProductDetailModal(productId) {
   const prod = appState.products.find(p => p.id === productId);
@@ -6893,11 +7115,7 @@ Silakan klik tautan di atas untuk melihat detail lengkap & pemesanan resmi via W
 
   if (textEl) textEl.value = copyText;
 
-  const modal = document.getElementById('modalProductPromoShare');
-  if (modal) {
-    document.body.classList.add('modal-open');
-    modal.classList.add('open');
-  }
+  openModal('modalProductPromoShare');
 }
 window.openProductPromoShareModal = openProductPromoShareModal;
 
