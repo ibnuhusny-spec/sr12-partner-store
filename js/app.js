@@ -393,7 +393,31 @@ async function syncStoresWithServer() {
   if (typeof syncStoresFromSupabase === 'function') {
     try {
       const supaStores = await syncStoresFromSupabase();
-      if (Array.isArray(supaStores) && supaStores.length > 0) {
+      if (Array.isArray(supaStores)) {
+        const cloudSlugs = new Set(supaStores.map(s => s.slug));
+
+        // A. Hapus toko mitra dari memori lokal jika sudah dihapus dari Supabase Cloud oleh perangkat lain
+        const prevCount = (appState.partnerStores || []).length;
+        appState.partnerStores = (appState.partnerStores || []).filter(localStore => {
+          if (!localStore || !localStore.slug) return false;
+          if (localStore.slug === 'sr12-central') return true;
+          if (deletedSlugs.includes(localStore.slug)) return false;
+          // Toko mitra yang sah harus terdaftar di Supabase Cloud
+          return cloudSlugs.has(localStore.slug);
+        });
+
+        if (appState.partnerStores.length !== prevCount) {
+          changed = true;
+          // Jika toko yang sedang aktif dibuka di perangkat ini ternyata sudah dihapus, alihkan ke pusat
+          if (appState.currentStoreSlug && !cloudSlugs.has(appState.currentStoreSlug) && appState.currentStoreSlug !== 'sr12-central') {
+            switchPartnerStore('sr12-central');
+            if (typeof history !== 'undefined' && history.replaceState) {
+              history.replaceState(null, '', window.location.pathname);
+            }
+          }
+        }
+
+        // B. Update atau tambahkan toko yang ada di Cloud ke memori lokal
         supaStores.forEach(apiStore => {
           if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central' || apiStore.slug === 'toko-supa-distributor' || apiStore.slug.startsWith('deleted_') || apiStore.slug.includes('toko-supa') || deletedSlugs.includes(apiStore.slug)) return;
           const idx = appState.partnerStores.findIndex(s => s.slug === apiStore.slug);
@@ -404,17 +428,6 @@ async function syncStoresWithServer() {
             changed = true;
           }
         });
-      }
-
-      // Upload toko lokal ke Supabase jika belum ada di Cloud
-      if (Array.isArray(supaStores) && typeof saveStoreToSupabase === 'function') {
-        const toUploadSupa = appState.partnerStores.filter(localStore => {
-          if (!localStore || !localStore.slug || localStore.slug === 'sr12-central' || localStore.slug === 'toko-supa-distributor' || localStore.slug.startsWith('deleted_') || localStore.slug.includes('toko-supa') || deletedSlugs.includes(localStore.slug)) return false;
-          return !supaStores.some(s => s.slug === localStore.slug);
-        });
-        for (const s of toUploadSupa) {
-          await saveStoreToSupabase(s);
-        }
       }
     } catch (e) {
       console.warn('Supabase store sync warning:', e);
@@ -438,22 +451,6 @@ async function syncStoresWithServer() {
               changed = true;
             }
           });
-
-          // Upload toko lokal ke local server jika belum ada
-          const localStoresToUpload = appState.partnerStores.filter(localStore => {
-            if (!localStore || !localStore.slug || localStore.slug === 'sr12-central' || localStore.slug === 'toko-supa-distributor' || localStore.slug.startsWith('deleted_') || localStore.slug.includes('toko-supa') || deletedSlugs.includes(localStore.slug)) return false;
-            return !data.data.some(serverStore => serverStore.slug === localStore.slug);
-          });
-
-          for (const storeToUpload of localStoresToUpload) {
-            try {
-              await fetch(getApiBaseUrl() + '/api/stores', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(storeToUpload)
-              });
-            } catch (upErr) {}
-          }
         }
       }
     } catch (err) {}
