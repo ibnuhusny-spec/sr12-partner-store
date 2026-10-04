@@ -3,9 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SR12 Partner Hub - Toko Resmi Herbal Skin Care</title>
-  <meta name="description" content="Toko resmi kemitraan SR12 Herbal Skin Care dengan harga otomatis Reseller, Sub Agen, Agen, & Distributor, serta belanja aman terverifikasi BPOM.">
-  <link rel="stylesheet" href="css/style.css?v=4.1">
+  <title id="pageTitleMeta">SR12 Partner Hub - Toko Resmi Herbal Skin Care</title>
+  <meta name="description" id="pageDescMeta" content="Toko resmi kemitraan SR12 Herbal Skin Care dengan harga otomatis Reseller, Sub Agen, Agen, & Distributor, serta belanja aman terverifikasi BPOM.">
+  <!-- Open Graph / WhatsApp Preview Meta Tags -->
+  <meta property="og:title" id="ogTitleMeta" content="SR12 Partner Hub - Toko Resmi Herbal Skin Care">
+  <meta property="og:description" id="ogDescMeta" content="Toko resmi kemitraan SR12 Herbal Skin Care terverifikasi BPOM. Dapatkan harga terbaik dan pengiriman cepat.">
+  <meta property="og:image" id="ogImageMeta" content="assets/sr12-logo.png">
+  <meta property="og:type" content="website">
+  <link rel="stylesheet" href="css/style.css?v=4.2">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
 </head>
 <body>
@@ -2283,53 +2288,64 @@
     </div>
   </div>
 
-  <!-- 11.6 MODAL: IKLAN PRODUK SIAP SHARE GAYA SHOPEE -->
+  <!-- 11.6 MODAL: PROMOSI PRODUK RESMI SIAP BAGIKAN -->
   <div class="modal-backdrop" id="modalProductPromoShare">
-    <div class="modal-dialog" style="max-width: 540px;">
+    <div class="modal-dialog" style="max-width: 530px;">
       <div class="modal-header" style="background: linear-gradient(135deg, #ea580c, #c2410c); color: #fff;">
         <div style="display: flex; align-items: center; gap: 10px;">
-          <span style="font-size: 1.4rem;">🛍️</span>
+          <span style="font-size: 1.35rem;">🛍️</span>
           <div>
-            <h3 style="margin: 0; font-size: 1.05rem; color: #fff; font-weight: 800;">Iklan Promosi Produk (Gaya Shopee)</h3>
-            <p style="margin: 2px 0 0 0; font-size: 0.74rem; color: #ffedd5;">Siap disebarkan ke WhatsApp, Instagram, Facebook, &amp; TikTok.</p>
+            <h3 style="margin: 0; font-size: 1.05rem; color: #fff; font-weight: 800;">Bagikan &amp; Promosikan Produk</h3>
+            <p style="margin: 2px 0 0 0; font-size: 0.74rem; color: #ffedd5;">Siap disebarkan ke WhatsApp, Instagram, Facebook, &amp; Media Sosial.</p>
           </div>
         </div>
         <button class="btn-close-modal" onclick="closeModal('modalProductPromoShare')" style="color: #fff;">&times;</button>
       </div>
 
       <div class="modal-body" style="padding: 18px;">
-        <!-- 1. KARTU PREVIEW GAYA SHOPEE -->
+        <!-- 1. KARTU PREVIEW PRODUK RESMI -->
         <div style="background: #ffffff; border: 1.5px solid #fed7aa; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 18px rgba(234, 88, 12, 0.08); margin-bottom: 16px;">
-          <!-- Top Shopee Badge Bar -->
+          <!-- Top Badge Bar -->
           <div style="background: #fff7ed; padding: 8px 14px; border-bottom: 1px solid #ffedd5; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
             <div style="display: flex; align-items: center; gap: 6px;">
-              <span style="background: #ea580c; color: #fff; font-size: 0.68rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.5px;">SHOPEE STYLE</span>
-              <span style="background: #fef08a; color: #854d0e; font-size: 0.68rem; font-weight: 800; padding: 2px 6px; border-radius: 4px;">⭐ 4.9 (2.4k Terjual)</span>
+              <span style="background: #ea580c; color: #fff; font-size: 0.68rem; font-weight: 900; padding: 2px 7px; border-radius: 4px; letter-spacing: 0.5px;">PRODUK RESMI</span>
+              <span style="background: #fef08a; color: #854d0e; font-size: 0.68rem; font-weight: 800; padding: 2px 6px; border-radius: 4px;">⭐ 4.9 (Teruji &amp; Terlaris)</span>
             </div>
-            <span style="font-size: 0.68rem; color: #15803d; font-weight: 800;">🚚 Gratis Ongkir XTRA</span>
+            <span style="font-size: 0.68rem; color: #15803d; font-weight: 800;">🚚 Pengiriman Cepat &amp; Aman</span>
           </div>
 
           <!-- Product Media & Details Grid -->
-          <div style="padding: 14px; display: grid; grid-template-columns: 100px 1fr; gap: 14px; align-items: start;">
-            <div style="width: 100px; height: 100px; border-radius: 10px; background: #f8fafc; border: 1px solid #e2e8f0; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+          <div style="padding: 14px; display: grid; grid-template-columns: 105px 1fr; gap: 14px; align-items: start;">
+            <div style="width: 105px; height: 105px; border-radius: 10px; background: #f8fafc; border: 1px solid #e2e8f0; overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
               <img id="promoShareImage" src="" alt="Produk" style="width: 100%; height: 100%; object-fit: contain;">
             </div>
-            <div>
+            <div style="min-width: 0;">
               <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
                 <span style="background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; font-size: 0.65rem; font-weight: 800; padding: 1px 6px; border-radius: 4px;">🌿 BPOM ASLI</span>
                 <span id="promoShareCategory" style="font-size: 0.7rem; color: #64748b; font-weight: 600;">Body Care</span>
               </div>
-              <h4 id="promoShareTitle" style="margin: 0 0 6px 0; font-size: 0.96rem; font-weight: 800; color: #0f172a; line-height: 1.35;">Nama Produk</h4>
+              <h4 id="promoShareTitle" style="margin: 0 0 6px 0; font-size: 0.98rem; font-weight: 800; color: #0f172a; line-height: 1.35;">Nama Produk</h4>
               <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
                 <span id="promoSharePrice" style="font-size: 1.15rem; font-weight: 900; color: #ea580c;">Rp 0</span>
                 <span id="promoShareHet" style="font-size: 0.74rem; color: #94a3b8; text-decoration: line-through;">Rp 0</span>
               </div>
-              <p id="promoShareDesc" style="margin: 0; font-size: 0.76rem; color: #475569; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">Deskripsi singkat...</p>
+              <p id="promoShareDesc" style="margin: 0 0 8px 0; font-size: 0.76rem; color: #475569; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">Deskripsi singkat...</p>
+
+              <!-- Link Khusus Produk Langsung -->
+              <div style="background: #f1f5f9; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 5px 8px; display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+                <div style="display: flex; align-items: center; gap: 5px; min-width: 0; overflow: hidden;">
+                  <span style="font-size: 0.8rem; flex-shrink: 0;">🔗</span>
+                  <span id="promoShareDirectLink" style="font-family: monospace; font-size: 0.7rem; color: #0284c7; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">https://...</span>
+                </div>
+                <button type="button" onclick="copyProductDirectLink()" style="background: #e2e8f0; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 6px; padding: 3px 8px; font-size: 0.68rem; font-weight: 700; cursor: pointer; flex-shrink: 0;" title="Salin tautan produk ini saja">
+                  Salin Link
+                </button>
+              </div>
             </div>
           </div>
 
-          <!-- Shopee Guarantee Footer -->
-          <div style="background: #f8fafc; border-top: 1px solid #f1f5f9; padding: 8px 14px; font-size: 0.72rem; color: #475569; display: flex; align-items: center; justify-content: space-between;">
+          <!-- Guarantee Footer -->
+          <div style="background: #f8fafc; border-top: 1px solid #f1f5f9; padding: 8px 14px; font-size: 0.72rem; color: #475569; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px;">
             <span>🛡️ <b>Garansi 100% Produk Original</b> PT. SR12 Herbal</span>
             <span style="color: #ea580c; font-weight: 700;">Toko Resmi Terverifikasi ✓</span>
           </div>
@@ -2339,21 +2355,33 @@
         <div style="margin-bottom: 14px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
             <label style="font-size: 0.78rem; font-weight: 800; color: #334155;">📝 Teks Iklan Promosi (Siap Copy &amp; Paste):</label>
-            <span style="font-size: 0.7rem; color: #059669; font-weight: 700;">Sudah include link toko Anda!</span>
+            <span style="font-size: 0.7rem; color: #059669; font-weight: 700;">Sudah include link produk!</span>
           </div>
           <textarea id="promoShareCopywritingText" rows="6" readonly style="width: 100%; box-sizing: border-box; font-family: monospace; font-size: 0.78rem; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; background: #f8fafc; color: #1e293b; line-height: 1.45; resize: none;"></textarea>
         </div>
 
-        <!-- 3. TOMBOL AKSI CEPAT PROMOSI -->
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button type="button" id="btnSharePromoWA" onclick="sharePromoToWhatsApp()" style="flex: 1; min-width: 150px; background: #25d366; color: #fff; border: none; padding: 11px 16px; border-radius: 8px; font-weight: 800; font-size: 0.84rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 14px rgba(37, 211, 102, 0.35);">
-            <span>💬</span> Share WhatsApp
+        <!-- 3. TOMBOL AKSI CEPAT PROMOSI (ICON SAJA) -->
+        <div class="promo-share-actions-row">
+          <button type="button" id="btnSharePromoWA" onclick="sharePromoToWhatsApp()" class="btn-promo-icon-action btn-promo-wa" title="Bagikan ke WhatsApp" aria-label="Share WhatsApp">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17.472 14.382c-.301-.15-1.78-.878-2.056-.978-.275-.1-.476-.15-.676.15-.2.301-.776.978-.952 1.179-.175.2-.351.226-.652.075-.301-.15-1.272-.469-2.423-1.496-.896-.799-1.501-1.786-1.677-2.087-.175-.301-.019-.464.132-.614.135-.135.301-.351.451-.527.15-.176.2-.301.301-.502.101-.2.05-.376-.025-.526-.075-.15-.677-1.63-.928-2.233-.244-.588-.493-.508-.677-.518l-.578-.01c-.2 0-.527.075-.802.376-.276.301-1.053 1.028-1.053 2.508 0 1.48 1.079 2.909 1.229 3.11 0 .001.001.001.001.002.15.201 2.122 3.24 5.141 4.544 3.018 1.304 3.018.869 3.57.819.551-.05 1.78-.727 2.03-1.43.251-.702.251-1.304.176-1.43-.076-.125-.276-.201-.577-.351z"/>
+              <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2.05 21.61a.8.8 0 00.99.987l4.577-1.332A9.957 9.957 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm-8 10c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8a7.962 7.962 0 01-4.223-1.205.8.8 0 00-.59-.092l-3.082.897.864-2.97a.8.8 0 00-.098-.636A7.957 7.957 0 014 12z"/>
+            </svg>
           </button>
-          <button type="button" onclick="copyPromoCopywriting()" style="flex: 1; min-width: 140px; background: linear-gradient(135deg, #ea580c, #c2410c); color: #fff; border: none; padding: 11px 16px; border-radius: 8px; font-weight: 800; font-size: 0.84rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 14px rgba(234, 88, 12, 0.35);">
-            <span>📋</span> Salin Iklan
+          <button type="button" onclick="copyPromoCopywriting()" class="btn-promo-icon-action btn-promo-copy" title="Salin Iklan Lengkap &amp; Link Produk" aria-label="Salin Iklan">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
           </button>
-          <button type="button" onclick="sharePromoNative()" style="background: #0284c7; color: #fff; border: none; padding: 11px 16px; border-radius: 8px; font-weight: 800; font-size: 0.84rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
-            <span>📲</span> Share HP
+          <button type="button" onclick="sharePromoNative()" class="btn-promo-icon-action btn-promo-share" title="Bagikan via Aplikasi Lain di HP" aria-label="Share HP">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="18" cy="5" r="3"></circle>
+              <circle cx="6" cy="12" r="3"></circle>
+              <circle cx="18" cy="19" r="3"></circle>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+            </svg>
           </button>
         </div>
       </div>
@@ -3874,9 +3902,9 @@
 
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=4.1"></script>
-  <script src="js/data.js?v=4.1"></script>
-  <script src="js/app.js?v=4.1"></script>
-  <script src="js/olsera-suite.js?v=4.1"></script>
+  <script src="js/supabase-config.js?v=4.2"></script>
+  <script src="js/data.js?v=4.2"></script>
+  <script src="js/app.js?v=4.2"></script>
+  <script src="js/olsera-suite.js?v=4.2"></script>
 </body>
 </html>

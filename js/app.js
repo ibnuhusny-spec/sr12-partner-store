@@ -886,6 +886,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   renderTierQuickBanner();
   renderProducts();
+  handleDirectProductDeepLink();
   renderRewards();
   renderMarketingKits();
   // Bersihkan data dummy lama untuk simulasi bersih (Mitra, Marketer, Kasflow, Transaksi)
@@ -3386,14 +3387,17 @@ function renderProducts() {
           </div>
 
           <div class="card-actions">
-            <button class="btn-add-cart" onclick="addToCart('${prod.id}')" title="Tambah ${prod.name} ke Keranjang">
-              <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-              <span class="btn-add-cart-text">Beli</span>
+            <button type="button" class="btn-product-capsule btn-product-capsule-cart" onclick="addToCart('${prod.id}')" title="Tambah ${prod.name} ke Keranjang" aria-label="Beli">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
             </button>
-            <button class="btn-detail-preview" title="Lihat Detail Produk" onclick="${appState.isAdminMode ? `openEditProductModal('${prod.id}')` : `openProductDetailModal('${prod.id}')`}">
-              ${appState.isAdminMode ? '✏️' : '👁️'}
+            <button type="button" class="btn-product-capsule btn-product-capsule-detail" onclick="${appState.isAdminMode ? `openEditProductModal('${prod.id}')` : `openProductDetailModal('${prod.id}')`}" title="${appState.isAdminMode ? 'Ubah Detail / Foto Produk' : 'Lihat Detail Produk'}" aria-label="Detail">
+              ${appState.isAdminMode ? `
+                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+              ` : `
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              `}
             </button>
-            <button type="button" class="btn-product-share-icon" onclick="openProductPromoShareModal('${prod.id}')" title="Bagikan & Iklankan Produk Ini (Gaya Shopee)">
+            <button type="button" class="btn-product-capsule btn-product-capsule-share" onclick="openProductPromoShareModal('${prod.id}')" title="Bagikan &amp; Promosikan Produk Ini" aria-label="Bagikan">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M15 8l5 4-5 4"/>
                 <path d="M20 12H9a5 5 0 0 0-5 5v2"/>
@@ -6813,7 +6817,7 @@ window.syncStoresWithServer = syncStoresWithServer;
 window.syncPendingStoresWithServer = syncPendingStoresWithServer;
 
 // ==========================================
-// PROMO SHARE GAYA SHOPEE UNTUK SETIAP PRODUK
+// PROMOSI RESMI PRODUK (LINK KHUSUS & KARTU PREVIEW)
 // ==========================================
 let currentPromoShareData = null;
 
@@ -6826,12 +6830,15 @@ function openProductPromoShareModal(productId) {
   const cleanSlug = curStore.slug || 'sr12-central';
   const tierPrice = getProductTierPrice(prod, appState.currentTier);
   const isPromo = prod.het > tierPrice;
+  // Link khusus produk unik (menautkan langsung ke toko dan ID produk ini)
+  const productUrl = `${window.location.origin}${window.location.pathname}?store=${cleanSlug}&product=${prod.id}`;
   const storeUrl = `${window.location.origin}${window.location.pathname}?store=${cleanSlug}`;
 
   currentPromoShareData = {
     prod,
     storeName,
     tierPrice,
+    productUrl,
     storeUrl
   };
 
@@ -6841,6 +6848,7 @@ function openProductPromoShareModal(productId) {
   const priceEl = document.getElementById('promoSharePrice');
   const hetEl = document.getElementById('promoShareHet');
   const descEl = document.getElementById('promoShareDesc');
+  const linkEl = document.getElementById('promoShareDirectLink');
   const textEl = document.getElementById('promoShareCopywritingText');
 
   if (imgEl) imgEl.src = prod.image;
@@ -6856,6 +6864,10 @@ function openProductPromoShareModal(productId) {
     }
   }
   if (descEl) descEl.textContent = prod.summary || (prod.benefits && prod.benefits[0]) || '';
+  if (linkEl) {
+    linkEl.textContent = productUrl;
+    linkEl.title = productUrl;
+  }
 
   const benefitsText = (prod.benefits && prod.benefits.length > 0)
     ? prod.benefits.slice(0, 3).map(b => `✅ ${b}`).join('\n')
@@ -6863,21 +6875,21 @@ function openProductPromoShareModal(productId) {
 
   const copyText = 
 `✨ *PROMO SPESIAL: ${prod.name.toUpperCase()}* ✨
-${prod.summary || 'Produk perawatan kulit herbal berkualitas resmi SR12.'} 🌿
+${prod.summary || 'Produk perawatan herbal berkualitas resmi SR12 teruji klinis dan BPOM.'} 🌿
 
 ⭐ *Rating Pembeli:* 4.9 / 5.0 (Terbukti Berkhasiat)
-🛡️ *Izin Edar:* 100% Terverifikasi BPOM & Halal MUI
+🛡️ *Izin Edar Resmi:* 100% Terverifikasi BPOM & Halal MUI
 
 🔥 *Keunggulan Produk:*
 ${benefitsText}
 
-💰 *Harga Promo Toko:* ${formatRupiah(tierPrice)}${isPromo ? ` (Harga Normal: ~${formatRupiah(prod.het)}~)` : ''}
+💰 *Harga Spesial:* ${formatRupiah(tierPrice)}${isPromo ? ` (Harga Normal: ~${formatRupiah(prod.het)}~)` : ''}
 🚚 *Pengiriman Cepat, Aman & Garansi Original!*
 
-👇 *Pesan Langsung di Toko Resmi Kami (${storeName}):*
-${storeUrl}
+👇 *Beli & Lihat Detail Produk Langsung di Toko Resmi (${storeName}):*
+${productUrl}
 
-Silakan klik link di atas untuk melihat katalog lengkap & langsung order via WhatsApp! 🌸`;
+Silakan klik tautan di atas untuk melihat detail lengkap & pemesanan resmi via WhatsApp! 🌸`;
 
   if (textEl) textEl.value = copyText;
 
@@ -6888,6 +6900,16 @@ Silakan klik link di atas untuk melihat katalog lengkap & langsung order via Wha
   }
 }
 window.openProductPromoShareModal = openProductPromoShareModal;
+
+function copyProductDirectLink() {
+  if (!currentPromoShareData || !currentPromoShareData.productUrl) return;
+  navigator.clipboard.writeText(currentPromoShareData.productUrl).then(() => {
+    showToast('🔗 Link khusus produk berhasil disalin!');
+  }).catch(() => {
+    showToast('Link khusus produk disalin!');
+  });
+}
+window.copyProductDirectLink = copyProductDirectLink;
 
 function sharePromoToWhatsApp() {
   if (!currentPromoShareData) return;
@@ -6903,7 +6925,7 @@ function copyPromoCopywriting() {
   if (!textEl) return;
   textEl.select();
   navigator.clipboard.writeText(textEl.value).then(() => {
-    showToast('📋 Teks iklan & link toko berhasil disalin!');
+    showToast('📋 Teks iklan & link khusus produk berhasil disalin!');
   }).catch(() => {
     showToast('Teks iklan disalin!');
   });
@@ -6918,12 +6940,53 @@ function sharePromoNative() {
     navigator.share({
       title: currentPromoShareData.prod.name,
       text: text,
-      url: currentPromoShareData.storeUrl
+      url: currentPromoShareData.productUrl
     }).catch(() => {});
   } else {
     copyPromoCopywriting();
   }
 }
 window.sharePromoNative = sharePromoNative;
+
+// ==========================================
+// DEEP-LINKING PRODUK SPESIFIK (?product=...)
+// ==========================================
+function handleDirectProductDeepLink() {
+  const params = new URLSearchParams(window.location.search);
+  const productParam = params.get('product') || params.get('p') || params.get('prod');
+  if (!productParam) return;
+
+  const prod = (appState.products || []).find(p => 
+    p.id.toLowerCase() === productParam.toLowerCase() ||
+    (p.slug && p.slug.toLowerCase() === productParam.toLowerCase()) ||
+    p.name.toLowerCase().replace(/\s+/g, '-').includes(productParam.toLowerCase())
+  );
+
+  if (prod) {
+    // Perbarui judul tab browser dan meta tag Open Graph sesuai produk
+    const pageTitle = document.getElementById('pageTitleMeta');
+    const ogTitle = document.getElementById('ogTitleMeta');
+    const ogDesc = document.getElementById('ogDescMeta');
+    const ogImage = document.getElementById('ogImageMeta');
+    const storeName = appState.storeSettings?.storeName || 'SR12 Official';
+
+    if (pageTitle) pageTitle.textContent = `${prod.name} | ${storeName}`;
+    if (ogTitle) ogTitle.content = `${prod.name} - ${storeName}`;
+    if (ogDesc) ogDesc.content = prod.summary || `Beli ${prod.name} resmi BPOM di ${storeName}.`;
+    if (ogImage && prod.image) ogImage.content = prod.image;
+
+    // Gulir halus ke kartu produk dan berikan efek sorotan, lalu buka modal detail
+    setTimeout(() => {
+      const card = document.getElementById(`card-${prod.id}`);
+      if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.classList.add('product-card-highlighted');
+        setTimeout(() => card.classList.remove('product-card-highlighted'), 3000);
+      }
+      openProductDetailModal(prod.id);
+    }, 450);
+  }
+}
+window.handleDirectProductDeepLink = handleDirectProductDeepLink;
 
 
