@@ -1000,6 +1000,18 @@ document.addEventListener('DOMContentLoaded', () => {
     syncStoresWithServer();
     syncPendingStoresWithServer();
   });
+
+  // Listener WebSocket Cloud Instan: Ketika ada perubahan toko/antrean di HP/Laptop lain, langsung sinkron seketika
+  if (typeof subscribeToStoreChanges === 'function') {
+    try {
+      subscribeToStoreChanges(() => {
+        syncStoresWithServer();
+        syncPendingStoresWithServer();
+      });
+    } catch(subErr) {
+      console.warn('Realtime subscription trigger error:', subErr);
+    }
+  }
   renderTierQuickBanner();
   renderProducts();
   handleDirectProductDeepLink();

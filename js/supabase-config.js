@@ -318,6 +318,30 @@ async function deletePendingStoreFromSupabase(id) {
   }
 }
 
+/**
+ * Realtime Listener untuk sinkronisasi otomatis instan antar perangkat (HP & Laptop)
+ */
+function subscribeToStoreChanges(onStoreChanged) {
+  const client = initSupabaseClient();
+  if (!client || typeof client.channel !== 'function') return null;
+  try {
+    const channel = client.channel('sr12-cloud-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stores' }, (payload) => {
+        console.log('⚡ [Realtime Cloud] Perubahan Toko Terdeteksi:', payload.eventType);
+        if (typeof onStoreChanged === 'function') onStoreChanged(payload);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pending_stores' }, (payload) => {
+        console.log('⚡ [Realtime Cloud] Perubahan Antrean Terdeteksi:', payload.eventType);
+        if (typeof onStoreChanged === 'function') onStoreChanged(payload);
+      })
+      .subscribe();
+    return channel;
+  } catch (e) {
+    console.warn('Realtime subscription warning:', e);
+    return null;
+  }
+}
+
 // Window global exports
 window.initSupabaseClient = initSupabaseClient;
 window.syncStoresFromSupabase = syncStoresFromSupabase;
@@ -327,3 +351,5 @@ window.syncPendingStoresFromSupabase = syncPendingStoresFromSupabase;
 window.savePendingStoreToSupabase = savePendingStoreToSupabase;
 window.deletePendingStoreFromSupabase = deletePendingStoreFromSupabase;
 window.uploadProductImageToSupabase = uploadProductImageToSupabase;
+window.subscribeToStoreChanges = subscribeToStoreChanges;
+
