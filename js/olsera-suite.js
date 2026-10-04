@@ -1548,6 +1548,9 @@ function renderPosTransactions(filter = 'all') {
               ✅ Konfirmasi
             </button>
           ` : ''}
+          <button onclick="deleteTransactionEntry('${t.id}')" style="background: none; border: none; color: #ef4444; font-size: 0.85rem; cursor: pointer; margin-left: 6px;" title="Hapus Riwayat Transaksi Ini">
+            🗑️
+          </button>
         </td>
       </tr>
     `;
@@ -1588,6 +1591,17 @@ function confirmWebOrder(trxId) {
   }
 }
 window.confirmWebOrder = confirmWebOrder;
+
+function deleteTransactionEntry(trxId) {
+  if (typeof appState === 'undefined') return;
+  if (!confirm(`⚠️ Hapus riwayat transaksi ${trxId}?`)) return;
+  appState.transactions = (appState.transactions || []).filter(t => t.id !== trxId);
+  saveStoredTransactions(appState.transactions);
+  renderPosTransactions();
+  if (typeof updateAdminNotificationUI === 'function') updateAdminNotificationUI();
+  if (typeof showToast === 'function') showToast(`🗑️ Transaksi ${trxId} telah dihapus.`);
+}
+window.deleteTransactionEntry = deleteTransactionEntry;
 
 function clearAllTransactionsHistory() {
   if (!confirm('⚠️ Anda yakin ingin mengosongkan seluruh Riwayat Transaksi Kasir POS & Pesanan Web?\n\nSemua riwayat transaksi akan dihapus untuk simulasi baru.')) {
@@ -1717,6 +1731,9 @@ function renderInventoryTable() {
             <button onclick="openEditProductModal('${p.id}')" style="background: #f1f5f9; border: 1px solid #cbd5e1; color: #334155; padding: 4px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; cursor: pointer;" title="Edit Produk">
               ✏️
             </button>
+            <button onclick="deleteProduct('${p.id}')" style="background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 4px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; cursor: pointer;" title="Hapus Produk dari Inventori">
+              🗑️
+            </button>
           </div>
         </td>
       </tr>
@@ -1816,8 +1833,11 @@ function renderCashflowTable() {
         <td data-label="Nominal" style="font-weight: 800; color: ${isIn ? '#059669' : '#dc2626'}; font-size: 0.9rem;">
           ${isIn ? '+' : '-'} Rp ${Number(r.amount).toLocaleString('id-ID')}
         </td>
-        <td data-label="Aksi" style="text-align: center;">
-          <button onclick="deleteCashflowEntry('${r.id}')" style="background: none; border: none; color: #ef4444; font-size: 0.85rem; cursor: pointer;" title="Hapus">
+        <td data-label="Aksi" style="text-align: center; white-space: nowrap;">
+          <button onclick="openEditCashflowModal('${r.id}')" style="background: none; border: none; color: #475569; font-size: 0.85rem; cursor: pointer; margin-right: 6px;" title="Edit Catatan Kas">
+            ✏️
+          </button>
+          <button onclick="deleteCashflowEntry('${r.id}')" style="background: none; border: none; color: #ef4444; font-size: 0.85rem; cursor: pointer;" title="Hapus Catatan Kas">
             🗑️
           </button>
         </td>
@@ -1871,6 +1891,8 @@ function openAddCashflowModal(type = 'in') {
     `;
   }
 
+  delete appState.activeEditingCashflowId;
+
   const accSelect = document.getElementById('cashflowAccountInput');
   if (accSelect) {
     accSelect.value = 'CASH';
@@ -1881,6 +1903,31 @@ function openAddCashflowModal(type = 'in') {
 
   modal.classList.add('open');
 }
+
+function openEditCashflowModal(id) {
+  if (typeof appState === 'undefined') return;
+  const entry = (appState.cashflow || []).find(c => c.id === id);
+  if (!entry) return;
+  openAddCashflowModal(entry.type || 'in');
+
+  appState.activeEditingCashflowId = id;
+  const title = document.getElementById('modalCashflowTitle');
+  if (title) title.textContent = '✏️ Edit Catatan Buku Kas';
+  const catInput = document.getElementById('cashflowCategoryInput');
+  const accInput = document.getElementById('cashflowAccountInput');
+  const amountInput = document.getElementById('cashflowAmountInput');
+  const notesInput = document.getElementById('cashflowNotesInput');
+  const btnSubmit = document.getElementById('btnSubmitCashflow');
+
+  if (catInput) catInput.value = entry.category;
+  if (accInput && entry.account) accInput.value = entry.account;
+  if (amountInput) amountInput.value = entry.amount;
+  if (notesInput) {
+    notesInput.value = (entry.notes || '').replace(/\s*\[.*\]$/, '').trim();
+  }
+  if (btnSubmit) btnSubmit.textContent = 'Simpan Perubahan';
+}
+window.openEditCashflowModal = openEditCashflowModal;
 
 function handleSaveCashflowSubmit(e) {
   if (e) e.preventDefault();
@@ -1896,6 +1943,24 @@ function handleSaveCashflowSubmit(e) {
   if (amount <= 0) {
     showToast('⚠️ Nominal kas harus lebih dari Rp 0!');
     return;
+  }
+
+  // Jika sedang mode edit catatan yang sudah ada
+  if (appState.activeEditingCashflowId) {
+    const existing = (appState.cashflow || []).find(c => c.id === appState.activeEditingCashflowId);
+    if (existing) {
+      existing.type = type;
+      existing.account = account;
+      existing.category = category;
+      existing.amount = amount;
+      existing.notes = `${notes} [${account === 'CASH' ? 'Kas Tunai' : 'Transfer Bank'}]`;
+      saveStoredCashflow(appState.cashflow);
+      delete appState.activeEditingCashflowId;
+      closeModal('modalAddCashflow');
+      renderCashflowTable();
+      showToast('✅ Catatan buku kas berhasil diperbarui!');
+      return;
+    }
   }
 
   const now = new Date();

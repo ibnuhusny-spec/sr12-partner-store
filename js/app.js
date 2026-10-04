@@ -581,8 +581,26 @@ function getStoredStoreSettings() {
   return res;
 }
 
+// Satu kali pembersihan otomatis seluruh data simulasi lama untuk transisi ke 44 produk resmi
+(function autoPurgeOldDataOnVersionUpgrade() {
+  if (!localStorage.getItem('sr12_cleaned_v4')) {
+    localStorage.removeItem('sr12_all_products_v3');
+    localStorage.removeItem('sr12_pos_transactions_v1');
+    localStorage.removeItem('sr12_customer_orders');
+    localStorage.removeItem('sr12_cashflow_records_v1');
+    localStorage.removeItem('sr12_stock_mutations_v1');
+    localStorage.removeItem('sr12_cashier_attendance_v1');
+    localStorage.removeItem('sr12_active_cashier_shift_v1');
+    localStorage.removeItem('sr12_cart');
+    localStorage.setItem('sr12_cleaned_v4', 'true');
+    if (typeof DEFAULT_SR12_PRODUCTS !== 'undefined') {
+      localStorage.setItem('sr12_all_products_v4', JSON.stringify(DEFAULT_SR12_PRODUCTS));
+    }
+  }
+})();
+
 function getStoredProducts() {
-  const stored = localStorage.getItem('sr12_all_products_v3');
+  const stored = localStorage.getItem('sr12_all_products_v4');
   let list = [];
   if (stored) {
     try {
@@ -594,14 +612,8 @@ function getStoredProducts() {
       console.error(e);
     }
   }
-  if (list.length === 0) {
+  if (list.length === 0 && typeof DEFAULT_SR12_PRODUCTS !== 'undefined') {
     list = [...DEFAULT_SR12_PRODUCTS];
-  } else {
-    DEFAULT_SR12_PRODUCTS.forEach(dp => {
-      if (!list.some(p => p.id === dp.id)) {
-        list.push(dp);
-      }
-    });
   }
 
   // Sinkronisasi otomatis field het, price, dan default stock
@@ -609,7 +621,7 @@ function getStoredProducts() {
     const val = Number(p.het || p.price || p.het_price) || 0;
     p.het = val;
     p.price = val;
-    if (typeof p.stock === 'undefined') p.stock = 100;
+    if (typeof p.stock === 'undefined') p.stock = 50;
   });
 
   saveStoredProducts(list);
@@ -617,9 +629,69 @@ function getStoredProducts() {
 }
 
 function saveStoredProducts(productsList) {
-  localStorage.setItem('sr12_all_products_v3', JSON.stringify(productsList));
+  localStorage.setItem('sr12_all_products_v4', JSON.stringify(productsList));
 }
 window.saveStoredProducts = saveStoredProducts;
+
+function openAddProductModal() {
+  const m = document.getElementById('modalAddProduct');
+  if (m) {
+    document.body.classList.add('modal-open');
+    m.classList.add('open');
+    const nameInput = document.getElementById('newProdName');
+    if (nameInput) setTimeout(() => nameInput.focus(), 200);
+  }
+}
+window.openAddProductModal = openAddProductModal;
+
+function deleteProduct(productId) {
+  if (typeof appState === 'undefined') return;
+  const prod = (appState.products || []).find(p => p.id === productId);
+  if (!prod) return;
+  if (!confirm(`⚠️ Hapus produk "${prod.name}" dari inventori toko?\n\nProduk ini akan dihapus dari etalase toko online dan kasir POS.`)) {
+    return;
+  }
+  appState.products = appState.products.filter(p => p.id !== productId);
+  saveStoredProducts(appState.products);
+  if (typeof renderProducts === 'function') renderProducts();
+  if (typeof renderInventoryTable === 'function') renderInventoryTable();
+  if (typeof renderPosProducts === 'function') renderPosProducts();
+  if (typeof updateCartUI === 'function') updateCartUI();
+  if (typeof showToast === 'function') showToast(`🗑️ Produk "${prod.name}" berhasil dihapus dari inventori.`);
+}
+window.deleteProduct = deleteProduct;
+
+function resetAllAppData(confirmFirst = true) {
+  if (confirmFirst && !confirm('⚠️ PERINGATAN: Kosongkan seluruh data aplikasi?\n\nSemua riwayat transaksi kasir, buku kas masuk-keluar, kartu mutasi stok, dan keranjang belanja akan dikosongkan. Inventori akan direset ke 44 produk resmi SR12.')) {
+    return;
+  }
+  localStorage.removeItem('sr12_pos_transactions_v1');
+  localStorage.removeItem('sr12_customer_orders');
+  localStorage.removeItem('sr12_cashflow_records_v1');
+  localStorage.removeItem('sr12_stock_mutations_v1');
+  localStorage.removeItem('sr12_cashier_attendance_v1');
+  localStorage.removeItem('sr12_active_cashier_shift_v1');
+  localStorage.removeItem('sr12_cart');
+  localStorage.setItem('sr12_all_products_v4', JSON.stringify(DEFAULT_SR12_PRODUCTS));
+  
+  if (typeof appState !== 'undefined') {
+    appState.transactions = [];
+    appState.cashflow = [];
+    appState.cart = [];
+    appState.posCart = [];
+    appState.products = [...DEFAULT_SR12_PRODUCTS];
+  }
+
+  if (typeof renderProducts === 'function') renderProducts();
+  if (typeof renderInventoryTable === 'function') renderInventoryTable();
+  if (typeof renderPosProducts === 'function') renderPosProducts();
+  if (typeof renderPosTransactions === 'function') renderPosTransactions();
+  if (typeof renderCashflowTable === 'function') renderCashflowTable();
+  if (typeof renderReportsView === 'function') renderReportsView();
+  if (typeof updateCartUI === 'function') updateCartUI();
+  if (typeof showToast === 'function') showToast('🗑️ Seluruh data aplikasi telah berhasil dikosongkan dan direset ke 44 produk resmi!');
+}
+window.resetAllAppData = resetAllAppData;
 
 function getStoredMarketingKits() {
   const stored = localStorage.getItem('sr12_custom_marketing_kits');
@@ -4745,6 +4817,8 @@ function handleAddProductSubmit(e) {
   saveStoredProducts(appState.products);
 
   renderProducts();
+  if (typeof renderInventoryTable === 'function') renderInventoryTable();
+  if (typeof renderPosProducts === 'function') renderPosProducts();
   closeModal('modalAddProduct');
   showToast(`✅ Berhasil! Produk "${name}" resmi ditambahkan ke katalog etalase.`);
 }

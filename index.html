@@ -18,7 +18,7 @@
   <meta name="twitter:title" content="SR12 Partner Hub - Toko Resmi Herbal Skin Care">
   <meta name="twitter:description" content="Toko resmi kemitraan SR12 Herbal Skin Care terverifikasi BPOM. Dapatkan harga terbaik dan pengiriman cepat.">
   <meta name="twitter:image" content="https://sr12-partner-store.vercel.app/assets/sr12-logo.png">
-  <link rel="stylesheet" href="css/style.css?v=4.6">
+  <link rel="stylesheet" href="css/style.css?v=5.0">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
 </head>
 <body>
@@ -489,9 +489,10 @@
               <div class="category-chips" style="margin-bottom: 0;">
                 <button class="chip-btn active" onclick="filterPosCategory('all', this)">Semua</button>
                 <button class="chip-btn" onclick="filterPosCategory('Body Care', this)">Body Care</button>
-                <button class="chip-btn" onclick="filterPosCategory('Face', this)">Face</button>
-                <button class="chip-btn" onclick="filterPosCategory('Nutrisi', this)">Nutrisi</button>
+                <button class="chip-btn" onclick="filterPosCategory('Face Care', this)">Face Care</button>
                 <button class="chip-btn" onclick="filterPosCategory('Herbal', this)">Herbal</button>
+                <button class="chip-btn" onclick="filterPosCategory('Kosmetik', this)">Kosmetik</button>
+                <button class="chip-btn" onclick="filterPosCategory('Personal Care', this)">Personal Care</button>
               </div>
             </div>
 
@@ -677,6 +678,9 @@
             </button>
             <button type="button" onclick="openAddProductModal()" style="background: #10b981; color: #fff; border: 1px solid #34d399; padding: 7px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
               <span>+</span> Tambah Produk Baru
+            </button>
+            <button type="button" onclick="resetAllAppData()" style="background: #fef2f2; color: #dc2626; border: 1.5px solid #fecaca; padding: 7px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" title="Kosongkan seluruh data simulasi transaksi, kas, dan inventori">
+              <span>🗑️</span> Kosongkan &amp; Reset Data
             </button>
           </div>
         </div>
@@ -1507,12 +1511,12 @@
         </div>
 
         <div class="category-chips">
-          <button class="chip-btn active" data-category="all">Semua Lini</button>
+          <button class="chip-btn active" data-category="all">Semua Produk</button>
           <button class="chip-btn" data-category="Body Care">Body Care</button>
-          <button class="chip-btn" data-category="Face">Face Care</button>
-          <button class="chip-btn" data-category="Herbal">Herbal & Kesehatan</button>
-          <button class="chip-btn" data-category="Nutrisi">Susu & Nutrisi</button>
-          <button class="chip-btn" data-category="Sabun">Sabun Herbal</button>
+          <button class="chip-btn" data-category="Face Care">Face Care</button>
+          <button class="chip-btn" data-category="Herbal">Herbal</button>
+          <button class="chip-btn" data-category="Kosmetik">Kosmetik</button>
+          <button class="chip-btn" data-category="Personal Care">Personal Care</button>
         </div>
 
         <div class="catalog-tier-selector-wrap" style="display: inline-flex; align-items: center; gap: 6px; background: #f8fafc; border: 1.5px solid var(--border-subtle); padding: 5px 12px; border-radius: 9999px;">
@@ -2114,10 +2118,10 @@
               <select id="editProdCategory" style="width: 100%; padding: 8px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: var(--font-main);">
                 <option value="Body Care">Body Care</option>
                 <option value="Face Care">Face Care</option>
-                <option value="Herbal & Kesehatan">Herbal & Kesehatan</option>
-                <option value="Nutrisi & Susu">Nutrisi & Susu</option>
-                <option value="Sabun Herbal">Sabun Herbal</option>
-                <option value="Kosmetik & Makeup">Kosmetik & Makeup</option>
+                <option value="Herbal">Herbal</option>
+                <option value="Kosmetik">Kosmetik</option>
+                <option value="Personal Care">Personal Care</option>
+                <option value="Lain-lain">Lain-lain</option>
               </select>
             </div>
             <div>
@@ -2202,12 +2206,12 @@
             <div>
               <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 4px;">Kategori:</label>
               <select id="newProdCategory" style="width: 100%; padding: 8px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: var(--font-main);">
-                <option value="Face Care">Face Care</option>
                 <option value="Body Care">Body Care</option>
-                <option value="Herbal & Kesehatan">Herbal & Kesehatan</option>
-                <option value="Nutrisi & Susu">Nutrisi & Susu</option>
-                <option value="Sabun Herbal">Sabun Herbal</option>
-                <option value="Kosmetik & Makeup">Kosmetik & Makeup</option>
+                <option value="Face Care" selected>Face Care</option>
+                <option value="Herbal">Herbal</option>
+                <option value="Kosmetik">Kosmetik</option>
+                <option value="Personal Care">Personal Care</option>
+                <option value="Lain-lain">Lain-lain</option>
               </select>
             </div>
             <div>
@@ -4127,9 +4131,9 @@
 
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=4.6"></script>
-  <script src="js/data.js?v=4.6"></script>
-  <script src="js/app.js?v=4.6"></script>
-  <script src="js/olsera-suite.js?v=4.6"></script>
+  <script src="js/supabase-config.js?v=5.0"></script>
+  <script src="js/data.js?v=5.0"></script>
+  <script src="js/app.js?v=5.0"></script>
+  <script src="js/olsera-suite.js?v=5.0"></script>
 </body>
 </html>
