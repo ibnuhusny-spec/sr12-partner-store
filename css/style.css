@@ -1430,16 +1430,19 @@ h1, h2, h3, h4, h5, h6 {
 
 .directory-controls-row {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 14px;
+  width: 100%;
 }
 
 .directory-search-input-group {
   position: relative;
-  flex: 1;
-  min-width: 260px;
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
 }
 
 .directory-search-input-group svg {
@@ -1453,10 +1456,10 @@ h1, h2, h3, h4, h5, h6 {
 
 .directory-search-input {
   width: 100%;
-  padding: 11px 16px 11px 42px;
+  padding: 10px 16px 10px 42px;
   border: 1.5px solid var(--border-subtle);
   border-radius: 9999px;
-  font-size: 0.86rem;
+  font-size: 0.84rem;
   background: #f8fafc;
   color: var(--dark-900);
   transition: all 0.2s ease;
@@ -1472,33 +1475,40 @@ h1, h2, h3, h4, h5, h6 {
 
 .directory-filter-tabs {
   display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 2px;
+  flex-wrap: wrap;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
 }
 
 .directory-tab-pill {
   background: #f1f5f9;
   color: var(--dark-700);
-  border: 1px solid var(--border-subtle);
-  padding: 7px 14px;
+  border: 1.5px solid var(--border-subtle);
+  padding: 6px 14px;
   border-radius: 9999px;
   font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .directory-tab-pill:hover {
   background: #e2e8f0;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
 }
 
 .directory-tab-pill.active {
-  background: #064e3b;
+  background: linear-gradient(135deg, #059669, #047857);
   color: #ffffff;
-  border-color: #064e3b;
-  box-shadow: 0 2px 8px rgba(6, 78, 59, 0.25);
+  border-color: #047857;
+  box-shadow: 0 3px 10px rgba(5, 150, 105, 0.25);
 }
 
 .official-distributors-grid {
@@ -5970,10 +5980,21 @@ h1, h2, h3, h4, h5, h6 {
   }
   .directory-controls-row {
     flex-direction: column !important;
-    align-items: stretch !important;
+    align-items: center !important;
+    gap: 10px !important;
   }
   .directory-search-input-group {
-    min-width: 100% !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  .directory-filter-tabs {
+    justify-content: center !important;
+    gap: 6px !important;
+    flex-wrap: wrap !important;
+  }
+  .directory-tab-pill {
+    padding: 5px 12px !important;
+    font-size: 0.74rem !important;
   }
   .official-distributors-grid {
     grid-template-columns: 1fr !important;
