@@ -1512,7 +1512,7 @@ h1, h2, h3, h4, h5, h6 {
   background: #ffffff;
   border: 1.5px solid var(--border-subtle);
   border-radius: 18px;
-  padding: 0 0 20px 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1638,6 +1638,15 @@ h1, h2, h3, h4, h5, h6 {
   text-align: left;
 }
 
+.dist-card-body {
+  width: 100%;
+  padding: 0 16px 18px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+}
+
 .dist-card-stock-status {
   font-size: 0.72rem;
   color: #059669;
@@ -1652,24 +1661,27 @@ h1, h2, h3, h4, h5, h6 {
   width: 100%;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 8px;
+  box-sizing: border-box;
 }
 
 .btn-card-enter-store {
   width: 100%;
+  max-width: 100%;
   background: linear-gradient(135deg, #059669, #047857);
   color: #ffffff;
   border: none;
-  padding: 10px 14px;
+  padding: 9px 14px;
   border-radius: 9999px;
-  font-size: 0.84rem;
+  font-size: 0.82rem;
   font-weight: 800;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
+  box-shadow: 0 3px 10px rgba(5, 150, 105, 0.22);
   transition: all 0.2s ease;
   text-decoration: none;
   box-sizing: border-box;
@@ -1682,33 +1694,70 @@ h1, h2, h3, h4, h5, h6 {
 
 .dist-card-sub-actions {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .btn-card-sub {
-  flex: 1;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  border-radius: 50%;
   background: #f8fafc;
   color: var(--dark-700);
-  border: 1px solid var(--border-subtle);
-  padding: 8px 12px;
-  border-radius: 9999px;
+  border: 1.5px solid var(--border-subtle);
+  padding: 0;
   font-size: 1.15rem;
   font-weight: 700;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
   transition: all 0.2s ease;
   text-decoration: none;
   box-sizing: border-box;
+  flex: none;
 }
 
 .btn-card-sub:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
   transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.btn-card-sub-wa {
+  background: #ecfdf5;
+  color: #059669;
+  border-color: #a7f3d0;
+}
+.btn-card-sub-wa:hover {
+  background: #25d366;
+  color: #ffffff;
+  border-color: #20bd5a;
+}
+
+.btn-card-sub-sk {
+  background: #f0f9ff;
+  color: #0284c7;
+  border-color: #bae6fd;
+}
+.btn-card-sub-sk:hover {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0369a1;
+}
+
+.btn-card-sub-settings {
+  background: #fefce8;
+  color: #a16207;
+  border-color: #fef08a;
+}
+.btn-card-sub-settings:hover {
+  background: #eab308;
+  color: #ffffff;
+  border-color: #ca8a04;
 }
 
 .directory-register-callout {

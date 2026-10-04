@@ -1986,44 +1986,46 @@ function renderOfficialDistributorDirectory(filter = currentDirectoryFilter, sea
           </span>
         </div>
 
-        <!-- 1. Logo / Foto Profil Toko di Tengah Card (Overlap Mini Cover) -->
-        <div class="dist-card-logo-box">
-          <img src="${logoUrl}" alt="${store.storeName}">
-        </div>
+        <div class="dist-card-body">
+          <!-- 1. Logo / Foto Profil Toko di Tengah Card (Overlap Mini Cover) -->
+          <div class="dist-card-logo-box">
+            <img src="${logoUrl}" alt="${store.storeName}">
+          </div>
 
-        <!-- 2. Nama Toko Tepat di Bawah Logo -->
-        <h3 class="dist-card-name">
-          <span>${store.storeName}</span>
-          <span class="badge-verified-tick" style="width: 18px; height: 18px; font-size: 0.65rem;" title="Toko Mitra Terverifikasi Resmi SR12">✓</span>
-        </h3>
+          <!-- 2. Nama Toko Tepat di Bawah Logo -->
+          <h3 class="dist-card-name">
+            <span>${store.storeName}</span>
+            <span class="badge-verified-tick" style="width: 18px; height: 18px; font-size: 0.65rem;" title="Toko Mitra Terverifikasi Resmi SR12">✓</span>
+          </h3>
 
-        <!-- 4. Info Detail Pemilik & Wilayah -->
-        <div class="dist-card-info-box">
-          <div>👤 <b>Pemilik:</b> ${store.storeOwner}</div>
-          <div>📍 <b>Wilayah:</b> ${cleanCity}</div>
-          <div>📱 <b>WhatsApp:</b> +${cleanWa}</div>
-          ${(store.recommenderDistributor) ? `<div style="font-size: 0.73rem; color: #1e40af; background: #eff6ff; padding: 3px 8px; border-radius: 4px; margin-top: 4px; border: 1px solid #bfdbfe;">👑 <b>Rekomendasi:</b> ${store.recommenderDistributor}</div>` : ''}
-        </div>
+          <!-- 4. Info Detail Pemilik & Wilayah -->
+          <div class="dist-card-info-box">
+            <div>👤 <b>Pemilik:</b> ${store.storeOwner}</div>
+            <div>📍 <b>Wilayah:</b> ${cleanCity}</div>
+            <div>📱 <b>WhatsApp:</b> +${cleanWa}</div>
+            ${(store.recommenderDistributor) ? `<div style="font-size: 0.73rem; color: #1e40af; background: #eff6ff; padding: 3px 8px; border-radius: 4px; margin-top: 4px; border: 1px solid #bfdbfe;">👑 <b>Rekomendasi:</b> ${store.recommenderDistributor}</div>` : ''}
+          </div>
 
-        <div class="dist-card-stock-status">
-          <span>🟢</span> Stok Ready &bull; Pengiriman Cepat
-        </div>
+          <div class="dist-card-stock-status">
+            <span>🟢</span> Stok Ready &bull; Pengiriman Cepat
+          </div>
 
-        <!-- 5. Tombol Aksi Masuk Toko / Kontak -->
-        <div class="dist-card-actions">
-          <button type="button" onclick="switchPartnerStore('${store.slug}'); window.scrollTo({top: 0, behavior: 'smooth'});" class="btn-card-enter-store">
-            <span>🛍️</span> Belanja di Toko Ini
-          </button>
-          <div class="dist-card-sub-actions">
-            <a href="https://wa.me/${cleanWa}?text=${encodeURIComponent(`Halo ${store.storeName}, saya melihat toko resmi Anda di direktori Pusat SR12...`)}" target="_blank" class="btn-card-sub" title="Hubungi Toko via WhatsApp" aria-label="WhatsApp">
-              <span>💬</span>
-            </a>
-            <button type="button" onclick="showSpecificStoreSk('${store.slug}')" class="btn-card-sub" title="Periksa Dokumen SK Resmi Distributor" aria-label="SK Resmi">
-              <span>📜</span>
+          <!-- 5. Tombol Aksi Masuk Toko / Kontak -->
+          <div class="dist-card-actions">
+            <button type="button" onclick="switchPartnerStore('${store.slug}'); window.scrollTo({top: 0, behavior: 'smooth'});" class="btn-card-enter-store">
+              <span>🛍️</span> Belanja di Toko Ini
             </button>
-            <button type="button" onclick="switchPartnerStore('${store.slug}'); openStoreSettingsModal();" class="btn-card-sub" title="Pengaturan & Kustomisasi Toko Ini" aria-label="Atur Toko" style="background: #ecfdf5; color: #065f46; border-color: #a7f3d0; font-weight: 800;">
-              <span>⚙️</span>
-            </button>
+            <div class="dist-card-sub-actions">
+              <a href="https://wa.me/${cleanWa}?text=${encodeURIComponent(`Halo ${store.storeName}, saya melihat toko resmi Anda di direktori Pusat SR12...`)}" target="_blank" class="btn-card-sub btn-card-sub-wa" title="Hubungi Toko via WhatsApp" aria-label="WhatsApp">
+                <span>💬</span>
+              </a>
+              <button type="button" onclick="showSpecificStoreSk('${store.slug}')" class="btn-card-sub btn-card-sub-sk" title="Periksa Dokumen SK Resmi Distributor" aria-label="SK Resmi">
+                <span>📜</span>
+              </button>
+              <button type="button" onclick="switchPartnerStore('${store.slug}'); openStoreSettingsModal();" class="btn-card-sub btn-card-sub-settings" title="Pengaturan & Kustomisasi Toko Ini" aria-label="Atur Toko">
+                <span>⚙️</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
