@@ -6830,8 +6830,8 @@ function openProductPromoShareModal(productId) {
   const cleanSlug = curStore.slug || 'sr12-central';
   const tierPrice = getProductTierPrice(prod, appState.currentTier);
   const isPromo = prod.het > tierPrice;
-  // Link khusus produk unik (menautkan langsung ke toko dan ID produk ini)
-  const productUrl = `${window.location.origin}${window.location.pathname}?store=${cleanSlug}&product=${prod.id}`;
+  // Link khusus produk preview cerdas (mendukung gambar otomatis di WhatsApp & Medsos via /p)
+  const productUrl = `${window.location.origin}/p?product=${encodeURIComponent(prod.id)}&store=${encodeURIComponent(cleanSlug)}`;
   const storeUrl = `${window.location.origin}${window.location.pathname}?store=${cleanSlug}`;
 
   currentPromoShareData = {
@@ -6904,7 +6904,7 @@ window.openProductPromoShareModal = openProductPromoShareModal;
 function copyProductDirectLink() {
   if (!currentPromoShareData || !currentPromoShareData.productUrl) return;
   navigator.clipboard.writeText(currentPromoShareData.productUrl).then(() => {
-    showToast('🔗 Link khusus produk berhasil disalin!');
+    showToast('🔗 Link khusus produk (preview bergambar) berhasil disalin!');
   }).catch(() => {
     showToast('Link khusus produk disalin!');
   });
@@ -6932,11 +6932,37 @@ function copyPromoCopywriting() {
 }
 window.copyPromoCopywriting = copyPromoCopywriting;
 
-function sharePromoNative() {
+async function sharePromoNative() {
   if (!currentPromoShareData) return;
   const textEl = document.getElementById('promoShareCopywritingText');
   const text = textEl ? textEl.value : '';
+  const prod = currentPromoShareData.prod;
+
   if (navigator.share) {
+    try {
+      // Coba lampirkan file gambar asli pada smartphone (Android / iOS)
+      if (prod && prod.image && !prod.image.startsWith('data:')) {
+        showToast('⏳ Menyiapkan gambar produk...');
+        const res = await fetch(prod.image);
+        if (res.ok) {
+          const blob = await res.blob();
+          const ext = prod.image.endsWith('.png') ? 'png' : 'jpg';
+          const file = new File([blob], `${prod.id || 'produk-sr12'}.${ext}`, { type: blob.type || (ext === 'png' ? 'image/png' : 'image/jpeg') });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              title: prod.name,
+              text: text,
+              files: [file]
+            });
+            return;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Native file share failed/skipped, fallback to text/url:', err);
+    }
+
+    // Fallback standard share (jika browser tidak mendukung lampiran file langsung)
     navigator.share({
       title: currentPromoShareData.prod.name,
       text: text,
@@ -6947,6 +6973,42 @@ function sharePromoNative() {
   }
 }
 window.sharePromoNative = sharePromoNative;
+
+function downloadProductPromoImage() {
+  if (!currentPromoShareData || !currentPromoShareData.prod) return;
+  const prod = currentPromoShareData.prod;
+  if (!prod.image) return;
+
+  if (prod.image.startsWith('data:image/svg+xml')) {
+    const a = document.createElement('a');
+    a.href = prod.image;
+    a.download = `${prod.id || 'produk-sr12'}.svg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    showToast('📥 Gambar produk berhasil diunduh!');
+    return;
+  }
+
+  fetch(prod.image)
+    .then(res => res.blob())
+    .then(blob => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const ext = prod.image.endsWith('.png') ? 'png' : 'jpg';
+      a.download = `${prod.id || 'produk-sr12'}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      showToast('📥 Foto produk berhasil disimpan ke galeri HP!');
+    })
+    .catch(() => {
+      window.open(prod.image, '_blank');
+    });
+}
+window.downloadProductPromoImage = downloadProductPromoImage;
 
 // ==========================================
 // DEEP-LINKING PRODUK SPESIFIK (?product=...)

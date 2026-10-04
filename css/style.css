@@ -2421,6 +2421,17 @@ header.site-header,
   box-shadow: 0 6px 18px rgba(2, 132, 199, 0.45) !important;
 }
 
+.btn-promo-download {
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  color: #ffffff !important;
+  box-shadow: 0 3px 12px rgba(245, 158, 11, 0.35) !important;
+}
+
+.btn-promo-download:hover {
+  background: linear-gradient(135deg, #d97706, #b45309) !important;
+  box-shadow: 0 6px 18px rgba(245, 158, 11, 0.45) !important;
+}
+
 /* Animasi Pulse Ketika Produk Dibuka via Deep Link (?product=...) */
 .product-card-highlighted {
   animation: pulseCardHighlight 2.5s ease-out !important;
