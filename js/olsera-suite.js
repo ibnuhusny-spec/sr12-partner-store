@@ -55,6 +55,52 @@ function saveStoredCashflow(list) {
   localStorage.setItem('sr12_cashflow_records_v1', JSON.stringify(list));
 }
 
+// ------------------------------------------
+// 1.5. KARTU RIWAYAT MUTASI STOK GUDANG OTOMATIS
+// ------------------------------------------
+function getStoredStockMutations() {
+  const s = localStorage.getItem('sr12_stock_mutations_v1');
+  if (s) {
+    try {
+      const parsed = JSON.parse(s);
+      if (Array.isArray(parsed)) return parsed;
+    } catch (e) {}
+  }
+  return [];
+}
+
+function saveStoredStockMutations(list) {
+  localStorage.setItem('sr12_stock_mutations_v1', JSON.stringify(list));
+}
+
+function recordStockMutation(entry) {
+  const list = getStoredStockMutations();
+  const now = new Date();
+  const dateFormatted = entry.date || `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  
+  const newEntry = {
+    id: 'MUT-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+    timestamp: now.toISOString(),
+    date: dateFormatted,
+    productId: entry.productId || '',
+    productName: entry.productName || 'Produk SR12',
+    type: entry.type || 'ADJUST', // 'IN_RESTOCK', 'OUT_POS', 'OUT_ONLINE', 'ADJUST'
+    typeLabel: entry.typeLabel || 'Penyesuaian Stok',
+    qty: Number(entry.qty) || 0,
+    stockBefore: Number(entry.stockBefore) || 0,
+    stockAfter: Number(entry.stockAfter) || 0,
+    refNo: entry.refNo || '-',
+    notes: entry.notes || ''
+  };
+
+  list.unshift(newEntry);
+  saveStoredStockMutations(list);
+  return newEntry;
+}
+window.recordStockMutation = recordStockMutation;
+window.getStoredStockMutations = getStoredStockMutations;
+window.saveStoredStockMutations = saveStoredStockMutations;
+
 // Inisialisasi state POS & Olsera di appState
 if (typeof appState !== 'undefined') {
   appState.isOlseraPortalOpen = false;
@@ -179,6 +225,15 @@ function updateOlseraHeaderMeta() {
       topbarOwnerEl.textContent = `${activeCashierName} (Kasir) • Distributor Resmi SR12 (${store.storeCity || 'Mitra'})`;
     }
   }
+
+  // Update Topbar Statis Terintegrasi
+  const staticStoreNameEl = document.getElementById('olseraStaticStoreName');
+  const staticStoreRoleEl = document.getElementById('olseraStaticStoreRole');
+  const staticCashierLabelEl = document.getElementById('olseraStaticCashierLabel');
+  if (staticStoreNameEl) staticStoreNameEl.textContent = displayName;
+  if (staticStoreRoleEl) staticStoreRoleEl.textContent = isCentral ? 'SR12 Official Central Hub' : `Distributor Resmi SR12 (${store.storeCity || 'Indonesia'})`;
+  if (staticCashierLabelEl) staticCashierLabelEl.textContent = `Kasir: ${activeCashierName}`;
+
   const q = (appState && typeof appState.storeSettings?.orderQuota !== 'undefined') ? appState.storeSettings.orderQuota : 15;
   if (topbarQuotaEl) topbarQuotaEl.textContent = `${q}`;
   const drawerQuotaEl = document.getElementById('olseraDrawerQuotaBadge');
@@ -1174,17 +1229,52 @@ function processPosCheckout(action = 'save') {
     updateCashierBadgeUI();
   }
 
-  // Catat arus kas masuk
+  // Catat arus kas masuk terpisah akun (Kas Tunai Laci vs Transfer Bank)
   if (!appState.cashflow) appState.cashflow = [];
   appState.cashflow.unshift({
     id: 'CSH-' + Math.floor(1000 + Math.random() * 9000),
     date: dateStr.split(' ')[0],
     type: 'in',
+    account: isCash ? 'CASH' : 'TRANSFER',
     category: `Penjualan Kasir POS (${getTierLabelName(tier)})`,
-    notes: `${trxId} - ${customerName} (${cart.length} macam barang)`,
+    notes: `${trxId} - ${customerName} (${cart.length} macam barang) [${isCash ? 'Kas Tunai Laci' : 'Transfer Bank'}]`,
     amount: grandTotal
   });
   saveStoredCashflow(appState.cashflow);
+
+  // PENGURANGAN STOK FISIK GUDANG & PENCATATAN MUTASI STOK OTOMATIS
+  if (Array.isArray(appState.products)) {
+    cart.forEach(item => {
+      const p = appState.products.find(pr => pr.name === item.name || pr.id === item.id);
+      if (p) {
+        const oldStock = Number(p.stock) || 0;
+        const qtySold = Number(item.qty) || 0;
+        const newStock = Math.max(0, oldStock - qtySold);
+        p.stock = newStock;
+        p.sold = (Number(p.sold) || 0) + qtySold;
+        if (typeof recordStockMutation === 'function') {
+          recordStockMutation({
+            date: dateStr,
+            productId: p.id,
+            productName: p.name,
+            type: 'OUT_POS',
+            typeLabel: 'Penjualan Kasir POS',
+            qty: -qtySold,
+            stockBefore: oldStock,
+            stockAfter: newStock,
+            refNo: trxId,
+            notes: `Penjualan kasir tingkat ${getTierLabelName(tier)} kepada ${customerName}`
+          });
+        }
+      }
+    });
+    if (typeof window.saveStoredProducts === 'function') {
+      window.saveStoredProducts(appState.products);
+    }
+    if (typeof renderProducts === 'function') renderProducts();
+    if (typeof renderPosProductCatalog === 'function') renderPosProductCatalog();
+    if (typeof renderInventoryTable === 'function') renderInventoryTable();
+  }
 
   // Potong kuota order platform
   if (appState.storeSettings) {
@@ -1629,28 +1719,45 @@ function quickUpdateStock(productId, delta) {
 // ==========================================
 function renderCashflowTable() {
   const tbody = document.getElementById('cashflowTableBody');
-  const inEl = document.getElementById('cashflowTotalInDisplay');
+  const cashOnHandEl = document.getElementById('cashflowCashOnHandDisplay');
+  const bankEl = document.getElementById('cashflowBankDisplay');
   const outEl = document.getElementById('cashflowTotalOutDisplay');
   const netEl = document.getElementById('cashflowNetDisplay');
   if (!tbody || typeof appState === 'undefined') return;
 
   const records = appState.cashflow || [];
 
-  let totalIn = 0;
+  let totalCashIn = 0;
+  let totalCashOut = 0;
+  let totalBankIn = 0;
+  let totalBankOut = 0;
   let totalOut = 0;
+  let totalIn = 0;
 
   records.forEach(r => {
-    if (r.type === 'in') totalIn += Number(r.amount) || 0;
-    else totalOut += Number(r.amount) || 0;
+    const amt = Number(r.amount) || 0;
+    const isCashAcc = (r.account === 'CASH' || (!r.account && r.category && r.category.includes('Tunai')));
+    if (r.type === 'in') {
+      totalIn += amt;
+      if (isCashAcc) totalCashIn += amt;
+      else totalBankIn += amt;
+    } else {
+      totalOut += amt;
+      if (isCashAcc) totalCashOut += amt;
+      else totalBankOut += amt;
+    }
   });
 
+  const cashOnHand = totalCashIn - totalCashOut;
+  const bankBalance = totalBankIn - totalBankOut;
   const net = totalIn - totalOut;
 
-  if (inEl) inEl.textContent = `Rp ${totalIn.toLocaleString('id-ID')}`;
+  if (cashOnHandEl) cashOnHandEl.textContent = `Rp ${cashOnHand.toLocaleString('id-ID')}`;
+  if (bankEl) bankEl.textContent = `Rp ${bankBalance.toLocaleString('id-ID')}`;
   if (outEl) outEl.textContent = `Rp ${totalOut.toLocaleString('id-ID')}`;
   if (netEl) {
     netEl.textContent = `Rp ${net.toLocaleString('id-ID')}`;
-    netEl.style.color = net >= 0 ? '#0284c7' : '#dc2626';
+    netEl.style.color = net >= 0 ? '#4f46e5' : '#dc2626';
   }
 
   if (records.length === 0) {
@@ -1666,12 +1773,16 @@ function renderCashflowTable() {
 
   tbody.innerHTML = records.map(r => {
     const isIn = r.type === 'in';
+    const isCashAcc = (r.account === 'CASH' || (!r.account && r.category && r.category.includes('Tunai')));
     return `
       <tr>
         <td data-label="Tanggal" style="font-size: 0.8rem; color: #64748b;">${r.date}</td>
         <td data-label="Tipe">
           <span style="background: ${isIn ? '#ecfdf5' : '#fee2e2'}; color: ${isIn ? '#065f46' : '#991b1b'}; padding: 3px 8px; border-radius: 999px; font-weight: 800; font-size: 0.72rem;">
             ${isIn ? '⬆️ Kas Masuk' : '⬇️ Kas Keluar'}
+          </span>
+          <span style="font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; margin-left: 4px; background: ${isCashAcc ? '#ecfdf5' : '#eff6ff'}; color: ${isCashAcc ? '#065f46' : '#1e40af'}; font-weight: 700;">
+            ${isCashAcc ? '💵 Tunai' : '💳 Bank'}
           </span>
         </td>
         <td data-label="Kategori"><b>${r.category}</b></td>
@@ -1688,6 +1799,7 @@ function renderCashflowTable() {
     `;
   }).join('');
 }
+
 
 function openAddCashflowModal(type = 'in') {
   const modal = document.getElementById('modalAddCashflow');
@@ -1837,13 +1949,50 @@ function renderReportsView() {
     });
   });
 
-  // Estimasi laba kotor distributor (Distributor kulakan di margin 50% ke pusat)
-  const estGrossProfit = Math.round(totalNet * 0.35);
+  // Hitung Beban Operasional dari Buku Kas Keluar (Beban Toko & Komisi Marketer)
+  const cashflows = appState.cashflow || [];
+  let totalExpenses = 0;
+  cashflows.forEach(c => {
+    if (c.type === 'out' && !c.category.includes('Kulakan')) {
+      totalExpenses += Number(c.amount) || 0;
+    }
+  });
 
-  document.getElementById('repTotalHetOmset').textContent = `Rp ${totalHet.toLocaleString('id-ID')}`;
-  document.getElementById('repTotalDiscounts').textContent = `Rp ${totalDiscount.toLocaleString('id-ID')}`;
-  document.getElementById('repNetRevenue').textContent = `Rp ${totalNet.toLocaleString('id-ID')}`;
-  document.getElementById('repEstGrossProfit').textContent = `Rp ${estGrossProfit.toLocaleString('id-ID')}`;
+  // HPP Modal Kulakan Distributor (50% HET barang yang laku terjual)
+  const totalHpp = Math.round(totalHet * 0.50);
+  const grossProfit = Math.max(0, totalNet - totalHpp);
+  const grossMarginPct = totalNet > 0 ? Math.round((grossProfit / totalNet) * 100) : 0;
+  const netProfit = grossProfit - totalExpenses;
+
+  const netRevEl = document.getElementById('repNetRevenue');
+  const hppEl = document.getElementById('repHppCost');
+  const grossEl = document.getElementById('repGrossProfit');
+  const grossMarginPctEl = document.getElementById('repGrossMarginPct');
+  const expensesEl = document.getElementById('repOperatingExpenses');
+  const netProfitEl = document.getElementById('repNetProfit');
+  const statusBadgeEl = document.getElementById('repProfitStatusBadge');
+
+  if (netRevEl) netRevEl.textContent = `Rp ${totalNet.toLocaleString('id-ID')}`;
+  if (hppEl) hppEl.textContent = `Rp ${totalHpp.toLocaleString('id-ID')}`;
+  if (grossEl) grossEl.textContent = `Rp ${grossProfit.toLocaleString('id-ID')}`;
+  if (grossMarginPctEl) grossMarginPctEl.textContent = `Margin Kotor: ${grossMarginPct}%`;
+  if (expensesEl) expensesEl.textContent = `Rp ${totalExpenses.toLocaleString('id-ID')}`;
+  if (netProfitEl) {
+    netProfitEl.textContent = `Rp ${netProfit.toLocaleString('id-ID')}`;
+    netProfitEl.style.color = netProfit >= 0 ? '#7c3aed' : '#dc2626';
+  }
+  if (statusBadgeEl) {
+    if (netProfit > 0) {
+      statusBadgeEl.textContent = '🟢 SURPLUS BISNIS (PROFITABLE)';
+      statusBadgeEl.style.color = '#059669';
+    } else if (netProfit === 0) {
+      statusBadgeEl.textContent = '⚪ IMPAS (BREAK-EVEN)';
+      statusBadgeEl.style.color = '#64748b';
+    } else {
+      statusBadgeEl.textContent = '🔴 DEFISIT (PERIKSA BIAYA OPERASIONAL)';
+      statusBadgeEl.style.color = '#dc2626';
+    }
+  }
 
   // Top 5 Products
   const sortedProds = Object.values(productSalesMap).sort((a, b) => b.qty - a.qty).slice(0, 5);
@@ -2264,6 +2413,207 @@ function handleSaveOlseraSettings(e) {
 // ==========================================
 // 11. EXPORTS GLOBAL WINDOW
 // ==========================================
+// 6.5. RESTOCK / KULAKAN DARI PUSAT SR12
+// ==========================================
+function openRestockProductModal(targetProductId) {
+  const modal = document.getElementById('modalRestockProduct');
+  const select = document.getElementById('restockProductSelect');
+  if (!modal || !select || typeof appState === 'undefined') return;
+
+  const prods = appState.products || [];
+  select.innerHTML = prods.map(p => {
+    return `<option value="${p.id}" ${targetProductId && p.id === targetProductId ? 'selected' : ''}>${p.name} (Stok: ${p.stock || 0} pcs)</option>`;
+  }).join('');
+
+  if (targetProductId) {
+    select.value = targetProductId;
+  }
+  handleRestockProductSelectChange();
+  modal.classList.add('open');
+}
+
+function handleRestockProductSelectChange() {
+  const select = document.getElementById('restockProductSelect');
+  const currentStockDisplay = document.getElementById('restockCurrentStockDisplay');
+  const hppInput = document.getElementById('restockHppInput');
+  if (!select || typeof appState === 'undefined') return;
+
+  const prodId = select.value;
+  const prod = (appState.products || []).find(p => p.id === prodId);
+  if (!prod) return;
+
+  const stock = typeof prod.stock !== 'undefined' ? prod.stock : 85;
+  if (currentStockDisplay) currentStockDisplay.textContent = `${stock} pcs`;
+
+  const het = Number(prod.het || prod.price || prod.het_price) || 0;
+  // Modal kulakan distributor resmi = 50% dari HET
+  const estHpp = Math.round(het * 0.50);
+  if (hppInput) hppInput.value = estHpp;
+
+  calculateRestockTotalCost();
+}
+
+function calculateRestockTotalCost() {
+  const qtyInput = document.getElementById('restockQtyInput');
+  const hppInput = document.getElementById('restockHppInput');
+  const totalDisplay = document.getElementById('restockGrandTotalDisplay');
+  if (!qtyInput || !hppInput || !totalDisplay) return;
+
+  const qty = parseInt(qtyInput.value, 10) || 0;
+  const hpp = parseInt(hppInput.value, 10) || 0;
+  const grandTotal = qty * hpp;
+  totalDisplay.textContent = `Rp ${grandTotal.toLocaleString('id-ID')}`;
+}
+
+function handleSaveRestockSubmit(e) {
+  if (e) e.preventDefault();
+  if (typeof appState === 'undefined') return;
+
+  const select = document.getElementById('restockProductSelect');
+  const qtyInput = document.getElementById('restockQtyInput');
+  const hppInput = document.getElementById('restockHppInput');
+  const sourceSelect = document.getElementById('restockPaymentSource');
+  const invoiceInput = document.getElementById('restockInvoiceNotes');
+
+  const prodId = select?.value;
+  const prod = (appState.products || []).find(p => p.id === prodId);
+  if (!prod) {
+    alert('Pilih produk terlebih dahulu.');
+    return;
+  }
+
+  const qty = parseInt(qtyInput?.value, 10) || 0;
+  const hpp = parseInt(hppInput?.value, 10) || 0;
+  if (qty <= 0 || hpp <= 0) {
+    alert('Jumlah kulakan dan harga modal harus lebih dari 0.');
+    return;
+  }
+
+  const isCash = sourceSelect?.value === 'cash';
+  const totalCost = qty * hpp;
+  const invoiceNo = (invoiceInput?.value.trim()) || ('INV-SR12-PUSAT-' + Math.floor(1000 + Math.random() * 9000));
+
+  const oldStock = Number(prod.stock) || 0;
+  const newStock = oldStock + qty;
+  prod.stock = newStock;
+
+  // 1. Simpan stok produk
+  if (typeof window.saveStoredProducts === 'function') {
+    window.saveStoredProducts(appState.products);
+  }
+
+  const now = new Date();
+  const dateFormatted = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+  // 2. Catat Kartu Riwayat Mutasi Stok
+  recordStockMutation({
+    date: dateFormatted,
+    productId: prod.id,
+    productName: prod.name,
+    type: 'IN_RESTOCK',
+    typeLabel: 'Kulakan dari PT SR12 Pusat',
+    qty: qty,
+    stockBefore: oldStock,
+    stockAfter: newStock,
+    refNo: invoiceNo,
+    notes: `Kulakan ${qty} pcs @ Rp ${hpp.toLocaleString('id-ID')} (${isCash ? 'Kas Tunai' : 'Transfer Bank'})`
+  });
+
+  // 3. Catat Kas Keluar di Buku Kas
+  if (!appState.cashflow) appState.cashflow = [];
+  appState.cashflow.unshift({
+    id: 'CSH-' + Math.floor(1000 + Math.random() * 9000),
+    date: dateFormatted.split(' ')[0],
+    type: 'out',
+    account: isCash ? 'CASH' : 'TRANSFER',
+    category: 'Kulakan Produk ke PT SR12 Pusat',
+    notes: `Kulakan ${prod.name} ${qty} pcs (${invoiceNo}) [${isCash ? 'Kas Tunai' : 'Transfer Bank'}]`,
+    amount: totalCost
+  });
+  saveStoredCashflow(appState.cashflow);
+
+  // 4. Update UI
+  closeModal('modalRestockProduct');
+  if (typeof renderInventoryTable === 'function') renderInventoryTable();
+  if (typeof renderProducts === 'function') renderProducts();
+  if (typeof renderPosProductCatalog === 'function') renderPosProductCatalog();
+  if (typeof renderCashflowTable === 'function') renderCashflowTable();
+  if (typeof renderReportsView === 'function') renderReportsView();
+
+  if (typeof showToast === 'function') {
+    showToast(`📦 Berhasil kulakan ${qty} pcs ${prod.name}! Stok sekarang: ${newStock} pcs.`);
+  }
+}
+
+// ==========================================
+// 6.6. KARTU RIWAYAT MUTASI STOK GUDANG MODAL
+// ==========================================
+function openStockMutationsModal() {
+  const modal = document.getElementById('modalStockMutations');
+  if (!modal) return;
+  renderStockMutationsTable();
+  modal.classList.add('open');
+}
+
+function renderStockMutationsTable() {
+  const tbody = document.getElementById('stockMutationsTableBody');
+  const query = (document.getElementById('filterMutationQuery')?.value.trim().toLowerCase()) || '';
+  if (!tbody) return;
+
+  let list = getStoredStockMutations();
+  if (query) {
+    list = list.filter(m => 
+      (m.productName && m.productName.toLowerCase().includes(query)) ||
+      (m.refNo && m.refNo.toLowerCase().includes(query)) ||
+      (m.typeLabel && m.typeLabel.toLowerCase().includes(query))
+    );
+  }
+
+  if (list.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" style="text-align: center; padding: 30px; color: #94a3b8;">
+          📜 Belum ada catatan mutasi stok. Transaksi penjualan kasir atau kulakan akan otomatis tercatat di sini.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = list.map(m => {
+    const isPlus = m.qty > 0;
+    return `
+      <tr>
+        <td style="font-size: 0.76rem; color: #64748b; white-space: nowrap;">${m.date}</td>
+        <td><b>${m.productName}</b></td>
+        <td>
+          <span style="background: ${isPlus ? '#eff6ff' : '#fef2f2'}; color: ${isPlus ? '#1d4ed8' : '#991b1b'}; padding: 2px 8px; border-radius: 999px; font-weight: 700; font-size: 0.72rem;">
+            ${m.typeLabel || m.type}
+          </span>
+        </td>
+        <td style="text-align: center; font-weight: 900; color: ${isPlus ? '#059669' : '#dc2626'}; font-size: 0.88rem;">
+          ${isPlus ? '+' : ''}${m.qty} pcs
+        </td>
+        <td style="text-align: center; font-size: 0.8rem; color: #334155;">
+          ${m.stockBefore} ➔ <b>${m.stockAfter} pcs</b>
+        </td>
+        <td style="font-size: 0.76rem; color: #475569; font-weight: 600;">${m.refNo}</td>
+        <td style="font-size: 0.74rem; color: #64748b;">${m.notes || '-'}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function clearAllStockMutations() {
+  if (!confirm('Hapus seluruh riwayat mutasi stok gudang?')) return;
+  saveStoredStockMutations([]);
+  renderStockMutationsTable();
+  if (typeof showToast === 'function') showToast('Riwayat mutasi stok berhasil direset.');
+}
+
+// ==========================================
+// 11. EXPORTS GLOBAL WINDOW
+// ==========================================
 window.showDistributorPortalView = showDistributorPortalView;
 window.switchOlseraTab = switchOlseraTab;
 window.renderPosProducts = renderPosProducts;
@@ -2285,6 +2635,13 @@ window.filterTransactions = filterTransactions;
 window.viewHistoricalReceipt = viewHistoricalReceipt;
 window.renderInventoryTable = renderInventoryTable;
 window.quickUpdateStock = quickUpdateStock;
+window.openRestockProductModal = openRestockProductModal;
+window.handleRestockProductSelectChange = handleRestockProductSelectChange;
+window.calculateRestockTotalCost = calculateRestockTotalCost;
+window.handleSaveRestockSubmit = handleSaveRestockSubmit;
+window.openStockMutationsModal = openStockMutationsModal;
+window.renderStockMutationsTable = renderStockMutationsTable;
+window.clearAllStockMutations = clearAllStockMutations;
 window.renderCashflowTable = renderCashflowTable;
 window.openAddCashflowModal = openAddCashflowModal;
 window.handleSaveCashflowSubmit = handleSaveCashflowSubmit;

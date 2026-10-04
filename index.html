@@ -250,12 +250,6 @@
     <!-- BACKDROP FOR MOBILE SLIDE-OUT DRAWER -->
     <div id="olseraDrawerBackdrop" class="olsera-drawer-backdrop" onclick="closeOlseraSidebarDrawer()"></div>
 
-    <!-- TOMBOL FLOATING MENU OLSERA (PENGGANTI TAB HITAM, RAPI & MUDAH DIAKSES KASIR) -->
-    <button type="button" id="btnFloatingOlseraDrawer" class="btn-floating-olsera-drawer" onclick="toggleOlseraSidebarDrawer()" title="Buka Menu Distributor &amp; Kasir" aria-label="Buka Menu">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-      <span>Menu Toko</span>
-    </button>
-
     <!-- LEFT SIDEBAR (OLSERA DRAWER SESUAI PERSIS SCREENSHOT APLIKASI OLSERA) -->
     <aside class="olsera-sidebar" id="olseraSidebar">
       <!-- HEADER BANNER: Biru Gradasi Olsera dengan Geometris & Logo Alzam Agency -->
@@ -439,6 +433,30 @@
 
     <!-- RIGHT MAIN CONTENT AREA -->
     <main class="olsera-main-content">
+      <!-- TOP UTILITY BAR (STATIS DALAM DOKUMEN / TIDAK MELAYANG, TIDAK MENUTUPI KONTEN APAPUN) -->
+      <div class="olsera-static-topbar" id="olseraStaticTopbar">
+        <div class="olsera-static-topbar-left">
+          <button type="button" class="btn-olsera-static-menu" onclick="toggleOlseraSidebarDrawer()" title="Buka / Tutup Menu Drawer Olsera" aria-label="Buka Menu">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            <span>Menu Toko</span>
+          </button>
+          <div class="olsera-static-store-info">
+            <b id="olseraStaticStoreName" class="olsera-static-store-title">Alzam Agency</b>
+            <span class="olsera-static-store-sub" id="olseraStaticStoreRole">Distributor Resmi SR12 Herbal Skin Care</span>
+          </div>
+        </div>
+        <div class="olsera-static-topbar-right">
+          <button type="button" class="btn-olsera-static-cashier" onclick="openOlseraAbsensiModal()" title="Shift &amp; Kasir Aktif">
+            <span>👤</span>
+            <span id="olseraStaticCashierLabel">Kasir: Nurlinda Sari</span>
+          </button>
+          <button type="button" class="btn-olsera-static-cfd" onclick="showDistributorPortalView(false)" title="Tinjau Tampilan Pembeli (Customer Display)">
+            <span>📱</span>
+            <span>Customer Display</span>
+          </button>
+        </div>
+      </div>
+
       <!-- SUPER ADMIN ALERT BANNER (MUNCUL JIKA DEVELOPER SUPER ADMIN SEDANG MENGELOLA BACKOFFICE TOKO) -->
       <div id="olseraSuperAdminBanner" style="display: none; background: #0f172a; color: #38bdf8; border: 1.5px solid #0284c7; padding: 10px 18px; border-radius: 10px; margin-bottom: 16px; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
         <!-- Populated via openDevStoreAdminBackoffice -->
@@ -647,11 +665,17 @@
       <div id="olseraViewInventory" style="display: none;">
         <div class="olsera-page-header">
           <div>
-            <h2 class="olsera-page-title">📦 Inventori & Manajemen Stok Gudang</h2>
-            <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.84rem;">Atur stok fisik gudang distributor, perbarui harga, dan tambahkan produk baru langsung terhubung ke Supabase Storage.</p>
+            <h2 class="olsera-page-title">📦 Inventori &amp; Manajemen Stok Gudang</h2>
+            <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.84rem;">Sistem stok otomatis: barang berkurang saat terjual dan bertambah saat kulakan dari PT SR12 Pusat.</p>
           </div>
-          <div style="display: flex; gap: 8px;">
-            <button onclick="openAddProductModal()" style="background: #10b981; color: #fff; border: 1px solid #34d399; padding: 7px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" onclick="openRestockProductModal()" style="background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; border: 1px solid #38bdf8; padding: 7px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);">
+              <span>📥</span> + Kulakan Stok dari Pusat
+            </button>
+            <button type="button" onclick="openStockMutationsModal()" style="background: #f8fafc; color: #334155; border: 1.5px solid #cbd5e1; padding: 7px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+              <span>📜</span> Kartu Riwayat Mutasi Stok
+            </button>
+            <button type="button" onclick="openAddProductModal()" style="background: #10b981; color: #fff; border: 1px solid #34d399; padding: 7px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
               <span>+</span> Tambah Produk Baru
             </button>
           </div>
@@ -719,18 +743,26 @@
           </div>
         </div>
 
-        <div class="cashflow-grid">
-          <div class="cashflow-card" style="border-left: 4px solid #10b981;">
-            <div class="cashflow-label">Total Kas Masuk</div>
-            <div class="cashflow-val" id="cashflowTotalInDisplay" style="color: #059669;">Rp 0</div>
+        <div class="cashflow-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px;">
+          <div class="cashflow-card" style="border-left: 4px solid #10b981; background: #fff;">
+            <div class="cashflow-label">💵 Kas Tunai (Laci Kasir)</div>
+            <div class="cashflow-val" id="cashflowCashOnHandDisplay" style="color: #059669; font-size: 1.25rem;">Rp 0</div>
+            <div style="font-size: 0.72rem; color: #64748b; margin-top: 4px;">Uang fisik di laci kasir</div>
           </div>
-          <div class="cashflow-card" style="border-left: 4px solid #ef4444;">
-            <div class="cashflow-label">Total Kas Keluar (Kulakan & Operasional)</div>
-            <div class="cashflow-val" id="cashflowTotalOutDisplay" style="color: #dc2626;">Rp 0</div>
+          <div class="cashflow-card" style="border-left: 4px solid #0284c7; background: #fff;">
+            <div class="cashflow-label">💳 Kas Rekening Bank</div>
+            <div class="cashflow-val" id="cashflowBankDisplay" style="color: #0284c7; font-size: 1.25rem;">Rp 0</div>
+            <div style="font-size: 0.72rem; color: #64748b; margin-top: 4px;">Transfer BCA / BRI / Mandiri</div>
           </div>
-          <div class="cashflow-card" style="border-left: 4px solid #0284c7; background: #f0f9ff;">
-            <div class="cashflow-label">Saldo Kas Bersih Toko Saat Ini</div>
-            <div class="cashflow-val" id="cashflowNetDisplay" style="color: #0284c7;">Rp 0</div>
+          <div class="cashflow-card" style="border-left: 4px solid #ef4444; background: #fff;">
+            <div class="cashflow-label">🔴 Total Kas Keluar (Beban &amp; Kulakan)</div>
+            <div class="cashflow-val" id="cashflowTotalOutDisplay" style="color: #dc2626; font-size: 1.25rem;">Rp 0</div>
+            <div style="font-size: 0.72rem; color: #64748b; margin-top: 4px;">Biaya operasional &amp; stok</div>
+          </div>
+          <div class="cashflow-card" style="border-left: 4px solid #6366f1; background: #f5f3ff;">
+            <div class="cashflow-label">🏦 Total Likuiditas Kas Toko</div>
+            <div class="cashflow-val" id="cashflowNetDisplay" style="color: #4f46e5; font-size: 1.25rem;">Rp 0</div>
+            <div style="font-size: 0.72rem; color: #6366f1; margin-top: 4px; font-weight: 700;">Kas Tunai + Saldo Bank</div>
           </div>
         </div>
 
@@ -767,22 +799,31 @@
           </div>
         </div>
 
-        <div class="cashflow-grid report-metrics-grid">
-          <div class="cashflow-card">
-            <div class="cashflow-label">Total Omset HET</div>
-            <div class="cashflow-val" id="repTotalHetOmset" style="font-size: 1.25rem;">Rp 0</div>
-          </div>
-          <div class="cashflow-card">
-            <div class="cashflow-label">Diskon Kemitraan Keluar</div>
-            <div class="cashflow-val" id="repTotalDiscounts" style="color: #d97706; font-size: 1.25rem;">Rp 0</div>
-          </div>
-          <div class="cashflow-card">
-            <div class="cashflow-label">Omset Bersih Diterima</div>
+        <div class="cashflow-grid report-metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-bottom: 20px;">
+          <div class="cashflow-card" style="border-left: 4px solid #0284c7; background: #fff;">
+            <div class="cashflow-label">Pendapatan Bersih (Omset)</div>
             <div class="cashflow-val" id="repNetRevenue" style="color: #0284c7; font-size: 1.25rem;">Rp 0</div>
+            <div style="font-size: 0.72rem; color: #64748b; margin-top: 4px;">Uang riil masuk dari pembeli</div>
           </div>
-          <div class="cashflow-card" style="background: #ecfdf5; border-color: #a7f3d0;">
-            <div class="cashflow-label">Estimasi Margin Laba Distributor</div>
-            <div class="cashflow-val" id="repEstGrossProfit" style="color: #059669; font-size: 1.25rem;">Rp 0</div>
+          <div class="cashflow-card" style="border-left: 4px solid #f59e0b; background: #fff;">
+            <div class="cashflow-label">Harga Pokok Penjualan (HPP)</div>
+            <div class="cashflow-val" id="repHppCost" style="color: #d97706; font-size: 1.25rem;">Rp 0</div>
+            <div style="font-size: 0.72rem; color: #64748b; margin-top: 4px;">Modal kulakan produk ke Pusat</div>
+          </div>
+          <div class="cashflow-card" style="border-left: 4px solid #10b981; background: #ecfdf5;">
+            <div class="cashflow-label">Laba Kotor (Gross Margin)</div>
+            <div class="cashflow-val" id="repGrossProfit" style="color: #059669; font-size: 1.25rem;">Rp 0</div>
+            <div style="font-size: 0.72rem; color: #065f46; margin-top: 4px;" id="repGrossMarginPct">Margin: 0%</div>
+          </div>
+          <div class="cashflow-card" style="border-left: 4px solid #ef4444; background: #fff;">
+            <div class="cashflow-label">Beban Operasional &amp; Komisi</div>
+            <div class="cashflow-val" id="repOperatingExpenses" style="color: #dc2626; font-size: 1.25rem;">Rp 0</div>
+            <div style="font-size: 0.72rem; color: #64748b; margin-top: 4px;">Buku kas keluar + komisi 15%</div>
+          </div>
+          <div class="cashflow-card" style="border-left: 4px solid #8b5cf6; background: #fbfbfe;">
+            <div class="cashflow-label">Laba Bersih Riil Toko (Net Profit)</div>
+            <div class="cashflow-val" id="repNetProfit" style="color: #7c3aed; font-size: 1.35rem; font-weight: 900;">Rp 0</div>
+            <div style="font-size: 0.72rem; color: #6d28d9; margin-top: 4px; font-weight: 800;" id="repProfitStatusBadge">🟢 SURPLUS BISNIS</div>
           </div>
         </div>
 
@@ -1392,15 +1433,7 @@
           </div>
         </div>
 
-        <!-- Indikator Status Mode Pemilik Toko (Hanya muncul jika Distributor/Admin sudah login) -->
-        <div id="distributorAdminActiveBadge" style="display: none; align-items: center; justify-content: center; gap: 8px; margin: 0 auto 12px; background: #ecfdf5; border: 1.5px solid #10b981; border-radius: 9999px; padding: 5px 16px; font-size: 0.78rem; font-weight: 800; color: #065f46; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15);">
-          <span>👑</span>
-          <span>Mode Pemilik Toko Aktif</span>
-          <span style="opacity: 0.35;">|</span>
-          <button type="button" onclick="logoutDistributor()" style="background: none; border: none; color: #dc2626; font-weight: 800; font-size: 0.74rem; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; padding: 0;">
-            <span>🚪</span> <u>Keluar (Mode Pembeli)</u>
-          </button>
-        </div>
+
 
         <!-- 6. Tombol Aksi Toko (DIBEDAKAN TEGAS: PUBLIK PEMBELI vs PRIVAT DISTRIBUTOR) -->
         <div class="distributor-hero-actions">
@@ -1417,10 +1450,6 @@
             <span>🔐</span>
           </button>
 
-          <!-- Tombol Akses Tunggal Menu Distributor (HANYA MUNCUL SETELAH LOGIN) -->
-          <button type="button" id="btnDistOpenDrawerHero" onclick="showDistributorPortalView(true); openOlseraSidebarDrawer();" class="btn-dist-open-drawer-action" style="display: none;" title="Buka Menu Distributor &amp; Kasir Gudang">
-            <span>👑</span> <span>Menu Distributor (Olsera)</span> <span>↗️</span>
-          </button>
         </div>
 
         <!-- Alert Pengajuan Toko Agen (Muncul jika ada calon Agen yang menunggu persetujuan Alzam Agency) -->
@@ -3910,6 +3939,112 @@
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 17.5. MODAL: RESTOCK / KULAKAN PRODUK DARI PUSAT SR12 -->
+  <div class="modal-backdrop" id="modalRestockProduct" style="display: none;">
+    <div class="modal-dialog" style="max-width: 500px;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff;">
+        <h3 style="color: #fff; margin: 0; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
+          <span>📥</span> Catat Kulakan Stok dari Pusat SR12
+        </h3>
+        <button class="btn-close-modal" style="color: #fff;" onclick="closeModal('modalRestockProduct')">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 20px;">
+        <form onsubmit="handleSaveRestockSubmit(event)">
+          <div style="margin-bottom: 12px;">
+            <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Pilih Produk SR12:</label>
+            <select id="restockProductSelect" onchange="handleRestockProductSelectChange()" required style="width: 100%; padding: 9px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; font-weight: 600;">
+              <!-- Populated via JS -->
+            </select>
+          </div>
+
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.78rem; color: #64748b;">Stok Gudang Saat Ini:</span>
+            <span id="restockCurrentStockDisplay" style="font-size: 0.88rem; font-weight: 800; color: #0284c7;">0 pcs</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+            <div>
+              <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Jumlah Masuk (pcs):</label>
+              <input type="number" id="restockQtyInput" min="1" value="20" required oninput="calculateRestockTotalCost()" style="width: 100%; padding: 9px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; font-weight: 700;">
+            </div>
+            <div>
+              <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Harga Modal / HPP (Rp):</label>
+              <input type="number" id="restockHppInput" min="1000" required oninput="calculateRestockTotalCost()" style="width: 100%; padding: 9px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; font-weight: 700;">
+            </div>
+          </div>
+
+          <div style="margin-bottom: 12px;">
+            <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Sumber Pembayaran Kulakan:</label>
+            <select id="restockPaymentSource" style="width: 100%; padding: 9px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;">
+              <option value="transfer">💳 Transfer Rekening Bank Toko (BCA/BRI/Mandiri)</option>
+              <option value="cash">💵 Uang Tunai di Laci Kasir</option>
+            </select>
+          </div>
+
+          <div style="margin-bottom: 14px;">
+            <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">No. Invoice / Faktur PT SR12:</label>
+            <input type="text" id="restockInvoiceNotes" placeholder="Contoh: INV-SR12-PUSAT-9821" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem;">
+          </div>
+
+          <div style="background: #f0f9ff; border: 1.5px solid #bae6fd; border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.85rem; font-weight: 700; color: #0369a1;">Total Modal Kulakan:</span>
+            <span id="restockGrandTotalDisplay" style="font-size: 1.15rem; font-weight: 900; color: #0284c7;">Rp 0</span>
+          </div>
+
+          <div style="display: flex; gap: 8px; justify-content: flex-end;">
+            <button type="button" onclick="closeModal('modalRestockProduct')" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 10px 16px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer;">
+              Batal
+            </button>
+            <button type="submit" style="background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 800; font-size: 0.85rem; cursor: pointer; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.35);">
+              Simpan &amp; Tambah Stok Otomatis
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 17.6. MODAL: KARTU RIWAYAT MUTASI STOK GUDANG -->
+  <div class="modal-backdrop" id="modalStockMutations" style="display: none;">
+    <div class="modal-dialog" style="max-width: 760px; max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="modal-header" style="background: #0f172a; color: #fff;">
+        <div>
+          <h3 style="color: #fff; margin: 0; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
+            <span>📜</span> Kartu Riwayat Mutasi Stok Otomatis
+          </h3>
+          <p style="margin: 3px 0 0 0; color: #94a3b8; font-size: 0.74rem;">Catatan otomatis setiap kali stok terjual di POS kasir, order online, atau saat kulakan masuk.</p>
+        </div>
+        <button class="btn-close-modal" style="color: #fff;" onclick="closeModal('modalStockMutations')">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 16px; overflow-y: auto; flex: 1;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+          <input type="text" id="filterMutationQuery" oninput="renderStockMutationsTable()" placeholder="Cari nama produk atau no. nota..." style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.82rem; min-width: 240px;">
+          <button type="button" onclick="clearAllStockMutations()" style="background: #fff; color: #ef4444; border: 1px solid #fca5a5; padding: 6px 12px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer;">
+            🗑️ Reset Riwayat Mutasi
+          </button>
+        </div>
+        <div style="overflow-x: auto; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;">
+          <table class="inv-table" style="font-size: 0.8rem;">
+            <thead>
+              <tr>
+                <th>Waktu</th>
+                <th>Nama Produk SR12</th>
+                <th>Aktivitas</th>
+                <th style="text-align: center;">Jumlah</th>
+                <th style="text-align: center;">Sisa Stok</th>
+                <th>No. Referensi</th>
+                <th>Keterangan</th>
+              </tr>
+            </thead>
+            <tbody id="stockMutationsTableBody">
+              <!-- Populated via JS -->
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>

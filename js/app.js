@@ -619,6 +619,7 @@ function getStoredProducts() {
 function saveStoredProducts(productsList) {
   localStorage.setItem('sr12_all_products_v3', JSON.stringify(productsList));
 }
+window.saveStoredProducts = saveStoredProducts;
 
 function getStoredMarketingKits() {
   const stored = localStorage.getItem('sr12_custom_marketing_kits');
@@ -2676,6 +2677,7 @@ function updateViewModeUI() {
   if (typeof updateOlseraHeaderMeta === 'function') updateOlseraHeaderMeta();
 
   // 1. KONTROL HERO SECTION TOKO (SEPARASI TOTAL PUBLIK vs ADMIN DISTRIBUTOR)
+  // 1. KONTROL HERO SECTION TOKO: HANYA 3 TOMBOL RESMI (WhatsApp, Cabang, Login)
   const adminActiveBadge = document.getElementById('distributorAdminActiveBadge');
   const btnDistLogin = document.getElementById('btnDistLoginHero');
   const btnDistOpenDrawer = document.getElementById('btnDistOpenDrawerHero');
@@ -2683,22 +2685,25 @@ function updateViewModeUI() {
   const btnEditLogo = document.getElementById('btnEditStoreLogo');
   const distPendingAlert = document.getElementById('distributorPendingAlert');
 
-  if (isLogged && !isCentral) {
-    // Mode Pemilik Toko (Admin Distributor): Cukup 1 tombol menu elegan yang memuat seluruh fitur di Drawer
-    if (adminActiveBadge) adminActiveBadge.style.display = 'inline-flex';
-    if (btnDistOpenDrawer) btnDistOpenDrawer.style.display = 'inline-flex';
-    if (btnDistLogin) btnDistLogin.style.display = 'none';
-    if (btnEditCover) btnEditCover.style.display = 'none';
-    if (btnEditLogo) btnEditLogo.style.display = 'none';
-    if (distPendingAlert) distPendingAlert.style.display = 'none';
-  } else {
-    // Mode Toko Online Pembeli (PUBLIK): HANYA TOMBOL PEMBELI (WhatsApp, Cabang, Login)
-    if (adminActiveBadge) adminActiveBadge.style.display = 'none';
-    if (btnDistOpenDrawer) btnDistOpenDrawer.style.display = 'none';
-    if (btnDistLogin) btnDistLogin.style.display = isCentral ? 'none' : 'inline-flex';
-    if (btnEditCover) btnEditCover.style.display = 'none';
-    if (btnEditLogo) btnEditLogo.style.display = 'none';
-    if (distPendingAlert) distPendingAlert.style.display = 'none';
+  if (adminActiveBadge) adminActiveBadge.style.display = 'none';
+  if (btnDistOpenDrawer) btnDistOpenDrawer.style.display = 'none';
+  if (btnEditCover) btnEditCover.style.display = 'none';
+  if (btnEditLogo) btnEditLogo.style.display = 'none';
+  if (distPendingAlert) distPendingAlert.style.display = 'none';
+  
+  if (btnDistLogin) {
+    btnDistLogin.style.display = isCentral ? 'none' : 'inline-flex';
+    if (isLogged) {
+      btnDistLogin.title = "Buka Portal Kasir & Menu Distributor (Olsera)";
+      btnDistLogin.onclick = function() {
+        showDistributorPortalView(true);
+      };
+    } else {
+      btnDistLogin.title = "Login Pemilik Toko / Distributor";
+      btnDistLogin.onclick = function() {
+        openDistributorLoginModal();
+      };
+    }
   }
 
   // 2. KONTROL TOPBAR KEMITRAAN (PLATFORM TOPBAR)
@@ -4087,6 +4092,37 @@ function checkoutViaWhatsApp() {
 
   // Trigger notifikasi real-time ke Admin dan mainkan suara dering
   triggerAdminNewOrderNotification(webOrder);
+
+  // Pengurangan Stok Otomatis saat Pesanan Masuk
+  if (Array.isArray(appState.products) && appState.cart.length > 0) {
+    appState.cart.forEach(item => {
+      const p = appState.products.find(pr => pr.id === item.productId);
+      if (p) {
+        const oldStock = Number(p.stock) || 0;
+        const qtySold = Number(item.qty) || 0;
+        const newStock = Math.max(0, oldStock - qtySold);
+        p.stock = newStock;
+        p.sold = (Number(p.sold) || 0) + qtySold;
+        if (typeof recordStockMutation === 'function') {
+          recordStockMutation({
+            date: dateFormatted,
+            productId: p.id,
+            productName: p.name,
+            type: 'OUT_ONLINE',
+            typeLabel: 'Order Toko Online',
+            qty: -qtySold,
+            stockBefore: oldStock,
+            stockAfter: newStock,
+            refNo: webOrder.id,
+            notes: `Order web dari ${appState.buyerDetails.name || 'Pelanggan'}`
+          });
+        }
+      }
+    });
+    saveStoredProducts(appState.products);
+    renderProducts();
+    if (typeof renderInventoryTable === 'function') renderInventoryTable();
+  }
 
   // Kosongkan keranjang pembeli agar siap untuk pesanan berikutnya (tidak tertinggal di browser)
   appState.cart = [];
