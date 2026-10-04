@@ -1890,7 +1890,8 @@ function handleSaveCashflowSubmit(e) {
   const category = document.getElementById('cashflowCategoryInput')?.value || 'Lain-lain';
   const account = document.getElementById('cashflowAccountInput')?.value || 'CASH';
   const amount = parseInt(document.getElementById('cashflowAmountInput')?.value, 10) || 0;
-  const notes = document.getElementById('cashflowNotesInput')?.value.trim() || '-';
+  const notesRaw = document.getElementById('cashflowNotesInput')?.value.trim();
+  const notes = notesRaw || category;
 
   if (amount <= 0) {
     showToast('⚠️ Nominal kas harus lebih dari Rp 0!');
