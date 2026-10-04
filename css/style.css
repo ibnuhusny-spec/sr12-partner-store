@@ -1302,6 +1302,27 @@ header.site-header,
   background: linear-gradient(135deg, #115e59, #134e4a);
 }
 
+.btn-dist-login-action {
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  color: #38bdf8;
+  border: 1.5px solid #0284c7;
+  box-shadow: 0 3px 10px rgba(2, 132, 199, 0.35);
+}
+.btn-dist-login-action:hover {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #ffffff;
+}
+
+.btn-dist-logout-action {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 3px 10px rgba(239, 68, 68, 0.35);
+}
+.btn-dist-logout-action:hover {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+}
+
 .catalog-tier-selector-wrap {
   display: inline-flex;
   align-items: center;

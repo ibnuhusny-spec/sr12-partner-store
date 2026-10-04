@@ -869,6 +869,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   renderStoreDropdown();
   initEventListeners();
+  updateViewModeUI();
 
   // Sinkronisasi otomatis dua arah (Client <-> Server API)
   syncStoresWithServer();
@@ -958,9 +959,32 @@ function loadStoreBySlug(slug) {
   if (devSelect) devSelect.value = found.slug;
   renderStoreDropdown();
   updateStoreQuotaUI();
+  updateViewModeUI();
 }
 
 function switchPartnerStore(slug) {
+  // Re-evaluasi sesi distributor saat berpindah toko:
+  // Hanya aktifkan admin jika toko tujuan benar-benar memiliki sesi login yang valid
+  const savedDistributorSession = localStorage.getItem('sr12_distributor_session');
+  if (savedDistributorSession) {
+    try {
+      const parsedSession = JSON.parse(savedDistributorSession);
+      if (parsedSession && parsedSession.slug === slug) {
+        appState.isAdminMode = true;
+        appState.isDistributorLoggedIn = true;
+      } else {
+        appState.isAdminMode = false;
+        appState.isDistributorLoggedIn = false;
+      }
+    } catch(e) {
+      appState.isAdminMode = false;
+      appState.isDistributorLoggedIn = false;
+    }
+  } else {
+    appState.isAdminMode = false;
+    appState.isDistributorLoggedIn = false;
+  }
+
   loadStoreBySlug(slug);
   const newUrl = window.location.pathname + '?store=' + slug;
   window.history.pushState({ store: slug }, '', newUrl);
@@ -1869,6 +1893,11 @@ function openDistributorPendingStoresModal() {
 window.openDistributorPendingStoresModal = openDistributorPendingStoresModal;
 
 function openShareStoreModal() {
+  if (!appState.isDistributorLoggedIn && !appState.isAdminMode) {
+    showToast('🔒 Fitur Link Khusus Mitra: Silakan login sebagai Pemilik Toko.');
+    openDistributorLoginModal();
+    return;
+  }
   const modal = document.getElementById('modalShareStore');
   const targetName = document.getElementById('shareStoreTargetName');
   const fullUrlInput = document.getElementById('shareStoreFullUrlInput');
@@ -2389,6 +2418,11 @@ function renderStoreBranding() {
 }
 
 function showCurrentStoreSk() {
+  if (!appState.isDistributorLoggedIn && !appState.isAdminMode) {
+    showToast('🔒 Dokumen SK Rahasia Distributor: Silakan login sebagai Pemilik Toko.');
+    openDistributorLoginModal();
+    return;
+  }
   const store = appState.storeSettings || DEFAULT_STORE_SETTINGS;
   const skNum = store.skNumber || `SK-DIST-SR12-2026-${(store.slug || 'mitra').replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 5)}`;
   const owner = store.storeOwner || 'Mitra Resmi';
@@ -2436,15 +2470,15 @@ function openDistributorLoginModal() {
   const storePin = store.storeAdminPin || '1234';
 
   if (hint) {
-    hint.innerHTML = `Email: <b>${storeEmail}</b> &middot; No. WA: <b>${storeWa}</b> &middot; Password: <b>${storePin}</b>`;
+    hint.innerHTML = `Toko: <b>${store.storeName}</b> &middot; Pemilik: <b>${store.storeOwner}</b> &middot; PIN Toko: <b>${storePin}</b>`;
   }
 
-  if (emailInput) emailInput.value = '';
+  if (emailInput) emailInput.value = storeEmail;
   if (passInput) passInput.value = '';
   if (err) err.style.display = 'none';
 
   if (modal) modal.classList.add('open');
-  if (emailInput) setTimeout(() => emailInput.focus(), 200);
+  if (passInput) setTimeout(() => passInput.focus(), 200);
 }
 
 function autoFillDemoLogin() {
@@ -2492,8 +2526,13 @@ async function handleDistributorLoginSubmit(e) {
       updateViewModeUI();
       renderProducts();
       if (modal) modal.classList.remove('open');
-      if (typeof showDistributorPortalView === 'function') showDistributorPortalView(true);
-      showToast(`👑 Login Berhasil! Selamat datang ${result.store?.storeOwner || 'Distributor'}. Terhubung ke Database Server.`);
+      if (appState.pendingPosOpen) {
+        appState.pendingPosOpen = false;
+        if (typeof showDistributorPortalView === 'function') showDistributorPortalView(true);
+      } else {
+        if (typeof showDistributorPortalView === 'function') showDistributorPortalView(false);
+      }
+      showToast(`👑 Login Berhasil! Selamat datang ${result.store?.storeOwner || 'Distributor'}. Mode Admin Aktif.`);
       return;
     } else {
       if (err) {
@@ -2513,15 +2552,28 @@ async function handleDistributorLoginSubmit(e) {
   if (password === correctPin || password === masterPin || password === 'sr12jaya') {
     appState.isAdminMode = true;
     appState.isDistributorLoggedIn = true;
+    try {
+      localStorage.setItem('sr12_distributor_session', JSON.stringify({
+        slug: appState.currentStoreSlug,
+        owner: store.storeOwner,
+        loggedAt: Date.now()
+      }));
+    } catch (e) {}
+
     updateViewModeUI();
     renderProducts();
     if (modal) modal.classList.remove('open');
-    if (typeof showDistributorPortalView === 'function') showDistributorPortalView(true);
-    showToast(`👑 Login Berhasil (Mode Offline/Lokal)!`);
+    if (appState.pendingPosOpen) {
+      appState.pendingPosOpen = false;
+      if (typeof showDistributorPortalView === 'function') showDistributorPortalView(true);
+    } else {
+      if (typeof showDistributorPortalView === 'function') showDistributorPortalView(false);
+    }
+    showToast(`👑 Login Berhasil! Selamat datang ${store.storeOwner}. Mode Pemilik Toko kini Aktif.`);
   } else {
     if (err) {
       err.style.display = 'block';
-      err.textContent = `❌ Password / PIN salah!`;
+      err.textContent = `❌ Password / PIN Toko salah! (Gunakan PIN Toko Anda atau PIN Master: 8899)`;
     }
   }
 }
@@ -2582,6 +2634,8 @@ function handleDistributorLogout() {
   renderProducts();
   showToast('🛍️ Anda telah logout. Web toko kini kembali bersih sebagai Tampilan Pembeli Umum.');
 }
+window.handleDistributorLogout = handleDistributorLogout;
+window.logoutDistributor = handleDistributorLogout;
 
 function toggleViewMode() {
   if (appState.isAdminMode) {
@@ -2592,20 +2646,12 @@ function toggleViewMode() {
 }
 
 function updateViewModeUI() {
-  const adminBanner = document.getElementById('adminModeBanner');
-  const btnStoreSettings = document.getElementById('btnOpenStoreSettings');
-  const btnAddProduct = document.getElementById('btnOpenAddProduct');
-  const btnAddPromo = document.getElementById('btnOpenAddPromo');
-  const btnAddMkit = document.getElementById('btnOpenAddMkit');
-
-  const btnLogin = document.getElementById('btnDistributorLogin');
-  const badgeProfile = document.getElementById('distributorProfileBadge');
-  const nameDisplay = document.getElementById('loggedDistributorName');
-
-  const isLogged = !!appState.isAdminMode;
+  const isLogged = !!appState.isAdminMode && !!appState.isDistributorLoggedIn;
+  const isCentral = appState.storeSettings?.slug === 'sr12-central';
 
   // Bar lama disembunyikan permanen agar tidak bertumpuk
   const toggleBar = document.getElementById('distributorPortalToggleBar');
+  const adminBanner = document.getElementById('adminModeBanner');
   if (toggleBar) toggleBar.style.display = 'none';
   if (adminBanner) adminBanner.style.display = 'none';
 
@@ -2619,19 +2665,67 @@ function updateViewModeUI() {
 
   if (typeof updateOlseraHeaderMeta === 'function') updateOlseraHeaderMeta();
 
-  const isCentral = appState.storeSettings?.slug === 'sr12-central';
-  if (btnStoreSettings) btnStoreSettings.style.display = isCentral ? 'none' : 'inline-flex';
+  // 1. KONTROL HERO SECTION TOKO (SEPARASI TOTAL PUBLIK vs ADMIN DISTRIBUTOR)
+  const adminActiveBadge = document.getElementById('distributorAdminActiveBadge');
+  const btnDistLogin = document.getElementById('btnDistLoginHero');
+  const btnDistLogout = document.getElementById('btnDistLogoutHero');
+  const btnDistOlseraPos = document.getElementById('btnDistOlseraPos');
+  const btnDistSettingsHero = document.getElementById('btnDistSettingsHero');
+  const btnDistCheckSk = document.getElementById('btnDistCheckSk');
+  const btnDistShareStore = document.getElementById('btnDistShareStore');
+  const btnEditCover = document.getElementById('btnEditStoreCover');
+  const btnEditLogo = document.getElementById('btnEditStoreLogo');
+  const distPendingAlert = document.getElementById('distributorPendingAlert');
+
+  if (isLogged && !isCentral) {
+    // Mode Pemilik Toko (Admin Distributor): Buka akses fitur manajemen & kasir
+    if (adminActiveBadge) adminActiveBadge.style.display = 'inline-flex';
+    if (btnDistLogin) btnDistLogin.style.display = 'none';
+    if (btnDistLogout) btnDistLogout.style.display = 'inline-flex';
+    if (btnDistOlseraPos) btnDistOlseraPos.style.display = 'inline-flex';
+    if (btnDistSettingsHero) btnDistSettingsHero.style.display = 'inline-flex';
+    if (btnDistCheckSk) btnDistCheckSk.style.display = 'inline-flex';
+    if (btnDistShareStore) btnDistShareStore.style.display = 'inline-flex';
+    if (btnEditCover) btnEditCover.style.display = 'inline-flex';
+    if (btnEditLogo) btnEditLogo.style.display = 'flex';
+  } else {
+    // Mode Toko Online Pembeli (PUBLIK): SEMBUNYIKAN TOTAL FITUR PRIVAT!
+    if (adminActiveBadge) adminActiveBadge.style.display = 'none';
+    if (btnDistLogin) btnDistLogin.style.display = isCentral ? 'none' : 'inline-flex';
+    if (btnDistLogout) btnDistLogout.style.display = 'none';
+    if (btnDistOlseraPos) btnDistOlseraPos.style.display = 'none';
+    if (btnDistSettingsHero) btnDistSettingsHero.style.display = 'none';
+    if (btnDistCheckSk) btnDistCheckSk.style.display = 'none';
+    if (btnDistShareStore) btnDistShareStore.style.display = 'none';
+    if (btnEditCover) btnEditCover.style.display = 'none';
+    if (btnEditLogo) btnEditLogo.style.display = 'none';
+    if (distPendingAlert) distPendingAlert.style.display = 'none';
+  }
+
+  // 2. KONTROL TOPBAR KEMITRAAN (PLATFORM TOPBAR)
+  const topbarBtnOlseraPos = document.getElementById('topbarBtnOlseraPos');
+  const topbarBtnShareStore = document.getElementById('topbarBtnShareStore');
+  const topbarBtnDistLogin = document.getElementById('topbarBtnDistLogin');
+  const topbarBtnDistLogout = document.getElementById('topbarBtnDistLogout');
+
+  if (topbarBtnOlseraPos) topbarBtnOlseraPos.style.display = isLogged ? 'inline-flex' : 'none';
+  if (topbarBtnShareStore) topbarBtnShareStore.style.display = isLogged ? 'inline-flex' : 'none';
+  if (topbarBtnDistLogin) topbarBtnDistLogin.style.display = isLogged ? 'none' : 'inline-flex';
+  if (topbarBtnDistLogout) topbarBtnDistLogout.style.display = isLogged ? 'inline-flex' : 'none';
+
+  // 3. KONTROL TOMBOL TAMBAH PRODUK & PENGATURAN TOKO DI INTERFACE RETAIL
+  const btnStoreSettings = document.getElementById('btnOpenStoreSettings');
+  const btnAddProduct = document.getElementById('btnOpenAddProduct');
+  const btnAddPromo = document.getElementById('btnOpenAddPromo');
+  const btnAddMkit = document.getElementById('btnOpenAddMkit');
+  if (btnStoreSettings) btnStoreSettings.style.display = (isLogged && !isCentral) ? 'inline-flex' : 'none';
   if (btnAddProduct) btnAddProduct.style.display = isLogged ? 'inline-flex' : 'none';
   if (btnAddPromo) btnAddPromo.style.display = isLogged ? 'inline-flex' : 'none';
   if (btnAddMkit) btnAddMkit.style.display = isLogged ? 'inline-flex' : 'none';
 
-  const btnEditCover = document.getElementById('btnEditStoreCover');
-  const btnEditLogo = document.getElementById('btnEditStoreLogo');
-  const btnDistSettingsHero = document.getElementById('btnDistSettingsHero');
-  if (btnEditCover) btnEditCover.style.display = isCentral ? 'none' : 'inline-flex';
-  if (btnEditLogo) btnEditLogo.style.display = isCentral ? 'none' : 'flex';
-  if (btnDistSettingsHero) btnDistSettingsHero.style.display = isCentral ? 'none' : 'inline-flex';
-
+  const btnLogin = document.getElementById('btnDistributorLogin');
+  const badgeProfile = document.getElementById('distributorProfileBadge');
+  const nameDisplay = document.getElementById('loggedDistributorName');
   if (btnLogin) btnLogin.style.display = isLogged ? 'none' : 'inline-flex';
   if (badgeProfile) badgeProfile.style.display = isLogged ? 'inline-flex' : 'none';
   if (nameDisplay) {
@@ -4412,6 +4506,11 @@ function setEditImagePreset(presetType) {
 }
 
 function openStoreSettingsModal() {
+  if (!appState.isDistributorLoggedIn && !appState.isAdminMode) {
+    showToast('🔒 Pengaturan Toko Terkunci. Khusus Pemilik Toko, silakan login.');
+    openDistributorLoginModal();
+    return;
+  }
   const cfg = appState.storeSettings;
   const modal = document.getElementById('modalStoreSettings');
   const nameInput = document.getElementById('settingStoreName');
@@ -7019,19 +7118,18 @@ window.openDevCurrentStoreBackoffice = openDevCurrentStoreBackoffice;
 window.contactMitraWA = contactMitraWA;
 
 function openOlseraPosDirect() {
-  const alzam = appState.partnerStores.find(s => s.slug === 'alzam-agency');
-  if (alzam && appState.currentStoreSlug !== 'alzam-agency') {
-    loadStoreBySlug('alzam-agency');
+  if (!appState.isDistributorLoggedIn && !appState.isAdminMode) {
+    showToast('🔒 Akses Kasir Gudang Terkunci. Khusus Pemilik Toko, silakan masukkan Password / PIN.');
+    openDistributorLoginModal();
+    return;
   }
-  appState.isAdminMode = true;
-  appState.isDistributorLoggedIn = true;
-  try {
-    localStorage.setItem('sr12_distributor_session', 'active');
-  } catch(e) {}
   if (typeof showDistributorPortalView === 'function') {
     showDistributorPortalView(true);
   }
-  showToast('🏪 Membuka Olsera POS & Backoffice Alzam Agency!');
+  if (typeof switchOlseraTab === 'function') {
+    switchOlseraTab('pos');
+  }
+  showToast(`🛒 Point of Sale & Kasir Gudang: ${appState.storeSettings.storeName}`);
 }
 window.openOlseraPosDirect = openOlseraPosDirect;
 window.quickApproveFromPendingModal = quickApproveFromPendingModal;

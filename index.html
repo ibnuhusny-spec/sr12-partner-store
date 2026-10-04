@@ -74,14 +74,23 @@
           <span style="font-size: 0.72rem; color: #94a3b8;">🏪 Toko:</span>
           <span id="activeStorePublicBadge" style="font-size: 0.76rem; font-weight: 800; color: #38bdf8;">SR12 Official Central Hub</span>
         </div>
-        <!-- Tombol Buka Olsera POS Langsung -->
-        <button class="btn-topbar-olsera" onclick="openOlseraPosDirect()" title="Buka Aplikasi Olsera POS Kasir & Backoffice" aria-label="Olsera POS">
+        <!-- Tombol Admin Distributor (Hanya Muncul Jika Sudah Login) -->
+        <button class="btn-topbar-olsera" id="topbarBtnOlseraPos" onclick="openOlseraPosDirect()" title="Buka Aplikasi Olsera POS Kasir & Backoffice" aria-label="Olsera POS" style="display: none;">
           🛒 <span class="topbar-btn-text">Olsera POS</span>
         </button>
-        <!-- Tombol Bagikan Link Toko -->
-        <button class="btn-topbar-action" onclick="openShareStoreModal()" title="Salin link toko ini untuk disebarkan ke pembeli" aria-label="Bagikan Link Toko">
+        <button class="btn-topbar-action" id="topbarBtnShareStore" onclick="openShareStoreModal()" title="Salin link toko ini untuk disebarkan ke pembeli" aria-label="Bagikan Link Toko" style="display: none;">
           🔗 <span class="topbar-btn-text">Bagikan</span>
         </button>
+
+        <!-- Tombol Login Pemilik Toko (Terlihat saat belum login) -->
+        <button class="btn-topbar-action" id="topbarBtnDistLogin" onclick="openDistributorLoginModal()" title="Login Pemilik Toko / Distributor">
+          🔐 <span class="topbar-btn-text">Login Pemilik Toko</span>
+        </button>
+        <!-- Tombol Logout Pemilik Toko (Terlihat saat sudah login) -->
+        <button class="btn-topbar-action" id="topbarBtnDistLogout" onclick="logoutDistributor()" title="Keluar dari Akun Pemilik Toko" style="display: none; color: #f87171; border-color: rgba(239, 68, 68, 0.4);">
+          🚪 <span class="topbar-btn-text">Logout</span>
+        </button>
+
         <!-- Tombol Buka Toko Baru Gratis -->
         <button class="btn-topbar-primary" onclick="openRegisterStoreModal()" title="Daftarkan Toko Online SR12 Milik Anda Sendiri" aria-label="Buka Toko Baru">
           ➕ <span class="topbar-btn-text">Buka Toko</span>
@@ -1341,25 +1350,46 @@
           </div>
         </div>
 
-        <!-- 6. Tombol Aksi Toko Distributor (Simbol Bersih Tanpa Teks - Sebaris Rapi) -->
+        <!-- Indikator Status Mode Pemilik Toko (Hanya muncul jika Distributor/Admin sudah login) -->
+        <div id="distributorAdminActiveBadge" style="display: none; align-items: center; justify-content: center; gap: 8px; margin: 0 auto 12px; background: #ecfdf5; border: 1.5px solid #10b981; border-radius: 9999px; padding: 5px 16px; font-size: 0.78rem; font-weight: 800; color: #065f46; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15);">
+          <span>👑</span>
+          <span>Mode Pemilik Toko Aktif</span>
+          <span style="opacity: 0.35;">|</span>
+          <button type="button" onclick="logoutDistributor()" style="background: none; border: none; color: #dc2626; font-weight: 800; font-size: 0.74rem; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; padding: 0;">
+            <span>🚪</span> <u>Keluar (Mode Pembeli)</u>
+          </button>
+        </div>
+
+        <!-- 6. Tombol Aksi Toko (DIBEDAKAN TEGAS: PUBLIK PEMBELI vs PRIVAT DISTRIBUTOR) -->
         <div class="distributor-hero-actions">
+          <!-- Aksi Terbuka untuk Publik / Pembeli -->
           <a id="btnDistChatWa" href="https://wa.me/6281234567890" target="_blank" class="btn-dist-icon-action btn-dist-wa-action" title="Hubungi Toko via WhatsApp" aria-label="WhatsApp">
             <span>💬</span>
           </a>
-          <button type="button" id="btnDistCheckSk" onclick="showCurrentStoreSk()" class="btn-dist-icon-action btn-dist-sk-action" title="Periksa Dokumen SK Resmi Distributor" aria-label="SK Resmi">
-            <span>📜</span>
-          </button>
-          <button type="button" id="btnDistSettingsHero" onclick="openStoreSettingsModal()" class="btn-dist-icon-action btn-dist-settings-action" title="Pengaturan & Kustomisasi Toko" aria-label="Atur Toko">
-            <span>⚙️</span>
-          </button>
-          <button type="button" onclick="openOlseraPosDirect()" class="btn-dist-icon-action btn-dist-olsera-action" title="Buka Aplikasi Olsera POS Kasir & Backoffice" aria-label="Olsera POS">
-            <span>🛒</span>
-          </button>
-          <button type="button" onclick="openShareStoreModal()" class="btn-dist-icon-action btn-dist-share-action" title="Bagikan Link Toko Ini" aria-label="Bagikan Toko">
+          <button type="button" id="btnDistShareStore" onclick="openShareStoreModal()" class="btn-dist-icon-action btn-dist-share-action" title="Bagikan Link Toko Ini" aria-label="Bagikan Toko">
             <span>🔗</span>
           </button>
-          <button type="button" onclick="switchPartnerStore('sr12-central'); window.scrollTo({top: 0, behavior: 'smooth'});" class="btn-dist-icon-action btn-dist-central-action" title="Kembali ke SR12 Official Central Hub" aria-label="Central Hub">
+          <button type="button" id="btnDistCentralAction" onclick="switchPartnerStore('sr12-central'); window.scrollTo({top: 0, behavior: 'smooth'});" class="btn-dist-icon-action btn-dist-central-action" title="Daftar Cabang / Central Hub" aria-label="Central Hub">
             <span>🏛️</span>
+          </button>
+
+          <!-- Tombol Login Resmi Pemilik Toko (Terproteksi Password / PIN) -->
+          <button type="button" id="btnDistLoginHero" onclick="openDistributorLoginModal()" class="btn-dist-icon-action btn-dist-login-action" title="Login Pemilik Toko / Distributor (Akses Kasir & Pengaturan)" aria-label="Login Distributor">
+            <span>🔐</span>
+          </button>
+
+          <!-- Aksi Rahasia Khusus Admin Distributor (HANYA MUNCUL SETELAH LOGIN PASSWORD/PIN) -->
+          <button type="button" id="btnDistOlseraPos" onclick="openOlseraPosDirect()" class="btn-dist-icon-action btn-dist-olsera-action" title="Point of Sale (Kasir Gudang & Olsera Backoffice)" aria-label="Olsera POS" style="display: none;">
+            <span>🛒</span>
+          </button>
+          <button type="button" id="btnDistSettingsHero" onclick="openStoreSettingsModal()" class="btn-dist-icon-action btn-dist-settings-action" title="Pengaturan & Kustomisasi Toko" aria-label="Atur Toko" style="display: none;">
+            <span>⚙️</span>
+          </button>
+          <button type="button" id="btnDistCheckSk" onclick="showCurrentStoreSk()" class="btn-dist-icon-action btn-dist-sk-action" title="Dokumen SK Resmi Distributor" aria-label="SK Resmi" style="display: none;">
+            <span>📜</span>
+          </button>
+          <button type="button" id="btnDistLogoutHero" onclick="logoutDistributor()" class="btn-dist-icon-action btn-dist-logout-action" title="Keluar Mode Pemilik Toko" aria-label="Logout" style="display: none;">
+            <span>🚪</span>
           </button>
         </div>
 
