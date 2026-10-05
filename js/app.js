@@ -2494,6 +2494,22 @@ function renderStoreBranding() {
   const cartBtn = document.getElementById('btnOpenCart');
   const navChatWa = document.getElementById('btnHeaderChatWa');
   const tierQuickBanner = document.querySelector('.tier-quick-banner');
+  const siteHeader = document.querySelector('.site-header');
+  const platformTopbar = document.getElementById('platformTopbar') || document.querySelector('.platform-topbar');
+
+  // Bersihkan topbar & site-header di Toko Mitra (Hanya tampil di Central Hub)
+  document.body.classList.toggle('is-central-hub', isCentralHub);
+  document.body.classList.toggle('is-partner-store', !isCentralHub);
+
+  if (siteHeader) {
+    siteHeader.style.display = isCentralHub ? 'block' : 'none';
+  }
+  if (platformTopbar) {
+    platformTopbar.style.display = isCentralHub ? 'block' : 'none';
+  }
+  if (tierQuickBanner) {
+    tierQuickBanner.style.display = 'none';
+  }
 
   if (nameEl) {
     nameEl.innerHTML = isCentralHub 
@@ -2546,9 +2562,6 @@ function renderStoreBranding() {
   }
   if (cartBtn) {
     cartBtn.style.display = isCentralHub ? 'none' : 'inline-flex';
-  }
-  if (tierQuickBanner) {
-    tierQuickBanner.style.display = isCentralHub ? 'none' : 'block';
   }
 
   // 2. Tampilkan Mode 1 (Official Central Hub) vs Mode 2 (Toko Distributor)
@@ -2808,13 +2821,12 @@ async function handleDistributorLoginSubmit(e) {
       updateViewModeUI();
       renderProducts();
       if (modal) modal.classList.remove('open');
-      if (appState.pendingPosOpen) {
-        appState.pendingPosOpen = false;
-        if (typeof showDistributorPortalView === 'function') showDistributorPortalView(true);
-      } else {
-        if (typeof showDistributorPortalView === 'function') showDistributorPortalView(false);
+      appState.pendingPosOpen = false;
+      appState.isOlseraPortalOpen = true;
+      if (typeof showDistributorPortalView === 'function') {
+        showDistributorPortalView(true);
       }
-      showToast(`👑 Login Berhasil! Selamat datang ${result.store?.storeOwner || 'Distributor'}. Mode Admin Aktif.`);
+      showToast(`👑 Login Berhasil! Selamat datang ${result.store?.storeOwner || 'Distributor'}. Masuk ke Dashboard Admin.`);
       return;
     } else {
       if (err) {
@@ -2847,13 +2859,12 @@ async function handleDistributorLoginSubmit(e) {
     updateViewModeUI();
     renderProducts();
     if (modal) modal.classList.remove('open');
-    if (appState.pendingPosOpen) {
-      appState.pendingPosOpen = false;
-      if (typeof showDistributorPortalView === 'function') showDistributorPortalView(true);
-    } else {
-      if (typeof showDistributorPortalView === 'function') showDistributorPortalView(false);
+    appState.pendingPosOpen = false;
+    appState.isOlseraPortalOpen = true;
+    if (typeof showDistributorPortalView === 'function') {
+      showDistributorPortalView(true);
     }
-    showToast(`👑 Login Berhasil! Selamat datang ${store.storeOwner}. Mode Pemilik Toko kini Aktif.`);
+    showToast(`👑 Login Berhasil! Selamat datang ${store.storeOwner}. Masuk ke Dashboard Admin.`);
   } else {
     if (err) {
       err.style.display = 'block';
@@ -2909,10 +2920,15 @@ function handleDistributorLogout() {
   if (oldToggleBar) oldToggleBar.style.display = 'none';
   if (adminBanner) adminBanner.style.display = 'none';
 
+  const isCentral = !appState.storeSettings?.slug || appState.storeSettings.slug === 'sr12-central';
+  document.body.classList.remove('olsera-portal-active');
+  document.body.classList.toggle('is-central-hub', isCentral);
+  document.body.classList.toggle('is-partner-store', !isCentral);
+
   if (storefront) storefront.style.display = 'block';
-  if (siteHeader) siteHeader.style.display = 'block';
-  if (tierBanner) tierBanner.style.display = 'block';
-  if (platformTopbar) platformTopbar.style.display = 'none';
+  if (siteHeader) siteHeader.style.display = isCentral ? 'block' : 'none';
+  if (tierBanner) tierBanner.style.display = 'none';
+  if (platformTopbar) platformTopbar.style.display = isCentral ? 'block' : 'none';
 
   updateViewModeUI();
   switchTab('products');
@@ -2965,15 +2981,18 @@ function updateViewModeUI() {
   if (btnEditLogo) btnEditLogo.style.display = 'none';
   if (distPendingAlert) distPendingAlert.style.display = 'none';
   
+  const distHeroLoginLabel = document.getElementById('distHeroLoginLabel');
   if (btnDistLogin) {
     btnDistLogin.style.display = isCentral ? 'none' : 'inline-flex';
     if (isLogged) {
-      btnDistLogin.title = "Buka Portal Kasir & Menu Distributor (Olsera)";
+      btnDistLogin.title = "Buka Dashboard Admin & Kasir (Olsera)";
+      if (distHeroLoginLabel) distHeroLoginLabel.textContent = "Dashboard Admin";
       btnDistLogin.onclick = function() {
         showDistributorPortalView(true);
       };
     } else {
       btnDistLogin.title = "Login Pemilik Toko / Distributor";
+      if (distHeroLoginLabel) distHeroLoginLabel.textContent = "Login Pemilik";
       btnDistLogin.onclick = function() {
         openDistributorLoginModal();
       };
@@ -3093,19 +3112,21 @@ function initEventListeners() {
   const cartDrawer = document.getElementById('cartDrawer');
   const cartBackdrop = document.getElementById('cartBackdrop');
 
+  window.openCartDrawer = function() {
+    if (cartDrawer) cartDrawer.classList.add('open');
+    if (cartBackdrop) cartBackdrop.classList.add('open');
+    const nameIn = document.getElementById('cartBuyerNameInput');
+    const phoneIn = document.getElementById('cartBuyerPhoneField');
+    if (nameIn && !nameIn.value && appState.buyerDetails?.name) {
+      nameIn.value = appState.buyerDetails.name;
+    }
+    if (phoneIn && !phoneIn.value && appState.buyerDetails?.phone) {
+      phoneIn.value = appState.buyerDetails.phone;
+    }
+  };
+
   if (btnOpenCart) {
-    btnOpenCart.addEventListener('click', () => {
-      cartDrawer.classList.add('open');
-      cartBackdrop.classList.add('open');
-      const nameIn = document.getElementById('cartBuyerNameInput');
-      const phoneIn = document.getElementById('cartBuyerPhoneField');
-      if (nameIn && !nameIn.value && appState.buyerDetails.name) {
-        nameIn.value = appState.buyerDetails.name;
-      }
-      if (phoneIn && !phoneIn.value && appState.buyerDetails.phone) {
-        phoneIn.value = appState.buyerDetails.phone;
-      }
-    });
+    btnOpenCart.addEventListener('click', window.openCartDrawer);
   }
 
   const closeCart = () => {
@@ -3972,6 +3993,13 @@ function updateCartSummary() {
       totalPcs += item.qty;
     }
   });
+
+  const countBadge = document.getElementById('cartCountBadge');
+  if (countBadge) countBadge.textContent = totalPcs;
+  const heroBadge = document.getElementById('distHeroCartBadge');
+  if (heroBadge) heroBadge.textContent = totalPcs;
+  const fabBadge = document.getElementById('fabCartBadge');
+  if (fabBadge) fabBadge.textContent = totalPcs;
 
   const totalSavings = Math.max(0, totalHet - subtotal);
   const tier = SR12_TIERS[appState.currentTier] || SR12_TIERS.konsumen;

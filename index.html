@@ -464,13 +464,21 @@
           </div>
         </div>
         <div class="olsera-static-topbar-right">
+          <button type="button" onclick="openTopupQuotaModal()" class="btn-olsera-static-quota" title="Sisa Kuota Transaksi: Klik untuk Top Up" style="background: rgba(16, 185, 129, 0.12); color: #059669; border: 1.5px solid #a7f3d0; border-radius: 9999px; padding: 6px 14px; font-size: 0.76rem; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+            <span>⚡</span>
+            <span>Kuota: <b id="olseraStaticQuotaDisplay">15</b> Order</span>
+          </button>
           <button type="button" class="btn-olsera-static-cashier" onclick="openOlseraAbsensiModal()" title="Shift &amp; Kasir Aktif">
             <span>👤</span>
-            <span id="olseraStaticCashierLabel">Kasir: Administrator Pusat</span>
+            <span id="olseraStaticCashierLabel">Kasir: Nurlinda Sari</span>
           </button>
-          <button type="button" class="btn-olsera-static-cfd" onclick="showDistributorPortalView(false)" title="Tinjau Tampilan Pembeli (Customer Display)">
-            <span>📱</span>
-            <span>Customer Display</span>
+          <button type="button" class="btn-olsera-static-cfd" onclick="showDistributorPortalView(false)" title="Tinjau Tampilan Pembeli (Customer Display)" style="background: #f0f9ff; color: #0284c7; border: 1px solid #bae6fd; border-radius: 9999px; padding: 6px 14px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+            <span>🌐</span>
+            <span>Lihat Toko Online</span>
+          </button>
+          <button type="button" onclick="handleDistributorLogout()" class="btn-olsera-static-logout" title="Keluar / Logout Akun Distributor" style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; border-radius: 9999px; padding: 6px 14px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+            <span>🚪</span>
+            <span>Logout</span>
           </button>
         </div>
       </div>
@@ -1427,10 +1435,10 @@
       <!-- Cover Banner / Foto Latar Belakang Toko (Bisa Diubah Bebas oleh Distributor) -->
       <div class="distributor-hero-cover-wrap">
         <img id="distHeroCoverImg" src="assets/hero-banner.jpg" alt="Latar Belakang Toko" class="distributor-hero-cover-img">
-        <div class="distributor-hero-cover-gradient"></div>
+        <div class="distributor-hero-cover-gradient" style="display: none !important;"></div>
 
-        <!-- IDENTITAS RESMI NAMA TOKO DI BANNER (KONSISTEN) -->
-        <div class="distributor-hero-banner-overlay-text">
+        <!-- IDENTITAS RESMI NAMA TOKO DI BANNER DIHILANGKAN DARI ATAS BANNER KARENA SUDAH ADA DI BAWAH FOTO PROFIL -->
+        <div class="distributor-hero-banner-overlay-text" style="display: none !important;">
           <span class="banner-store-badge" id="bannerStoreTierBadge">👑 DISTRIBUTOR UTAMA RESMI</span>
           <h1 class="banner-store-title" id="bannerStoreName">Toko Mitra Resmi SR12</h1>
           <p class="banner-store-tagline" id="bannerStoreTagline">Distributor Resmi SR12 Herbal Skin Care &bull; Melayani Konsumen &amp; Jaringan Reseller</p>
@@ -1463,7 +1471,7 @@
 
         <!-- 4. Slogan & Deskripsi Toko -->
         <p id="distHeroTagline" class="distributor-hero-tagline">
-          Distributor Resmi SR12 Herbal Skin Care Wilayah Bandung &amp; Sekitarnya &bull; Melayani Agen, Reseller &amp; Konsumen
+          Distributor Resmi SR12 Herbal Skin Care &bull; Melayani Konsumen &amp; Jaringan Reseller
         </p>
 
         <!-- 5. Metadata Toko (Pemilik, Kota, WhatsApp) - Ringkas Sebaris -->
@@ -1472,30 +1480,30 @@
             <span>👤</span> <b id="distHeroOwner">Nurlinda Sari</b>
           </div>
           <div class="distributor-hero-chip">
-            <span>📍</span> <b id="distHeroCity">Bandung</b>
+            <span>📍</span> <b id="distHeroCity">Maros</b>
           </div>
           <div class="distributor-hero-chip">
             <span>📱</span> <b id="distHeroWa">+62 812-3456-7890</b>
           </div>
         </div>
 
-
-
-        <!-- 6. Tombol Aksi Toko (DIBEDAKAN TEGAS: PUBLIK PEMBELI vs PRIVAT DISTRIBUTOR) -->
+        <!-- 6. Tombol Aksi Toko Bersih & Lengkap di Bawah Profil -->
         <div class="distributor-hero-actions">
-          <!-- Aksi Terbuka untuk Publik / Pembeli -->
           <a id="btnDistChatWa" href="https://wa.me/6281234567890" target="_blank" class="btn-dist-icon-action btn-dist-wa-action" title="Hubungi Toko via WhatsApp" aria-label="WhatsApp">
-            <span>💬</span>
+            <span>💬</span> <span class="dist-action-label">WhatsApp</span>
           </a>
-          <button type="button" id="btnDistCentralAction" onclick="switchPartnerStore('sr12-central'); window.scrollTo({top: 0, behavior: 'smooth'});" class="btn-dist-icon-action btn-dist-central-action" title="Daftar Cabang / Central Hub" aria-label="Central Hub">
-            <span>🏛️</span>
+          <button type="button" id="btnDistCentralAction" onclick="switchPartnerStore('sr12-central'); window.scrollTo({top: 0, behavior: 'smooth'});" class="btn-dist-icon-action btn-dist-central-action" title="Kembali ke SR12 Official Central Hub" aria-label="Central Hub">
+            <span>🏛️</span> <span class="dist-action-label">Toko Pusat</span>
           </button>
-
-          <!-- Tombol Login Resmi Pemilik Toko (Terproteksi Password / PIN) -->
+          <button type="button" id="btnDistSwitchStore" onclick="openStoreSwitchModal()" class="btn-dist-icon-action" title="Pilih atau Ganti Toko Mitra Lain" aria-label="Ganti Toko" style="background: #eff6ff; color: #1e40af; border-color: #bfdbfe;">
+            <span>🏪</span> <span class="dist-action-label">Ganti Toko</span>
+          </button>
+          <button type="button" id="btnDistOpenCart" onclick="openCartDrawer()" class="btn-dist-icon-action" title="Buka Keranjang Belanja" aria-label="Keranjang" style="background: #ecfdf5; color: #065f46; border-color: #a7f3d0;">
+            <span>🛒</span> <span class="dist-action-label">Keranjang (<b id="distHeroCartBadge">0</b>)</span>
+          </button>
           <button type="button" id="btnDistLoginHero" onclick="openDistributorLoginModal()" class="btn-dist-icon-action btn-dist-login-action" title="Login Pemilik Toko / Distributor (Akses Kasir & Pengaturan)" aria-label="Login Distributor">
-            <span>🔐</span>
+            <span>🔐</span> <span class="dist-action-label" id="distHeroLoginLabel">Login Pemilik</span>
           </button>
-
         </div>
 
         <!-- Alert Pengajuan Toko Agen (Muncul jika ada calon Agen yang menunggu persetujuan Alzam Agency) -->

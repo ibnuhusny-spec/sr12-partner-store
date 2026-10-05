@@ -140,11 +140,16 @@ function showDistributorPortalView(showPortal) {
   if (oldToggleBar) oldToggleBar.style.display = 'none';
   if (adminBanner) adminBanner.style.display = 'none';
 
+  const isCentral = (typeof appState !== 'undefined' && appState.storeSettings) 
+    ? (!appState.storeSettings.slug || appState.storeSettings.slug === 'sr12-central')
+    : true;
+
   if (showPortal) {
     // -------------------------------------------------------------
     // 1. MODE PORTAL OLSERA (POS KASIR & MANAJEMEN GUDANG)
-    // Sembunyikan SEMUA 5 bar retail toko online agar bersih & rapi
+    // Sembunyikan SEMUA bar retail toko online agar bersih & rapi
     // -------------------------------------------------------------
+    document.body.classList.add('olsera-portal-active');
     if (storefront) storefront.style.display = 'none';
     if (siteHeader) siteHeader.style.display = 'none';
     if (tierBanner) tierBanner.style.display = 'none';
@@ -177,6 +182,10 @@ function showDistributorPortalView(showPortal) {
     // 2. MODE TINJAU TOKO ONLINE PEMBELI (BUYER STOREFRONT PREVIEW)
     // Sembunyikan Olsera workspace & tampilkan toko online pembeli
     // -------------------------------------------------------------
+    document.body.classList.remove('olsera-portal-active');
+    document.body.classList.toggle('is-central-hub', isCentral);
+    document.body.classList.toggle('is-partner-store', !isCentral);
+
     if (portal) portal.style.display = 'none';
     if (olseraNav) olseraNav.style.display = 'none';
     const bBar = document.getElementById('posMobileBottomBar');
@@ -186,9 +195,9 @@ function showDistributorPortalView(showPortal) {
     }
 
     if (storefront) storefront.style.display = 'block';
-    if (siteHeader) siteHeader.style.display = 'block';
-    if (tierBanner) tierBanner.style.display = 'block';
-    if (platformTopbar) platformTopbar.style.display = 'none';
+    if (siteHeader) siteHeader.style.display = isCentral ? 'block' : 'none';
+    if (tierBanner) tierBanner.style.display = 'none';
+    if (platformTopbar) platformTopbar.style.display = isCentral ? 'block' : 'none';
 
     // Sembunyikan semua strip/tab hitam atas agar toko online pembeli benar-benar bersih
     if (previewStrip) previewStrip.style.display = 'none';
@@ -251,6 +260,8 @@ function updateOlseraHeaderMeta() {
   const staticStoreNameEl = document.getElementById('olseraStaticStoreName');
   const staticStoreRoleEl = document.getElementById('olseraStaticStoreRole');
   const staticCashierLabelEl = document.getElementById('olseraStaticCashierLabel');
+  const staticQuotaEl = document.getElementById('olseraStaticQuotaDisplay');
+
   if (staticStoreNameEl) staticStoreNameEl.textContent = displayName;
   if (staticStoreRoleEl) staticStoreRoleEl.textContent = isCentral ? 'SR12 Official Central Hub' : `Distributor Resmi SR12 (${store.storeCity || 'Indonesia'})`;
   if (staticCashierLabelEl) staticCashierLabelEl.textContent = `Kasir: ${activeCashierName}`;
@@ -266,6 +277,7 @@ function updateOlseraHeaderMeta() {
 
   const q = (appState && typeof appState.storeSettings?.orderQuota !== 'undefined') ? appState.storeSettings.orderQuota : 15;
   if (topbarQuotaEl) topbarQuotaEl.textContent = `${q}`;
+  if (staticQuotaEl) staticQuotaEl.textContent = `${q}`;
   const drawerQuotaEl = document.getElementById('olseraDrawerQuotaBadge');
   if (drawerQuotaEl) drawerQuotaEl.textContent = `${q}`;
 
