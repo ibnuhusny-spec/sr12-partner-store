@@ -370,9 +370,12 @@ function saveStoredPendingStores(apps) {
 function getApiBaseUrl() {
   if (typeof window !== 'undefined' && window.location) {
     if (window.location.port === '3000') return '';
-    if (window.location.hostname && window.location.hostname !== '') {
-      return `${window.location.protocol}//${window.location.hostname}:3000`;
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0') {
+      return `${window.location.protocol}//${host}:3000`;
     }
+    // Di lingkungan serverless/hosting seperti Vercel, jangan panggil port 3000 untuk mencegah network timeout 10 detik
+    return null;
   }
   return 'http://127.0.0.1:3000';
 }
@@ -429,10 +432,11 @@ async function syncStoresWithServer() {
     }
   }
 
-  // 2. Sinkronisasi dari Local REST Server API (/api/stores)
-  if (typeof fetch === 'function') {
+  // 2. Sinkronisasi dari Local REST Server API (/api/stores - hanya jika berjalan lokal)
+  const apiBase = getApiBaseUrl();
+  if (apiBase && typeof fetch === 'function') {
     try {
-      const res = await fetch(getApiBaseUrl() + '/api/stores');
+      const res = await fetch(apiBase + '/api/stores');
       if (res.ok) {
         const data = await res.json();
         if (data && data.success && Array.isArray(data.data)) {
@@ -525,10 +529,11 @@ async function syncPendingStoresWithServer() {
     }
   }
 
-  // 2. Sinkronisasi antrean dari Local REST Server API (/api/pending-stores)
-  if (typeof fetch === 'function') {
+  // 2. Sinkronisasi antrean dari Local REST Server API (/api/pending-stores - hanya jika berjalan lokal)
+  const apiBase = getApiBaseUrl();
+  if (apiBase && typeof fetch === 'function') {
     try {
-      const res = await fetch(getApiBaseUrl() + '/api/pending-stores');
+      const res = await fetch(apiBase + '/api/pending-stores');
       if (res.ok) {
         const data = await res.json();
         if (data && data.success && Array.isArray(data.data)) {
@@ -550,7 +555,7 @@ async function syncPendingStoresWithServer() {
 
           for (const appToUpload of localAppsToUpload) {
             try {
-              await fetch(getApiBaseUrl() + '/api/pending-stores', {
+              await fetch(apiBase + '/api/pending-stores', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(appToUpload)
@@ -1516,9 +1521,10 @@ function handleRegisterStoreSubmit(e) {
   appState.pendingStoreApps.unshift(newApp);
   saveStoredPendingStores(appState.pendingStoreApps);
 
-  // Sinkronisasi otomatis ke server database API & Supabase Cloud
-  if (typeof fetch === 'function') {
-    fetch(getApiBaseUrl() + '/api/pending-stores', {
+  // Sinkronisasi otomatis ke server database API (jika lokal) & Supabase Cloud
+  const apiBase = getApiBaseUrl();
+  if (apiBase && typeof fetch === 'function') {
+    fetch(apiBase + '/api/pending-stores', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newApp)
@@ -1816,14 +1822,15 @@ function approvePendingStore(appId) {
   saveStoredPartnerStores(appState.partnerStores);
 
   // Sinkronisasi otomatis ke server database API & Supabase Cloud
-  if (typeof fetch === 'function') {
-    fetch(getApiBaseUrl() + '/api/stores', {
+  const apiBase = getApiBaseUrl();
+  if (apiBase && typeof fetch === 'function') {
+    fetch(apiBase + '/api/stores', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(approvedStore)
     }).catch(e => console.warn('Could not POST /api/stores:', e));
 
-    fetch(getApiBaseUrl() + `/api/pending-stores/${appId}`, {
+    fetch(apiBase + `/api/pending-stores/${appId}`, {
       method: 'DELETE'
     }).catch(e => console.warn('Could not DELETE /api/pending-stores:', e));
   }
@@ -1861,6 +1868,10 @@ function approvePendingStore(appId) {
   // Refresh UI
   renderStoreDropdown();
   updateDevPortalMetrics();
+  renderOfficialDistributorDirectory();
+  if (typeof renderSwitchStoreModal === 'function') {
+    renderSwitchStoreModal();
+  }
 
   // Prepare WA Activation Message
   const storeUrl = `${window.location.origin}${window.location.pathname}?store=${approvedStore.slug}`;
@@ -1908,8 +1919,9 @@ function rejectPendingStore(appId) {
   appState.pendingStoreApps.splice(index, 1);
   saveStoredPendingStores(appState.pendingStoreApps);
 
-  if (typeof fetch === 'function') {
-    fetch(getApiBaseUrl() + `/api/pending-stores/${appId}`, {
+  const apiBase = getApiBaseUrl();
+  if (apiBase && typeof fetch === 'function') {
+    fetch(apiBase + `/api/pending-stores/${appId}`, {
       method: 'DELETE'
     }).catch(e => console.warn('Could not DELETE /api/pending-stores:', e));
   }
@@ -4968,10 +4980,11 @@ async function deletePartnerStore(slug) {
     }
   }
 
-  // 6. Hapus dari Local REST Server (jika aktif)
-  if (typeof fetch === 'function') {
+  // 6. Hapus dari Local REST Server (jika aktif secara lokal)
+  const apiBase = getApiBaseUrl();
+  if (apiBase && typeof fetch === 'function') {
     try {
-      await fetch(getApiBaseUrl() + '/api/stores/' + slug, { method: 'DELETE' });
+      await fetch(apiBase + '/api/stores/' + slug, { method: 'DELETE' });
     } catch (apiErr) {}
   }
 
