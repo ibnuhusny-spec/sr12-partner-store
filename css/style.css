@@ -735,20 +735,353 @@ body.dev-mode-active {
 }
 
 /* ========================================================
-   BERSIH TOTAL: SEMBUNYIKAN SEMUA TAB HITAM & HEADER BERTUMPUK DI ATAS
+   BERSIH TOTAL: SEMBUNYIKAN STRIP ADMIN/TOPBAR GELAP BERTUMPUK
+   (SITE HEADER TETAP TAMPIL SEBAGAI NAVBAR KONSISTEN)
    ======================================================== */
-.site-header,
-header.site-header,
 .platform-topbar,
 #platformTopbar,
 .tier-quick-banner,
 #devPreviewStrip,
 #distributorPreviewStrip,
-.olsera-app-navbar,
-#olseraAppNavbar,
 .admin-mode-banner,
 #adminModeBanner {
   display: none !important;
+}
+
+/* Sembunyikan Site Header Publik hanya saat di dalam mode kasir POS Olsera atau Dev Mode */
+body.olsera-portal-active .site-header,
+body.dev-mode-active .site-header {
+  display: none !important;
+}
+
+.site-header {
+  display: block !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 990 !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+  padding: 10px 16px !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Tombol Navbar Tambahan */
+.btn-header-wa {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1.5px solid #a7f3d0;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+.btn-header-wa:hover {
+  background: #059669;
+  color: #fff;
+  border-color: #059669;
+}
+.btn-header-switch-store {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1.5px solid #bfdbfe;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s;
+}
+.btn-header-switch-store:hover {
+  background: #2563eb;
+  color: #fff;
+}
+.btn-header-cart {
+  position: relative;
+  background: #065f46;
+  color: #fff;
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(6, 95, 70, 0.3);
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.btn-header-cart:hover {
+  transform: scale(1.05);
+}
+.badge-cart-counter {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 9999px;
+  border: 2px solid #fff;
+}
+
+/* ========================================================
+   IDENTITAS NAMA TOKO DI BANNER (HERO COVER OVERLAY)
+   ======================================================== */
+.distributor-hero-cover-wrap {
+  position: relative !important;
+}
+.distributor-hero-banner-overlay-text {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  right: 20px;
+  z-index: 3;
+  color: #ffffff;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.75);
+  pointer-events: none;
+}
+.banner-store-badge {
+  display: inline-block;
+  background: rgba(16, 185, 129, 0.92);
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 4px 11px;
+  border-radius: 9999px;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  margin-bottom: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(4px);
+}
+.banner-store-title {
+  font-size: 1.65rem;
+  font-weight: 900;
+  color: #ffffff;
+  margin: 0 0 5px 0;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+.banner-store-tagline {
+  font-size: 0.84rem;
+  color: #f1f5f9;
+  margin: 0;
+  max-width: 650px;
+  line-height: 1.45;
+  font-weight: 500;
+}
+@media (max-width: 768px) {
+  .distributor-hero-banner-overlay-text {
+    top: 14px;
+    left: 14px;
+    right: 14px;
+  }
+  .banner-store-badge {
+    font-size: 0.65rem;
+    padding: 3px 8px;
+  }
+  .banner-store-title {
+    font-size: 1.15rem;
+  }
+  .banner-store-tagline {
+    font-size: 0.74rem;
+    line-height: 1.35;
+  }
+  .hide-on-mobile {
+    display: none !important;
+  }
+}
+
+/* ========================================================
+   FOOTER RESMI TOKO (KONSISTEN & MODERN)
+   ======================================================== */
+.site-storefront-footer {
+  margin-top: 50px;
+  padding: 36px 20px 48px;
+  border-top: 1px solid var(--border-subtle);
+  background: #ffffff;
+  color: var(--dark-700);
+}
+.footer-inner-content {
+  max-width: 960px;
+  margin: 0 auto;
+  text-align: center;
+}
+.footer-store-branding {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.footer-store-emblem {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 2px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  background: #f8fafc;
+  flex-shrink: 0;
+}
+.footer-store-emblem img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.footer-store-tier-pill {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+.footer-store-name {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--dark-900);
+  margin: 0 0 3px 0;
+}
+.footer-store-tagline {
+  font-size: 0.78rem;
+  color: var(--dark-500);
+  margin: 0;
+}
+.footer-meta-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 20px 0 24px;
+  text-align: left;
+}
+.footer-meta-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.footer-meta-icon {
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+.footer-meta-label {
+  font-size: 0.68rem;
+  color: #64748b;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.footer-meta-val {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--dark-800);
+}
+.footer-action-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.btn-footer-pill {
+  padding: 7px 15px;
+  border-radius: 9999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1.5px solid transparent;
+  transition: all 0.2s;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+}
+.btn-footer-wa {
+  background: #25d366;
+  color: #ffffff;
+  border-color: #25d366;
+}
+.btn-footer-wa:hover {
+  background: #1eb857;
+}
+.btn-footer-central {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fcd34d;
+}
+.btn-footer-central:hover {
+  background: #fde68a;
+}
+.btn-footer-switch {
+  background: #e0f2fe;
+  color: #0369a1;
+  border-color: #7dd3fc;
+}
+.btn-footer-switch:hover {
+  background: #bae6fd;
+}
+.btn-footer-settings {
+  background: #ecfdf5;
+  color: #065f46;
+  border-color: #a7f3d0;
+}
+.btn-footer-settings:hover {
+  background: #d1fae5;
+}
+.btn-footer-dev {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #cbd5e1;
+}
+.btn-footer-dev:hover {
+  background: #e2e8f0;
+}
+.footer-divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 20px 0;
+}
+.footer-legal-title {
+  font-weight: 700;
+  color: var(--dark-800);
+  font-size: 0.8rem;
+  margin-bottom: 3px;
+}
+.footer-legal-sub {
+  font-size: 0.74rem;
+  color: var(--dark-500);
+  margin-bottom: 10px;
+}
+.footer-disclaimer {
+  max-width: 680px;
+  margin: 0 auto;
+  font-size: 0.7rem;
+  color: #94a3b8;
+  line-height: 1.5;
 }
 
 /* Tombol Akses Tunggal Menu Distributor di Depan (Hero) */

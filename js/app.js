@@ -396,24 +396,19 @@ async function syncStoresWithServer() {
       if (Array.isArray(supaStores)) {
         const cloudSlugs = new Set(supaStores.map(s => s.slug));
 
-        // A. Hapus toko mitra dari memori lokal jika sudah dihapus dari Supabase Cloud oleh perangkat lain
+        // A. Filter toko mitra yang secara eksplisit ada di daftar hapus
         const prevCount = (appState.partnerStores || []).length;
         appState.partnerStores = (appState.partnerStores || []).filter(localStore => {
           if (!localStore || !localStore.slug) return false;
           if (localStore.slug === 'sr12-central') return true;
           if (deletedSlugs.includes(localStore.slug)) return false;
-          // Toko mitra yang sah harus terdaftar di Supabase Cloud
-          return cloudSlugs.has(localStore.slug);
+          return true;
         });
 
         if (appState.partnerStores.length !== prevCount) {
           changed = true;
-          // Jika toko yang sedang aktif dibuka di perangkat ini ternyata sudah dihapus, alihkan ke pusat
-          if (appState.currentStoreSlug && !cloudSlugs.has(appState.currentStoreSlug) && appState.currentStoreSlug !== 'sr12-central') {
+          if (appState.currentStoreSlug && deletedSlugs.includes(appState.currentStoreSlug) && appState.currentStoreSlug !== 'sr12-central') {
             switchPartnerStore('sr12-central');
-            if (typeof history !== 'undefined' && history.replaceState) {
-              history.replaceState(null, '', window.location.pathname);
-            }
           }
         }
 
@@ -473,6 +468,9 @@ async function syncStoresWithServer() {
     if (matchedStore) {
       console.log('🏪 [Auto-Switch URL] Membuka toko mitra sesuai parameter URL:', targetUrlStore);
       loadStoreBySlug(targetUrlStore);
+      if (typeof handleDirectProductDeepLink === 'function') {
+        handleDirectProductDeepLink();
+      }
     }
   }
 }
@@ -984,10 +982,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const initSlug = getInitialStoreSlug(appState.partnerStores);
   loadStoreBySlug(initSlug);
 
-  // Pastikan URL di address bar browser selalu mencantumkan parameter toko (?store=...) agar tautan jelas spesifik
-  if (!window.location.search || !window.location.search.includes('store=')) {
-    const defaultUrl = window.location.pathname + '?store=' + initSlug;
-    window.history.replaceState({ store: initSlug }, '', defaultUrl);
+  // Pastikan URL di address bar browser selalu mencantumkan parameter toko (?store=...) tanpa menghapus parameter produk (?product=...)
+  const bootParams = new URLSearchParams(window.location.search);
+  if (!bootParams.has('store')) {
+    bootParams.set('store', initSlug);
+    window.history.replaceState({ store: initSlug }, '', window.location.pathname + '?' + bootParams.toString());
   }
 
   // DEFAULT: Selalu mulai dari MODE PEMBELI UMUM (BERSIH) saat membuka tautan toko!
@@ -1124,6 +1123,9 @@ function loadStoreBySlug(slug) {
   if (typeof updateOlseraHeaderMeta === 'function') {
     updateOlseraHeaderMeta();
   }
+  if (typeof handleDirectProductDeepLink === 'function') {
+    handleDirectProductDeepLink();
+  }
 }
 
 function switchPartnerStore(slug) {
@@ -1150,7 +1152,9 @@ function switchPartnerStore(slug) {
   }
 
   loadStoreBySlug(slug);
-  const newUrl = window.location.pathname + '?store=' + slug;
+  const switchParams = new URLSearchParams(window.location.search);
+  switchParams.set('store', slug);
+  const newUrl = window.location.pathname + '?' + switchParams.toString();
   window.history.pushState({ store: slug }, '', newUrl);
   if (typeof updateDistributorPendingBadges === 'function') {
     updateDistributorPendingBadges();
@@ -2437,8 +2441,12 @@ function renderStoreBranding() {
   const isCentralHub = cfg.slug === 'sr12-central';
   const tierObj = SR12_TIERS[cfg.partnerTier] || SR12_TIERS.distributor;
   const storeLogo = getStoreEmblemSvgUrl(cfg);
+  let cleanTierName = (tierObj.name || '').toUpperCase().replace(/RESMI SR12/g, '').replace(/SR12/g, '').trim();
+  if (!cleanTierName) cleanTierName = 'DISTRIBUTOR';
+  const cleanCity = (cfg.storeCity || 'Indonesia').split('(')[0].trim();
+  const cleanWa = (cfg.storeWaNumber || '081234567890').replace(/[^0-9]/g, '');
 
-  // 1. Update Header Brand (Site Header)
+  // 1. Update Header Brand & Actions (Navbar Publik Konsisten)
   const nameEl = document.getElementById('brandStoreName');
   const tagEl = document.getElementById('brandStoreTagline');
   const logoBox = document.getElementById('brandLogoContainer');
@@ -2446,6 +2454,7 @@ function renderStoreBranding() {
   const btnBackCentral = document.getElementById('btnHeaderBackToCentral');
   const headerTierBox = document.querySelector('.header-tier-box');
   const cartBtn = document.getElementById('btnOpenCart');
+  const navChatWa = document.getElementById('btnHeaderChatWa');
   const tierQuickBanner = document.querySelector('.tier-quick-banner');
 
   if (nameEl) {
@@ -2456,7 +2465,7 @@ function renderStoreBranding() {
   if (tagEl) {
     tagEl.textContent = isCentralHub 
       ? 'SR12 Official Central Hub • Direktori Kemitraan & Pasokan Resmi' 
-      : (cfg.storeTagline || `Distributor Resmi SR12 • ${cfg.storeCity || 'Indonesia'}`);
+      : (cfg.storeTagline || `Distributor Resmi SR12 • ${cleanCity}`);
   }
   if (brandPill) {
     if (isCentralHub) {
@@ -2465,26 +2474,31 @@ function renderStoreBranding() {
       brandPill.style.color = '#92400e';
       brandPill.style.borderColor = '#fcd34d';
     } else {
-      brandPill.textContent = `🏪 TOKO ${tierObj.name.toUpperCase()} RESMI`;
+      brandPill.textContent = `🏪 TOKO ${cleanTierName} RESMI`;
       brandPill.style.background = '#ecfdf5';
       brandPill.style.color = '#065f46';
       brandPill.style.borderColor = '#a7f3d0';
     }
   }
 
-  // Tombol Kembali ke Pusat di Header (hanya muncul di Mode Toko Distributor)
+  // Tombol Kembali ke Pusat di Header
   if (btnBackCentral) {
     btnBackCentral.style.display = isCentralHub ? 'none' : 'inline-flex';
-    btnBackCentral.innerHTML = '<span>🏛️</span> SR12 Official Central Hub';
+    btnBackCentral.innerHTML = '<span>🏛️</span> <span class="hide-on-mobile">Belanja di Pusat</span>';
   }
 
-  // Logo di Header: Lingkaran bersih dan tajam
+  // Tombol WhatsApp di Navbar
+  if (navChatWa) {
+    navChatWa.href = `https://wa.me/${cleanWa}?text=${encodeURIComponent(`Halo ${cfg.storeName}, saya ingin konsultasi produk SR12...`)}`;
+    navChatWa.style.display = isCentralHub ? 'none' : 'inline-flex';
+  }
+
+  // Logo di Header
   if (logoBox) {
     logoBox.innerHTML = `<img src="${storeLogo}" alt="Logo ${cfg.storeName}" style="width: 100%; height: 100%; object-fit: contain !important; object-position: center center !important; border-radius: 50%; display: block; margin: 0 auto; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">`;
   }
 
-  // Sembunyikan Selector Harga, Keranjang, dan Tier Quick Banner di Central Hub
-  // (karena Central Hub menampilkan Direktori Toko Distributor, bukan produk retail)
+  // Sembunyikan Selector Harga & Keranjang di Central Hub jika direktori
   if (headerTierBox) {
     headerTierBox.style.display = isCentralHub ? 'none' : 'flex';
   }
@@ -2506,17 +2520,19 @@ function renderStoreBranding() {
   const genericHero = document.getElementById('genericStoreHeroBanner') || document.querySelector('.hero-single-banner');
   const commerceWrapper = document.getElementById('distributorCommerceWrapper');
 
+  const urlCheck = new URLSearchParams(window.location.search);
+  const hasProductParam = urlCheck.has('product') || urlCheck.has('p') || urlCheck.has('prod') || urlCheck.has('id');
+
   if (isCentralHub) {
     // ==========================================
     // MODE 1: SR12-KU PRO (SR12 OFFICIAL CENTRAL HUB)
-    // Tanpa produk, tampilkan Direktori Distributor & Agen Resmi
     // ==========================================
-    if (centralHero) centralHero.style.display = 'block';
-    if (directorySection) directorySection.style.display = 'block';
+    if (centralHero) centralHero.style.display = hasProductParam ? 'none' : 'block';
+    if (directorySection) directorySection.style.display = hasProductParam ? 'none' : 'block';
     if (distHero) distHero.style.display = 'none';
-    if (commerceWrapper) commerceWrapper.style.display = 'none';
+    if (commerceWrapper) commerceWrapper.style.display = 'block';
     const distCartFab = document.getElementById('distributorFloatingCart');
-    if (distCartFab) distCartFab.style.display = 'none';
+    if (distCartFab) distCartFab.style.display = hasProductParam ? 'flex' : 'none';
 
     const cTitle = document.getElementById('centralHubTitleDisplay');
     const cSub = document.getElementById('centralHubSubtitleDisplay');
@@ -2527,7 +2543,6 @@ function renderStoreBranding() {
   } else {
     // ==========================================
     // MODE 2: TOKO DISTRIBUTOR
-    // Logo di Tengah, Nama Toko di Bawahnya, dan Katalog Produk Aktif
     // ==========================================
     if (centralHero) centralHero.style.display = 'none';
     if (directorySection) directorySection.style.display = 'none';
@@ -2535,6 +2550,15 @@ function renderStoreBranding() {
     if (genericHero) genericHero.style.display = 'none';
     if (commerceWrapper) commerceWrapper.style.display = 'block';
 
+    // A. Identitas di Dalam Banner (Cover Overlay Text)
+    const bannerTier = document.getElementById('bannerStoreTierBadge');
+    const bannerName = document.getElementById('bannerStoreName');
+    const bannerTagline = document.getElementById('bannerStoreTagline');
+    if (bannerTier) bannerTier.textContent = `👑 ${cleanTierName} RESMI`;
+    if (bannerName) bannerName.textContent = cfg.storeName;
+    if (bannerTagline) bannerTagline.textContent = cfg.storeTagline || (`Distributor Resmi SR12 Wilayah ${cleanCity} • 100% Produk Original BPOM`);
+
+    // B. Identitas di Bawah Foto Profil (Avatar Card)
     const distLogo = document.getElementById('distHeroLogoImg');
     const distName = document.getElementById('distHeroStoreName');
     const distTier = document.getElementById('distHeroTierBadge');
@@ -2554,26 +2578,70 @@ function renderStoreBranding() {
     }
     if (distLogo) distLogo.src = storeLogo;
     if (distName) distName.textContent = cfg.storeName;
-    let cleanTierName = (tierObj.name || '').toUpperCase().replace(/RESMI SR12/g, '').replace(/SR12/g, '').trim();
-    if (!cleanTierName) cleanTierName = 'DISTRIBUTOR';
-    distTier.textContent = `👑 ${cleanTierName} RESMI`;
-    if (distTagline) distTagline.textContent = cfg.storeTagline || (`Distributor Resmi SR12 Wilayah ${cfg.storeCity || 'Indonesia'} • Melayani Grosir & Eceran`);
-    if (distOwner) distOwner.textContent = cfg.storeOwner;
-    const cleanCity = (cfg.storeCity || 'Indonesia').split('(')[0].trim();
+    if (distTier) distTier.textContent = `👑 ${cleanTierName} RESMI`;
+    if (distTagline) distTagline.textContent = cfg.storeTagline || (`Distributor Resmi SR12 Wilayah ${cleanCity} • Melayani Grosir & Eceran`);
+    if (distOwner) distOwner.textContent = cfg.storeOwner || 'Mitra Resmi';
     if (distCity) distCity.textContent = cleanCity;
-    const cleanWa = (cfg.storeWaNumber || '081234567890').replace(/[^0-9]/g, '');
     if (distWa) distWa.textContent = '+' + cleanWa;
     if (distChatBtn) {
       distChatBtn.href = `https://wa.me/${cleanWa}?text=${encodeURIComponent(`Halo ${cfg.storeName}, saya ingin bertanya seputar produk SR12...`)}`;
     }
 
-    // Tombol edit foto profil & foto latar belakang, dan tombol pengaturan toko
     if (btnEditCover) btnEditCover.style.display = 'inline-flex';
     if (btnEditLogo) btnEditLogo.style.display = 'flex';
     if (btnDistSettingsHero) btnDistSettingsHero.style.display = 'inline-flex';
   }
 
-  // 3. Sinkronisasi Preview Strip (Jika Mode Developer sedang meninjau)
+  // 3. SINKRONISASI IDENTITAS RESMI DI FOOTER (KONSISTEN 100%)
+  const footerEmblem = document.getElementById('footerStoreEmblemBox');
+  const footerTier = document.getElementById('footerStoreTierBadge');
+  const footerName = document.getElementById('footerStoreName');
+  const footerTagline = document.getElementById('footerStoreTagline');
+  const footerOwner = document.getElementById('footerStoreOwner');
+  const footerCity = document.getElementById('footerStoreCity');
+  const footerWaNum = document.getElementById('footerStoreWaNumber');
+  const footerWaLink = document.getElementById('footerStoreWaLink');
+  const footerLegal = document.getElementById('footerStoreNameLegal');
+  const footerBtnSettings = document.getElementById('btnFooterStoreSettings');
+  const footerBtnWa = document.getElementById('btnFooterChatWa');
+
+  if (footerEmblem) {
+    footerEmblem.innerHTML = `<img src="${storeLogo}" alt="Logo ${cfg.storeName}" style="width: 100%; height: 100%; object-fit: contain;">`;
+  }
+  if (footerTier) {
+    footerTier.textContent = isCentralHub ? '🏛️ SR12 OFFICIAL CENTRAL HUB' : `🏪 TOKO ${cleanTierName} RESMI`;
+  }
+  if (footerName) {
+    footerName.textContent = isCentralHub ? 'SR12-Ku Pro' : cfg.storeName;
+  }
+  if (footerTagline) {
+    footerTagline.textContent = isCentralHub 
+      ? 'Pusat Pasokan & Jaringan Kemitraan Resmi SR12 Herbal Skin Care se-Indonesia'
+      : (cfg.storeTagline || `Toko Mitra Resmi SR12 Herbal Skin Care Wilayah ${cleanCity}`);
+  }
+  if (footerOwner) {
+    footerOwner.textContent = isCentralHub ? 'Administrator Pusat (PT. SR12 Herbal Perkasa)' : (cfg.storeOwner || 'Mitra Resmi');
+  }
+  if (footerCity) {
+    footerCity.textContent = isCentralHub ? 'Seluruh Indonesia' : cleanCity;
+  }
+  if (footerWaNum) {
+    footerWaNum.textContent = '+' + cleanWa;
+  }
+  if (footerWaLink) {
+    footerWaLink.href = `https://wa.me/${cleanWa}?text=${encodeURIComponent(`Halo ${cfg.storeName}, saya ingin konsultasi produk SR12...`)}`;
+  }
+  if (footerLegal) {
+    footerLegal.textContent = isCentralHub ? 'SR12 Official Central Hub' : cfg.storeName;
+  }
+  if (footerBtnSettings) {
+    footerBtnSettings.style.display = isCentralHub ? 'none' : 'inline-flex';
+  }
+  if (footerBtnWa) {
+    footerBtnWa.style.display = isCentralHub ? 'none' : 'inline-flex';
+  }
+
+  // 4. Sinkronisasi Preview Strip (Jika Mode Developer sedang meninjau)
   const devPreviewStoreDisplay = document.getElementById('devPreviewStoreNameDisplay');
   if (devPreviewStoreDisplay) {
     const typeLabel = isCentralHub ? '🏛️ SR12 Official Central Hub' : '🏪 Toko Distributor';
@@ -4643,7 +4711,11 @@ function openProductDetailModal(productId) {
     };
   }
 
-  if (modal) modal.classList.add('open');
+  if (typeof openModal === 'function') {
+    openModal('modalProductDetail');
+  } else if (modal) {
+    modal.classList.add('open');
+  }
 }
 
 function openEditProductModal(productId) {
@@ -4933,6 +5005,13 @@ function deleteCurrentActiveStore() {
 window.deletePartnerStore = deletePartnerStore;
 window.deleteCurrentActiveStore = deleteCurrentActiveStore;
 
+function chatActiveStoreWa() {
+  const cfg = appState.storeSettings || DEFAULT_STORE_SETTINGS;
+  const cleanWa = (cfg.storeWaNumber || '081234567890').replace(/[^0-9]/g, '');
+  window.open(`https://wa.me/${cleanWa}?text=${encodeURIComponent(`Halo ${cfg.storeName}, saya ingin konsultasi produk SR12...`)}`, '_blank');
+}
+window.chatActiveStoreWa = chatActiveStoreWa;
+
 /**
  * MODAL: Ganti & Kelola Toko Mitra
  */
@@ -4942,6 +5021,7 @@ function openStoreSwitchModal() {
   renderSwitchStoreModal();
   modal.classList.add('open');
 }
+window.openStoreSwitchModal = openStoreSwitchModal;
 
 function renderSwitchStoreModal(filterText = '') {
   const container = document.getElementById('switchStoreCardsContainer');
@@ -7627,9 +7707,12 @@ function openProductPromoShareModal(productId) {
   const cleanSlug = curStore.slug || 'sr12-central';
   const tierPrice = getProductTierPrice(prod, appState.currentTier);
   const isPromo = prod.het > tierPrice;
-  // Link khusus produk preview cerdas (mendukung gambar otomatis di WhatsApp & Medsos via /p)
-  const productUrl = `${window.location.origin}/p?product=${encodeURIComponent(prod.id)}&store=${encodeURIComponent(cleanSlug)}`;
-  const storeUrl = `${window.location.origin}${window.location.pathname}?store=${cleanSlug}`;
+  // Link langsung khusus produk di toko mitra bersangkutan
+  const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || !window.location.hostname;
+  const productUrl = isLocalHost
+    ? `${window.location.origin}${window.location.pathname}?store=${encodeURIComponent(cleanSlug)}&product=${encodeURIComponent(prod.id)}`
+    : `${window.location.origin}/p?product=${encodeURIComponent(prod.id)}&store=${encodeURIComponent(cleanSlug)}`;
+  const storeUrl = `${window.location.origin}${window.location.pathname}?store=${encodeURIComponent(cleanSlug)}`;
 
   currentPromoShareData = {
     prod,
@@ -7808,18 +7891,44 @@ window.downloadProductPromoImage = downloadProductPromoImage;
 // ==========================================
 function handleDirectProductDeepLink() {
   const params = new URLSearchParams(window.location.search);
-  const productParam = params.get('product') || params.get('p') || params.get('prod');
-  if (!productParam) return;
+  const rawParam = params.get('product') || params.get('p') || params.get('prod') || params.get('id');
+  if (!rawParam) return;
 
-  const prod = (appState.products || []).find(p => 
-    p.id.toLowerCase() === productParam.toLowerCase() ||
-    (p.slug && p.slug.toLowerCase() === productParam.toLowerCase()) ||
-    p.name.toLowerCase().replace(/\s+/g, '-').includes(productParam.toLowerCase())
+  const cleanParam = rawParam.toLowerCase().trim();
+  const cleanKey = cleanParam.replace(/[^a-z0-9]/g, '');
+
+  // 1. Pencarian produk yang sangat fleksibel & komprehensif
+  let prod = (appState.products || []).find(p => 
+    p.id.toLowerCase() === cleanParam ||
+    (p.sku && p.sku.toLowerCase() === cleanParam) ||
+    (p.slug && p.slug.toLowerCase() === cleanParam) ||
+    p.id.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanKey ||
+    p.name.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanKey ||
+    p.id.toLowerCase().replace(/[^a-z0-9]/g, '').includes(cleanKey) ||
+    cleanKey.includes(p.id.toLowerCase().replace(/[^a-z0-9]/g, ''))
   );
 
+  // 2. Fallback pencarian kata kunci jika slug terpotong atau bervariasi
+  if (!prod) {
+    const words = cleanParam.replace(/^sr12-?/i, '').split(/[-_\s]+/).filter(w => w.length > 2);
+    if (words.length > 0) {
+      prod = (appState.products || []).find(p => {
+        const text = (p.id + ' ' + p.name + ' ' + (p.sku || '')).toLowerCase();
+        return words.every(w => text.includes(w));
+      });
+    }
+  }
+
+  // 3. Fallback ke produk resmi pertama jika masih belum ditemukan
+  if (!prod && typeof DEFAULT_SR12_PRODUCTS !== 'undefined' && DEFAULT_SR12_PRODUCTS.length > 0) {
+    prod = DEFAULT_SR12_PRODUCTS[0];
+  }
+
   if (prod) {
+    console.log('🎯 [Deep-Link Produk] Membuka produk spesifik:', prod.name, `(${prod.id})`);
+    
     // Perbarui judul tab browser dan meta tag Open Graph sesuai produk
-    const pageTitle = document.getElementById('pageTitleMeta');
+    const pageTitle = document.getElementById('pageTitleMeta') || document.querySelector('title');
     const ogTitle = document.getElementById('ogTitleMeta');
     const ogDesc = document.getElementById('ogDescMeta');
     const ogImage = document.getElementById('ogImageMeta');
@@ -7830,16 +7939,51 @@ function handleDirectProductDeepLink() {
     if (ogDesc) ogDesc.content = prod.summary || `Beli ${prod.name} resmi BPOM di ${storeName}.`;
     if (ogImage && prod.image) ogImage.content = prod.image;
 
-    // Gulir halus ke kartu produk dan berikan efek sorotan, lalu buka modal detail
+    // Pastikan wrapper katalog produk aktif & ditampilkan
+    const commerceWrapper = document.getElementById('distributorCommerceWrapper');
+    if (commerceWrapper) {
+      commerceWrapper.style.display = 'block';
+    }
+    const catalogSection = document.getElementById('catalogSection');
+    if (catalogSection) {
+      catalogSection.style.display = 'block';
+    }
+
+    // Pastikan filter kategori dan pencarian dinetralkan agar kartu produk pasti ada di DOM
+    if (appState.selectedCategory !== 'all' || appState.searchQuery) {
+      appState.selectedCategory = 'all';
+      appState.searchQuery = '';
+      renderProducts();
+    }
+
+    // Pastikan kartu produk ada di DOM
+    let card = document.getElementById(`card-${prod.id}`);
+    if (!card) {
+      renderProducts();
+      card = document.getElementById(`card-${prod.id}`);
+    }
+
+    // Gulir halus ke kartu produk dan berikan efek sorotan
+    if (card) {
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      card.classList.add('product-card-highlighted');
+      setTimeout(() => card.classList.remove('product-card-highlighted'), 3500);
+    }
+
+    // Buka modal detail produk langsung
+    openProductDetailModal(prod.id);
+
+    // Safeguard ganda (jika render asynchronous browser membutuhkan waktu tambahan)
     setTimeout(() => {
-      const card = document.getElementById(`card-${prod.id}`);
-      if (card) {
-        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        card.classList.add('product-card-highlighted');
-        setTimeout(() => card.classList.remove('product-card-highlighted'), 3000);
+      const modal = document.getElementById('modalProductDetail');
+      if (modal && !modal.classList.contains('open')) {
+        openProductDetailModal(prod.id);
       }
-      openProductDetailModal(prod.id);
-    }, 450);
+      const c = document.getElementById(`card-${prod.id}`);
+      if (c) {
+        c.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 300);
   }
 }
 window.handleDirectProductDeepLink = handleDirectProductDeepLink;

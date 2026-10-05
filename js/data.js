@@ -986,3 +986,7 @@ const SR12_SHIPPING_PROVIDERS = [
   { id: 'instant', name: '⚡ Kurir Instan / Same Day (GoSend / GrabExpress)', costPerKg: 20000, estDays: '1-3 jam', minKg: 1, type: 'instant' },
   { id: 'kargo', name: '🚛 J&T Cargo / Indah Kargo (Grosir Min. 10 kg)', costPerKg: 3500, estDays: '3-5 hari', minKg: 10, type: 'cargo' }
 ];
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { DEFAULT_SR12_PRODUCTS, SR12_TIERS, SR12_SHIPPING_PROVIDERS };
+}
