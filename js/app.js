@@ -399,18 +399,20 @@ async function syncStoresWithServer() {
       if (Array.isArray(supaStores)) {
         const cloudSlugs = new Set(supaStores.map(s => s.slug));
 
-        // A. Filter toko mitra yang secara eksplisit ada di daftar hapus
+        // A. Filter toko mitra: Hapus toko yang tidak ada di Supabase Cloud (kecuali sr12-central) atau yang ada di daftar hapus
         const prevCount = (appState.partnerStores || []).length;
         appState.partnerStores = (appState.partnerStores || []).filter(localStore => {
           if (!localStore || !localStore.slug) return false;
           if (localStore.slug === 'sr12-central') return true;
           if (deletedSlugs.includes(localStore.slug)) return false;
+          // Pastikan hanya toko yang terdaftar resmi di Supabase Cloud yang dipertahankan
+          if (!cloudSlugs.has(localStore.slug)) return false;
           return true;
         });
 
         if (appState.partnerStores.length !== prevCount) {
           changed = true;
-          if (appState.currentStoreSlug && deletedSlugs.includes(appState.currentStoreSlug) && appState.currentStoreSlug !== 'sr12-central') {
+          if (appState.currentStoreSlug && !cloudSlugs.has(appState.currentStoreSlug) && appState.currentStoreSlug !== 'sr12-central') {
             switchPartnerStore('sr12-central');
           }
         }
@@ -970,6 +972,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       const cloudStores = await syncStoresFromSupabase();
       if (Array.isArray(cloudStores)) {
         const deletedSlugs = getDeletedStoreSlugs();
+        const cloudSlugs = new Set(cloudStores.map(s => s.slug));
+
+        // Bersihkan toko lokal usang/sampah yang tidak ada di Supabase Cloud (agar Laptop & HP sinkron 100%)
+        appState.partnerStores = (appState.partnerStores || []).filter(localStore => {
+          if (!localStore || !localStore.slug) return false;
+          if (localStore.slug === 'sr12-central') return true;
+          if (deletedSlugs.includes(localStore.slug)) return false;
+          return cloudSlugs.has(localStore.slug);
+        });
+
         cloudStores.forEach(apiStore => {
           if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central' || apiStore.slug === 'toko-supa-distributor' || apiStore.slug.startsWith('deleted_') || apiStore.slug.includes('toko-supa') || deletedSlugs.includes(apiStore.slug)) return;
           const idx = appState.partnerStores.findIndex(s => s.slug === apiStore.slug);
@@ -2556,7 +2568,8 @@ function renderStoreBranding() {
     if (centralHero) centralHero.style.display = hasProductParam ? 'none' : 'block';
     if (directorySection) directorySection.style.display = hasProductParam ? 'none' : 'block';
     if (distHero) distHero.style.display = 'none';
-    if (commerceWrapper) commerceWrapper.style.display = 'block';
+    // Di Official Central Hub, jangan tampilkan katalog produk belanja (katalog hanya muncul di Toko Mitra / Distributor)
+    if (commerceWrapper) commerceWrapper.style.display = hasProductParam ? 'block' : 'none';
     const distCartFab = document.getElementById('distributorFloatingCart');
     if (distCartFab) distCartFab.style.display = hasProductParam ? 'flex' : 'none';
 
