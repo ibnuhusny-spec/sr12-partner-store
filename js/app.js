@@ -1170,6 +1170,10 @@ function switchPartnerStore(slug) {
     appState.isDistributorLoggedIn = false;
   }
 
+  // Tutup semua modal dan buka kunci scroll jika berpindah toko
+  document.querySelectorAll('.modal-backdrop.open').forEach(m => m.classList.remove('open'));
+  if (typeof ensureScrollUnlocked === 'function') ensureScrollUnlocked();
+
   loadStoreBySlug(slug);
   const switchParams = new URLSearchParams(window.location.search);
   switchParams.set('store', slug);
@@ -2601,6 +2605,8 @@ function renderStoreBranding() {
     if (distHero) distHero.style.display = 'block';
     if (genericHero) genericHero.style.display = 'none';
     if (commerceWrapper) commerceWrapper.style.display = 'block';
+    const catSec = document.getElementById('catalogSection');
+    if (catSec) catSec.style.display = 'block';
 
     // A. Identitas di Dalam Banner (Cover Overlay Text)
     const bannerTier = document.getElementById('bannerStoreTierBadge');
@@ -2991,8 +2997,8 @@ function updateViewModeUI() {
         showDistributorPortalView(true);
       };
     } else {
-      btnDistLogin.title = "Login Pemilik Toko / Distributor";
-      if (distHeroLoginLabel) distHeroLoginLabel.textContent = "Login Pemilik";
+      btnDistLogin.title = "Masuk ke Dashboard Admin Distributor";
+      if (distHeroLoginLabel) distHeroLoginLabel.textContent = "Dashboard Admin";
       btnDistLogin.onclick = function() {
         openDistributorLoginModal();
       };
@@ -4520,6 +4526,25 @@ function openModal(modalId) {
 }
 window.openModal = openModal;
 
+function ensureScrollUnlocked() {
+  const remainingModals = document.querySelectorAll('.modal-backdrop.open');
+  if (remainingModals.length === 0) {
+    document.body.classList.remove('modal-open');
+    if (document.documentElement) document.documentElement.classList.remove('modal-open');
+    document.body.style.overflow = '';
+    document.body.style.overflowY = '';
+    document.body.style.height = '';
+    document.body.style.touchAction = '';
+    if (document.documentElement) {
+      document.documentElement.style.overflow = '';
+      document.documentElement.style.overflowY = '';
+      document.documentElement.style.height = '';
+      document.documentElement.style.touchAction = '';
+    }
+  }
+}
+window.ensureScrollUnlocked = ensureScrollUnlocked;
+
 function closeModal(modalId, isFromPopstate = false) {
   const modal = document.getElementById(modalId);
   if (modal) {
@@ -4542,7 +4567,7 @@ function closeModal(modalId, isFromPopstate = false) {
 
   const remainingModals = document.querySelectorAll('.modal-backdrop.open');
   if (remainingModals.length === 0) {
-    document.body.classList.remove('modal-open');
+    ensureScrollUnlocked();
     isModalHistoryPushed = false;
     if (typeof appState !== 'undefined' && appState.activeOlseraTab === 'pos' && appState.posCart && appState.posCart.length > 0) {
       const bBar = document.getElementById('posMobileBottomBar');
@@ -4554,6 +4579,13 @@ function closeModal(modalId, isFromPopstate = false) {
   }
 }
 window.closeModal = closeModal;
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-backdrop.open').forEach(m => m.classList.remove('open'));
+    ensureScrollUnlocked();
+  }
+});
 
 // Tangkap gestur Back bawaan HP (geser tepi layar kiri/kanan di Android / iOS)
 window.addEventListener('popstate', (e) => {
@@ -5483,6 +5515,7 @@ function copyCaption(id) {
 }
 
 function switchTab(tabId) {
+  if (tabId === 'products') tabId = 'catalog';
   appState.activeTab = tabId;
   const sections = ['catalogSection', 'rewardsSection', 'marketingKitSection', 'resellersSection', 'marketersSection'];
   sections.forEach(secId => {
@@ -5492,7 +5525,7 @@ function switchTab(tabId) {
 
   const tabBtns = document.querySelectorAll('.tab-btn');
   tabBtns.forEach(btn => {
-    if (btn.dataset.tab === tabId) {
+    if (btn.dataset.tab === tabId || (tabId === 'catalog' && btn.dataset.tab === 'products')) {
       btn.classList.add('active');
     } else {
       btn.classList.remove('active');
@@ -5500,16 +5533,21 @@ function switchTab(tabId) {
   });
 
   if (tabId === 'catalog') {
-    document.getElementById('catalogSection').style.display = 'block';
+    const cSec = document.getElementById('catalogSection');
+    if (cSec) cSec.style.display = 'block';
   } else if (tabId === 'rewards') {
-    document.getElementById('rewardsSection').style.display = 'block';
+    const rSec = document.getElementById('rewardsSection');
+    if (rSec) rSec.style.display = 'block';
   } else if (tabId === 'marketing') {
-    document.getElementById('marketingKitSection').style.display = 'block';
+    const mSec = document.getElementById('marketingKitSection');
+    if (mSec) mSec.style.display = 'block';
   } else if (tabId === 'resellers') {
-    document.getElementById('resellersSection').style.display = 'block';
+    const resSec = document.getElementById('resellersSection');
+    if (resSec) resSec.style.display = 'block';
     renderResellers();
   } else if (tabId === 'marketers') {
-    document.getElementById('marketersSection').style.display = 'block';
+    const mrkSec = document.getElementById('marketersSection');
+    if (mrkSec) mrkSec.style.display = 'block';
     renderMarketerPayroll();
   }
 }
