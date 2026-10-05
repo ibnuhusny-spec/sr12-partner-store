@@ -454,10 +454,12 @@ async function syncStoresWithServer() {
   if (changed) {
     saveStoredPartnerStores(appState.partnerStores);
     renderStoreDropdown();
-    if (appState.storeSettings?.slug === 'sr12-central') {
-      renderOfficialDistributorDirectory();
-    }
     updateDevPortalMetrics();
+  }
+
+  // Selalu pastikan direktori di Official Central Hub ter-refresh sesuai database terbaru
+  if (appState.storeSettings?.slug === 'sr12-central' || appState.currentStoreSlug === 'sr12-central') {
+    renderOfficialDistributorDirectory();
   }
 
   // Auto-switch jika URL meminta toko spesifik (?store=...) tetapi saat awal render belum selesai terunduh dari Cloud
@@ -956,26 +958,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     appState.devMetrics.totalGMV = 0;
   }
 
-  // JIKA URL MEMINTA TOKO SPESIFIK (?store=...) YANG BELUM ADA DI LOCALSTORAGE:
-  // Segera unduh data toko dari Supabase Cloud SEBELUM menentukan toko awal agar langsung terbuka!
-  const urlCheckOnBoot = new URLSearchParams(window.location.search);
-  const requestedSlugOnBoot = urlCheckOnBoot.get('store');
-  if (requestedSlugOnBoot && requestedSlugOnBoot !== 'sr12-central' && !appState.partnerStores.some(s => s.slug === requestedSlugOnBoot)) {
-    if (typeof syncStoresFromSupabase === 'function') {
-      try {
-        const cloudStores = await syncStoresFromSupabase();
-        if (Array.isArray(cloudStores)) {
-          cloudStores.forEach(apiStore => {
-            if (!apiStore || !apiStore.slug) return;
-            const idx = appState.partnerStores.findIndex(s => s.slug === apiStore.slug);
-            if (idx >= 0) appState.partnerStores[idx] = Object.assign({}, appState.partnerStores[idx], apiStore);
-            else appState.partnerStores.push(apiStore);
-          });
-          saveStoredPartnerStores(appState.partnerStores);
-        }
-      } catch(bootFetchErr) {
-        console.warn('Boot store fetch warning:', bootFetchErr);
+  // SINKRONISASI RESMI DARI SUPABASE CLOUD SEBELUM PENENTUAN TOKO & RENDER DIREKTORI:
+  // Memastikan semua toko mitra resmi yang aktif (seperti Alzam Agency) langsung terdaftar di Direktori Central Hub sejak render awal!
+  if (typeof syncStoresFromSupabase === 'function') {
+    try {
+      const cloudStores = await syncStoresFromSupabase();
+      if (Array.isArray(cloudStores)) {
+        const deletedSlugs = getDeletedStoreSlugs();
+        cloudStores.forEach(apiStore => {
+          if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central' || apiStore.slug === 'toko-supa-distributor' || apiStore.slug.startsWith('deleted_') || apiStore.slug.includes('toko-supa') || deletedSlugs.includes(apiStore.slug)) return;
+          const idx = appState.partnerStores.findIndex(s => s.slug === apiStore.slug);
+          if (idx >= 0) {
+            appState.partnerStores[idx] = Object.assign({}, appState.partnerStores[idx], apiStore);
+          } else {
+            appState.partnerStores.push(apiStore);
+          }
+        });
+        saveStoredPartnerStores(appState.partnerStores);
       }
+    } catch(bootFetchErr) {
+      console.warn('Boot store fetch warning:', bootFetchErr);
     }
   }
 
@@ -2281,11 +2283,23 @@ function renderOfficialDistributorDirectory(filter = currentDirectoryFilter, sea
   if (!grid) return;
 
   // Hanya tampilkan Toko Distributor & Agen resmi (sr12-central adalah pusatnya)
-  const partnerList = (appState.partnerStores || []).filter(s => s.slug !== 'sr12-central');
+  const partnerList = (appState.partnerStores || []).filter(s => s && s.slug && s.slug !== 'sr12-central');
   if (countAllEl) countAllEl.textContent = partnerList.length;
 
   const filtered = partnerList.filter(s => {
-    const matchTier = filter === 'all' || s.partnerTier === filter;
+    let matchTier = false;
+    if (filter === 'all') {
+      matchTier = true;
+    } else if (filter === 'distributor') {
+      matchTier = s.partnerTier === 'distributor';
+    } else if (filter === 'agen') {
+      matchTier = s.partnerTier === 'agen' || (s.storeName && s.storeName.toLowerCase().includes('agen'));
+    } else if (filter === 'sub_agen') {
+      matchTier = s.partnerTier === 'sub_agen';
+    } else {
+      matchTier = s.partnerTier === filter;
+    }
+
     const matchSearch = !searchQuery || 
       (s.storeName && s.storeName.toLowerCase().includes(searchQuery)) ||
       (s.storeCity && s.storeCity.toLowerCase().includes(searchQuery)) ||
