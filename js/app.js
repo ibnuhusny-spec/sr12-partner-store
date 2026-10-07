@@ -2992,13 +2992,21 @@ function updateViewModeUI() {
     btnDistLogin.style.display = isCentral ? 'none' : 'inline-flex';
     if (isLogged) {
       btnDistLogin.title = "Buka Dashboard Admin & Kasir (Olsera)";
-      if (distHeroLoginLabel) distHeroLoginLabel.textContent = "Dashboard Admin";
+      btnDistLogin.setAttribute('aria-label', 'Dashboard Admin');
+      if (distHeroLoginLabel) {
+        distHeroLoginLabel.textContent = "";
+        distHeroLoginLabel.style.display = "none";
+      }
       btnDistLogin.onclick = function() {
         showDistributorPortalView(true);
       };
     } else {
       btnDistLogin.title = "Masuk ke Dashboard Admin Distributor";
-      if (distHeroLoginLabel) distHeroLoginLabel.textContent = "Dashboard Admin";
+      btnDistLogin.setAttribute('aria-label', 'Login Dashboard Admin');
+      if (distHeroLoginLabel) {
+        distHeroLoginLabel.textContent = "";
+        distHeroLoginLabel.style.display = "none";
+      }
       btnDistLogin.onclick = function() {
         openDistributorLoginModal();
       };

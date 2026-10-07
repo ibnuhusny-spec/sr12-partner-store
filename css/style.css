@@ -1766,86 +1766,152 @@ body.dev-mode-active .site-header {
 }
 
 /* ========================================================
-   HERO 3 ACTION BUTTONS (Pesan, Home, Dashboard Admin)
+   HERO 3 ICON BUTTONS ONLY (Pesan WA, Home, Dashboard Admin)
+   Tanpa teks, icon presisi, lingkaran elegan, responsif
    ======================================================== */
-.distributor-hero-3actions {
+.distributor-hero-3icons {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin: 14px auto 6px auto;
-  max-width: 520px;
-  width: 100%;
+  gap: 16px;
+  margin: 14px auto 8px auto;
+  width: auto;
 }
 
-.btn-hero-3action {
-  flex: 1;
-  min-width: 110px;
-  min-height: 42px;
-  padding: 8px 16px;
-  border-radius: 9999px;
-  font-size: 0.84rem;
-  font-weight: 700;
-  cursor: pointer;
+.btn-hero-icon-only {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  max-width: 48px;
+  border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  cursor: pointer;
   text-decoration: none;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
   box-sizing: border-box;
-  white-space: nowrap;
+  padding: 0;
+  flex-shrink: 0;
+  border: 1.5px solid transparent;
 }
 
-.btn-hero-3action .btn-hero-text {
-  font-weight: 700;
-  display: inline-block;
-  white-space: nowrap;
+.btn-hero-icon-only:hover {
+  transform: translateY(-3px) scale(1.08);
 }
 
-.btn-hero-wa {
-  background: linear-gradient(135deg, #10b981, #059669);
+.btn-hero-icon-only:active {
+  transform: scale(0.92);
+}
+
+/* 1. Icon WhatsApp: Official WhatsApp green */
+.btn-hero-icon-wa {
+  background: linear-gradient(135deg, #25D366, #128C7E);
   color: #ffffff !important;
-  border: 1.5px solid #059669;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.28);
+  border-color: #128C7E;
+  box-shadow: 0 4px 14px rgba(37, 211, 102, 0.35);
 }
-.btn-hero-wa:hover {
-  background: linear-gradient(135deg, #059669, #047857);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.38);
-}
-
-.btn-hero-home {
-  background: #ffffff;
-  color: #166534 !important;
-  border: 1.5px solid #86efac;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-.btn-hero-home:hover {
-  background: #f0fdf4;
-  border-color: #4ade80;
-  color: #14532d !important;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(22, 101, 52, 0.12);
+.btn-hero-icon-wa:hover {
+  background: linear-gradient(135deg, #1fa855, #075e54);
+  box-shadow: 0 8px 22px rgba(37, 211, 102, 0.48);
 }
 
-.btn-hero-admin {
+/* 2. Icon Home: Emerald / Clean White */
+.btn-hero-icon-home {
   background: #ffffff;
-  color: #1d4ed8 !important;
-  border: 1.5px solid #bfdbfe;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  color: #065f46 !important;
+  border-color: #86efac;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
-.btn-hero-admin:hover {
-  background: #eff6ff;
+.btn-hero-icon-home:hover {
+  background: #ecfdf5;
+  border-color: #34d399;
+  color: #047857 !important;
+  box-shadow: 0 8px 18px rgba(6, 95, 70, 0.15);
+}
+
+/* 3. Icon Dashboard Admin: Blue / Clean White */
+.btn-hero-icon-admin {
+  background: #ffffff;
+  color: #0284c7 !important;
   border-color: #93c5fd;
-  color: #1e40af !important;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(29, 78, 216, 0.12);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+.btn-hero-icon-admin:hover {
+  background: #eff6ff;
+  border-color: #38bdf8;
+  color: #0369a1 !important;
+  box-shadow: 0 8px 18px rgba(2, 132, 199, 0.18);
 }
 
-.btn-hero-3action:active {
-  transform: scale(0.97);
+/* ========================================================
+   DAFTAR MENU HORIZONTAL ADMIN DISTRIBUTOR
+   Statis dalam alur dokumen, tidak melayang, tidak menutupi teks
+   ======================================================== */
+.olsera-horizontal-nav {
+  position: relative !important;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  padding: 4px 2px 14px 2px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #e2e8f0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.olsera-horizontal-nav::-webkit-scrollbar {
+  height: 4px;
+}
+.olsera-horizontal-nav::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
+.olsera-hnav-btn {
+  background: #ffffff;
+  color: #475569;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 9999px;
+  height: 38px;
+  padding: 0 16px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.olsera-hnav-btn:hover {
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+
+.olsera-hnav-btn.active {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #ffffff !important;
+  border-color: #0284c7;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+}
+
+.olsera-hnav-btn.active span {
+  color: #ffffff !important;
+}
+
+.olsera-hnav-btn:active {
+  transform: scale(0.96);
 }
 
 /* Tombol Aksi Simbol Toko - Sebaris Rapi, Kompak, Tanpa Wrap */
@@ -6823,36 +6889,29 @@ body.modal-open {
     padding: 2px 8px !important;
     font-size: 0.7rem !important;
   }
-  .distributor-hero-3actions {
+  .distributor-hero-3icons {
     display: flex !important;
     flex-direction: row !important;
     justify-content: center !important;
-    gap: 8px !important;
-    flex-wrap: nowrap !important;
-    width: 100% !important;
-    max-width: 100% !important;
+    align-items: center !important;
+    gap: 14px !important;
     margin: 10px auto 4px auto !important;
-  }
-  .btn-hero-3action {
-    flex: 1 1 0% !important;
-    min-width: 0 !important;
     width: auto !important;
-    height: 40px !important;
-    min-height: 40px !important;
-    max-height: 40px !important;
-    padding: 6px 8px !important;
-    border-radius: 9999px !important;
-    font-size: 0.78rem !important;
-    gap: 5px !important;
+  }
+  .btn-hero-icon-only {
+    width: 46px !important;
+    height: 46px !important;
+    min-width: 46px !important;
+    max-width: 46px !important;
+    border-radius: 50% !important;
+    padding: 0 !important;
+    display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    overflow: hidden !important;
   }
-  .btn-hero-3action .btn-hero-text {
-    font-size: 0.78rem !important;
-    font-weight: 700 !important;
-    display: inline-block !important;
-    white-space: nowrap !important;
+  .btn-hero-icon-only svg {
+    width: 22px !important;
+    height: 22px !important;
   }
 
   /* Sembunyikan identitas ganda / penanggung jawab di footer saat mode toko mitra distributor */
@@ -7046,10 +7105,25 @@ body.olsera-portal-active #olseraAppNavbar {
   transform: translateY(-1px);
 }
 
-@media (min-width: 993px) {
-  .btn-olsera-static-menu {
-    display: none !important;
-  }
+/* Pastikan Tombol Menu Toko dan Navigasi Admin Selalu Muncul, Statis, Tidak Melayang & Tidak Menutupi Konten */
+.btn-olsera-static-menu {
+  display: inline-flex !important;
+}
+
+/* Hilangkan Backdrop Gelap yang Menutupi Layar */
+.olsera-drawer-backdrop {
+  display: none !important;
+  pointer-events: none !important;
+}
+
+/* Highlight animasi lembut saat tombol menu utama diklik */
+.pulse-highlight {
+  animation: pulseGlow 1.2s ease !important;
+}
+@keyframes pulseGlow {
+  0% { box-shadow: 0 0 0 0 rgba(2, 132, 199, 0.5); }
+  50% { box-shadow: 0 0 0 6px rgba(2, 132, 199, 0.25); }
+  100% { box-shadow: 0 0 0 0 rgba(2, 132, 199, 0); }
 }
 
 @media (max-width: 992px) {
@@ -7067,6 +7141,11 @@ body.olsera-portal-active #olseraAppNavbar {
   .btn-olsera-static-menu {
     display: inline-flex !important;
   }
+  /* Pada layar ponsel/tablet/laptop terskala, sembunyikan sidebar mengambang agar tidak menutupi teks */
+  .olsera-sidebar {
+    display: none !important;
+  }
 }
+
 
 

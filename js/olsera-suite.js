@@ -327,25 +327,27 @@ function updateOlseraHeaderMeta() {
 }
 
 // ==========================================
-// 2.1 OLSERA MOBILE DRAWER CONTROLS
 // ==========================================
+// 2.1 OLSERA MENU IN-FLOW CONTROLS (TIDAK MELAYANG & TIDAK MENUTUPI TEKS)
+// ==========================================
+function toggleOlseraMenuInFlow() {
+  const nav = document.getElementById('olseraHorizontalNav');
+  if (!nav) return;
+  try {
+    nav.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    nav.classList.add('pulse-highlight');
+    setTimeout(() => {
+      nav.classList.remove('pulse-highlight');
+    }, 1400);
+  } catch (e) {}
+}
+
 function toggleOlseraSidebarDrawer() {
-  const sidebar = document.getElementById('olseraSidebar') || document.querySelector('.olsera-sidebar');
-  const backdrop = document.getElementById('olseraDrawerBackdrop');
-  if (!sidebar) return;
-  const isOpen = sidebar.classList.contains('open');
-  if (isOpen) {
-    closeOlseraSidebarDrawer();
-  } else {
-    openOlseraSidebarDrawer();
-  }
+  toggleOlseraMenuInFlow();
 }
 
 function openOlseraSidebarDrawer() {
-  const sidebar = document.getElementById('olseraSidebar') || document.querySelector('.olsera-sidebar');
-  const backdrop = document.getElementById('olseraDrawerBackdrop');
-  if (sidebar) sidebar.classList.add('open');
-  if (backdrop) backdrop.classList.add('open');
+  toggleOlseraMenuInFlow();
 }
 
 function closeOlseraSidebarDrawer() {
@@ -710,6 +712,7 @@ function openStoreSwitchDropdownFromDrawer() {
   }
 }
 
+window.toggleOlseraMenuInFlow = toggleOlseraMenuInFlow;
 window.toggleOlseraSidebarDrawer = toggleOlseraSidebarDrawer;
 window.openOlseraSidebarDrawer = openOlseraSidebarDrawer;
 window.closeOlseraSidebarDrawer = closeOlseraSidebarDrawer;
@@ -736,6 +739,17 @@ function switchOlseraTab(tabId) {
 
   const activeMenu = document.getElementById(`menuItem${tabId.charAt(0).toUpperCase() + tabId.slice(1)}`);
   if (activeMenu) activeMenu.classList.add('active');
+
+  // Update active state on horizontal navbar buttons (tidak melayang, statis)
+  const hnavBtns = document.querySelectorAll('.olsera-hnav-btn');
+  hnavBtns.forEach(btn => btn.classList.remove('active'));
+  const activeHnav = document.getElementById(`hnavItem${tabId.charAt(0).toUpperCase() + tabId.slice(1)}`);
+  if (activeHnav) {
+    activeHnav.classList.add('active');
+    try {
+      activeHnav.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    } catch(e) {}
+  }
 
   // Hide all view containers
   const views = [
