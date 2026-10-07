@@ -2678,7 +2678,7 @@ function renderStoreBranding() {
       : (cfg.storeTagline || `Toko Mitra Resmi SR12 Herbal Skin Care Wilayah ${cleanCity}`);
   }
   if (footerOwner) {
-    footerOwner.textContent = isCentralHub ? 'Administrator Pusat (PT. SR12 Herbal Perkasa)' : (cfg.storeOwner || 'Mitra Resmi');
+    footerOwner.textContent = isCentralHub ? 'Administrator Pusat' : (cfg.storeOwner || 'Mitra Resmi');
   }
   if (footerCity) {
     footerCity.textContent = isCentralHub ? 'Seluruh Indonesia' : cleanCity;
@@ -5133,6 +5133,18 @@ window.chatActiveStoreWa = chatActiveStoreWa;
  * MODAL: Ganti & Kelola Toko Mitra
  */
 function openStoreSwitchModal() {
+  // Hanya dapat diakses oleh Developer / Super Admin
+  if (!appState.isDevMasterLoggedIn) {
+    if (typeof openDevPinPrompt === 'function') {
+      openDevPinPrompt(() => {
+        const modal = document.getElementById('modalSwitchStore');
+        if (!modal) return;
+        renderSwitchStoreModal();
+        modal.classList.add('open');
+      });
+      return;
+    }
+  }
   const modal = document.getElementById('modalSwitchStore');
   if (!modal) return;
   renderSwitchStoreModal();
@@ -5206,7 +5218,7 @@ function renderSwitchStoreModal(filterText = '') {
               ✓ Aktif
             </button>
           `}
-          ${!isCentral ? `
+          ${(!isCentral && appState.isDevMasterLoggedIn) ? `
             <button type="button" onclick="deletePartnerStore('${s.slug}')" style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 6px 10px; border-radius: 6px; font-weight: 700; font-size: 0.76rem; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s;" title="Hapus Toko Permanen">
               🗑️ Hapus
             </button>
@@ -6090,10 +6102,23 @@ function updateAdminNotificationUI() {
   const btnNotif = document.getElementById('btnAdminOrderNotif');
   const badge1 = document.getElementById('adminPendingOrderCountBadge');
   const badge2 = document.getElementById('olseraTopbarOrderBadge');
+  const drawerOrderBadge = document.getElementById('olseraDrawerOrderBadge');
+  const staticMenuBadge = document.getElementById('olseraStaticMenuOrderBadge');
   const trxBadge = document.getElementById('olseraTrxBadge');
 
   if (badge1) badge1.textContent = count;
   if (badge2) badge2.textContent = count;
+
+  if (drawerOrderBadge) {
+    drawerOrderBadge.textContent = count;
+    drawerOrderBadge.style.display = count > 0 ? 'inline-flex' : 'none';
+  }
+
+  if (staticMenuBadge) {
+    staticMenuBadge.textContent = count;
+    staticMenuBadge.style.display = count > 0 ? 'inline-flex' : 'none';
+  }
+
   if (trxBadge) trxBadge.textContent = list.length;
 
   if (btnNotif) {
@@ -6240,17 +6265,13 @@ function confirmOrderFromModal(trxId) {
 }
 
 function clearAllSimulationOrders() {
-  if (confirm('Kosongkan SEMUA data transaksi pesanan dan keranjang belanja untuk simulasi dari nol?')) {
+  if (confirm('Kosongkan seluruh daftar pesanan masuk?')) {
     appState.transactions = [];
-    appState.cart = [];
     localStorage.removeItem('sr12_pos_transactions_v1');
-    localStorage.removeItem('sr12_user_cart');
-    saveStoredCart([]);
-    updateCartUI();
     renderAdminOrdersModal();
     updateAdminNotificationUI();
     if (typeof renderPosTransactions === 'function') renderPosTransactions();
-    showToast('🧹 Semua data simulasi telah bersih (0 pesanan)!');
+    showToast('🗑️ Daftar pesanan berhasil dikosongkan.');
   }
 }
 

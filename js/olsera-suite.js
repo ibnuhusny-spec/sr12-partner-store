@@ -324,6 +324,11 @@ function updateOlseraHeaderMeta() {
 
   const mitraBadge = document.getElementById('olseraMitraBadge');
   if (mitraBadge) mitraBadge.textContent = (appState && appState.mitraList) ? appState.mitraList.length : '0';
+
+  // Perbarui juga notifikasi pesanan masuk real-time
+  if (typeof updateAdminNotificationUI === 'function') {
+    updateAdminNotificationUI();
+  }
 }
 
 // ==========================================
@@ -335,6 +340,9 @@ function openOlseraSidebarDrawer() {
   const backdrop = document.getElementById('olseraDrawerBackdrop');
   if (sidebar) sidebar.classList.add('open');
   if (backdrop) backdrop.classList.add('open');
+  if (typeof updateAdminNotificationUI === 'function') {
+    updateAdminNotificationUI();
+  }
 }
 
 function closeOlseraSidebarDrawer() {
@@ -696,10 +704,6 @@ function unlockOlseraScreen() {
 
 function openStoreSwitchDropdownFromDrawer() {
   closeOlseraSidebarDrawer();
-  if (typeof openStoreSwitchModal === 'function') {
-    openStoreSwitchModal();
-    return;
-  }
   const storeNames = appState.partnerStores.map((s, idx) => `${idx + 1}. ${s.storeName} (${s.storeOwner})`).join('\n');
   const choice = prompt(`🏪 Pilih Cabang / Toko Olsera yang ingin dibuka:\n\n${storeNames}\n\nMasukkan nomor toko (1 - ${appState.partnerStores.length}):`, '1');
   if (choice) {
