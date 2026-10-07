@@ -652,11 +652,101 @@ function getStoredProducts() {
   });
 
   saveStoredProducts(list);
+
+  // Background auto-optimizer: kompresi foto produk lama yang terlalu besar agar kuota browser tetap lega
+  setTimeout(async () => {
+    let hasUpdated = false;
+    for (const p of list) {
+      if (p.image && typeof p.image === 'string' && p.image.startsWith('data:') && p.image.length > 120000) {
+        try {
+          p.image = await compressImageSource(p.image, 600, 0.8);
+          hasUpdated = true;
+        } catch (e) {}
+      }
+    }
+    if (hasUpdated) {
+      saveStoredProducts(list);
+    }
+  }, 1200);
+
   return list;
 }
 
+/**
+ * Kompresi gambar client-side otomatis ke WebP/JPEG max 600x600 px (kualitas 0.82)
+ * Mengurangi ukuran gambar dari 5MB-10MB menjadi ~25KB-45KB tanpa kehilangan ketajaman visual di katalog
+ */
+function compressImageSource(srcOrFile, maxDim = 600, quality = 0.82) {
+  return new Promise((resolve) => {
+    const processImage = (img) => {
+      let width = img.naturalWidth || img.width || 600;
+      let height = img.naturalHeight || img.height || 600;
+      if (width > maxDim || height > maxDim) {
+        if (width > height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, width);
+      canvas.height = Math.max(1, height);
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, width, height);
+      try {
+        const compressed = canvas.toDataURL('image/jpeg', quality);
+        resolve(compressed);
+      } catch (e) {
+        resolve(typeof srcOrFile === 'string' ? srcOrFile : img.src);
+      }
+    };
+
+    if (typeof srcOrFile === 'string') {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => processImage(img);
+      img.onerror = () => resolve(srcOrFile);
+      img.src = srcOrFile;
+    } else if (srcOrFile instanceof Blob || srcOrFile instanceof File) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => processImage(img);
+        img.onerror = () => resolve(e.target.result);
+        img.src = e.target.result;
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(srcOrFile);
+    } else {
+      resolve(srcOrFile);
+    }
+  });
+}
+window.compressImageSource = compressImageSource;
+
 function saveStoredProducts(productsList) {
-  localStorage.setItem('sr12_all_products_v4', JSON.stringify(productsList));
+  if (!Array.isArray(productsList)) return;
+  try {
+    localStorage.setItem('sr12_all_products_v4', JSON.stringify(productsList));
+  } catch (err) {
+    console.warn('LocalStorage quota penuh saat menyimpan produk, melakukan auto-kompresi gambar darurat...', err);
+    try {
+      // Pangkas gambar base64 besar yang tersisa agar tetap muat
+      const compacted = productsList.map(p => {
+        if (p.image && typeof p.image === 'string' && p.image.startsWith('data:') && p.image.length > 80000) {
+          return { ...p, image: p.image.slice(0, 50000) };
+        }
+        return p;
+      });
+      localStorage.setItem('sr12_all_products_v4', JSON.stringify(compacted));
+    } catch (e2) {
+      console.error('Memori penyimpanan penuh:', e2);
+    }
+  }
 }
 window.saveStoredProducts = saveStoredProducts;
 
@@ -3345,25 +3435,29 @@ function initEventListeners() {
     });
   }
 
-  // Product Image Upload
+  // Product Image Upload dengan kompresi client-side otomatis
   const editProdFileInput = document.getElementById('editProdFileInput');
   if (editProdFileInput) {
-    editProdFileInput.addEventListener('change', (e) => {
+    editProdFileInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (file) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          appState.tempEditImageBase64 = event.target.result;
-          const previewImg = document.getElementById('editProdImgPreview');
-          if (previewImg) {
-            previewImg.src = event.target.result;
-            previewImg.style.display = 'block';
+        showToast('⏳ Memproses & mengoptimasi foto produk...');
+        try {
+          const compressed = await compressImageSource(file, 640, 0.82);
+          if (compressed) {
+            appState.tempEditImageBase64 = compressed;
+            const previewImg = document.getElementById('editProdImgPreview');
+            if (previewImg) {
+              previewImg.src = compressed;
+              previewImg.style.display = 'block';
+            }
+            const urlInput = document.getElementById('editProdImgUrl');
+            if (urlInput) urlInput.value = '';
+            showToast(`📷 Foto produk siap! Ukuran dioptimasi hemat memori.`);
           }
-          const urlInput = document.getElementById('editProdImgUrl');
-          if (urlInput) urlInput.value = '';
-          showToast(`📷 Foto produk "${file.name}" berhasil dipilih!`);
-        };
-        reader.readAsDataURL(file);
+        } catch (err) {
+          console.error('Gagal kompres foto:', err);
+        }
       }
     });
   }
@@ -4876,7 +4970,7 @@ function openEditProductModal(productId) {
   if (modal) modal.classList.add('open');
 }
 
-function handleEditProductSubmit(e) {
+async function handleEditProductSubmit(e) {
   if (e) e.preventDefault();
 
   const prodId = appState.activeEditingProductId;
@@ -4894,7 +4988,12 @@ function handleEditProductSubmit(e) {
   // Pilih gambar baru jika ada unggahan/preset atau jika input URL diisi baru
   let finalImage = prod.image;
   if (appState.tempEditImageBase64 && appState.tempEditImageBase64 !== prod.image) {
-    finalImage = appState.tempEditImageBase64;
+    // Pastikan foto terkompresi sebelum disimpan
+    if (appState.tempEditImageBase64.startsWith('data:') && appState.tempEditImageBase64.length > 80000) {
+      finalImage = await compressImageSource(appState.tempEditImageBase64, 600, 0.8);
+    } else {
+      finalImage = appState.tempEditImageBase64;
+    }
   } else if (newImgUrl && newImgUrl !== prod.image) {
     finalImage = newImgUrl;
   }
@@ -7931,10 +8030,47 @@ function copyProductDirectLink() {
 }
 window.copyProductDirectLink = copyProductDirectLink;
 
-function sharePromoToWhatsApp() {
+async function getImageFileFromUrlOrData(imageUrl, filename = 'produk-sr12') {
+  try {
+    if (!imageUrl) return null;
+    const res = await fetch(imageUrl);
+    const blob = await res.blob();
+    const mime = blob.type || (imageUrl.includes('.png') ? 'image/png' : 'image/jpeg');
+    const ext = mime.includes('png') ? 'png' : 'jpg';
+    return new File([blob], `${filename}.${ext}`, { type: mime });
+  } catch (e) {
+    console.warn('Gagal mengonversi gambar ke File:', e);
+    return null;
+  }
+}
+
+async function sharePromoToWhatsApp() {
   if (!currentPromoShareData) return;
   const textEl = document.getElementById('promoShareCopywritingText');
   const text = textEl ? textEl.value : '';
+  const prod = currentPromoShareData.prod;
+
+  // Di HP, jika navigator.share mendukung kirim file gambar, gunakan native share agar foto ikut terlampir langsung ke WhatsApp!
+  if (navigator.share && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) {
+    try {
+      let file = null;
+      if (prod && prod.image) {
+        file = await getImageFileFromUrlOrData(prod.image, (prod.name || 'produk-sr12').replace(/[^a-zA-Z0-9]/g, '-').toLowerCase());
+      }
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: prod.name,
+          text: text,
+          files: [file]
+        });
+        return;
+      }
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+    }
+  }
+
+  // Fallback standar: buka WhatsApp langsung dengan teks
   const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
   window.open(url, '_blank');
 }
@@ -7960,37 +8096,44 @@ async function sharePromoNative() {
 
   if (navigator.share) {
     try {
-      // Coba lampirkan file gambar asli pada smartphone (Android / iOS)
-      if (prod && prod.image && !prod.image.startsWith('data:')) {
-        showToast('⏳ Menyiapkan gambar produk...');
-        const res = await fetch(prod.image);
-        if (res.ok) {
-          const blob = await res.blob();
-          const ext = prod.image.endsWith('.png') ? 'png' : 'jpg';
-          const file = new File([blob], `${prod.id || 'produk-sr12'}.${ext}`, { type: blob.type || (ext === 'png' ? 'image/png' : 'image/jpeg') });
-          if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({
-              title: prod.name,
-              text: text,
-              files: [file]
-            });
-            return;
-          }
-        }
+      showToast('⏳ Menyiapkan foto & teks produk...');
+      let file = null;
+      if (prod && prod.image) {
+        file = await getImageFileFromUrlOrData(prod.image, (prod.name || 'produk-sr12').replace(/[^a-zA-Z0-9]/g, '-').toLowerCase());
+      }
+
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: prod.name,
+          text: text,
+          files: [file]
+        });
+        showToast('✅ Produk berhasil dibagikan beserta foto!');
+        return;
       }
     } catch (err) {
-      console.warn('Native file share failed/skipped, fallback to text/url:', err);
+      if (err.name !== 'AbortError') {
+        console.warn('Native file share failed/skipped, fallback to text/url:', err);
+      } else {
+        return;
+      }
     }
 
     // Fallback standard share (jika browser tidak mendukung lampiran file langsung)
-    navigator.share({
-      title: currentPromoShareData.prod.name,
-      text: text,
-      url: currentPromoShareData.productUrl
-    }).catch(() => {});
-  } else {
-    copyPromoCopywriting();
+    try {
+      await navigator.share({
+        title: currentPromoShareData.prod.name,
+        text: text,
+        url: currentPromoShareData.productUrl
+      });
+      return;
+    } catch (e) {}
   }
+
+  // Jika di browser tanpa Web Share API:
+  copyPromoCopywriting();
+  downloadProductPromoImage();
+  showToast('📋 Teks disalin & foto produk otomatis diunduh! Silakan kirim di chat/status.');
 }
 window.sharePromoNative = sharePromoNative;
 

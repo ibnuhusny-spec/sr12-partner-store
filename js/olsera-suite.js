@@ -373,9 +373,15 @@ function toggleOlseraMenuInFlow() {
 function getStoredActiveCashier() {
   try {
     const raw = localStorage.getItem('sr12_active_cashier');
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.name === 'Nurlinda Sari' && typeof appState !== 'undefined' && appState.storeSettings && appState.storeSettings.storeOwner) {
+        parsed.name = appState.storeSettings.storeOwner;
+      }
+      return parsed;
+    }
   } catch (e) {}
-  const defaultOwner = (typeof appState !== 'undefined' && appState.storeSettings && appState.storeSettings.storeOwner) || 'Nurlinda Sari';
+  const defaultOwner = (typeof appState !== 'undefined' && appState.storeSettings && appState.storeSettings.storeOwner) || 'Administrator Toko';
   return {
     name: defaultOwner,
     shift: 'Shift Pagi (08:00 - 15:00)',
@@ -398,21 +404,15 @@ function saveStoredActiveCashier(cashier) {
 function getStoredCashierAttendance() {
   try {
     const raw = localStorage.getItem('sr12_cashier_attendance');
-    if (raw) return JSON.parse(raw);
-  } catch (e) {}
-  return [
-    {
-      id: 'ABS-101',
-      date: 'Hari ini',
-      cashierName: 'Nurlinda Sari',
-      shift: 'Shift Pagi (08:00 - 15:00)',
-      clockIn: '08:00 WIB',
-      clockOut: 'Sedang Berjalan',
-      openingCash: 100000,
-      totalSales: 0,
-      status: 'Aktif'
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        // Hapus dummy bawaan jika ada
+        return parsed.filter(l => l.cashierName !== 'Nurlinda Sari' || (typeof appState !== 'undefined' && appState.storeSettings && appState.storeSettings.storeOwner === 'Nurlinda Sari'));
+      }
     }
-  ];
+  } catch (e) {}
+  return [];
 }
 
 function saveStoredCashierAttendance(logs) {
@@ -597,7 +597,7 @@ function renderAbsensiLogs() {
   if (logs.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="5" style="text-align: center; padding: 20px; color: #94a3b8;">
+        <td colspan="6" style="text-align: center; padding: 20px; color: #94a3b8;">
           Belum ada riwayat shift tercatat.
         </td>
       </tr>
@@ -618,10 +618,73 @@ function renderAbsensiLogs() {
         <td style="padding: 8px 10px; color: #64748b; font-size: 0.72rem;">${l.clockIn || '-'} &rarr; ${l.clockOut || '-'}</td>
         <td style="padding: 8px 10px; text-align: right; font-weight: 700; color: #059669;">Rp ${(l.totalSales || 0).toLocaleString('id-ID')}</td>
         <td style="padding: 8px 10px; text-align: center;">${statusHtml}</td>
+        <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">
+          <button type="button" onclick="editAbsensiLog('${l.id}')" title="Edit Nama Kasir" style="background: #f1f5f9; color: #0284c7; border: 1px solid #cbd5e1; padding: 3px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; cursor: pointer; margin-right: 4px;">
+            ✏️
+          </button>
+          <button type="button" onclick="deleteAbsensiLog('${l.id}')" title="Hapus Riwayat Shift" style="background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; padding: 3px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; cursor: pointer;">
+            🗑️
+          </button>
+        </td>
       </tr>
     `;
   }).join('');
 }
+
+function editActiveCashierName() {
+  const cashier = (typeof appState !== 'undefined' && appState.activeCashier) ? appState.activeCashier : getStoredActiveCashier();
+  const current = cashier.name || 'Kasir Toko';
+  const newName = prompt('Ubah nama kasir / operator yang sedang bertugas:', current);
+  if (newName && newName.trim()) {
+    cashier.name = newName.trim();
+    saveStoredActiveCashier(cashier);
+    if (typeof appState !== 'undefined') appState.activeCashier = cashier;
+    updateCashierBadgeUI();
+    renderAbsensiStatusView();
+    showToast(`✅ Nama kasir bertugas diubah menjadi: ${cashier.name}`);
+  }
+}
+window.editActiveCashierName = editActiveCashierName;
+
+function resetActiveCashierName() {
+  const defaultName = (typeof appState !== 'undefined' && appState.storeSettings && appState.storeSettings.storeOwner) || 'Administrator Toko';
+  if (confirm(`Reset nama kasir bertugas kembali ke nama pemilik toko ("${defaultName}")?`)) {
+    const cashier = (typeof appState !== 'undefined' && appState.activeCashier) ? appState.activeCashier : getStoredActiveCashier();
+    cashier.name = defaultName;
+    saveStoredActiveCashier(cashier);
+    if (typeof appState !== 'undefined') appState.activeCashier = cashier;
+    updateCashierBadgeUI();
+    renderAbsensiStatusView();
+    showToast(`✅ Nama kasir bertugas direset ke: ${defaultName}`);
+  }
+}
+window.resetActiveCashierName = resetActiveCashierName;
+
+function editAbsensiLog(logId) {
+  const logs = appState.cashierAttendanceLog || getStoredCashierAttendance();
+  const log = logs.find(l => l.id === logId);
+  if (!log) return;
+  const newName = prompt(`Ubah nama kasir untuk data shift ini (${log.date}):`, log.cashierName || '');
+  if (newName && newName.trim()) {
+    log.cashierName = newName.trim();
+    saveStoredCashierAttendance(logs);
+    renderAbsensiLogs();
+    showToast('✅ Data kasir shift berhasil diperbarui.');
+  }
+}
+window.editAbsensiLog = editAbsensiLog;
+
+function deleteAbsensiLog(logId) {
+  const logs = appState.cashierAttendanceLog || getStoredCashierAttendance();
+  const log = logs.find(l => l.id === logId);
+  if (!log) return;
+  if (!confirm(`Hapus catatan shift kasir "${log.cashierName}" (${log.shift})?`)) return;
+  appState.cashierAttendanceLog = logs.filter(l => l.id !== logId);
+  saveStoredCashierAttendance(appState.cashierAttendanceLog);
+  renderAbsensiLogs();
+  showToast('🗑️ Data shift kasir berhasil dihapus.');
+}
+window.deleteAbsensiLog = deleteAbsensiLog;
 
 function clearAbsensiLogs() {
   if (!confirm('Yakin ingin membersihkan riwayat absensi shift yang tersimpan?')) return;

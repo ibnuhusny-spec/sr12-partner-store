@@ -462,14 +462,14 @@
             <span class="olsera-static-store-sub" id="olseraStaticStoreRole">SR12 Official Central Hub</span>
           </div>
         </div>
-        <div class="olsera-static-topbar-right">
+        <div class="olsera-static-topbar-right" style="display: none !important;" aria-hidden="true">
           <button type="button" onclick="openTopupQuotaModal()" class="btn-olsera-static-quota" title="Sisa Kuota Order: Klik untuk Top Up">
             <span>⚡</span>
             <span><b id="olseraStaticQuotaDisplay">15</b> Kuota</span>
           </button>
           <button type="button" class="btn-olsera-static-cashier" onclick="openOlseraAbsensiModal()" title="Shift &amp; Kasir Aktif">
             <span>👤</span>
-            <span id="olseraStaticCashierLabel">Nurlinda Sari</span>
+            <span id="olseraStaticCashierLabel">Kasir Toko</span>
           </button>
           <button type="button" class="btn-olsera-static-cfd" onclick="showDistributorPortalView(false)" title="Tinjau Tampilan Pembeli (Etalase Toko)">
             <span>🌐</span>
@@ -3158,7 +3158,15 @@
                   👤
                 </div>
                 <div>
-                  <div style="font-weight: 800; color: #166534; font-size: 1.1rem;" id="absensiOperatorName">Nurlinda Sari</div>
+                  <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span style="font-weight: 800; color: #166534; font-size: 1.1rem;" id="absensiOperatorName">Kasir Toko</span>
+                    <button type="button" onclick="editActiveCashierName()" title="Ubah Nama Kasir Bertugas" style="background: #ffffff; color: #0284c7; border: 1px solid #cbd5e1; padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;">
+                      ✏️ Ubah
+                    </button>
+                    <button type="button" onclick="resetActiveCashierName()" title="Hapus / Reset ke Pemilik Toko" style="background: #ffffff; color: #dc2626; border: 1px solid #cbd5e1; padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;">
+                      🗑️ Reset
+                    </button>
+                  </div>
                   <div style="font-size: 0.78rem; color: #15803d; margin-top: 2px;">
                     <span id="absensiShiftLabel">Shift Pagi (08:00 - 15:00)</span>
                   </div>
@@ -3275,6 +3283,7 @@
                   <th style="padding: 8px 10px;">Jam Masuk/Keluar</th>
                   <th style="padding: 8px 10px; text-align: right;">Total Omset</th>
                   <th style="padding: 8px 10px; text-align: center;">Status</th>
+                  <th style="padding: 8px 10px; text-align: center;">Aksi</th>
                 </tr>
               </thead>
               <tbody id="absensiLogTableBody">
