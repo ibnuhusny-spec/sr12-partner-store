@@ -2831,6 +2831,9 @@ async function handleDistributorLoginSubmit(e) {
       appState.isOlseraPortalOpen = true;
       if (typeof showDistributorPortalView === 'function') {
         showDistributorPortalView(true);
+        if (typeof openOlseraSidebarDrawer === 'function') {
+          openOlseraSidebarDrawer();
+        }
       }
       showToast(`👑 Login Berhasil! Selamat datang ${result.store?.storeOwner || 'Distributor'}. Masuk ke Dashboard Admin.`);
       return;
@@ -2869,6 +2872,9 @@ async function handleDistributorLoginSubmit(e) {
     appState.isOlseraPortalOpen = true;
     if (typeof showDistributorPortalView === 'function') {
       showDistributorPortalView(true);
+      if (typeof openOlseraSidebarDrawer === 'function') {
+        openOlseraSidebarDrawer();
+      }
     }
     showToast(`👑 Login Berhasil! Selamat datang ${store.storeOwner}. Masuk ke Dashboard Admin.`);
   } else {
@@ -2999,6 +3005,9 @@ function updateViewModeUI() {
       }
       btnDistLogin.onclick = function() {
         showDistributorPortalView(true);
+        if (typeof openOlseraSidebarDrawer === 'function') {
+          openOlseraSidebarDrawer();
+        }
       };
     } else {
       btnDistLogin.title = "Masuk ke Dashboard Admin Distributor";

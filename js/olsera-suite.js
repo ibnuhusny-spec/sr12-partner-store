@@ -328,26 +328,13 @@ function updateOlseraHeaderMeta() {
 
 // ==========================================
 // ==========================================
-// 2.1 OLSERA MENU IN-FLOW CONTROLS (TIDAK MELAYANG & TIDAK MENUTUPI TEKS)
+// 2.1 OLSERA MOBILE & DESKTOP DRAWER CONTROLS (SESUAI PERSIS SCREENSHOT USER)
 // ==========================================
-function toggleOlseraMenuInFlow() {
-  const nav = document.getElementById('olseraHorizontalNav');
-  if (!nav) return;
-  try {
-    nav.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    nav.classList.add('pulse-highlight');
-    setTimeout(() => {
-      nav.classList.remove('pulse-highlight');
-    }, 1400);
-  } catch (e) {}
-}
-
-function toggleOlseraSidebarDrawer() {
-  toggleOlseraMenuInFlow();
-}
-
 function openOlseraSidebarDrawer() {
-  toggleOlseraMenuInFlow();
+  const sidebar = document.getElementById('olseraSidebar') || document.querySelector('.olsera-sidebar');
+  const backdrop = document.getElementById('olseraDrawerBackdrop');
+  if (sidebar) sidebar.classList.add('open');
+  if (backdrop) backdrop.classList.add('open');
 }
 
 function closeOlseraSidebarDrawer() {
@@ -355,6 +342,20 @@ function closeOlseraSidebarDrawer() {
   const backdrop = document.getElementById('olseraDrawerBackdrop');
   if (sidebar) sidebar.classList.remove('open');
   if (backdrop) backdrop.classList.remove('open');
+}
+
+function toggleOlseraSidebarDrawer() {
+  const sidebar = document.getElementById('olseraSidebar') || document.querySelector('.olsera-sidebar');
+  if (!sidebar) return;
+  if (sidebar.classList.contains('open')) {
+    closeOlseraSidebarDrawer();
+  } else {
+    openOlseraSidebarDrawer();
+  }
+}
+
+function toggleOlseraMenuInFlow() {
+  toggleOlseraSidebarDrawer();
 }
 
 // ========================================================
