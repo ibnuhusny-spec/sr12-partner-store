@@ -741,16 +741,6 @@ function switchOlseraTab(tabId) {
   const activeMenu = document.getElementById(`menuItem${tabId.charAt(0).toUpperCase() + tabId.slice(1)}`);
   if (activeMenu) activeMenu.classList.add('active');
 
-  // Update active state on horizontal navbar buttons (tidak melayang, statis)
-  const hnavBtns = document.querySelectorAll('.olsera-hnav-btn');
-  hnavBtns.forEach(btn => btn.classList.remove('active'));
-  const activeHnav = document.getElementById(`hnavItem${tabId.charAt(0).toUpperCase() + tabId.slice(1)}`);
-  if (activeHnav) {
-    activeHnav.classList.add('active');
-    try {
-      activeHnav.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-    } catch(e) {}
-  }
 
   // Hide all view containers
   const views = [

@@ -1259,24 +1259,6 @@ body.dev-mode-active .site-header {
   border-color: #f87171;
   transform: translateY(-1px);
 }
-@media (max-width: 768px) {
-  .olsera-static-topbar {
-    padding: 8px 12px;
-    border-radius: 10px;
-    margin-bottom: 12px;
-    gap: 8px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-  .olsera-static-store-sub {
-    display: none;
-  }
-  .olsera-static-topbar-right button {
-    height: 32px !important;
-    padding: 0 10px !important;
-    font-size: 0.74rem !important;
-  }
-}
 
 .header-inner {
   max-width: 1280px;
@@ -1844,75 +1826,6 @@ body.dev-mode-active .site-header {
   box-shadow: 0 8px 18px rgba(2, 132, 199, 0.18);
 }
 
-/* ========================================================
-   DAFTAR MENU HORIZONTAL ADMIN DISTRIBUTOR
-   Statis dalam alur dokumen, tidak melayang, tidak menutupi teks
-   ======================================================== */
-.olsera-horizontal-nav {
-  position: relative !important;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  padding: 4px 2px 14px 2px;
-  margin-bottom: 16px;
-  border-bottom: 1px solid #e2e8f0;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.olsera-horizontal-nav::-webkit-scrollbar {
-  height: 4px;
-}
-.olsera-horizontal-nav::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 999px;
-}
-
-.olsera-hnav-btn {
-  background: #ffffff;
-  color: #475569;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 9999px;
-  height: 38px;
-  padding: 0 16px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  white-space: nowrap;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  flex-shrink: 0;
-  box-sizing: border-box;
-}
-
-.olsera-hnav-btn:hover {
-  background: #f8fafc;
-  color: #0f172a;
-  border-color: #cbd5e1;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
-}
-
-.olsera-hnav-btn.active {
-  background: linear-gradient(135deg, #0284c7, #0369a1);
-  color: #ffffff !important;
-  border-color: #0284c7;
-  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
-}
-
-.olsera-hnav-btn.active span {
-  color: #ffffff !important;
-}
-
-.olsera-hnav-btn:active {
-  transform: scale(0.96);
-}
 
 /* Tombol Aksi Simbol Toko - Sebaris Rapi, Kompak, Tanpa Wrap */
 .distributor-hero-actions {
@@ -7197,27 +7110,113 @@ body.olsera-portal-active #olseraAppNavbar {
   }
 }
 
+/* ========================================================
+   RESPONSIF TOPBAR UTILITY ADMIN PORTAL DI HP (<= 768px)
+   2 Baris Bersih & Seimbang:
+   - Baris 1: Tombol [Menu Toko] (kiri) & Nama Toko (kanan)
+   - Garis Pembatas Lembut
+   - Baris 2: Tombol Kapsul Aksi [15 Kuota] [Lihat Toko] [Logout]
+   DIJAMIN 100% TIDAK PERNAH BERTUMPUK / MENUTUPI SATU SAMA LAIN
+   ======================================================== */
 @media (max-width: 768px) {
   .olsera-static-topbar {
-    padding: 8px 10px !important;
-    gap: 8px !important;
-    margin-bottom: 12px !important;
-    border-radius: 12px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    padding: 12px 14px !important;
+    border-radius: 14px !important;
+    margin-bottom: 14px !important;
+    background: #ffffff !important;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05) !important;
+    overflow: visible !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
+
+  /* Baris 1: Menu Toko di kiri, Identitas Toko di kanan */
+  .olsera-static-topbar-left {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    gap: 10px !important;
+    min-width: 0 !important;
+  }
+
   .btn-olsera-static-menu {
-    height: 36px !important;
-    padding: 0 12px !important;
-    font-size: 0.78rem !important;
+    height: 38px !important;
+    padding: 0 16px !important;
+    font-size: 0.82rem !important;
+    flex-shrink: 0 !important;
+    box-shadow: 0 3px 10px rgba(2, 132, 199, 0.35) !important;
   }
+
+  .olsera-static-store-info {
+    text-align: right !important;
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+  }
+
+  .olsera-static-store-title {
+    font-size: 0.88rem !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .olsera-static-store-sub {
+    font-size: 0.68rem !important;
+    color: #64748b !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* Baris 2: Tiga Kapsul Aksi (15 Kuota, Lihat Toko, Logout) berbaris rapi di bawah */
+  .olsera-static-topbar-right {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+    width: 100% !important;
+    padding-top: 10px !important;
+    border-top: 1px solid #f1f5f9 !important;
+    flex-shrink: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .btn-olsera-static-quota {
+    flex: 1 1 0% !important;
+    justify-content: center !important;
+    height: 36px !important;
+    padding: 0 8px !important;
+    font-size: 0.76rem !important;
+    border-radius: 9999px !important;
+  }
+
+  .btn-olsera-static-cfd {
+    flex: 1.1 1 0% !important;
+    justify-content: center !important;
+    height: 36px !important;
+    padding: 0 8px !important;
+    font-size: 0.76rem !important;
+    border-radius: 9999px !important;
+  }
+
+  .btn-olsera-static-logout {
+    flex: 0.9 1 0% !important;
+    justify-content: center !important;
+    height: 36px !important;
+    padding: 0 8px !important;
+    font-size: 0.76rem !important;
+    border-radius: 9999px !important;
+  }
+
   .btn-olsera-static-cashier {
     display: none !important; /* Di HP, info kasir sudah sangat jelas di dalam drawer menu */
-  }
-  .olsera-static-store-title {
-    font-size: 0.85rem !important;
-    max-width: 120px !important;
-  }
-  .olsera-static-store-sub {
-    display: none !important;
   }
 }
 
