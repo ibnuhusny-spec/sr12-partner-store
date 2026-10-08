@@ -701,8 +701,15 @@
             <button type="button" onclick="openAddProductModal()" style="background: #10b981; color: #fff; border: 1px solid #34d399; padding: 7px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
               <span>+</span> Tambah Produk Baru
             </button>
-            <button type="button" onclick="resetAllAppData()" style="background: #fef2f2; color: #dc2626; border: 1.5px solid #fecaca; padding: 7px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" title="Kosongkan seluruh data simulasi transaksi, kas, dan inventori">
-              <span>🗑️</span> Kosongkan &amp; Reset Data
+            <button type="button" onclick="exportProductCatalogBackup()" style="background: #ecfdf5; color: #065f46; border: 1.5px solid #a7f3d0; padding: 7px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" title="Unduh file backup seluruh data produk dan foto kemasan ke HP/Laptop">
+              <span>💾</span> Backup Foto &amp; Katalog
+            </button>
+            <button type="button" onclick="document.getElementById('importCatalogInput').click()" style="background: #f8fafc; color: #334155; border: 1.5px solid #cbd5e1; padding: 7px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" title="Pulihkan foto dan katalog produk dari file JSON cadangan">
+              <span>📥</span> Pulihkan Backup
+            </button>
+            <input type="file" id="importCatalogInput" accept=".json" style="display:none;" onchange="importProductCatalogBackup(event)">
+            <button type="button" onclick="resetAllSimulationTransactions()" style="background: #fef2f2; color: #dc2626; border: 1.5px solid #fecaca; padding: 7px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" title="Kosongkan riwayat pesanan & kas simulasi tanpa menghapus foto produk">
+              <span>🗑️</span> Kosongkan Riwayat Transaksi
             </button>
           </div>
         </div>

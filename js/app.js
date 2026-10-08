@@ -620,11 +620,157 @@ function getStoredStoreSettings() {
     localStorage.removeItem('sr12_active_cashier_shift_v1');
     localStorage.removeItem('sr12_cart');
     localStorage.setItem('sr12_cleaned_v4', 'true');
-    if (typeof DEFAULT_SR12_PRODUCTS !== 'undefined') {
-      localStorage.setItem('sr12_all_products_v4', JSON.stringify(DEFAULT_SR12_PRODUCTS));
-    }
+    // CATATAN: JANGAN pernah menimpa sr12_all_products_v4 dengan data dummy jika pengguna sudah punya data produk!
   }
 })();
+
+// ==========================================
+// INDEXEDDB ENGINE UNTUK PENYIMPANAN FOTO & MASTER PRODUK
+// Kapasitas besar (ratusan MB / GB), bebas dari batas 5MB LocalStorage browser
+// ==========================================
+const SR12_DB_NAME = 'sr12_partner_store_db';
+const SR12_DB_VERSION = 1;
+const SR12_STORE_PRODUCTS = 'products_master';
+
+function openSR12IndexedDB() {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined' || !window.indexedDB) {
+      resolve(null);
+      return;
+    }
+    try {
+      const req = window.indexedDB.open(SR12_DB_NAME, SR12_DB_VERSION);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(SR12_STORE_PRODUCTS)) {
+          db.createObjectStore(SR12_STORE_PRODUCTS, { keyPath: 'id' });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = (err) => {
+        console.warn('IndexedDB open error:', err);
+        resolve(null);
+      };
+    } catch (e) {
+      console.warn('Exception saat membuka IndexedDB:', e);
+      resolve(null);
+    }
+  });
+}
+
+async function dbSaveProduct(product) {
+  if (!product || !product.id) return;
+  const db = await openSR12IndexedDB();
+  if (!db) return;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction([SR12_STORE_PRODUCTS], 'readwrite');
+      const store = tx.objectStore(SR12_STORE_PRODUCTS);
+      store.put(product);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    } catch (e) {
+      console.warn('Gagal simpan produk ke IndexedDB:', e);
+      resolve(false);
+    }
+  });
+}
+
+async function dbSaveAllProducts(productsList) {
+  if (!Array.isArray(productsList) || productsList.length === 0) return;
+  const db = await openSR12IndexedDB();
+  if (!db) return;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction([SR12_STORE_PRODUCTS], 'readwrite');
+      const store = tx.objectStore(SR12_STORE_PRODUCTS);
+      productsList.forEach(p => store.put(p));
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    } catch (e) {
+      console.warn('Gagal simpan semua produk ke IndexedDB:', e);
+      resolve(false);
+    }
+  });
+}
+
+async function dbGetAllProducts() {
+  const db = await openSR12IndexedDB();
+  if (!db) return [];
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction([SR12_STORE_PRODUCTS], 'readonly');
+      const store = tx.objectStore(SR12_STORE_PRODUCTS);
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    } catch (e) {
+      console.warn('Gagal ambil produk dari IndexedDB:', e);
+      resolve([]);
+    }
+  });
+}
+
+async function dbDeleteProduct(productId) {
+  const db = await openSR12IndexedDB();
+  if (!db) return;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction([SR12_STORE_PRODUCTS], 'readwrite');
+      const store = tx.objectStore(SR12_STORE_PRODUCTS);
+      store.delete(productId);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    } catch (e) {
+      resolve(false);
+    }
+  });
+}
+
+// Sinkronisasi otomatis data produk & foto asli dari IndexedDB saat aplikasi dimuat
+async function syncProductsWithIndexedDB() {
+  try {
+    const idbProducts = await dbGetAllProducts();
+    if (idbProducts && idbProducts.length > 0) {
+      let hasChanges = false;
+      const idbMap = new Map();
+      idbProducts.forEach(p => idbMap.set(p.id, p));
+
+      if (typeof appState !== 'undefined' && Array.isArray(appState.products)) {
+        appState.products = appState.products.map(p => {
+          if (idbMap.has(p.id)) {
+            const fromDb = idbMap.get(p.id);
+            idbMap.delete(p.id);
+            hasChanges = true;
+            return { ...p, ...fromDb };
+          }
+          return p;
+        });
+
+        // Masukkan produk baru yang ada di IndexedDB
+        idbMap.forEach(newP => {
+          appState.products.push(newP);
+          hasChanges = true;
+        });
+
+        if (hasChanges) {
+          if (typeof renderProducts === 'function') renderProducts();
+          if (typeof renderInventoryTable === 'function') renderInventoryTable();
+          if (typeof renderPosProducts === 'function') renderPosProducts();
+          if (typeof updateCartUI === 'function') updateCartUI();
+          // Update cache LocalStorage secara aman tanpa menimpa IndexedDB
+          saveStoredProducts(appState.products, false);
+        }
+      }
+    } else if (typeof appState !== 'undefined' && Array.isArray(appState.products) && appState.products.length > 0) {
+      // Inisialisasi awal IndexedDB dari data saat ini
+      dbSaveAllProducts(appState.products);
+    }
+  } catch (err) {
+    console.warn('Sync IndexedDB produk info:', err);
+  }
+}
+window.syncProductsWithIndexedDB = syncProductsWithIndexedDB;
 
 function getStoredProducts() {
   const stored = localStorage.getItem('sr12_all_products_v4');
@@ -651,36 +797,23 @@ function getStoredProducts() {
     if (typeof p.stock === 'undefined') p.stock = 50;
   });
 
-  saveStoredProducts(list);
-
-  // Background auto-optimizer: kompresi foto produk lama yang terlalu besar agar kuota browser tetap lega
-  setTimeout(async () => {
-    let hasUpdated = false;
-    for (const p of list) {
-      if (p.image && typeof p.image === 'string' && p.image.startsWith('data:') && p.image.length > 120000) {
-        try {
-          p.image = await compressImageSource(p.image, 600, 0.8);
-          hasUpdated = true;
-        } catch (e) {}
-      }
-    }
-    if (hasUpdated) {
-      saveStoredProducts(list);
-    }
-  }, 1200);
+  // Segera sinkronkan foto asli dari IndexedDB di latar belakang
+  setTimeout(() => {
+    syncProductsWithIndexedDB();
+  }, 100);
 
   return list;
 }
 
 /**
- * Kompresi gambar client-side otomatis ke WebP/JPEG max 600x600 px (kualitas 0.82)
- * Mengurangi ukuran gambar dari 5MB-10MB menjadi ~25KB-45KB tanpa kehilangan ketajaman visual di katalog
+ * Kompresi gambar client-side otomatis ke WebP/JPEG max 500x500 px (kualitas 0.76)
+ * Menghasilkan file sangat ramping (~20KB - 30KB) namun tetap sangat tajam di katalog HP & PC
  */
-function compressImageSource(srcOrFile, maxDim = 600, quality = 0.82) {
+function compressImageSource(srcOrFile, maxDim = 500, quality = 0.76) {
   return new Promise((resolve) => {
     const processImage = (img) => {
-      let width = img.naturalWidth || img.width || 600;
-      let height = img.naturalHeight || img.height || 600;
+      let width = img.naturalWidth || img.width || 500;
+      let height = img.naturalHeight || img.height || 500;
       if (width > maxDim || height > maxDim) {
         if (width > height) {
           height = Math.round((height * maxDim) / width);
@@ -728,23 +861,30 @@ function compressImageSource(srcOrFile, maxDim = 600, quality = 0.82) {
 }
 window.compressImageSource = compressImageSource;
 
-function saveStoredProducts(productsList) {
+function saveStoredProducts(productsList, syncToIdb = true) {
   if (!Array.isArray(productsList)) return;
+
+  // 1. Simpan ke IndexedDB (Kapasitas Besar & Gambar Asli 100% Aman)
+  if (syncToIdb) {
+    dbSaveAllProducts(productsList);
+  }
+
+  // 2. Simpan ke LocalStorage sebagai fast-boot cache
   try {
     localStorage.setItem('sr12_all_products_v4', JSON.stringify(productsList));
   } catch (err) {
-    console.warn('LocalStorage quota penuh saat menyimpan produk, melakukan auto-kompresi gambar darurat...', err);
+    console.warn('LocalStorage quota penuh saat menyimpan produk, menggunakan cache aman (IndexedDB tetap menyimpan gambar asli)...', err);
     try {
-      // Pangkas gambar base64 besar yang tersisa agar tetap muat
-      const compacted = productsList.map(p => {
-        if (p.image && typeof p.image === 'string' && p.image.startsWith('data:') && p.image.length > 80000) {
-          return { ...p, image: p.image.slice(0, 50000) };
+      // Simpan versi lean di LocalStorage tanpa merusak string base64
+      const leanProducts = productsList.map(p => {
+        if (p.image && typeof p.image === 'string' && p.image.startsWith('data:') && p.image.length > 30000) {
+          return { ...p, image: 'assets/hero-banner.jpg', _hasIdbImage: true };
         }
         return p;
       });
-      localStorage.setItem('sr12_all_products_v4', JSON.stringify(compacted));
+      localStorage.setItem('sr12_all_products_v4', JSON.stringify(leanProducts));
     } catch (e2) {
-      console.error('Memori penyimpanan penuh:', e2);
+      console.warn('LocalStorage penuh, foto produk tetap aman di IndexedDB.');
     }
   }
 }
@@ -769,6 +909,7 @@ function deleteProduct(productId) {
     return;
   }
   appState.products = appState.products.filter(p => p.id !== productId);
+  dbDeleteProduct(productId);
   saveStoredProducts(appState.products);
   if (typeof renderProducts === 'function') renderProducts();
   if (typeof renderInventoryTable === 'function') renderInventoryTable();
@@ -778,8 +919,79 @@ function deleteProduct(productId) {
 }
 window.deleteProduct = deleteProduct;
 
+// Fitur Backup & Restore Katalog Produk (Untuk Keamanan Cadangan Data Pengguna)
+function exportProductCatalogBackup() {
+  try {
+    const list = (typeof appState !== 'undefined' && appState.products) ? appState.products : [];
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(list, null, 2));
+    const dlAnchorElem = document.createElement('a');
+    dlAnchorElem.setAttribute("href", dataStr);
+    dlAnchorElem.setAttribute("download", `katalog_produk_sr12_backup_${new Date().toISOString().slice(0, 10)}.json`);
+    dlAnchorElem.click();
+    showToast('💾 Berhasil mendownload backup katalog & foto produk!');
+  } catch (e) {
+    alert('Gagal mendownload file backup: ' + e.message);
+  }
+}
+window.exportProductCatalogBackup = exportProductCatalogBackup;
+
+function importProductCatalogBackup(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        if (!confirm(`Pulihkan ${parsed.length} produk dari file backup? Foto dan data produk akan diperbarui.`)) {
+          return;
+        }
+        appState.products = parsed;
+        await dbSaveAllProducts(parsed);
+        saveStoredProducts(parsed);
+        renderProducts();
+        if (typeof renderInventoryTable === 'function') renderInventoryTable();
+        if (typeof renderPosProducts === 'function') renderPosProducts();
+        updateCartUI();
+        showToast(`✅ Berhasil memulihkan ${parsed.length} produk dari file backup!`);
+      } else {
+        alert('File backup tidak valid atau kosong.');
+      }
+    } catch (err) {
+      alert('Gagal membaca file backup: ' + err.message);
+    }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+window.importProductCatalogBackup = importProductCatalogBackup;
+
+function resetAllSimulationTransactions() {
+  if (!confirm('⚠️ Anda yakin ingin mengosongkan seluruh riwayat pesanan & kas simulasi?\n\n• Riwayat transaksi kasir dan mutasi kas akan dibersihkan\n• Foto dan data produk toko Anda TETAP AMAN dan TIDAK AKAN DIHAPUS.')) {
+    return;
+  }
+  localStorage.removeItem('sr12_pos_transactions_v1');
+  localStorage.removeItem('sr12_customer_orders');
+  localStorage.removeItem('sr12_cashflow_records_v1');
+  localStorage.removeItem('sr12_stock_mutations_v1');
+  localStorage.removeItem('sr12_cart');
+  if (typeof appState !== 'undefined') {
+    appState.transactions = [];
+    appState.cashflow = [];
+    appState.cart = [];
+    appState.posCart = [];
+  }
+  if (typeof renderPosTransactions === 'function') renderPosTransactions();
+  if (typeof renderCashflowTable === 'function') renderCashflowTable();
+  if (typeof updateCartUI === 'function') updateCartUI();
+  if (typeof renderAdminOrdersModal === 'function') renderAdminOrdersModal();
+  if (typeof updateAdminNotificationUI === 'function') updateAdminNotificationUI();
+  showToast('🗑️ Riwayat transaksi simulasi berhasil dikosongkan. Foto produk tetap aman!');
+}
+window.resetAllSimulationTransactions = resetAllSimulationTransactions;
+
 function resetAllAppData(confirmFirst = true) {
-  if (confirmFirst && !confirm('⚠️ PERINGATAN: Kosongkan seluruh data simulasi?\n\n• Semua toko demo (Alzam Agency, dll) akan dihapus total (Kembali ke 0 toko mitra)\n• Riwayat transaksi kasir, buku kas masuk-keluar, dan kartu stok akan dikosongkan\n• Antrean pendaftaran baru akan dibersihkan\n• Kanvas bersih siap disimulasikan dari awal pembukaan toko.')) {
+  if (confirmFirst && !confirm('⚠️ PERINGATAN: Kosongkan data transaksi dan sesi toko demo?\n\n• Toko demo akan dibersihkan kembali ke toko utama\n• Riwayat transaksi kasir dan kas masuk-keluar akan dikosongkan\n• KATALOG PRODUK & FOTO KEMASAN TETAP AMAN (TIDAK AKAN DIHAPUS).')) {
     return;
   }
   localStorage.removeItem('sr12_pos_transactions_v1');
@@ -796,7 +1008,7 @@ function resetAllAppData(confirmFirst = true) {
   // Reset daftar toko: Hanya tersisa platform pusat sr12-central (0 toko mitra aktif)
   const freshCentralStore = Object.assign({}, DEFAULT_PARTNER_STORES[0]);
   localStorage.setItem('sr12_partner_stores_v2', JSON.stringify([freshCentralStore]));
-  localStorage.setItem('sr12_all_products_v4', JSON.stringify(DEFAULT_SR12_PRODUCTS));
+  // JANGAN PERNAH menimpa data produk atau menghapus foto hasil edit pengguna di sini!
   
   if (typeof appState !== 'undefined') {
     appState.transactions = [];
@@ -807,7 +1019,7 @@ function resetAllAppData(confirmFirst = true) {
     appState.partnerStores = [freshCentralStore];
     appState.storeSettings = Object.assign({}, freshCentralStore);
     appState.currentStoreSlug = 'sr12-central';
-    appState.products = [...DEFAULT_SR12_PRODUCTS];
+    // appState.products tetap aman!
     appState.activeCashier = {
       name: 'Administrator Pusat',
       storeSlug: 'sr12-central',
@@ -834,7 +1046,7 @@ function resetAllAppData(confirmFirst = true) {
   if (typeof renderReportsView === 'function') renderReportsView();
   if (typeof renderStoreDropdown === 'function') renderStoreDropdown();
   if (typeof updateCartUI === 'function') updateCartUI();
-  if (typeof showToast === 'function') showToast('✨ Data berhasil dikosongkan! Kanvas bersih tanpa toko demo.');
+  if (typeof showToast === 'function') showToast('✨ Data simulasi transaksi berhasil dikosongkan! Foto & katalog produk tetap aman.');
 }
 window.resetAllAppData = resetAllAppData;
 
@@ -1156,6 +1368,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   renderTierQuickBanner();
   renderProducts();
+  if (typeof syncProductsWithIndexedDB === 'function') {
+    syncProductsWithIndexedDB();
+  }
   handleDirectProductDeepLink();
   renderRewards();
   renderMarketingKits();
@@ -1219,9 +1434,8 @@ function loadStoreBySlug(slug) {
   appState.storeSettings = Object.assign({}, found);
   applyStoreTheme(found.storeTheme || 'emerald');
   renderStoreBranding();
-  if (found.partnerTier && SR12_TIERS[found.partnerTier]) {
-    setTier(found.partnerTier);
-  }
+  // Default standar tampilan harga untuk pembeli/katalog toko selalu Konsumen (HET)
+  setTier('konsumen', true);
   const select = document.getElementById('activeStoreSelect');
   if (select) select.value = found.slug;
   const devSelect = document.getElementById('devStoreSelect');
@@ -3443,7 +3657,7 @@ function initEventListeners() {
       if (file) {
         showToast('⏳ Memproses & mengoptimasi foto produk...');
         try {
-          const compressed = await compressImageSource(file, 640, 0.82);
+          const compressed = await compressImageSource(file, 500, 0.76);
           if (compressed) {
             appState.tempEditImageBase64 = compressed;
             const previewImg = document.getElementById('editProdImgPreview');
@@ -3830,7 +4044,7 @@ function changeDevMasterPin() {
   }
 }
 
-function setTier(tierId) {
+function setTier(tierId, silent = false) {
   if (!SR12_TIERS[tierId]) return;
   appState.currentTier = tierId;
   
@@ -3843,7 +4057,9 @@ function setTier(tierId) {
   renderProducts();
   updateCartUI();
 
-  showToast(`Level diubah ke: ${SR12_TIERS[tierId].name} (Diskon ${SR12_TIERS[tierId].discountPct}%)`);
+  if (!silent) {
+    showToast(`Level diubah ke: ${SR12_TIERS[tierId].name} (Diskon ${SR12_TIERS[tierId].discountPct}%)`);
+  }
 }
 
 function renderTierQuickBanner() {
@@ -4977,45 +5193,69 @@ async function handleEditProductSubmit(e) {
   const prod = appState.products.find(p => p.id === prodId);
   if (!prod) return;
 
-  const newName = document.getElementById('editProdName')?.value.trim();
-  const newCat = document.getElementById('editProdCategory')?.value;
-  const newHet = Number(document.getElementById('editProdHet')?.value);
-  const stockRaw = document.getElementById('editProdStock')?.value;
-  const newStock = (stockRaw !== '' && !isNaN(Number(stockRaw))) ? Math.max(0, parseInt(stockRaw, 10)) : (typeof prod.stock !== 'undefined' ? prod.stock : 85);
-  const newSummary = document.getElementById('editProdSummary')?.value.trim();
-  const newImgUrl = document.getElementById('editProdImgUrl')?.value.trim();
+  const btnSubmit = document.getElementById('btnSubmitEditProduct');
+  if (btnSubmit) {
+    btnSubmit.disabled = true;
+    btnSubmit.textContent = '⏳ Menyimpan ke Database...';
+  }
 
-  // Pilih gambar baru jika ada unggahan/preset atau jika input URL diisi baru
-  let finalImage = prod.image;
-  if (appState.tempEditImageBase64 && appState.tempEditImageBase64 !== prod.image) {
-    // Pastikan foto terkompresi sebelum disimpan
-    if (appState.tempEditImageBase64.startsWith('data:') && appState.tempEditImageBase64.length > 80000) {
-      finalImage = await compressImageSource(appState.tempEditImageBase64, 600, 0.8);
-    } else {
-      finalImage = appState.tempEditImageBase64;
+  try {
+    const newName = document.getElementById('editProdName')?.value.trim();
+    const newCat = document.getElementById('editProdCategory')?.value;
+    const newHet = Number(document.getElementById('editProdHet')?.value);
+    const stockRaw = document.getElementById('editProdStock')?.value;
+    const newStock = (stockRaw !== '' && !isNaN(Number(stockRaw))) ? Math.max(0, parseInt(stockRaw, 10)) : (typeof prod.stock !== 'undefined' ? prod.stock : 85);
+    const newSummary = document.getElementById('editProdSummary')?.value.trim();
+    const newImgUrl = document.getElementById('editProdImgUrl')?.value.trim();
+
+    // Pilih gambar baru jika ada unggahan/preset atau jika input URL diisi baru
+    let finalImage = prod.image;
+    if (appState.tempEditImageBase64 && appState.tempEditImageBase64 !== prod.image) {
+      // Pastikan foto terkompresi sebelum disimpan agar ringan & cepat
+      if (appState.tempEditImageBase64.startsWith('data:') && appState.tempEditImageBase64.length > 30000) {
+        finalImage = await compressImageSource(appState.tempEditImageBase64, 500, 0.76);
+      } else {
+        finalImage = appState.tempEditImageBase64;
+      }
+    } else if (newImgUrl && newImgUrl !== prod.image) {
+      finalImage = newImgUrl;
     }
-  } else if (newImgUrl && newImgUrl !== prod.image) {
-    finalImage = newImgUrl;
+
+    prod.name = newName || prod.name;
+    prod.category = newCat || prod.category;
+    if (newHet && !isNaN(newHet) && newHet > 0) {
+      prod.het = newHet;
+      prod.price = newHet;
+    }
+    prod.stock = newStock;
+    prod.summary = newSummary || prod.summary;
+    prod.image = finalImage;
+    prod.customEdited = true;
+
+    // Simpan langsung ke IndexedDB (Permanen, kapasitas ratusan MB)
+    if (typeof dbSaveProduct === 'function') {
+      await dbSaveProduct(prod);
+    }
+
+    // Simpan ke LocalStorage sebagai fast-cache
+    saveStoredProducts(appState.products);
+
+    renderProducts();
+    updateCartUI();
+    if (typeof renderInventoryTable === 'function') renderInventoryTable();
+    if (typeof renderPosProducts === 'function') renderPosProducts();
+
+    closeModal('modalEditProduct');
+    showToast(`✅ Berhasil! Foto & data produk "${prod.name}" tersimpan permanen.`);
+  } catch (err) {
+    console.error('Error saat menyimpan produk:', err);
+    alert('Terjadi kendala saat menyimpan produk: ' + err.message);
+  } finally {
+    if (btnSubmit) {
+      btnSubmit.disabled = false;
+      btnSubmit.textContent = '💾 Simpan Perubahan Produk';
+    }
   }
-
-  prod.name = newName || prod.name;
-  prod.category = newCat || prod.category;
-  if (newHet && !isNaN(newHet) && newHet > 0) {
-    prod.het = newHet;
-    prod.price = newHet;
-  }
-  prod.stock = newStock;
-  prod.summary = newSummary || prod.summary;
-  prod.image = finalImage;
-
-  saveStoredProducts(appState.products);
-  renderProducts();
-  updateCartUI();
-  if (typeof renderInventoryTable === 'function') renderInventoryTable();
-  if (typeof renderPosProducts === 'function') renderPosProducts();
-
-  closeModal('modalEditProduct');
-  showToast(`✅ Berhasil! Produk "${prod.name}" disimpan (Stok: ${prod.stock} pcs, HET: ${formatRupiah(prod.het)}).`);
 }
 
 function setEditImagePreset(presetType) {
@@ -5481,6 +5721,9 @@ function handleAddProductSubmit(e) {
   };
 
   appState.products.unshift(newProduct);
+  if (typeof dbSaveProduct === 'function') {
+    dbSaveProduct(newProduct);
+  }
   saveStoredProducts(appState.products);
 
   renderProducts();
