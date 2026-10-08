@@ -2155,6 +2155,110 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
+let currentDocZoomScale = 1.0;
+let currentActiveDocUrl = '';
+let currentActiveDocName = '';
+
+function openDocumentFullscreenViewer(docUrl, title, fileName) {
+  if (!docUrl) return;
+  currentActiveDocUrl = docUrl;
+  currentActiveDocName = fileName || 'Dokumen_SK_SR12.svg';
+  currentDocZoomScale = 1.0;
+
+  const modal = document.getElementById('modalDocFullscreenViewer');
+  const titleEl = document.getElementById('docFullscreenTitle');
+  const subEl = document.getElementById('docFullscreenSubtitle');
+  const bodyEl = document.getElementById('docFullscreenBody');
+  const downloadBtn = document.getElementById('btnDocFullscreenDownload');
+
+  if (titleEl) titleEl.textContent = title || 'Pratinjau Dokumen Resmi';
+  if (subEl) subEl.textContent = currentActiveDocName;
+
+  if (downloadBtn) {
+    downloadBtn.onclick = () => downloadDocumentDirectly(currentActiveDocUrl, currentActiveDocName);
+  }
+
+  const isPdf = (typeof docUrl === 'string' && (docUrl.startsWith('data:application/pdf') || docUrl.toLowerCase().includes('.pdf'))) || 
+                (currentActiveDocName && currentActiveDocName.toLowerCase().endsWith('.pdf'));
+
+  if (bodyEl) {
+    if (isPdf) {
+      bodyEl.innerHTML = `
+        <div style="width: 100%; height: 100%; min-height: 480px; display: flex; flex-direction: column;">
+          <iframe src="${docUrl}" style="width: 100%; height: 100%; min-height: 480px; border: none; border-radius: 8px; background: #fff;" title="Pratinjau Dokumen PDF"></iframe>
+        </div>
+      `;
+    } else {
+      bodyEl.innerHTML = `
+        <div id="docZoomWrapper" style="display: flex; justify-content: center; align-items: center; width: 100%; min-height: 100%; transition: transform 0.15s ease; transform-origin: top center;">
+          <img id="docFullscreenImage" src="${docUrl}" alt="Dokumen Resmi" style="max-width: 100%; max-height: 82vh; object-fit: contain; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); background: #ffffff;">
+        </div>
+      `;
+    }
+  }
+
+  if (modal) {
+    modal.classList.add('open');
+  }
+}
+window.openDocumentFullscreenViewer = openDocumentFullscreenViewer;
+
+function zoomDocFullscreen(delta) {
+  const wrapper = document.getElementById('docZoomWrapper');
+  if (!wrapper) return;
+  if (delta === 0) {
+    currentDocZoomScale = 1.0;
+  } else {
+    currentDocZoomScale = Math.max(0.5, Math.min(3.0, currentDocZoomScale + delta));
+  }
+  wrapper.style.transform = `scale(${currentDocZoomScale})`;
+}
+window.zoomDocFullscreen = zoomDocFullscreen;
+
+function downloadDocumentDirectly(docUrl, fileName) {
+  if (!docUrl) return;
+  try {
+    if (docUrl.startsWith('data:')) {
+      const parts = docUrl.split(',');
+      const mimeMatch = parts[0].match(/:(.*?);/);
+      const mimeType = mimeMatch ? mimeMatch[1] : 'image/svg+xml';
+      let blob;
+      if (parts[0].includes('base64')) {
+        const byteCharacters = atob(parts[1]);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        blob = new Blob([byteArray], { type: mimeType });
+      } else {
+        const decoded = decodeURIComponent(parts[1]);
+        blob = new Blob([decoded], { type: mimeType });
+      }
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = fileName || (mimeType.includes('pdf') ? 'Dokumen_SK_SR12.pdf' : 'Dokumen_SK_SR12.svg');
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+      showToast('📥 Berkas dokumen berhasil diunduh!');
+      return;
+    }
+    const a = document.createElement('a');
+    a.href = docUrl;
+    a.download = fileName || 'Dokumen_SK_SR12.pdf';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } catch (e) {
+    console.error('Download error:', e);
+    showToast('⚠️ Gagal mengunduh dokumen.');
+  }
+}
+window.downloadDocumentDirectly = downloadDocumentDirectly;
+
 function renderSinglePreviewSkDocument(app) {
   const containerEl = document.getElementById('previewSkContainer');
   if (!containerEl || !app) return;
@@ -2163,6 +2267,10 @@ function renderSinglePreviewSkDocument(app) {
   const docName = app.skDocName || `Dokumen_Kemitraan_${(app.storeName || 'SR12').replace(/\s+/g, '_')}.pdf`;
   const isPdf = (typeof docUrl === 'string' && (docUrl.startsWith('data:application/pdf') || docUrl.toLowerCase().includes('.pdf'))) || 
                 (docName && docName.toLowerCase().endsWith('.pdf'));
+
+  window.__activePreviewDocUrl = docUrl;
+  window.__activePreviewDocName = docName;
+  window.__activePreviewDocTitle = `Dokumen Kemitraan: ${app.storeName || 'SR12'}`;
 
   if (isPdf) {
     containerEl.innerHTML = `
@@ -2173,15 +2281,18 @@ function renderSinglePreviewSkDocument(app) {
             <span>Berkas PDF Terpadu: <b style="color: #fff; font-family: monospace;">${escapeHtml(docName)}</b></span>
           </div>
           <div style="display: flex; gap: 6px; align-items: center;">
-            <a href="${docUrl}" target="_blank" download="${escapeHtml(docName)}" style="color: #fff; background: #0284c7; font-size: 0.74rem; text-decoration: none; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 6px; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4); transition: all 0.2s ease;">
-              <span>↗️</span> Buka / Download PDF
-            </a>
+            <button type="button" onclick="openDocumentFullscreenViewer(window.__activePreviewDocUrl, window.__activePreviewDocTitle, window.__activePreviewDocName)" style="color: #fff; background: #0284c7; border: none; font-size: 0.74rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4);">
+              <span>🔍</span> Buka Layar Penuh
+            </button>
+            <button type="button" onclick="downloadDocumentDirectly(window.__activePreviewDocUrl, window.__activePreviewDocName)" style="color: #bae6fd; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35); font-size: 0.74rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 6px; cursor: pointer;">
+              <span>📥</span> Download
+            </button>
           </div>
         </div>
         <div style="padding: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 280px; max-height: 440px; background: #020617;">
           <iframe src="${docUrl}" style="width: 100%; height: 340px; border: 1px solid #334155; border-radius: 6px; background: #ffffff;" title="Pratinjau Dokumen PDF Resmi"></iframe>
           <div style="margin-top: 8px; font-size: 0.73rem; color: #94a3b8; display: flex; align-items: center; gap: 6px;">
-            <span>💡 <i>Jika browser Anda tidak menampilkan embed PDF otomatis, gunakan tombol <b>Buka / Download PDF</b> di kanan atas.</i></span>
+            <span>💡 <i>Gunakan tombol <b>Buka Layar Penuh</b> untuk melihat tampilan besar dan zoom in/out.</i></span>
           </div>
         </div>
         <div style="padding: 10px 14px; background: rgba(14, 165, 233, 0.1); border-top: 1px solid rgba(14, 165, 233, 0.2); font-size: 0.75rem; color: #bae6fd; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
@@ -2198,12 +2309,17 @@ function renderSinglePreviewSkDocument(app) {
           <span style="font-size: 0.8rem; font-weight: 700; color: #34d399; display: flex; align-items: center; gap: 6px;">
             📜 Berkas Legalitas Resmi PT. SR12 &middot; <span style="font-family: monospace; color: #fef08a;">${escapeHtml(app.skNumber || '-')}</span>
           </span>
-          <a href="${docUrl}" target="_blank" style="color: #34d399; font-size: 0.74rem; text-decoration: none; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; background: rgba(52, 211, 153, 0.1); border-radius: 6px; border: 1px solid rgba(52, 211, 153, 0.3);">
-            🔍 Buka Ukuran Penuh ↗
-          </a>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button type="button" onclick="openDocumentFullscreenViewer(window.__activePreviewDocUrl, window.__activePreviewDocTitle, window.__activePreviewDocName)" style="color: #34d399; font-size: 0.74rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; background: rgba(52, 211, 153, 0.15); border: 1px solid rgba(52, 211, 153, 0.4); border-radius: 6px; cursor: pointer;">
+              🔍 Buka Layar Penuh
+            </button>
+            <button type="button" onclick="downloadDocumentDirectly(window.__activePreviewDocUrl, window.__activePreviewDocName)" style="color: #fff; background: #059669; border: none; font-size: 0.74rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 6px; cursor: pointer;">
+              📥 Download
+            </button>
+          </div>
         </div>
         <div style="padding: 12px; display: flex; justify-content: center; align-items: center; min-height: 260px; max-height: 420px; overflow: auto; background: #041f18;">
-          <img src="${docUrl}" alt="Berkas SK Resmi" style="max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.6); cursor: zoom-in;" onclick="window.open('${docUrl}', '_blank')" title="Klik untuk memperbesar berkas dokumen">
+          <img src="${docUrl}" alt="Berkas SK Resmi" style="max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.6); cursor: zoom-in;" onclick="openDocumentFullscreenViewer(window.__activePreviewDocUrl, window.__activePreviewDocTitle, window.__activePreviewDocName)" title="Klik untuk membuka layar penuh">
         </div>
         <div style="padding: 10px 14px; background: rgba(16, 185, 129, 0.1); border-top: 1px solid rgba(16, 185, 129, 0.2); font-size: 0.75rem; color: #a7f3d0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
           <span>🏛️ <b>Penerbit SK:</b> PT. SR12 Herbal Perkasa (Sah &amp; Tervalidasi Direksi)</span>
@@ -3008,18 +3124,27 @@ function showSpecificStoreSk(slug) {
   const containerEl = document.getElementById('previewSkContainer');
   if (containerEl) {
     const skSvg = getMockSkSvgUrl(owner, nik, storeName, skNum, city);
+    window.__activePreviewDocUrl = skSvg;
+    window.__activePreviewDocName = `SK_${skNum}.svg`;
+    window.__activePreviewDocTitle = `Dokumen SK Resmi: ${storeName}`;
+
     containerEl.innerHTML = `
       <div style="width: 100%; border: 1.5px solid #059669; border-radius: 10px; overflow: hidden; background: #022c22; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #0f172a; border-bottom: 1px solid #1e293b;">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #0f172a; border-bottom: 1px solid #1e293b; flex-wrap: wrap; gap: 8px;">
           <span style="font-size: 0.8rem; font-weight: 700; color: #34d399;">
             📜 SK Resmi Kemitraan: <span style="font-family: monospace; color: #fef08a;">${escapeHtml(skNum)}</span>
           </span>
-          <a href="${skSvg}" target="_blank" style="color: #34d399; font-size: 0.74rem; text-decoration: none; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; background: rgba(52, 211, 153, 0.1); border-radius: 5px; border: 1px solid rgba(52, 211, 153, 0.3);">
-            🔍 Buka Penuh ↗
-          </a>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button type="button" onclick="openDocumentFullscreenViewer(window.__activePreviewDocUrl, window.__activePreviewDocTitle, window.__activePreviewDocName)" style="color: #34d399; font-size: 0.74rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; background: rgba(52, 211, 153, 0.15); border: 1px solid rgba(52, 211, 153, 0.4); border-radius: 6px; cursor: pointer;">
+              🔍 Buka Layar Penuh
+            </button>
+            <button type="button" onclick="downloadDocumentDirectly(window.__activePreviewDocUrl, window.__activePreviewDocName)" style="color: #fff; background: #059669; border: none; font-size: 0.74rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 6px; cursor: pointer;">
+              📥 Download
+            </button>
+          </div>
         </div>
         <div style="padding: 12px; display: flex; justify-content: center; align-items: center; min-height: 260px; max-height: 420px; overflow: auto; background: #041f18;">
-          <img src="${skSvg}" alt="SK Resmi" style="max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.6); cursor: zoom-in;" onclick="window.open('${skSvg}', '_blank')">
+          <img src="${skSvg}" alt="SK Resmi" style="max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.6); cursor: zoom-in;" onclick="openDocumentFullscreenViewer(window.__activePreviewDocUrl, window.__activePreviewDocTitle, window.__activePreviewDocName)" title="Klik untuk membuka layar penuh">
         </div>
         <div style="padding: 10px 14px; background: rgba(16, 185, 129, 0.1); border-top: 1px solid rgba(16, 185, 129, 0.2); font-size: 0.75rem; color: #a7f3d0; display: flex; justify-content: space-between; align-items: center;">
           <span>🏛️ <b>Penerbit SK:</b> PT. SR12 Herbal Perkasa (Legalitas Sah)</span>
@@ -3306,18 +3431,27 @@ function showCurrentStoreSk() {
   const containerEl = document.getElementById('previewSkContainer');
   if (containerEl) {
     const skSvg = getMockSkSvgUrl(owner, nik, storeName, skNum, city);
+    window.__activePreviewDocUrl = skSvg;
+    window.__activePreviewDocName = `SK_${skNum}.svg`;
+    window.__activePreviewDocTitle = `Dokumen SK Resmi: ${storeName}`;
+
     containerEl.innerHTML = `
       <div style="width: 100%; border: 1.5px solid #059669; border-radius: 10px; overflow: hidden; background: #022c22; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #0f172a; border-bottom: 1px solid #1e293b;">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #0f172a; border-bottom: 1px solid #1e293b; flex-wrap: wrap; gap: 8px;">
           <span style="font-size: 0.8rem; font-weight: 700; color: #34d399;">
             📜 SK Resmi Kemitraan: <span style="font-family: monospace; color: #fef08a;">${escapeHtml(skNum)}</span>
           </span>
-          <a href="${skSvg}" target="_blank" style="color: #34d399; font-size: 0.74rem; text-decoration: none; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; background: rgba(52, 211, 153, 0.1); border-radius: 5px; border: 1px solid rgba(52, 211, 153, 0.3);">
-            🔍 Buka Penuh ↗
-          </a>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button type="button" onclick="openDocumentFullscreenViewer(window.__activePreviewDocUrl, window.__activePreviewDocTitle, window.__activePreviewDocName)" style="color: #34d399; font-size: 0.74rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; background: rgba(52, 211, 153, 0.15); border: 1px solid rgba(52, 211, 153, 0.4); border-radius: 6px; cursor: pointer;">
+              🔍 Buka Layar Penuh
+            </button>
+            <button type="button" onclick="downloadDocumentDirectly(window.__activePreviewDocUrl, window.__activePreviewDocName)" style="color: #fff; background: #059669; border: none; font-size: 0.74rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 6px; cursor: pointer;">
+              📥 Download
+            </button>
+          </div>
         </div>
         <div style="padding: 12px; display: flex; justify-content: center; align-items: center; min-height: 260px; max-height: 420px; overflow: auto; background: #041f18;">
-          <img src="${skSvg}" alt="SK Resmi" style="max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.6); cursor: zoom-in;" onclick="window.open('${skSvg}', '_blank')">
+          <img src="${skSvg}" alt="SK Resmi" style="max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.6); cursor: zoom-in;" onclick="openDocumentFullscreenViewer(window.__activePreviewDocUrl, window.__activePreviewDocTitle, window.__activePreviewDocName)" title="Klik untuk membuka layar penuh">
         </div>
         <div style="padding: 10px 14px; background: rgba(16, 185, 129, 0.1); border-top: 1px solid rgba(16, 185, 129, 0.2); font-size: 0.75rem; color: #a7f3d0; display: flex; justify-content: space-between; align-items: center;">
           <span>🏛️ <b>Penerbit SK:</b> PT. SR12 Herbal Perkasa (Legalitas Sah)</span>
@@ -7050,6 +7184,14 @@ function openAdminOrdersModal() {
     document.getElementById('olseraSidebar')?.classList.remove('open');
     document.getElementById('olseraDrawerBackdrop')?.classList.remove('open');
   }
+
+  // Bersihkan teks subtitle panjang jika masih tertinggal di cache DOM browser
+  const modalEl = document.getElementById('modalAdminOrders');
+  if (modalEl) {
+    const subtitleEls = modalEl.querySelectorAll('.modal-header p');
+    subtitleEls.forEach(el => el.remove());
+  }
+
   renderAdminOrdersModal();
   openModal('modalAdminOrders');
 }

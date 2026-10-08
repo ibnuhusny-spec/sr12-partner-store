@@ -18,7 +18,7 @@
   <meta name="twitter:title" content="SR12 Partner Hub - Toko Resmi Herbal Skin Care">
   <meta name="twitter:description" content="Toko resmi kemitraan SR12 Herbal Skin Care terverifikasi BPOM. Dapatkan harga terbaik dan pengiriman cepat.">
   <meta name="twitter:image" content="https://sr12-partner-store.vercel.app/assets/sr12-logo.png">
-  <link rel="stylesheet" href="css/style.css?v=5.6">
+  <link rel="stylesheet" href="css/style.css?v=5.7">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
 </head>
 <body>
@@ -3688,6 +3688,43 @@
     </div>
   </div>
 
+  <!-- MODAL FULLSCREEN VIEWER DOKUMEN RESMI (IN-APP LIGHTBOX BEBAS CRASH/BLANK) -->
+  <div class="modal-backdrop" id="modalDocFullscreenViewer" style="z-index: 12000; background: rgba(2, 6, 23, 0.94); backdrop-filter: blur(8px);">
+    <div class="modal-container" style="max-width: 920px; width: 95vw; height: 92vh; display: flex; flex-direction: column; border-radius: 16px; overflow: hidden; background: #0b1329; border: 1.5px solid #0284c7; box-shadow: 0 25px 60px rgba(0,0,0,0.7);">
+      <div style="background: linear-gradient(135deg, #0f172a, #1e293b); color: #fff; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; flex-wrap: wrap; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.3rem;">📜</span>
+          <div>
+            <h4 id="docFullscreenTitle" style="margin: 0; font-size: 0.95rem; font-weight: 800; color: #38bdf8;">
+              Pratinjau Dokumen Resmi
+            </h4>
+            <span id="docFullscreenSubtitle" style="font-size: 0.72rem; color: #94a3b8;">PT. SR12 Herbal Perkasa</span>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+          <button type="button" onclick="zoomDocFullscreen(-0.2)" title="Perkecil (-)" style="background: #1e293b; color: #cbd5e1; border: 1px solid #475569; padding: 6px 10px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer;">
+            🔍 -
+          </button>
+          <button type="button" onclick="zoomDocFullscreen(0)" title="Reset Zoom (100%)" style="background: #1e293b; color: #cbd5e1; border: 1px solid #475569; padding: 6px 10px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer;">
+            100%
+          </button>
+          <button type="button" onclick="zoomDocFullscreen(0.2)" title="Perbesar (+)" style="background: #1e293b; color: #cbd5e1; border: 1px solid #475569; padding: 6px 10px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer;">
+            🔍 +
+          </button>
+          <button type="button" id="btnDocFullscreenDownload" style="background: #0284c7; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+            📥 Download
+          </button>
+          <button type="button" onclick="closeModal('modalDocFullscreenViewer')" style="background: #dc2626; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+            ✕ Tutup
+          </button>
+        </div>
+      </div>
+      <div id="docFullscreenBody" style="flex: 1; overflow: auto; padding: 14px; display: flex; justify-content: center; align-items: flex-start; background: #020617; -webkit-overflow-scrolling: touch;">
+        <!-- Injected image or iframe -->
+      </div>
+    </div>
+  </div>
+
   <!-- 14. MODAL: TAMBAH MITRA RESMI BARU (AGEN, SUB AGEN, RESELLER, MARKETER) -->
   <div class="modal-backdrop" id="modalAddMitra">
     <div class="modal-dialog" style="max-width: 540px;">
@@ -4269,9 +4306,9 @@
 
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=5.6"></script>
-  <script src="js/data.js?v=5.6"></script>
-  <script src="js/app.js?v=5.6"></script>
-  <script src="js/olsera-suite.js?v=5.6"></script>
+  <script src="js/supabase-config.js?v=5.7"></script>
+  <script src="js/data.js?v=5.7"></script>
+  <script src="js/app.js?v=5.7"></script>
+  <script src="js/olsera-suite.js?v=5.7"></script>
 </body>
 </html>
