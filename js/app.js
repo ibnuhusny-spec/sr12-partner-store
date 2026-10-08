@@ -4665,6 +4665,11 @@ function updateCartSummary() {
 
   if (totalLine) totalLine.textContent = formatRupiah(grandTotal);
 
+  const printActionText = document.getElementById('cartPrintActionText');
+  if (printActionText) {
+    printActionText.textContent = appState.isDropship ? '🖨️ Cetak Resi Dropship' : '📄 Cetak / Simpan Nota Pesanan';
+  }
+
   // Update floating cart pill on distributor store mode
   const distCartFab = document.getElementById('distributorFloatingCart');
   const distCartCount = document.getElementById('distributorFloatingCartCount');
@@ -6543,12 +6548,12 @@ function printShippingLabel() {
   const fee = isFeeChargedToBuyer ? appState.platformFee : 0;
   const grandTotal = subtotal + shippingCost + fee;
 
-  let title = 'RESI PENGIRIMAN RESMI SR12';
+  let title = appState.isDropship ? 'LABEL RESI PENGIRIMAN DROPSHIP RESMI' : 'NOTA & RINCIAN PESANAN RESMI SR12';
   let badgeHtml = '';
   let destinationHtml = '';
 
   if (courier.id === 'pickup') {
-    title = 'INVOICE / SURAT JALAN PENGAMBILAN TOKO (SELF PICK-UP)';
+    title = 'NOTA / BUKTI PENGAMBILAN TOKO (SELF PICK-UP)';
     badgeHtml = `<div style="background: #059669; color: #fff; padding: 7px 10px; text-align: center; font-weight: bold; border-radius: 4px; margin: 10px 0; font-size: 13px;">🏪 BARANG DIAMBIL SENDIRI DI GUDANG / TOKO (BEBAS ONGKIR - RP 0)</div>`;
     destinationHtml = `
       <div class="row"><b>PENGAMBIL / PEMESAN:</b><br>${appState.buyerDetails.name} (${appState.buyerDetails.phone})</div>
@@ -6810,15 +6815,18 @@ function renderAdminOrdersModal() {
           </div>
           <div style="display: flex; gap: 6px; flex-wrap: wrap;">
             ${isPending ? `
-              <button type="button" onclick="confirmOrderFromModal('${ord.id}')" style="background: #059669; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer;">
+              <button type="button" onclick="confirmOrderFromModal('${ord.id}')" style="background: #059669; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer;" title="Klik setelah pesanan selesai dikemas/dikirim">
                 ✅ Konfirmasi Selesai
               </button>
             ` : ''}
-            <button type="button" onclick="viewHistoricalReceipt('${ord.id}')" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 6px 10px; border-radius: 6px; font-size: 0.76rem; font-weight: 600; cursor: pointer;">
+            <button type="button" onclick="viewHistoricalReceipt('${ord.id}')" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 6px 10px; border-radius: 6px; font-size: 0.76rem; font-weight: 600; cursor: pointer;" title="Cetak struk nota belanja">
               📄 Struk Nota
             </button>
+            <button type="button" onclick="printOrderShippingLabel('${ord.id}')" style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; padding: 6px 10px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer;" title="Cetak label resi untuk ditempel di paket pengiriman">
+              🖨️ Cetak Resi
+            </button>
             ${ord.customerPhone && ord.customerPhone !== '-' ? `
-              <button type="button" onclick="window.open('https://api.whatsapp.com/send?phone=${ord.customerPhone.replace(/[^0-9]/g, '')}&text=${encodeURIComponent('Halo Kak ' + ord.customerName + ', pesanan ' + ord.id + ' di SR12 sudah kami terima dan siap disiapkan. Terima kasih! 🌿')}', '_blank')" style="background: #25d366; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer;">
+              <button type="button" onclick="window.open('https://api.whatsapp.com/send?phone=${ord.customerPhone.replace(/[^0-9]/g, '')}&text=${encodeURIComponent('Halo Kak ' + ord.customerName + ', pesanan ' + ord.id + ' di SR12 sudah kami terima dan siap disiapkan. Terima kasih! 🌿')}', '_blank')" style="background: #25d366; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer;" title="Kirim chat WhatsApp ke pemesan">
                 💬 Chat WA
               </button>
             ` : ''}
@@ -6828,6 +6836,55 @@ function renderAdminOrdersModal() {
     `;
   }).join('');
 }
+
+function printOrderShippingLabel(trxId) {
+  const ord = (appState.transactions || []).find(t => t.id === trxId);
+  if (!ord) return;
+  const storeName = (appState.storeSettings && appState.storeSettings.storeName) || 'SR12 Official';
+  const storePhone = (appState.storeSettings && appState.storeSettings.storeWaNumber) || '-';
+  const storeCity = (appState.storeSettings && appState.storeSettings.storeCity) || 'Kota Toko';
+
+  const itemsHtml = (ord.items || []).map(i => `<div style="font-size: 11px; margin-bottom: 2px;">• ${i.qty}x ${i.name}</div>`).join('');
+  const labelHtml = `
+    <html>
+    <head>
+      <title>RESI PENGIRIMAN - ${ord.id}</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; padding: 20px; max-width: 440px; margin: 0 auto; border: 2px solid #000; }
+        .head { text-align: center; border-bottom: 2px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
+        .row { margin-bottom: 8px; font-size: 13px; line-height: 1.4; }
+        .barcode { text-align: center; font-size: 18px; letter-spacing: 3px; font-weight: bold; margin: 12px 0; border: 1px solid #000; padding: 8px; background: #fafafa; }
+      </style>
+    </head>
+    <body>
+      <div class="head">
+        <h3 style="margin: 0 0 4px 0;">${storeName.toUpperCase()}</h3>
+        <p style="margin: 0; font-size: 12px; font-weight: bold;">LABEL RESI PENGIRIMAN RESMI</p>
+      </div>
+      <div class="barcode">||| ${ord.id} |||</div>
+      <div class="row"><b>DARI PENGIRIM:</b><br>${storeName}<br>WhatsApp: ${storePhone}<br>Kota: ${storeCity}</div>
+      <hr style="border: none; border-top: 1px dashed #ccc; margin: 8px 0;">
+      <div class="row"><b>KEPADA PENERIMA:</b><br><b>${ord.customerName}</b> (${ord.customerPhone})<br>${ord.customerAddress || 'Alamat Penerima'}</div>
+      <div class="row"><b>LAYANAN PENGIRIMAN:</b> ${ord.paymentMethod || 'Reguler'}</div>
+      <hr style="border: none; border-top: 1px dashed #ccc; margin: 8px 0;">
+      <div class="row"><b>ISI PAKET:</b><br>${itemsHtml}</div>
+      <div class="row" style="text-align: right; font-weight: bold; font-size: 14px; margin-top: 10px;">
+        TOTAL TAGIHAN: ${formatRupiah(ord.grandTotal)}
+      </div>
+      <div style="font-size: 10px; text-align: center; color: #555; margin-top: 15px; border-top: 1px dotted #aaa; padding-top: 6px;">
+        Terima kasih telah berbelanja di ${storeName} 🌿
+      </div>
+      <script>window.onload = function() { window.print(); };</script>
+    </body>
+    </html>
+  `;
+  const win = window.open('', '_blank', 'width=500,height=700');
+  if (win) {
+    win.document.write(labelHtml);
+    win.document.close();
+  }
+}
+window.printOrderShippingLabel = printOrderShippingLabel;
 
 function openAdminOrdersModal() {
   renderAdminOrdersModal();

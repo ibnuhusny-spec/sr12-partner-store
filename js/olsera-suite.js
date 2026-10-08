@@ -347,6 +347,8 @@ function openOlseraSidebarDrawer() {
   const backdrop = document.getElementById('olseraDrawerBackdrop');
   if (sidebar) sidebar.classList.add('open');
   if (backdrop) backdrop.classList.add('open');
+  document.body.classList.add('olsera-drawer-open');
+  document.body.style.overflow = 'hidden';
   if (typeof updateAdminNotificationUI === 'function') {
     updateAdminNotificationUI();
   }
@@ -357,6 +359,8 @@ function closeOlseraSidebarDrawer() {
   const backdrop = document.getElementById('olseraDrawerBackdrop');
   if (sidebar) sidebar.classList.remove('open');
   if (backdrop) backdrop.classList.remove('open');
+  document.body.classList.remove('olsera-drawer-open');
+  document.body.style.overflow = '';
 }
 
 function toggleOlseraSidebarDrawer() {

@@ -4316,6 +4316,33 @@ body.modal-open {
     display: block !important;
   }
 
+  .olsera-drawer-backdrop {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(15, 23, 42, 0.65) !important;
+    backdrop-filter: blur(3px) !important;
+    -webkit-backdrop-filter: blur(3px) !important;
+    z-index: 10000 !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    transition: opacity 0.25s ease, visibility 0.25s ease !important;
+    overscroll-behavior: none !important;
+    touch-action: none !important;
+  }
+
+  .olsera-drawer-backdrop.open {
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  body.olsera-drawer-open {
+    overflow: hidden !important;
+    touch-action: none !important;
+  }
+
   .olsera-sidebar {
     position: fixed !important;
     top: 0 !important;
@@ -4330,6 +4357,8 @@ body.modal-open {
     transform: translateX(-100%) !important;
     box-shadow: none !important;
     overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+    -webkit-overflow-scrolling: touch !important;
     display: flex !important;
     flex-direction: column !important;
   }

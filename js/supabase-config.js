@@ -401,8 +401,32 @@ async function saveMitraToSupabase(mitra, storeSlug = 'sr12-central') {
       total_orders_count: mitra.totalOrdersCount || 0,
       status: mitra.status || 'active'
     };
-    await client.from('mitra_downlines').upsert(payload, { onConflict: 'store_slug,partner_code' });
-  } catch (e) {}
+
+    // Cek apakah data mitra sudah ada di Supabase Cloud
+    const { data: existing } = await client
+      .from('mitra_downlines')
+      .select('id')
+      .eq('store_slug', storeSlug)
+      .eq('partner_code', mitra.id)
+      .maybeSingle();
+
+    if (existing && existing.id) {
+      const { error: updErr } = await client
+        .from('mitra_downlines')
+        .update(payload)
+        .eq('id', existing.id);
+      if (updErr) console.warn('Supabase update mitra error:', updErr);
+      else console.log('☁️ [Supabase] Berhasil update mitra:', mitra.id);
+    } else {
+      const { error: insErr } = await client
+        .from('mitra_downlines')
+        .insert(payload);
+      if (insErr) console.warn('Supabase insert mitra error:', insErr);
+      else console.log('☁️ [Supabase] Berhasil simpan mitra baru:', mitra.id);
+    }
+  } catch (e) {
+    console.warn('Exception saving mitra to Supabase:', e);
+  }
 }
 
 /**
@@ -412,7 +436,12 @@ async function deleteMitraFromSupabase(partnerCode, storeSlug = 'sr12-central') 
   const client = initSupabaseClient();
   if (!client || !partnerCode) return;
   try {
-    await client.from('mitra_downlines').delete().match({ store_slug: storeSlug, partner_code: partnerCode });
+    const { error } = await client
+      .from('mitra_downlines')
+      .delete()
+      .eq('store_slug', storeSlug)
+      .eq('partner_code', partnerCode);
+    if (error) console.warn('Supabase delete mitra error:', error);
   } catch (e) {}
 }
 
@@ -474,7 +503,19 @@ async function saveMarketerSaleToSupabase(sale, storeSlug = 'sr12-central') {
       paid_status: sale.paidStatus || 'unpaid',
       paid_date: sale.paidDate || null
     };
-    await client.from('marketer_sales').upsert(payload, { onConflict: 'store_slug,order_id' });
+
+    const { data: existing } = await client
+      .from('marketer_sales')
+      .select('id')
+      .eq('store_slug', storeSlug)
+      .eq('order_id', sale.orderId)
+      .maybeSingle();
+
+    if (existing && existing.id) {
+      await client.from('marketer_sales').update(payload).eq('id', existing.id);
+    } else {
+      await client.from('marketer_sales').insert(payload);
+    }
   } catch (e) {}
 }
 
