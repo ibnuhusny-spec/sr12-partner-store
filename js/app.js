@@ -1540,10 +1540,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   const initSlug = getInitialStoreSlug(appState.partnerStores);
   loadStoreBySlug(initSlug);
 
-  // Pastikan URL di address bar browser selalu mencantumkan parameter toko (?store=...) tanpa menghapus parameter produk (?product=...)
+  // Pastikan URL di address bar browser selalu mencantumkan parameter toko (?store=...) tanpa menghapus parameter produk (?product=...) di toko mitra
   const bootParams = new URLSearchParams(window.location.search);
+  let bootParamsChanged = false;
   if (!bootParams.has('store')) {
     bootParams.set('store', initSlug);
+    bootParamsChanged = true;
+  }
+  if (initSlug === 'sr12-central') {
+    if (bootParams.has('product') || bootParams.has('p') || bootParams.has('prod') || bootParams.has('id')) {
+      bootParams.delete('product');
+      bootParams.delete('p');
+      bootParams.delete('prod');
+      bootParams.delete('id');
+      bootParamsChanged = true;
+    }
+  }
+  if (bootParamsChanged) {
     window.history.replaceState({ store: initSlug }, '', window.location.pathname + '?' + bootParams.toString());
   }
 
@@ -1686,7 +1699,7 @@ function loadStoreBySlug(slug) {
   if (typeof updateOlseraHeaderMeta === 'function') {
     updateOlseraHeaderMeta();
   }
-  if (typeof handleDirectProductDeepLink === 'function') {
+  if (found.slug !== 'sr12-central' && typeof handleDirectProductDeepLink === 'function') {
     handleDirectProductDeepLink();
   }
 }
@@ -1721,6 +1734,12 @@ function switchPartnerStore(slug) {
   loadStoreBySlug(slug);
   const switchParams = new URLSearchParams(window.location.search);
   switchParams.set('store', slug);
+  if (slug === 'sr12-central') {
+    switchParams.delete('product');
+    switchParams.delete('p');
+    switchParams.delete('prod');
+    switchParams.delete('id');
+  }
   const newUrl = window.location.pathname + '?' + switchParams.toString();
   window.history.pushState({ store: slug }, '', newUrl);
   if (typeof updateDistributorPendingBadges === 'function') {
@@ -3119,20 +3138,20 @@ function renderStoreBranding() {
   const genericHero = document.getElementById('genericStoreHeroBanner') || document.querySelector('.hero-single-banner');
   const commerceWrapper = document.getElementById('distributorCommerceWrapper');
 
-  const urlCheck = new URLSearchParams(window.location.search);
-  const hasProductParam = urlCheck.has('product') || urlCheck.has('p') || urlCheck.has('prod') || urlCheck.has('id');
-
   if (isCentralHub) {
     // ==========================================
     // MODE 1: SR12-KU PRO (SR12 OFFICIAL CENTRAL HUB)
     // ==========================================
-    if (centralHero) centralHero.style.display = hasProductParam ? 'none' : 'block';
-    if (directorySection) directorySection.style.display = hasProductParam ? 'none' : 'block';
+    // Official Central Hub MURNI Direktori Toko & Kemitraan se-Indonesia (TIDAK BERISI PRODUK RITEL / KERANJANG)
+    if (centralHero) centralHero.style.display = 'block';
+    if (directorySection) directorySection.style.display = 'block';
     if (distHero) distHero.style.display = 'none';
-    // Di Official Central Hub, jangan tampilkan katalog produk belanja (katalog hanya muncul di Toko Mitra / Distributor)
-    if (commerceWrapper) commerceWrapper.style.display = hasProductParam ? 'block' : 'none';
+    if (genericHero) genericHero.style.display = 'none';
+    if (commerceWrapper) commerceWrapper.style.display = 'none';
+    const catSec = document.getElementById('catalogSection');
+    if (catSec) catSec.style.display = 'none';
     const distCartFab = document.getElementById('distributorFloatingCart');
-    if (distCartFab) distCartFab.style.display = hasProductParam ? 'flex' : 'none';
+    if (distCartFab) distCartFab.style.display = 'none';
 
     const cTitle = document.getElementById('centralHubTitleDisplay');
     const cSub = document.getElementById('centralHubSubtitleDisplay');
@@ -3519,8 +3538,13 @@ function handleDistributorLogout() {
   if (platformTopbar) platformTopbar.style.display = isCentral ? 'block' : 'none';
 
   updateViewModeUI();
-  switchTab('products');
-  renderProducts();
+  if (isCentral) {
+    renderStoreBranding();
+    renderOfficialDistributorDirectory();
+  } else {
+    switchTab('products');
+    renderProducts();
+  }
   showToast('🛍️ Anda telah logout. Web toko kini kembali bersih sebagai Tampilan Pembeli Umum.');
 }
 window.handleDistributorLogout = handleDistributorLogout;
@@ -6858,11 +6882,13 @@ function renderAdminOrdersModal() {
   const orders = appState.transactions || [];
   if (orders.length === 0) {
     body.innerHTML = `
-      <div style="text-align: center; padding: 40px 20px; color: #94a3b8;">
-        <span style="font-size: 3rem; display: block; margin-bottom: 12px;">🎉</span>
-        <h4 style="margin: 0 0 6px 0; color: #334155; font-size: 1rem;">Belum Ada Pesanan Masuk</h4>
-        <p style="margin: 0; font-size: 0.82rem; line-height: 1.5;">
-          Data transaksi bersih (0 pesanan). Masukkan produk ke keranjang dan checkout via WhatsApp untuk mencoba simulasi pesanan Agen / Konsumen secara live!
+      <div style="text-align: center; padding: 48px 20px; color: #64748b;">
+        <div style="width: 64px; height: 64px; border-radius: 50%; background: #ecfdf5; border: 2px dashed #10b981; display: inline-flex; align-items: center; justify-content: center; font-size: 2rem; margin-bottom: 14px;">
+          📭
+        </div>
+        <h4 style="margin: 0 0 6px 0; color: #0f172a; font-size: 1.05rem; font-weight: 800;">Belum Ada Pesanan Masuk</h4>
+        <p style="margin: 0 auto; max-width: 440px; font-size: 0.84rem; line-height: 1.5; color: #64748b;">
+          Daftar pesanan saat ini masih bersih. Setiap transaksi yang dibuat dari Keranjang Toko atau WhatsApp akan otomatis terpantau di sini secara real-time!
         </p>
       </div>
     `;
@@ -6871,66 +6897,79 @@ function renderAdminOrdersModal() {
 
   body.innerHTML = orders.map(ord => {
     const isPending = ord.status === 'Menunggu Konfirmasi' || ord.status === 'Siap Diambil di Toko';
-    const statusBg = isPending ? '#fef3c7' : '#ecfdf5';
-    const statusColor = isPending ? '#b45309' : '#065f46';
-    const statusIcon = isPending ? '🟡' : '✅';
+    const statusBg = isPending ? '#fffbeb' : '#ecfdf5';
+    const statusBorder = isPending ? '#fde68a' : '#a7f3d0';
+    const statusColor = isPending ? '#b45309' : '#047857';
+    const statusIcon = isPending ? '⏳' : '✅';
 
-    const itemsSummary = (ord.items || []).map(i => `<span style="display: inline-block; background: #f1f5f9; padding: 2px 7px; border-radius: 4px; font-size: 0.74rem; margin: 2px 3px 2px 0;">${i.qty}x ${i.name}</span>`).join('');
+    const itemsSummary = (ord.items || []).map(i => `
+      <span style="display: inline-flex; align-items: center; gap: 4px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 4px 8px; border-radius: 6px; font-size: 0.76rem; font-weight: 600; color: #334155; margin: 2px 4px 2px 0;">
+        <b style="color: #059669;">${i.qty}x</b> ${i.name}
+      </span>
+    `).join('');
 
     return `
-      <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+      <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px 18px; margin-bottom: 14px; box-shadow: 0 2px 8px -2px rgba(15,23,42,0.05); transition: box-shadow 0.2s ease;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; gap: 10px; flex-wrap: wrap;">
           <div>
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <b style="font-size: 0.9rem; color: #0f172a;">${ord.id}</b>
-              <span style="background: #e0f2fe; color: #0369a1; font-size: 0.7rem; font-weight: 700; padding: 1px 6px; border-radius: 4px;">${ord.tierLabel || 'Retail'}</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 0.95rem; font-weight: 800; color: #0f172a; font-family: monospace;">${ord.id}</span>
+              <span style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; font-size: 0.7rem; font-weight: 800; padding: 2px 8px; border-radius: 999px;">
+                ${ord.tierLabel || 'Retail'}
+              </span>
             </div>
-            <div style="font-size: 0.75rem; color: #64748b; margin-top: 2px;">📅 ${ord.dateTime}</div>
+            <div style="font-size: 0.76rem; color: #64748b; margin-top: 3px; display: flex; align-items: center; gap: 4px;">
+              <span>📅</span> <span>${ord.dateTime}</span>
+            </div>
           </div>
-          <span style="background: ${statusBg}; color: ${statusColor}; font-size: 0.74rem; font-weight: 800; padding: 3px 8px; border-radius: 999px;">
+          <span style="background: ${statusBg}; color: ${statusColor}; border: 1px solid ${statusBorder}; font-size: 0.74rem; font-weight: 800; padding: 4px 10px; border-radius: 999px; display: inline-flex; align-items: center; gap: 5px;">
             ${statusIcon} ${ord.status}
           </span>
         </div>
 
-        <div style="background: #f8fafc; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; font-size: 0.8rem;">
-          <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-            <span>Pemesan:</span>
-            <b>${ord.customerName}</b>
-          </div>
-          <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-            <span>No. WhatsApp:</span>
-            <span style="color: #0284c7; font-weight: 600;">${ord.customerPhone}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between;">
-            <span>Metode Pengambilan/Kirim:</span>
-            <span style="font-weight: 600; color: #334155;">${ord.paymentMethod}</span>
+        <div style="background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 10px; padding: 10px 14px; margin-bottom: 10px; font-size: 0.82rem;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px;">
+            <div>
+              <span style="color: #64748b; font-size: 0.73rem; display: block;">👤 Pemesan / Pelanggan:</span>
+              <b style="color: #0f172a; font-size: 0.88rem;">${ord.customerName || 'Pelanggan Toko'}</b>
+            </div>
+            <div>
+              <span style="color: #64748b; font-size: 0.73rem; display: block;">📱 WhatsApp:</span>
+              <span style="color: #0284c7; font-weight: 700; font-family: monospace;">${ord.customerPhone || '-'}</span>
+            </div>
+            <div>
+              <span style="color: #64748b; font-size: 0.73rem; display: block;">📦 Pengambilan / Pengiriman:</span>
+              <span style="font-weight: 700; color: #334155;">${ord.paymentMethod || 'Ambil di Toko'}</span>
+            </div>
           </div>
         </div>
 
-        <div style="margin-bottom: 10px;">
-          <div style="font-size: 0.74rem; font-weight: 700; color: #475569; margin-bottom: 4px;">Daftar Produk:</div>
-          <div>${itemsSummary}</div>
+        <div style="margin-bottom: 12px;">
+          <div style="font-size: 0.73rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 5px;">
+            Daftar Produk:
+          </div>
+          <div style="display: flex; flex-wrap: wrap;">${itemsSummary}</div>
         </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed #e2e8f0; padding-top: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed #e2e8f0; padding-top: 12px; gap: 10px; flex-wrap: wrap;">
           <div>
-            <span style="font-size: 0.74rem; color: #64748b;">Total Tagihan:</span>
-            <div style="font-size: 1rem; font-weight: 800; color: #0f172a;">${formatRupiah(ord.grandTotal)}</div>
+            <span style="font-size: 0.73rem; color: #64748b; display: block;">Total Tagihan:</span>
+            <div style="font-size: 1.12rem; font-weight: 900; color: #065f46;">${formatRupiah(ord.grandTotal)}</div>
           </div>
-          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <div style="display: flex; gap: 7px; flex-wrap: wrap; align-items: center;">
             ${isPending ? `
-              <button type="button" onclick="confirmOrderFromModal('${ord.id}')" style="background: #059669; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer;" title="Klik setelah pesanan selesai dikemas/dikirim">
-                ✅ Konfirmasi Selesai
+              <button type="button" onclick="confirmOrderFromModal('${ord.id}')" style="background: linear-gradient(135deg, #059669, #047857); color: #ffffff; border: none; padding: 7px 13px; border-radius: 8px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(5,150,105,0.25);" title="Klik setelah pesanan selesai diproses/dikirim">
+                ✅ Selesai
               </button>
             ` : ''}
-            <button type="button" onclick="viewHistoricalReceipt('${ord.id}')" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 6px 10px; border-radius: 6px; font-size: 0.76rem; font-weight: 600; cursor: pointer;" title="Cetak struk nota belanja">
-              📄 Struk Nota
+            <button type="button" onclick="viewHistoricalReceipt('${ord.id}')" style="background: #ffffff; color: #334155; border: 1.5px solid #cbd5e1; padding: 7px 11px; border-radius: 8px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Cetak struk nota belanja">
+              📄 Struk
             </button>
-            <button type="button" onclick="printOrderShippingLabel('${ord.id}')" style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; padding: 6px 10px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer;" title="Cetak label resi untuk ditempel di paket pengiriman">
-              🖨️ Cetak Resi
+            <button type="button" onclick="printOrderShippingLabel('${ord.id}')" style="background: #eff6ff; color: #1d4ed8; border: 1.5px solid #bfdbfe; padding: 7px 11px; border-radius: 8px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Cetak label resi untuk paket pengiriman">
+              🖨️ Resi
             </button>
             ${ord.customerPhone && ord.customerPhone !== '-' ? `
-              <button type="button" onclick="chatCustomerWa('${ord.customerPhone}', '${(ord.customerName || '').replace(/'/g, "\\'")}', '${ord.id}')" style="background: #25d366; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Kirim chat WhatsApp ke pemesan">
+              <button type="button" onclick="chatCustomerWa('${ord.customerPhone}', '${(ord.customerName || '').replace(/'/g, "\\'")}', '${ord.id}')" style="background: #25d366; color: #ffffff; border: none; padding: 7px 12px; border-radius: 8px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(37,211,102,0.25);" title="Kirim chat WhatsApp ke pemesan">
                 💬 Chat WA
               </button>
             ` : ''}
@@ -8851,6 +8890,21 @@ window.downloadProductPromoImage = downloadProductPromoImage;
 // DEEP-LINKING PRODUK SPESIFIK (?product=...)
 // ==========================================
 function handleDirectProductDeepLink() {
+  const isCentral = !appState.storeSettings?.slug || appState.storeSettings?.slug === 'sr12-central';
+  if (isCentral) {
+    // Official Central Hub murni direktori toko & kemitraan nasional (TIDAK ADA PRODUK / DEEP LINK)
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('product') || params.has('p') || params.has('prod') || params.has('id')) {
+      params.delete('product');
+      params.delete('p');
+      params.delete('prod');
+      params.delete('id');
+      const cleanUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+      window.history.replaceState({}, '', cleanUrl);
+    }
+    return;
+  }
+
   const params = new URLSearchParams(window.location.search);
   const rawParam = params.get('product') || params.get('p') || params.get('prod') || params.get('id');
   if (!rawParam) return;
@@ -8880,9 +8934,10 @@ function handleDirectProductDeepLink() {
     }
   }
 
-  // 3. Fallback ke produk resmi pertama jika masih belum ditemukan
-  if (!prod && typeof DEFAULT_SR12_PRODUCTS !== 'undefined' && DEFAULT_SR12_PRODUCTS.length > 0) {
-    prod = DEFAULT_SR12_PRODUCTS[0];
+  // Jika produk tidak ditemukan, batalkan deep-link (JANGAN fallback ke Lightening Body Lotion)
+  if (!prod) {
+    console.warn('⚠️ [Deep-Link Produk] Produk tidak ditemukan:', rawParam);
+    return;
   }
 
   if (prod) {

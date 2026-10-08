@@ -7260,6 +7260,30 @@ body.olsera-portal-active #olseraAppNavbar {
   box-shadow: 0 8px 25px rgba(6, 95, 70, 0.55);
 }
 
+/* ==========================================================================
+   17. MODAL MONITOR PESANAN MASUK (ADMIN REAL-TIME ORDER MONITOR)
+   ========================================================================== */
+#modalAdminOrders .modal-container {
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.4);
+  animation: modalOrdersPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
 
+@keyframes modalOrdersPop {
+  0% { opacity: 0; transform: scale(0.96) translateY(8px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
 
+#adminOrdersListBody::-webkit-scrollbar {
+  width: 6px;
+}
 
+#adminOrdersListBody::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
+#adminOrdersListBody::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
