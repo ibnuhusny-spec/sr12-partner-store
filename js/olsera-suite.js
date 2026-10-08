@@ -1521,11 +1521,17 @@ function openPosReceiptModal(trx) {
     setEl('rcptChange', `Rp ${changeVal.toLocaleString('id-ID')}`);
 
     const modal = document.getElementById('modalPosReceipt');
-    if (modal) modal.classList.add('open');
+    if (modal) {
+      modal.classList.add('open');
+      modal.style.zIndex = '100060';
+    }
   } catch (err) {
     console.error('Error opening receipt modal:', err);
     const modal = document.getElementById('modalPosReceipt');
-    if (modal) modal.classList.add('open');
+    if (modal) {
+      modal.classList.add('open');
+      modal.style.zIndex = '100060';
+    }
   }
 }
 
@@ -1564,7 +1570,10 @@ function sendPosReceiptViaWhatsApp() {
   const trx = (typeof appState !== 'undefined' && appState.posCurrentTrx);
   if (!trx) return;
 
-  const phone = trx.customerPhone ? trx.customerPhone.replace(/[^0-9]/g, '') : '';
+  const rawPhone = trx.customerPhone || '';
+  const cleanPhone = (typeof formatWaNumber === 'function')
+    ? formatWaNumber(rawPhone)
+    : (rawPhone ? String(rawPhone).replace(/[^0-9]/g, '').replace(/^0/, '62') : '');
   const store = appState.storeSettings || {};
 
   let msg = `*🧾 NOTA TRANSAKSI RESMI - ${store.storeName || 'SR12 Partner Store'}*\n`;
@@ -1599,7 +1608,7 @@ function sendPosReceiptViaWhatsApp() {
   msg += `_Terima kasih telah berbelanja produk asli SR12 Herbal Skin Care terverifikasi BPOM & Halal MUI!_`;
 
   const encoded = encodeURIComponent(msg);
-  const waTarget = phone ? `https://wa.me/${phone}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
+  const waTarget = cleanPhone ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encoded}` : `https://api.whatsapp.com/send?text=${encoded}`;
   window.open(waTarget, '_blank');
 }
 
@@ -1761,7 +1770,7 @@ function viewHistoricalReceipt(trxId) {
   if (typeof appState === 'undefined') return;
   let list = appState.transactions;
   if (!list || list.length === 0) {
-    list = getStoredTransactions();
+    list = typeof getStoredTransactions === 'function' ? getStoredTransactions() : [];
     appState.transactions = list;
   }
   const trx = (list || []).find(t => t.id === trxId);
@@ -1770,6 +1779,9 @@ function viewHistoricalReceipt(trxId) {
     return;
   }
   appState.posCurrentTrx = trx;
+  if (typeof closeModal === 'function') {
+    closeModal('modalAdminOrders');
+  }
   openPosReceiptModal(trx);
 }
 window.viewHistoricalReceipt = viewHistoricalReceipt;

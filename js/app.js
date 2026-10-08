@@ -4725,6 +4725,18 @@ function updateCartSummary() {
   }
 }
 
+function formatWaNumber(phone) {
+  if (!phone) return '';
+  let clean = String(phone).replace(/[^0-9]/g, '');
+  if (clean.startsWith('0')) {
+    clean = '62' + clean.slice(1);
+  } else if (clean.startsWith('8')) {
+    clean = '62' + clean;
+  }
+  return clean;
+}
+window.formatWaNumber = formatWaNumber;
+
 function checkoutViaWhatsApp() {
   if (appState.cart.length === 0) {
     alert('Keranjang belanja Anda masih kosong!');
@@ -4818,6 +4830,7 @@ function checkoutViaWhatsApp() {
   if (inputPartnerQuery && !inputPartnerQuery.toUpperCase().startsWith('AG-') && !inputPartnerQuery.toUpperCase().startsWith('SUB-') && !inputPartnerQuery.toUpperCase().startsWith('RS-') && !inputPartnerQuery.toUpperCase().startsWith('MKT-')) {
     appState.buyerDetails.phone = inputPartnerQuery;
   }
+
   const buyerPhone = appState.buyerDetails.phone;
   const nowIso = '2026-09-27';
 
@@ -4918,7 +4931,8 @@ function checkoutViaWhatsApp() {
   }
 
   const storeName = appState.storeSettings.storeName;
-  const targetWa = appState.storeSettings.storeWaNumber.replace(/[^0-9]/g, '');
+  const rawTargetWa = appState.storeSettings.storeWaNumber || '6281234567890';
+  const targetWa = formatWaNumber(rawTargetWa);
 
   const message = `*FORMAT PESANAN RESMI ${storeName.toUpperCase()}*\n` +
     `----------------------------------------\n` +
@@ -5052,9 +5066,20 @@ function checkoutViaWhatsApp() {
   saveStoredCart(appState.cart);
   updateCartUI();
 
+  // 1. Langsung tutup Keranjang Belanja agar layar bersih
+  closeCartDrawer();
+
+  // 2. Format Tautan WhatsApp Resmi
   const encoded = encodeURIComponent(message);
   const waUrl = `https://api.whatsapp.com/send?phone=${targetWa}&text=${encoded}`;
-  openWhatsAppPreviewModal(message, waUrl);
+
+  showToast('🚀 Mengalihkan pesanan langsung ke WhatsApp...');
+
+  // 3. Langsung buka WhatsApp tanpa menahan pengguna di jendela preview
+  const waWin = window.open(waUrl, '_blank');
+  if (!waWin || waWin.closed || typeof waWin.closed === 'undefined') {
+    window.location.href = waUrl;
+  }
 }
 
 function openWhatsAppPreviewModal(text, url) {
@@ -6747,6 +6772,25 @@ function triggerAdminNewOrderNotification(order) {
   showToast(`🔔 PESANAN MASUK BARU! ${order.customerName} (${formatRupiah(order.grandTotal)})`);
 }
 
+function chatCustomerWa(phone, customerName, orderId) {
+  const cleanPhone = formatWaNumber(phone);
+  if (!cleanPhone || cleanPhone.length < 8) {
+    alert('Nomor WhatsApp pemesan (' + (phone || '-') + ') tidak valid atau tidak lengkap!');
+    return;
+  }
+  const msg = `Halo Kak ${customerName || ''}, pesanan ${orderId || ''} di SR12 sudah kami terima dan siap disiapkan. Terima kasih! 🌿`;
+  const url = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`;
+  try {
+    const win = window.open(url, '_blank');
+    if (!win || win.closed || typeof win.closed === 'undefined') {
+      window.location.href = url;
+    }
+  } catch (e) {
+    window.location.href = url;
+  }
+}
+window.chatCustomerWa = chatCustomerWa;
+
 function renderAdminOrdersModal() {
   const body = document.getElementById('adminOrdersListBody');
   if (!body) return;
@@ -6826,7 +6870,7 @@ function renderAdminOrdersModal() {
               🖨️ Cetak Resi
             </button>
             ${ord.customerPhone && ord.customerPhone !== '-' ? `
-              <button type="button" onclick="window.open('https://api.whatsapp.com/send?phone=${ord.customerPhone.replace(/[^0-9]/g, '')}&text=${encodeURIComponent('Halo Kak ' + ord.customerName + ', pesanan ' + ord.id + ' di SR12 sudah kami terima dan siap disiapkan. Terima kasih! 🌿')}', '_blank')" style="background: #25d366; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer;" title="Kirim chat WhatsApp ke pemesan">
+              <button type="button" onclick="chatCustomerWa('${ord.customerPhone}', '${(ord.customerName || '').replace(/'/g, "\\'")}', '${ord.id}')" style="background: #25d366; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Kirim chat WhatsApp ke pemesan">
                 💬 Chat WA
               </button>
             ` : ''}
