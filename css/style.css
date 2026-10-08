@@ -6485,17 +6485,46 @@ body.modal-open {
     max-width: 48% !important;
   }
 
-  /* Baris Header pada Card (No Transaksi, Nama Produk, ID Mitra) */
+  /* Baris Header pada Card (No Transaksi, Nama Produk, ID Mitra, ID Marketer) */
   .inv-table td[data-label="No. Transaksi"],
-  .inv-table td[data-label="Nama Produk"],
-  .crm-table td[data-label="ID & Nama Mitra"],
-  .crm-table td[data-label="ID & Nama Marketer"] {
+  .inv-table td[data-label="Nama Produk"] {
     background: #f8fafc !important;
     margin: -4px -4px 6px -4px !important;
     padding: 8px 10px !important;
     border-radius: 8px !important;
     border-bottom: 1px solid #e2e8f0 !important;
     text-align: left !important;
+  }
+
+  .crm-table td[data-label="ID & Nama Mitra"],
+  .crm-table td[data-label="ID & Nama Marketer"] {
+    display: block !important;
+    width: 100% !important;
+    background: #f8fafc !important;
+    margin: -4px -4px 8px -4px !important;
+    padding: 10px 12px !important;
+    border-radius: 8px !important;
+    border-bottom: 1.5px solid #e2e8f0 !important;
+    text-align: left !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  .crm-table td[data-label="ID & Nama Mitra"]::before,
+  .crm-table td[data-label="ID & Nama Marketer"]::before {
+    display: none !important;
+  }
+
+  .crm-table td[data-label="Rekening Transfer"] {
+    align-items: flex-start !important;
+    padding: 8px 0 !important;
+  }
+
+  .crm-table td[data-label="Pesanan Terjual"],
+  .crm-table td[data-label="Total Omset (HET)"],
+  .crm-table td[data-label="Bonus Marketer (15%)"],
+  .crm-table td[data-label="Status Pembayaran"] {
+    padding: 7px 0 !important;
   }
 
   /* Hilangkan label untuk foto produk & posisikan ke atas */

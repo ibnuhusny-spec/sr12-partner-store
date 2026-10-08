@@ -2145,106 +2145,80 @@ function openStoreAppPendingSuccessModal(app) {
   if (modal) modal.classList.add('open');
 }
 
-function switchPreviewDocTab(tabName) {
-  appState.activePreviewDocTab = tabName;
-  const appId = appState.activePreviewAppId;
-  const app = (appState.pendingStoreApps || []).find(a => a.id === appId);
-  if (!app) return;
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
-  const btnKtp = document.getElementById('tabDocBtnKtp');
-  const btnSk = document.getElementById('tabDocBtnSk');
-  const btnSelfie = document.getElementById('tabDocBtnSelfie');
+function renderSinglePreviewSkDocument(app) {
   const containerEl = document.getElementById('previewSkContainer');
-  if (!containerEl) return;
+  if (!containerEl || !app) return;
 
-  // Reset tab button states
-  const defaultTabStyle = 'flex: 1; min-width: 150px; background: #1e293b; color: #94a3b8; border: 1px solid #334155; padding: 8px 12px; border-radius: 6px; font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s ease;';
+  const docUrl = app.skDocUrl || app.ktpDocUrl || getMockSkSvgUrl(app.storeOwner, app.nikNumber, app.storeName, app.skNumber, app.storeCity);
+  const docName = app.skDocName || `Dokumen_Kemitraan_${(app.storeName || 'SR12').replace(/\s+/g, '_')}.pdf`;
+  const isPdf = (typeof docUrl === 'string' && (docUrl.startsWith('data:application/pdf') || docUrl.toLowerCase().includes('.pdf'))) || 
+                (docName && docName.toLowerCase().endsWith('.pdf'));
 
-  if (btnKtp) {
-    btnKtp.style.cssText = defaultTabStyle;
-    btnKtp.innerHTML = `<span>🪪</span> 1. Foto KTP Asli`;
-  }
-  if (btnSk) {
-    btnSk.style.cssText = defaultTabStyle;
-    btnSk.innerHTML = `<span>📜</span> 2. Dokumen SK Resmi`;
-  }
-  if (btnSelfie) {
-    btnSelfie.style.cssText = defaultTabStyle;
-    btnSelfie.innerHTML = `<span>🤳</span> 3. Selfie & Biometrik`;
-  }
-
-  if (tabName === 'ktp') {
-    if (btnKtp) {
-      btnKtp.style.cssText = defaultTabStyle + 'background: #0284c7; color: #ffffff; border: 1.5px solid #38bdf8; box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);';
-    }
-    const ktpUrl = app.ktpDocUrl || getMockKtpSvgUrl(app.storeOwner, app.nikNumber, app.storeCity);
+  if (isPdf) {
     containerEl.innerHTML = `
       <div style="width: 100%; border: 1.5px solid #0284c7; border-radius: 10px; overflow: hidden; background: #0b1329; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #0f172a; border-bottom: 1px solid #1e293b;">
-          <span style="font-size: 0.76rem; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 5px;">
-            🪪 Foto KTP Asli Pemilik (NIK: <span style="font-family: monospace; color: #fff;">${app.nikNumber || '3374025804820003'}</span>)
-          </span>
-          <a href="${ktpUrl}" target="_blank" style="color: #38bdf8; font-size: 0.72rem; text-decoration: none; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; background: rgba(56, 189, 248, 0.1); border-radius: 4px; border: 1px solid rgba(56, 189, 248, 0.3);">
-            🔍 Buka Ukuran Penuh ↗
-          </a>
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #0f172a; border-bottom: 1px solid #1e293b; flex-wrap: wrap; gap: 8px;">
+          <div style="font-size: 0.8rem; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 8px;">
+            <span>📄</span>
+            <span>Berkas PDF Terpadu: <b style="color: #fff; font-family: monospace;">${escapeHtml(docName)}</b></span>
+          </div>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <a href="${docUrl}" target="_blank" download="${escapeHtml(docName)}" style="color: #fff; background: #0284c7; font-size: 0.74rem; text-decoration: none; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 6px; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4); transition: all 0.2s ease;">
+              <span>↗️</span> Buka / Download PDF
+            </a>
+          </div>
         </div>
-        <div style="padding: 12px; display: flex; justify-content: center; align-items: center; min-height: 250px; max-height: 380px; overflow: auto; background: #020617;">
-          <img src="${ktpUrl}" alt="KTP Pemilik Toko" style="max-width: 100%; max-height: 360px; object-fit: contain; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.6); cursor: zoom-in;" onclick="window.open('${ktpUrl}', '_blank')" title="Klik untuk memperbesar gambar KTP">
+        <div style="padding: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 280px; max-height: 440px; background: #020617;">
+          <iframe src="${docUrl}" style="width: 100%; height: 340px; border: 1px solid #334155; border-radius: 6px; background: #ffffff;" title="Pratinjau Dokumen PDF Resmi"></iframe>
+          <div style="margin-top: 8px; font-size: 0.73rem; color: #94a3b8; display: flex; align-items: center; gap: 6px;">
+            <span>💡 <i>Jika browser Anda tidak menampilkan embed PDF otomatis, gunakan tombol <b>Buka / Download PDF</b> di kanan atas.</i></span>
+          </div>
         </div>
-        <div style="padding: 8px 14px; background: rgba(14, 165, 233, 0.1); border-top: 1px solid rgba(14, 165, 233, 0.2); font-size: 0.74rem; color: #bae6fd; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
-          <span>✅ <b>Status KTP:</b> Terverifikasi Dukcapil &amp; Identitas Sesuai Calon Pemilik</span>
-          <span style="color: #94a3b8; font-size: 0.7rem;">${app.ktpDocName || 'e-KTP Asli'}</span>
+        <div style="padding: 10px 14px; background: rgba(14, 165, 233, 0.1); border-top: 1px solid rgba(14, 165, 233, 0.2); font-size: 0.75rem; color: #bae6fd; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+          <span>🏛️ <b>Status Dokumen:</b> 1 Bundel PDF Resmi (SK No: <code style="color: #fef08a;">${escapeHtml(app.skNumber || '-')}</code> &middot; NIK: <code style="color: #fff;">${escapeHtml(app.nikNumber || '-')}</code>)</span>
+          <span style="background: #0369a1; color: #e0f2fe; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 0.7rem;">✓ File Terverifikasi</span>
         </div>
       </div>
     `;
-  } else if (tabName === 'sk') {
-    if (btnSk) {
-      btnSk.style.cssText = defaultTabStyle + 'background: #059669; color: #ffffff; border: 1.5px solid #34d399; box-shadow: 0 0 12px rgba(52, 211, 153, 0.4);';
-    }
-    const skUrl = app.skDocUrl || getMockSkSvgUrl(app.storeOwner, app.nikNumber, app.storeName, app.skNumber, app.storeCity);
+  } else {
+    // Gambar / Mock SVG
     containerEl.innerHTML = `
       <div style="width: 100%; border: 1.5px solid #059669; border-radius: 10px; overflow: hidden; background: #022c22; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #0f172a; border-bottom: 1px solid #1e293b;">
-          <span style="font-size: 0.76rem; font-weight: 700; color: #34d399; display: flex; align-items: center; gap: 5px;">
-            📜 Surat Keputusan (SK) Distributor Resmi No: <span style="font-family: monospace; color: #fef08a;">${app.skNumber}</span>
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #0f172a; border-bottom: 1px solid #1e293b; flex-wrap: wrap; gap: 8px;">
+          <span style="font-size: 0.8rem; font-weight: 700; color: #34d399; display: flex; align-items: center; gap: 6px;">
+            📜 Berkas Legalitas Resmi PT. SR12 &middot; <span style="font-family: monospace; color: #fef08a;">${escapeHtml(app.skNumber || '-')}</span>
           </span>
-          <a href="${skUrl}" target="_blank" style="color: #34d399; font-size: 0.72rem; text-decoration: none; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; background: rgba(52, 211, 153, 0.1); border-radius: 4px; border: 1px solid rgba(52, 211, 153, 0.3);">
+          <a href="${docUrl}" target="_blank" style="color: #34d399; font-size: 0.74rem; text-decoration: none; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; background: rgba(52, 211, 153, 0.1); border-radius: 6px; border: 1px solid rgba(52, 211, 153, 0.3);">
             🔍 Buka Ukuran Penuh ↗
           </a>
         </div>
-        <div style="padding: 12px; display: flex; justify-content: center; align-items: center; min-height: 250px; max-height: 420px; overflow: auto; background: #041f18;">
-          <img src="${skUrl}" alt="SK Distributor Resmi" style="max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.6); cursor: zoom-in;" onclick="window.open('${skUrl}', '_blank')" title="Klik untuk memperbesar berkas SK">
+        <div style="padding: 12px; display: flex; justify-content: center; align-items: center; min-height: 260px; max-height: 420px; overflow: auto; background: #041f18;">
+          <img src="${docUrl}" alt="Berkas SK Resmi" style="max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.6); cursor: zoom-in;" onclick="window.open('${docUrl}', '_blank')" title="Klik untuk memperbesar berkas dokumen">
         </div>
-        <div style="padding: 8px 14px; background: rgba(16, 185, 129, 0.1); border-top: 1px solid rgba(16, 185, 129, 0.2); font-size: 0.74rem; color: #a7f3d0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+        <div style="padding: 10px 14px; background: rgba(16, 185, 129, 0.1); border-top: 1px solid rgba(16, 185, 129, 0.2); font-size: 0.75rem; color: #a7f3d0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
           <span>🏛️ <b>Penerbit SK:</b> PT. SR12 Herbal Perkasa (Sah &amp; Tervalidasi Direksi)</span>
-          <span style="color: #94a3b8; font-size: 0.7rem;">${app.skDocName || 'SK_Distributor_Resmi.pdf'}</span>
+          <span style="color: #cbd5e1; font-size: 0.72rem; font-family: monospace;">${escapeHtml(docName)}</span>
         </div>
       </div>
     `;
-  } else if (tabName === 'selfie') {
-    if (btnSelfie) {
-      btnSelfie.style.cssText = defaultTabStyle + 'background: #7c3aed; color: #ffffff; border: 1.5px solid #c084fc; box-shadow: 0 0 12px rgba(192, 132, 252, 0.4);';
-    }
-    const selfieUrl = app.selfieDocUrl || getMockSelfieSvgUrl(app.storeOwner, app.nikNumber);
-    containerEl.innerHTML = `
-      <div style="width: 100%; border: 1.5px solid #7c3aed; border-radius: 10px; overflow: hidden; background: #1e1035; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #0f172a; border-bottom: 1px solid #1e293b;">
-          <span style="font-size: 0.76rem; font-weight: 700; color: #c084fc; display: flex; align-items: center; gap: 5px;">
-            🤳 Verifikasi Biometrik Wajah &amp; KTP Pemohon
-          </span>
-          <a href="${selfieUrl}" target="_blank" style="color: #c084fc; font-size: 0.72rem; text-decoration: none; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; background: rgba(192, 132, 252, 0.1); border-radius: 4px; border: 1px solid rgba(192, 132, 252, 0.3);">
-            🔍 Buka Ukuran Penuh ↗
-          </a>
-        </div>
-        <div style="padding: 12px; display: flex; justify-content: center; align-items: center; min-height: 250px; max-height: 380px; overflow: auto; background: #0f0a1c;">
-          <img src="${selfieUrl}" alt="Selfie KTP" style="max-width: 100%; max-height: 360px; object-fit: contain; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.6); cursor: zoom-in;" onclick="window.open('${selfieUrl}', '_blank')" title="Klik untuk memperbesar foto selfie biometrik">
-        </div>
-        <div style="padding: 8px 14px; background: rgba(168, 85, 247, 0.1); border-top: 1px solid rgba(168, 85, 247, 0.2); font-size: 0.74rem; color: #e9d5ff; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
-          <span>✨ <b>Biometrik Live Match:</b> Wajah identik 99.8% dengan KTP asli</span>
-          <span style="color: #94a3b8; font-size: 0.7rem;">${app.selfieDocName || 'Selfie_Biometrik.jpg'}</span>
-        </div>
-      </div>
-    `;
+  }
+}
+
+function switchPreviewDocTab(tabName) {
+  const appId = appState.activePreviewAppId;
+  const app = (appState.pendingStoreApps || []).find(a => a.id === appId);
+  if (app) {
+    renderSinglePreviewSkDocument(app);
   }
 }
 
@@ -2294,7 +2268,7 @@ function previewSkDocument(appId) {
   }
 
   if (titleEl) {
-    titleEl.innerHTML = `<span>🪪</span> Verifikasi Legalitas &amp; Dokumen: ${app.storeName} <small style="color: #94a3b8; font-size: 0.75rem;">(#${app.id})</small>`;
+    titleEl.innerHTML = `<span>📄</span> Verifikasi Dokumen Kemitraan: ${escapeHtml(app.storeName)} <small style="color: #94a3b8; font-size: 0.75rem;">(#${escapeHtml(app.id)})</small>`;
   }
 
   if (detailsEl) {
@@ -2302,37 +2276,37 @@ function previewSkDocument(appId) {
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
         <div>
           <span style="color: #94a3b8; font-size: 0.72rem; display: block;">Nama Toko &amp; Calon Pemilik:</span>
-          <b style="color: #f8fafc; font-size: 0.85rem;">${app.storeName}</b>
-          <div style="color: #cbd5e1; font-size: 0.75rem;">👤 ${app.storeOwner} &middot; 📍 ${app.storeCity}</div>
-          <div style="color: #38bdf8; font-size: 0.72rem; margin-top: 2px;">🪪 NIK: <span style="font-family: monospace; font-weight: 700;">${app.nikNumber || '3374025804820003'}</span></div>
+          <b style="color: #f8fafc; font-size: 0.85rem;">${escapeHtml(app.storeName)}</b>
+          <div style="color: #cbd5e1; font-size: 0.75rem;">👤 ${escapeHtml(app.storeOwner)} &middot; 📍 ${escapeHtml(app.storeCity)}</div>
+          <div style="color: #38bdf8; font-size: 0.72rem; margin-top: 2px;">🪪 NIK: <span style="font-family: monospace; font-weight: 700;">${escapeHtml(app.nikNumber || '3374025804820003')}</span></div>
         </div>
         <div>
           <span style="color: #94a3b8; font-size: 0.72rem; display: block;">Level &amp; WhatsApp:</span>
-          <span style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; padding: 1px 6px; border-radius: 4px; font-weight: 700; font-size: 0.72rem;">${tierObj.name}</span>
-          <div style="color: #4ade80; font-family: monospace; font-size: 0.75rem; margin-top: 2px;">📱 +${app.storeWaNumber}</div>
-          <div style="color: #fbbf24; font-size: 0.72rem; margin-top: 2px;">📜 No. SK: <code style="font-family: monospace;">${app.skNumber}</code></div>
+          <span style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; padding: 1px 6px; border-radius: 4px; font-weight: 700; font-size: 0.72rem;">${escapeHtml(tierObj.name)}</span>
+          <div style="color: #4ade80; font-family: monospace; font-size: 0.75rem; margin-top: 2px;">📱 +${escapeHtml(app.storeWaNumber)}</div>
+          <div style="color: #fbbf24; font-size: 0.72rem; margin-top: 2px;">📜 No. SK: <code style="font-family: monospace;">${escapeHtml(app.skNumber)}</code></div>
         </div>
       </div>
       <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
         <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
           <span style="background: #14532d; color: #4ade80; font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; font-weight: 700;">✓ KTP Asli Terlampir</span>
           <span style="background: #1e3a8a; color: #60a5fa; font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; font-weight: 700;">✓ SK PT. SR12 Valid</span>
-          <span style="background: #581c87; color: #c084fc; font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; font-weight: 700;">✓ Biometrik Match</span>
+          <span style="background: #0369a1; color: #e0f2fe; font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; font-weight: 700;">✓ 1 Bundel PDF Lengkap</span>
         </div>
         <div style="color: #94a3b8; font-size: 0.7rem;">Waktu Masuk: ${dateFormatted}</div>
       </div>
       ${(app.recommenderDistributor) ? `
         <div style="margin-top: 8px; padding: 8px 10px; background: rgba(37, 99, 235, 0.15); border: 1.5px solid #3b82f6; border-radius: 6px; font-size: 0.76rem; color: #93c5fd;">
-          👑 <b>Rekomendasi Distributor Resmi:</b> <span style="color: #fff; font-weight: 800;">${app.recommenderDistributor}</span> 
-          &middot; Kode/No: <code style="color: #fbbf24; font-weight: 700;">${app.recommendationCode || '-'}</code> 
-          &middot; WA: <span style="color: #4ade80;">+${app.recommenderWa || '-'}</span>
+          👑 <b>Rekomendasi Distributor Resmi:</b> <span style="color: #fff; font-weight: 800;">${escapeHtml(app.recommenderDistributor)}</span> 
+          &middot; Kode/No: <code style="color: #fbbf24; font-weight: 700;">${escapeHtml(app.recommendationCode || '-')}</code> 
+          &middot; WA: <span style="color: #4ade80;">+${escapeHtml(app.recommenderWa || '-')}</span>
         </div>` : (app.partnerTier === 'distributor' ? '<div style="margin-top: 6px; font-size: 0.72rem; color: #94a3b8;">👑 <i>Level Distributor Utama: Verifikasi Langsung oleh Kantor Pusat SR12.</i></div>' : '')}
-      ${app.notes ? `<div style="margin-top: 6px; font-size: 0.72rem; color: #cbd5e1; background: rgba(255,255,255,0.04); padding: 5px 8px; border-radius: 4px;">📝 <i>Catatan: ${app.notes}</i></div>` : ''}
+      ${app.notes ? `<div style="margin-top: 6px; font-size: 0.72rem; color: #cbd5e1; background: rgba(255,255,255,0.04); padding: 5px 8px; border-radius: 4px;">📝 <i>Catatan: ${escapeHtml(app.notes)}</i></div>` : ''}
     `;
   }
 
-  // Set default active tab to KTP
-  switchPreviewDocTab('ktp');
+  // Tampilkan pratinjau dokumen berkas tunggal (PDF / sertifikat resmi)
+  renderSinglePreviewSkDocument(app);
 
   if (btnApprove) {
     btnApprove.onclick = () => approvePendingStore(app.id);
@@ -3024,15 +2998,35 @@ function showSpecificStoreSk(slug) {
   const btnReject = document.getElementById('btnPreviewRejectSk');
 
   if (titleEl) {
-    titleEl.innerHTML = `<span>📜</span> Dokumen Surat Keputusan (SK) Resmi: ${storeName}`;
+    titleEl.innerHTML = `<span>📜</span> Dokumen Surat Keputusan (SK) Resmi: ${escapeHtml(storeName)}`;
   }
   if (detailsEl) {
     detailsEl.innerHTML = `
-      Pemilik: <b>${owner}</b> &middot; No. SK: <b style="color: #38bdf8;">${skNum}</b> &middot; Wilayah: <b>${city}</b> &middot; Status: <span style="background: #10b981; color: #fff; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 0.72rem;">TERVERIFIKASI RESMI</span>
+      Pemilik: <b>${escapeHtml(owner)}</b> &middot; No. SK: <b style="color: #38bdf8;">${escapeHtml(skNum)}</b> &middot; Wilayah: <b>${escapeHtml(city)}</b> &middot; Status: <span style="background: #10b981; color: #fff; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 0.72rem;">TERVERIFIKASI RESMI</span>
     `;
   }
-  if (frameEl) {
-    frameEl.src = getMockSkSvgUrl(owner, nik, storeName, skNum, city);
+  const containerEl = document.getElementById('previewSkContainer');
+  if (containerEl) {
+    const skSvg = getMockSkSvgUrl(owner, nik, storeName, skNum, city);
+    containerEl.innerHTML = `
+      <div style="width: 100%; border: 1.5px solid #059669; border-radius: 10px; overflow: hidden; background: #022c22; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #0f172a; border-bottom: 1px solid #1e293b;">
+          <span style="font-size: 0.8rem; font-weight: 700; color: #34d399;">
+            📜 SK Resmi Kemitraan: <span style="font-family: monospace; color: #fef08a;">${escapeHtml(skNum)}</span>
+          </span>
+          <a href="${skSvg}" target="_blank" style="color: #34d399; font-size: 0.74rem; text-decoration: none; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; background: rgba(52, 211, 153, 0.1); border-radius: 5px; border: 1px solid rgba(52, 211, 153, 0.3);">
+            🔍 Buka Penuh ↗
+          </a>
+        </div>
+        <div style="padding: 12px; display: flex; justify-content: center; align-items: center; min-height: 260px; max-height: 420px; overflow: auto; background: #041f18;">
+          <img src="${skSvg}" alt="SK Resmi" style="max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.6); cursor: zoom-in;" onclick="window.open('${skSvg}', '_blank')">
+        </div>
+        <div style="padding: 10px 14px; background: rgba(16, 185, 129, 0.1); border-top: 1px solid rgba(16, 185, 129, 0.2); font-size: 0.75rem; color: #a7f3d0; display: flex; justify-content: space-between; align-items: center;">
+          <span>🏛️ <b>Penerbit SK:</b> PT. SR12 Herbal Perkasa (Legalitas Sah)</span>
+          <span style="color: #cbd5e1; font-size: 0.72rem;">✓ SK Terdaftar</span>
+        </div>
+      </div>
+    `;
   }
   if (btnApprove) btnApprove.style.display = 'none';
   if (btnReject) btnReject.style.display = 'none';
@@ -3302,15 +3296,35 @@ function showCurrentStoreSk() {
   const btnReject = document.getElementById('btnPreviewRejectSk');
 
   if (titleEl) {
-    titleEl.innerHTML = `<span>📜</span> Dokumen Surat Keputusan (SK) Resmi: ${storeName}`;
+    titleEl.innerHTML = `<span>📜</span> Dokumen Surat Keputusan (SK) Resmi: ${escapeHtml(storeName)}`;
   }
   if (detailsEl) {
     detailsEl.innerHTML = `
-      Pemilik: <b>${owner}</b> &middot; No. SK: <b style="color: #38bdf8;">${skNum}</b> &middot; Wilayah: <b>${city}</b> &middot; Status: <span style="background: #10b981; color: #fff; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 0.72rem;">TERVERIFIKASI RESMI</span>
+      Pemilik: <b>${escapeHtml(owner)}</b> &middot; No. SK: <b style="color: #38bdf8;">${escapeHtml(skNum)}</b> &middot; Wilayah: <b>${escapeHtml(city)}</b> &middot; Status: <span style="background: #10b981; color: #fff; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 0.72rem;">TERVERIFIKASI RESMI</span>
     `;
   }
-  if (frameEl) {
-    frameEl.src = getMockSkSvgUrl(owner, nik, storeName, skNum, city);
+  const containerEl = document.getElementById('previewSkContainer');
+  if (containerEl) {
+    const skSvg = getMockSkSvgUrl(owner, nik, storeName, skNum, city);
+    containerEl.innerHTML = `
+      <div style="width: 100%; border: 1.5px solid #059669; border-radius: 10px; overflow: hidden; background: #022c22; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #0f172a; border-bottom: 1px solid #1e293b;">
+          <span style="font-size: 0.8rem; font-weight: 700; color: #34d399;">
+            📜 SK Resmi Kemitraan: <span style="font-family: monospace; color: #fef08a;">${escapeHtml(skNum)}</span>
+          </span>
+          <a href="${skSvg}" target="_blank" style="color: #34d399; font-size: 0.74rem; text-decoration: none; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; background: rgba(52, 211, 153, 0.1); border-radius: 5px; border: 1px solid rgba(52, 211, 153, 0.3);">
+            🔍 Buka Penuh ↗
+          </a>
+        </div>
+        <div style="padding: 12px; display: flex; justify-content: center; align-items: center; min-height: 260px; max-height: 420px; overflow: auto; background: #041f18;">
+          <img src="${skSvg}" alt="SK Resmi" style="max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.6); cursor: zoom-in;" onclick="window.open('${skSvg}', '_blank')">
+        </div>
+        <div style="padding: 10px 14px; background: rgba(16, 185, 129, 0.1); border-top: 1px solid rgba(16, 185, 129, 0.2); font-size: 0.75rem; color: #a7f3d0; display: flex; justify-content: space-between; align-items: center;">
+          <span>🏛️ <b>Penerbit SK:</b> PT. SR12 Herbal Perkasa (Legalitas Sah)</span>
+          <span style="color: #cbd5e1; font-size: 0.72rem;">✓ SK Terdaftar</span>
+        </div>
+      </div>
+    `;
   }
   if (btnApprove) btnApprove.style.display = 'none';
   if (btnReject) btnReject.style.display = 'none';
@@ -7971,31 +7985,46 @@ function renderMarketerPayroll() {
     return `
       <tr>
         <td data-label="ID & Nama Marketer">
-          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 3px;">
-            <span style="background: #0284c7; color: #fff; padding: 2px 7px; border-radius: 4px; font-family: monospace; font-weight: 800; font-size: 0.75rem;">${m.id}</span>
-            <b style="font-size: 0.88rem; color: var(--dark-900);">${m.name}</b>
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin-bottom: 6px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="background: #0284c7; color: #fff; padding: 2px 7px; border-radius: 4px; font-family: monospace; font-weight: 800; font-size: 0.74rem;">${m.id}</span>
+              <b style="font-size: 0.92rem; color: #0f172a;">${m.name}</b>
+            </div>
+            <span style="font-size: 0.7rem; color: #64748b; background: #e2e8f0; padding: 1px 7px; border-radius: 999px;">${m.city || 'Indonesia'}</span>
           </div>
-          <span style="font-family: monospace; font-size: 0.75rem; color: #0284c7;">📱 ${m.phone}</span> &middot; <span style="font-size: 0.72rem; color: var(--dark-500);">${m.city || 'Indonesia'}</span>
+          <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+            <span style="display: inline-flex; align-items: center; gap: 4px; font-family: monospace; font-size: 0.75rem; font-weight: 700; color: #0284c7; background: #e0f2fe; padding: 2px 8px; border-radius: 6px; border: 1px solid #bae6fd; max-width: 100%; word-break: break-all;">
+              <span>📱</span> <span>${m.phone}</span>
+            </span>
+          </div>
         </td>
         <td data-label="Rekening Transfer">
-          <div style="font-size: 0.8rem; font-weight: 700; color: #1e293b;">
-            ${m.bankName || 'BCA'} &middot; <span style="font-family: monospace;">${m.bankAccount || '-'}</span>
-          </div>
-          <div style="font-size: 0.72rem; color: #64748b;">
-            a.n ${m.bankHolder || m.name}
+          <div style="text-align: right;">
+            <div style="font-size: 0.82rem; font-weight: 800; color: #1e293b; display: inline-flex; align-items: center; gap: 5px;">
+              <span style="background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-size: 0.72rem; color: #475569;">${m.bankName || 'BCA'}</span>
+              <span style="font-family: monospace;">${m.bankAccount || '-'}</span>
+            </div>
+            <div style="font-size: 0.72rem; color: #64748b; margin-top: 2px;">
+              a.n ${m.bankHolder || m.name}
+            </div>
           </div>
         </td>
         <td data-label="Pesanan Terjual" style="text-align: center;">
-          <b style="font-size: 0.9rem; color: var(--dark-900);">${item.countOrders}</b>
-          <span style="display: block; font-size: 0.68rem; color: var(--dark-500);">Pesanan</span>
+          <div style="display: inline-flex; align-items: center; gap: 4px;">
+            <b style="font-size: 0.92rem; color: #0f172a;">${item.countOrders}</b>
+            <span style="font-size: 0.72rem; color: #64748b;">Pesanan</span>
+          </div>
         </td>
         <td data-label="Total Omset (HET)">
-          <b style="font-size: 0.88rem; color: var(--dark-800);">${formatRupiah(item.omset)}</b>
-          <small style="display: block; font-size: 0.68rem; color: var(--dark-500);">Harga HET Retail</small>
+          <div style="text-align: right;">
+            <b style="font-size: 0.9rem; color: #334155;">${formatRupiah(item.omset)}</b>
+          </div>
         </td>
         <td data-label="Bonus Marketer (15%)">
-          <b style="font-size: 1.02rem; color: #0284c7;">${formatRupiah(item.bonus)}</b>
-          <small style="display: block; font-size: 0.68rem; color: #0369a1; font-weight: 700;">15% Komisi Bersih</small>
+          <div style="text-align: right;">
+            <b style="font-size: 1.05rem; font-weight: 900; color: #0284c7;">${formatRupiah(item.bonus)}</b>
+            <small style="display: block; font-size: 0.68rem; color: #0369a1; font-weight: 700;">15% Komisi Bersih</small>
+          </div>
         </td>
         <td data-label="Status Pembayaran">
           ${paidBadge}

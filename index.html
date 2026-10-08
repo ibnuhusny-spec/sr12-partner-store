@@ -2816,69 +2816,38 @@
             </div>
           </div>
 
-          <!-- Verifikasi Identitas Pemilik (KTP & NIK) -->
-          <div style="background: #f0f9ff; border: 1.5px dashed #0284c7; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-              <label style="font-size: 0.8rem; font-weight: 800; color: #0369a1; display: flex; align-items: center; gap: 6px;">
-                <span>🪪</span> 1. Identitas Resmi Pemilik (KTP &amp; NIK):
+          <!-- SATU BAGIAN UNIFIKASI: DOKUMEN BERKAS SK & LEGALITAS KEMITRAAN (1 FILE PDF GABUNGAN) -->
+          <div style="background: #f0fdf4; border: 1.5px solid #059669; border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(5,150,105,0.06);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label style="font-size: 0.85rem; font-weight: 800; color: #065f46; display: flex; align-items: center; gap: 6px; margin: 0;">
+                <span>📜</span> Berkas Dokumen SK Resmi &amp; Legalitas Kemitraan:
               </label>
-              <span style="font-size: 0.68rem; background: #0284c7; color: #fff; padding: 2px 7px; border-radius: 4px; font-weight: 700;">WAJIB</span>
+              <span style="font-size: 0.68rem; background: #059669; color: #fff; padding: 2px 8px; border-radius: 999px; font-weight: 800;">1 FILE PDF</span>
             </div>
-            <div class="grid-2col-resp" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px;">
-              <div>
-                <label style="font-size: 0.72rem; color: #0284c7; display: block; margin-bottom: 2px;">16 Digit NIK KTP:</label>
-                <input type="text" id="regNikNumber" maxlength="16" placeholder="Contoh: 3374025804820003" required style="width: 100%; padding: 7px 10px; border: 1px solid #7dd3fc; border-radius: 4px; font-size: 0.78rem; font-family: monospace;">
-              </div>
-              <div>
-                <label style="font-size: 0.72rem; color: #0284c7; display: block; margin-bottom: 2px;">Upload Foto KTP Asli:</label>
-                <input type="file" id="regKtpFileInput" accept="image/*" style="width: 100%; font-size: 0.72rem;">
-              </div>
-            </div>
-            <div id="regKtpPreviewBox" style="display: none; align-items: center; gap: 8px; margin-top: 4px; padding: 4px 8px; background: #fff; border-radius: 4px; border: 1px solid #7dd3fc;">
-              <span style="font-size: 0.72rem; color: #0369a1; font-weight: 700;">Foto KTP:</span>
-              <img id="regKtpPreviewImg" src="" alt="Preview KTP" style="width: 40px; height: 26px; object-fit: cover; border-radius: 4px; display: none;">
-              <span id="regKtpDocName" style="font-size: 0.72rem; color: #0369a1; font-family: monospace;"></span>
-            </div>
-          </div>
+            <p style="font-size: 0.74rem; color: #047857; margin: 0 0 10px 0; line-height: 1.4;">
+              Calon pembuka toko cukup mengunggah <b>1 file dokumen PDF</b> (atau foto berkas gabungan) yang memuat berkas scan SK Resmi SR12, KTP pemilik, serta surat rekomendasi kemitraan.
+            </p>
 
-          <!-- Verifikasi SK Distributor Resmi / Legalitas Kemitraan -->
-          <div style="background: #f0fdf4; border: 1.5px dashed #059669; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-              <label style="font-size: 0.8rem; font-weight: 800; color: #065f46; display: flex; align-items: center; gap: 6px;">
-                <span>📜</span> 2. Dokumen SK Distributor Resmi SR12:
-              </label>
-              <span style="font-size: 0.68rem; background: #059669; color: #fff; padding: 2px 7px; border-radius: 4px; font-weight: 700;">WAJIB</span>
-            </div>
-            <div class="grid-2col-resp" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px;">
+            <div class="grid-2col-resp" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
               <div>
-                <label style="font-size: 0.72rem; color: #047857; display: block; margin-bottom: 2px;">No. SK / Kontrak SR12:</label>
-                <input type="text" id="regSkNumber" placeholder="Contoh: SK-DIST-SR12-2026-0419" required style="width: 100%; padding: 7px 10px; border: 1px solid #a7f3d0; border-radius: 4px; font-size: 0.78rem; font-family: monospace;">
+                <label style="font-size: 0.74rem; color: #334155; display: block; margin-bottom: 3px; font-weight: 700;">16 Digit NIK KTP Pemilik:</label>
+                <input type="text" id="regNikNumber" maxlength="16" placeholder="Contoh: 3374025804820003" required style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.8rem; font-family: monospace;">
               </div>
               <div>
-                <label style="font-size: 0.72rem; color: #047857; display: block; margin-bottom: 2px;">Upload Foto / Scan SK Resmi:</label>
-                <input type="file" id="regSkFileInput" accept="image/*,application/pdf" style="width: 100%; font-size: 0.72rem;">
+                <label style="font-size: 0.74rem; color: #334155; display: block; margin-bottom: 3px; font-weight: 700;">No. SK / Kontrak Kemitraan SR12:</label>
+                <input type="text" id="regSkNumber" placeholder="Contoh: SK-DIST-SR12-2026-0419" required style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.8rem; font-family: monospace;">
               </div>
             </div>
-            <div id="regSkPreviewBox" style="display: none; align-items: center; gap: 8px; margin-top: 4px; padding: 4px 8px; background: #fff; border-radius: 4px; border: 1px solid #a7f3d0;">
-              <span style="font-size: 0.72rem; color: #047857; font-weight: 700;">Berkas SK:</span>
-              <img id="regSkPreviewImg" src="" alt="Preview SK" style="width: 36px; height: 26px; object-fit: cover; border-radius: 4px; display: none;">
-              <span id="regSkDocName" style="font-size: 0.72rem; color: #065f46; font-family: monospace;"></span>
-            </div>
-          </div>
 
-          <!-- Upload Foto Selfie dengan KTP (Opsional untuk Verifikasi Cepat) -->
-          <div style="background: #faf5ff; border: 1px solid #d8b4fe; border-radius: 8px; padding: 10px 12px; margin-bottom: 14px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-              <label style="font-size: 0.76rem; font-weight: 700; color: #6b21a8; display: flex; align-items: center; gap: 5px;">
-                <span>🤳</span> 3. Foto Selfie Memegang KTP (Opsional):
-              </label>
-              <span style="font-size: 0.65rem; color: #7e22ce;">Untuk verifikasi instan</span>
+            <div>
+              <label style="font-size: 0.74rem; color: #334155; display: block; margin-bottom: 4px; font-weight: 700;">Upload File PDF Berkas Gabungan (Maks 10MB):</label>
+              <input type="file" id="regSkFileInput" accept="application/pdf,image/*" style="width: 100%; padding: 8px; background: #fff; border: 1.5px dashed #059669; border-radius: 6px; font-size: 0.78rem;">
             </div>
-            <input type="file" id="regSelfieFileInput" accept="image/*" style="width: 100%; font-size: 0.72rem;">
-            <div id="regSelfiePreviewBox" style="display: none; align-items: center; gap: 8px; margin-top: 4px; padding: 4px 8px; background: #fff; border-radius: 4px; border: 1px solid #d8b4fe;">
-              <span style="font-size: 0.72rem; color: #6b21a8; font-weight: 700;">Selfie:</span>
-              <img id="regSelfiePreviewImg" src="" alt="Preview Selfie" style="width: 30px; height: 30px; object-fit: cover; border-radius: 4px; display: none;">
-              <span id="regSelfieDocName" style="font-size: 0.72rem; color: #6b21a8; font-family: monospace;"></span>
+
+            <div id="regSkPreviewBox" style="display: none; align-items: center; gap: 8px; margin-top: 8px; padding: 6px 10px; background: #fff; border-radius: 6px; border: 1px solid #a7f3d0;">
+              <span style="font-size: 0.74rem; color: #047857; font-weight: 700;">📄 Berkas Terpilih:</span>
+              <img id="regSkPreviewImg" src="" alt="Preview Dokumen" style="width: 32px; height: 26px; object-fit: cover; border-radius: 4px; display: none;">
+              <span id="regSkDocName" style="font-size: 0.74rem; color: #065f46; font-family: monospace; font-weight: 700;"></span>
             </div>
           </div>
 
@@ -3248,15 +3217,34 @@
 
           <form onsubmit="handleClockInSubmit(event)">
             <div style="margin-bottom: 14px;">
-              <label style="font-size: 0.8rem; font-weight: 700; color: #334155; display: block; margin-bottom: 5px;">Pilih Nama Kasir / Operator:</label>
-              <select id="absensiSelectCashier" onchange="handleSelectCashierPreset(this.value)" style="width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.84rem; font-family: var(--font-main); margin-bottom: 8px;">
-                <option value="Nurlinda Sari">Nurlinda Sari (Owner / Kepala Toko)</option>
-                <option value="Siti Rahma">Siti Rahma (Kasir 1)</option>
-                <option value="Ahmad Fauzi">Ahmad Fauzi (Kasir 2)</option>
-                <option value="Desi Ratnasari">Desi Ratnasari (Kasir 3)</option>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: #334155; margin: 0;">Pilih Nama Kasir / Operator:</label>
+                <button type="button" onclick="const p = document.getElementById('cashierManagerPanel'); p.style.display = p.style.display === 'none' ? 'block' : 'none';" style="background: none; border: none; color: #0284c7; font-size: 0.74rem; font-weight: 700; cursor: pointer; text-decoration: underline; padding: 0;">
+                  ⚙️ Kelola / Hapus Kasir
+                </button>
+              </div>
+              <select id="absensiSelectCashier" onchange="handleSelectCashierPreset(this.value)" style="width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.84rem; font-family: var(--font-main); margin-bottom: 6px;">
+                <!-- Populated dynamically via renderCashierSelectionDropdown() -->
                 <option value="custom">✏️ + Ketik Nama Kasir Lainnya</option>
               </select>
-              <input type="text" id="absensiInputCustomName" placeholder="Tuliskan nama lengkap kasir..." style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.82rem; font-family: var(--font-main); display: none;">
+              <input type="text" id="absensiInputCustomName" placeholder="Tuliskan nama lengkap kasir..." style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.82rem; font-family: var(--font-main); display: none; margin-bottom: 6px;">
+
+              <!-- PANEL KELOLA & HAPUS KASIR -->
+              <div id="cashierManagerPanel" style="display: none; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; margin-top: 6px; margin-bottom: 8px;">
+                <div style="font-size: 0.76rem; font-weight: 800; color: #334155; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                  <span>👥 Daftar Operator Kasir:</span>
+                  <span style="color: #64748b; font-weight: 400; font-size: 0.7rem;">(Hapus kasir nonaktif)</span>
+                </div>
+                <div id="cashierManagerListBody" style="max-height: 160px; overflow-y: auto;">
+                  <!-- Populated dynamically via renderCashierManagerPanel() -->
+                </div>
+                <div style="display: flex; gap: 6px; margin-top: 10px; padding-top: 8px; border-top: 1px dashed #e2e8f0;">
+                  <input type="text" id="inputNewCashierQuickName" placeholder="Nama kasir baru..." style="flex: 1; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.78rem;">
+                  <button type="button" onclick="addNewCashierOperatorQuick()" style="background: #059669; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 0.76rem; cursor: pointer; white-space: nowrap;">
+                    ➕ Tambah
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
@@ -3669,20 +3657,16 @@
           <!-- Populated dynamically via JS -->
         </div>
 
-        <!-- TAB DOKUMEN BERKAS VERIFIKASI -->
-        <div style="display: flex; gap: 8px; margin-bottom: 14px; border-bottom: 2px solid #334155; padding-bottom: 10px; flex-wrap: wrap;">
-          <button type="button" id="tabDocBtnKtp" onclick="switchPreviewDocTab('ktp')" style="flex: 1; min-width: 150px; background: #0284c7; color: #fff; border: 1.5px solid #38bdf8; padding: 8px 12px; border-radius: 6px; font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s ease;">
-            <span>🪪</span> 1. Foto KTP Asli
-          </button>
-          <button type="button" id="tabDocBtnSk" onclick="switchPreviewDocTab('sk')" style="flex: 1; min-width: 160px; background: #1e293b; color: #cbd5e1; border: 1px solid #475569; padding: 8px 12px; border-radius: 6px; font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s ease;">
-            <span>📜</span> 2. Dokumen SK Resmi
-          </button>
-          <button type="button" id="tabDocBtnSelfie" onclick="switchPreviewDocTab('selfie')" style="flex: 1; min-width: 150px; background: #1e293b; color: #cbd5e1; border: 1px solid #475569; padding: 8px 12px; border-radius: 6px; font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s ease;">
-            <span>🤳</span> 3. Selfie &amp; Biometrik
-          </button>
-          <button type="button" id="tabDocBtnRec" onclick="switchPreviewDocTab('rec')" style="display: none; flex: 1; min-width: 170px; background: #1e293b; color: #cbd5e1; border: 1px solid #475569; padding: 8px 12px; border-radius: 6px; font-weight: 700; font-size: 0.78rem; cursor: pointer; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s ease;">
-            <span>👑</span> 4. Rekomendasi Distributor
-          </button>
+        <!-- SATU BAGIAN DOKUMEN BERKAS VERIFIKASI (1 FILE PDF GABUNGAN) -->
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding: 10px 14px; background: rgba(14, 165, 233, 0.1); border: 1.5px solid rgba(56, 189, 248, 0.35); border-radius: 8px; flex-wrap: wrap; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 1.3rem;">📄</span>
+            <div>
+              <div style="font-weight: 800; font-size: 0.84rem; color: #38bdf8;">Berkas Dokumen Gabungan Kemitraan (1 File PDF)</div>
+              <div style="font-size: 0.72rem; color: #94a3b8;">Menyatukan berkas SK Resmi PT SR12, KTP Calon Pemilik, dan Surat Rekomendasi</div>
+            </div>
+          </div>
+          <span style="background: #0284c7; color: #fff; font-size: 0.72rem; padding: 4px 10px; border-radius: 999px; font-weight: 800; letter-spacing: 0.5px;">✓ 1 DOKUMEN TUNGGAL</span>
         </div>
 
         <div id="previewSkContainer" style="text-align: center; margin-bottom: 18px; min-height: 240px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
@@ -4227,26 +4211,21 @@
       <div class="modal-header" style="background: linear-gradient(135deg, #065f46 0%, #047857 55%, #0f766e 100%); color: #ffffff; padding: 18px 22px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); position: relative; overflow: hidden;">
         <div style="position: absolute; right: -30px; top: -30px; width: 120px; height: 120px; background: radial-gradient(circle, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0) 70%); border-radius: 50%; pointer-events: none;"></div>
         
-        <div style="display: flex; align-items: center; gap: 12px; position: relative; z-index: 2;">
-          <div style="width: 42px; height: 42px; border-radius: 12px; background: rgba(255,255,255,0.18); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; font-size: 1.25rem; border: 1px solid rgba(255,255,255,0.25); box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+        <div style="display: flex; align-items: center; gap: 10px; position: relative; z-index: 2;">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(255,255,255,0.18); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; font-size: 1.15rem; border: 1px solid rgba(255,255,255,0.25);">
             🔔
           </div>
-          <div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <h3 style="margin: 0; font-size: 1.08rem; font-weight: 800; color: #ffffff; letter-spacing: -0.01em;">
-                Monitor Pesanan Masuk
-              </h3>
-              <span style="background: rgba(255,255,255,0.22); color: #ecfdf5; font-size: 0.66rem; font-weight: 800; padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.3); letter-spacing: 0.03em;">
-                LIVE
-              </span>
-            </div>
-            <p style="margin: 2px 0 0 0; font-size: 0.76rem; color: #d1fae5; font-weight: 500;">
-              Pantau &amp; verifikasi pesanan yang masuk dari WhatsApp &amp; Keranjang Toko
-            </p>
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <h3 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: #ffffff; letter-spacing: -0.01em; white-space: nowrap;">
+              Monitor Pesanan Masuk
+            </h3>
+            <span style="background: rgba(255,255,255,0.22); color: #ecfdf5; font-size: 0.66rem; font-weight: 800; padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.3); letter-spacing: 0.03em;">
+              LIVE
+            </span>
           </div>
         </div>
 
-        <div style="display: flex; align-items: center; gap: 10px; position: relative; z-index: 2;">
+        <div style="display: flex; align-items: center; gap: 8px; position: relative; z-index: 2;">
           <button type="button" onclick="clearAllSimulationOrders()" style="background: rgba(255,255,255,0.15); color: #ffffff; border: 1px solid rgba(255,255,255,0.28); font-size: 0.74rem; font-weight: 700; padding: 6px 12px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.35)'; this.style.borderColor='rgba(252,165,165,0.6)';" onmouseout="this.style.background='rgba(255,255,255,0.15)'; this.style.borderColor='rgba(255,255,255,0.28)';" title="Kosongkan seluruh riwayat pesanan">
             <span style="font-size: 0.85rem;">🗑️</span>
             <span>Kosongkan</span>

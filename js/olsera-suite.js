@@ -467,6 +467,120 @@ function saveStoredCashierAttendance(logs) {
   } catch (e) {}
 }
 
+function getStoredCashierList() {
+  try {
+    const raw = localStorage.getItem('sr12_cashiers_list_v2');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {}
+
+  const owner = (typeof appState !== 'undefined' && appState.storeSettings && appState.storeSettings.storeOwner) || 'Owner / Kepala Toko';
+  return [
+    { id: 'c-owner', name: owner, role: 'Owner / Kepala Toko', isOwner: true },
+    { id: 'c-1', name: 'Siti Rahma', role: 'Kasir 1', isOwner: false },
+    { id: 'c-2', name: 'Ahmad Fauzi', role: 'Kasir 2', isOwner: false }
+  ];
+}
+
+function saveStoredCashierList(list) {
+  try {
+    localStorage.setItem('sr12_cashiers_list_v2', JSON.stringify(list));
+  } catch (e) {}
+}
+
+function renderCashierSelectionDropdown() {
+  const selectEl = document.getElementById('absensiSelectCashier');
+  if (!selectEl) return;
+  const list = getStoredCashierList();
+  const currentVal = selectEl.value;
+
+  selectEl.innerHTML = list.map(c => `
+    <option value="${c.name}">${c.name} (${c.role || 'Kasir'})</option>
+  `).join('') + `
+    <option value="custom">✏️ + Ketik Nama Kasir Lainnya</option>
+  `;
+
+  if (currentVal && list.some(c => c.name === currentVal)) {
+    selectEl.value = currentVal;
+  }
+  renderCashierManagerPanel();
+}
+
+function renderCashierManagerPanel() {
+  const container = document.getElementById('cashierManagerListBody');
+  if (!container) return;
+  const list = getStoredCashierList();
+
+  if (list.length === 0) {
+    container.innerHTML = '<div style="color: #94a3b8; font-size: 0.74rem; padding: 6px;">Tidak ada kasir terdaftar.</div>';
+    return;
+  }
+
+  container.innerHTML = list.map(c => `
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 6px; font-size: 0.78rem;">
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <span>${c.isOwner ? '👑' : '👤'}</span>
+        <b>${c.name}</b>
+        <span style="color: #64748b; font-size: 0.7rem;">(${c.role || 'Kasir'})</span>
+      </div>
+      <div>
+        ${!c.isOwner ? `
+          <button type="button" onclick="deleteCashierOperator('${c.id}')" title="Hapus Kasir Ini" style="background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;">
+            <span>🗑️</span> Hapus
+          </button>
+        ` : `<span style="font-size: 0.7rem; color: #166534; font-weight: 700; background: #dcfce7; padding: 2px 6px; border-radius: 4px;">Pemilik</span>`}
+      </div>
+    </div>
+  `).join('');
+}
+
+function deleteCashierOperator(cashierId) {
+  const list = getStoredCashierList();
+  const found = list.find(c => c.id === cashierId);
+  if (!found) return;
+  if (found.isOwner) {
+    alert('Nama pemilik toko tidak dapat dihapus.');
+    return;
+  }
+  if (!confirm(`Hapus kasir "${found.name}" dari daftar operator toko?`)) return;
+
+  const updated = list.filter(c => c.id !== cashierId);
+  saveStoredCashierList(updated);
+  renderCashierSelectionDropdown();
+  showToast(`🗑️ Kasir "${found.name}" berhasil dihapus.`);
+}
+window.deleteCashierOperator = deleteCashierOperator;
+
+function addNewCashierOperatorQuick() {
+  const input = document.getElementById('inputNewCashierQuickName');
+  const name = input?.value.trim();
+  if (!name) {
+    alert('Mohon masukkan nama kasir baru.');
+    return;
+  }
+  const list = getStoredCashierList();
+  if (list.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+    alert('Nama kasir ini sudah terdaftar.');
+    return;
+  }
+  const newCashier = {
+    id: 'c-' + Date.now(),
+    name: name,
+    role: `Kasir ${list.length}`,
+    isOwner: false
+  };
+  list.push(newCashier);
+  saveStoredCashierList(list);
+  if (input) input.value = '';
+  renderCashierSelectionDropdown();
+  const selectEl = document.getElementById('absensiSelectCashier');
+  if (selectEl) selectEl.value = name;
+  showToast(`✅ Kasir baru "${name}" berhasil ditambahkan!`);
+}
+window.addNewCashierOperatorQuick = addNewCashierOperatorQuick;
+
 function initCashierAttendanceState() {
   if (typeof appState === 'undefined') return;
   if (!appState.activeCashier) {
@@ -475,6 +589,7 @@ function initCashierAttendanceState() {
   if (!appState.cashierAttendanceLog) {
     appState.cashierAttendanceLog = getStoredCashierAttendance();
   }
+  renderCashierSelectionDropdown();
   updateCashierBadgeUI();
 }
 
@@ -489,6 +604,8 @@ function switchAbsensiTab(tabId) {
 
   if (tabId === 'status') {
     renderAbsensiStatusView();
+  } else if (tabId === 'form') {
+    renderCashierSelectionDropdown();
   } else if (tabId === 'log') {
     renderAbsensiLogs();
   }
