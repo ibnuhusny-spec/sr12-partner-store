@@ -3337,12 +3337,22 @@ function updateViewModeUI() {
   if (topbarBtnDistLogin) topbarBtnDistLogin.style.display = isLogged ? 'none' : 'inline-flex';
   if (topbarBtnDistLogout) topbarBtnDistLogout.style.display = isLogged ? 'inline-flex' : 'none';
 
-  // 3. KONTROL TOMBOL TAMBAH PRODUK & PENGATURAN TOKO DI INTERFACE RETAIL
+  // 3. KONTROL TOMBOL TAMBAH PRODUK, MENU TOKO & PENGATURAN TOKO DI INTERFACE RETAIL
   const btnStoreSettings = document.getElementById('btnOpenStoreSettings');
+  const btnHeaderAdminMenu = document.getElementById('btnHeaderAdminMenu');
+  const btnCatalogAdminMenu = document.getElementById('btnOpenDashboardFromCatalog');
+  const btnFloatingAdminMenu = document.getElementById('btnFloatingAdminMenu');
   const btnAddProduct = document.getElementById('btnOpenAddProduct');
   const btnAddPromo = document.getElementById('btnOpenAddPromo');
   const btnAddMkit = document.getElementById('btnOpenAddMkit');
+
   if (btnStoreSettings) btnStoreSettings.style.display = (isLogged && !isCentral) ? 'inline-flex' : 'none';
+  if (btnHeaderAdminMenu) btnHeaderAdminMenu.style.display = isLogged ? 'inline-flex' : 'none';
+  if (btnCatalogAdminMenu) btnCatalogAdminMenu.style.display = isLogged ? 'inline-flex' : 'none';
+  if (btnFloatingAdminMenu) {
+    const isPortalOpen = (typeof appState !== 'undefined') && !!appState.isOlseraPortalOpen;
+    btnFloatingAdminMenu.style.display = (isLogged && !isPortalOpen) ? 'inline-flex' : 'none';
+  }
   if (btnAddProduct) btnAddProduct.style.display = isLogged ? 'inline-flex' : 'none';
   if (btnAddPromo) btnAddPromo.style.display = isLogged ? 'inline-flex' : 'none';
   if (btnAddMkit) btnAddMkit.style.display = isLogged ? 'inline-flex' : 'none';

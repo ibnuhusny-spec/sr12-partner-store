@@ -156,6 +156,8 @@ function showDistributorPortalView(showPortal) {
     if (platformTopbar) platformTopbar.style.display = 'none';
     if (previewStrip) previewStrip.style.display = 'none';
     if (devStrip) devStrip.style.display = 'none';
+    const btnFloat = document.getElementById('btnFloatingAdminMenu');
+    if (btnFloat) btnFloat.style.display = 'none';
 
     // Tampilkan Portal Olsera dan pastikan Tab Hitam Atas (olseraNav) Disembunyikan Sesuai Permintaan User
     if (olseraNav) olseraNav.style.display = 'none';
@@ -202,6 +204,11 @@ function showDistributorPortalView(showPortal) {
     // Sembunyikan semua strip/tab hitam atas agar toko online pembeli benar-benar bersih
     if (previewStrip) previewStrip.style.display = 'none';
     if (devStrip) devStrip.style.display = (typeof appState !== 'undefined' && appState.isDevMasterLoggedIn) ? 'flex' : 'none';
+
+    // Tampilkan tombol melayang Menu Toko hanya jika distributor sedang login
+    const isLoggedDistributor = (typeof appState !== 'undefined') && !!appState.isAdminMode && !!appState.isDistributorLoggedIn;
+    const btnFloat = document.getElementById('btnFloatingAdminMenu');
+    if (btnFloat) btnFloat.style.display = isLoggedDistributor ? 'inline-flex' : 'none';
   }
 }
 
