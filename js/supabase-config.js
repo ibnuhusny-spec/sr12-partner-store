@@ -519,6 +519,123 @@ async function saveMarketerSaleToSupabase(sale, storeSlug = 'sr12-central') {
   } catch (e) {}
 }
 
+function stringToUuid(str) {
+  if (!str) return '00000000-0000-4000-8000-000000000000';
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const hex = Math.abs(hash).toString(16).padStart(8, '0');
+  const p1 = hex.padEnd(8, '0');
+  const p2 = hex.slice(0, 4).padEnd(4, 'a');
+  const p3 = '4' + hex.slice(0, 3).padEnd(3, 'b');
+  const p4 = '8' + hex.slice(0, 3).padEnd(3, 'c');
+  const p5 = (hex + hex).slice(0, 12).padEnd(12, 'f');
+  return `${p1}-${p2}-${p3}-${p4}-${p5}`;
+}
+
+/**
+ * Simpan atau perbarui data produk & foto ke Supabase Cloud (table: products)
+ */
+async function saveProductToSupabase(prod, storeSlug = 'global') {
+  const client = initSupabaseClient();
+  if (!client || !prod) return null;
+  try {
+    const uuid = stringToUuid(prod.id || prod.name);
+    const metaDesc = JSON.stringify({
+      localId: prod.id,
+      summary: prod.summary || '',
+      bpom: prod.bpom || '',
+      sku: prod.sku || '',
+      halal: prod.halal || '',
+      weightGram: prod.weightGram || 100,
+      rating: prod.rating || 5
+    });
+
+    const payload = {
+      id: uuid,
+      store_slug: storeSlug || 'global',
+      name: prod.name,
+      category: prod.category || 'Body Care',
+      netto: prod.netto || '100 ml',
+      het_price: Number(prod.het || prod.price) || 0,
+      image_url: prod.image || null,
+      description: metaDesc,
+      stock: (typeof prod.stock !== 'undefined') ? Number(prod.stock) : 50
+    };
+
+    const { data: existing } = await client
+      .from('products')
+      .select('id')
+      .eq('id', uuid)
+      .maybeSingle();
+
+    if (existing && existing.id) {
+      await client.from('products').update(payload).eq('id', uuid);
+    } else {
+      await client.from('products').insert(payload);
+    }
+    console.log('✅ Produk berhasil disinkronkan ke Supabase Cloud:', prod.name);
+    return true;
+  } catch (err) {
+    console.warn('Gagal simpan produk ke Supabase:', err);
+    return false;
+  }
+}
+
+/**
+ * Sinkronisasi data produk dari Supabase Cloud (memulihkan katalog & foto meskipun browser di-clear history)
+ */
+async function syncProductsFromSupabase(storeSlug = 'global') {
+  const client = initSupabaseClient();
+  if (!client) return null;
+  try {
+    const { data, error } = await client
+      .from('products')
+      .select('*');
+
+    if (error) {
+      console.warn('Supabase fetch products error:', error);
+      return null;
+    }
+
+    if (!Array.isArray(data) || data.length === 0) return null;
+
+    const mapped = data.map(row => {
+      let meta = {};
+      try {
+        if (row.description && row.description.startsWith('{')) {
+          meta = JSON.parse(row.description);
+        }
+      } catch (e) {}
+
+      return {
+        id: meta.localId || row.id,
+        name: row.name,
+        category: row.category || 'Body Care',
+        sku: meta.sku || row.netto || 'SR12-PROD',
+        bpom: meta.bpom || 'NA18190122375',
+        halal: meta.halal || 'MUI-00150084520917',
+        image: row.image_url || 'assets/hero-banner.jpg',
+        het: Number(row.het_price) || 0,
+        price: Number(row.het_price) || 0,
+        weightGram: meta.weightGram || 100,
+        netto: row.netto || '100 ml',
+        stock: (typeof row.stock !== 'undefined') ? Number(row.stock) : 50,
+        rating: meta.rating || 5,
+        summary: meta.summary || row.description || '',
+        customEdited: true
+      };
+    });
+
+    return mapped;
+  } catch (err) {
+    console.warn('Error syncing products from Supabase:', err);
+    return null;
+  }
+}
+
 // Window global exports
 window.initSupabaseClient = initSupabaseClient;
 window.syncStoresFromSupabase = syncStoresFromSupabase;
@@ -534,4 +651,7 @@ window.saveMitraToSupabase = saveMitraToSupabase;
 window.deleteMitraFromSupabase = deleteMitraFromSupabase;
 window.syncMarketerSalesFromSupabase = syncMarketerSalesFromSupabase;
 window.saveMarketerSaleToSupabase = saveMarketerSaleToSupabase;
+window.saveProductToSupabase = saveProductToSupabase;
+window.syncProductsFromSupabase = syncProductsFromSupabase;
+
 

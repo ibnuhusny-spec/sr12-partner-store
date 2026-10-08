@@ -1779,9 +1779,6 @@ function viewHistoricalReceipt(trxId) {
     return;
   }
   appState.posCurrentTrx = trx;
-  if (typeof closeModal === 'function') {
-    closeModal('modalAdminOrders');
-  }
   openPosReceiptModal(trx);
 }
 window.viewHistoricalReceipt = viewHistoricalReceipt;

@@ -886,8 +886,31 @@ async function syncProductsWithIndexedDB() {
       // Inisialisasi awal IndexedDB dari data saat ini
       dbSaveAllProducts(appState.products);
     }
+
+    // 2. Sinkronkan dengan Supabase Cloud (memulihkan katalog & foto meskipun browser di-clear history)
+    if (typeof syncProductsFromSupabase === 'function') {
+      const cloudProducts = await syncProductsFromSupabase(appState.storeSettings?.slug);
+      if (Array.isArray(cloudProducts) && cloudProducts.length > 0) {
+        let hasCloudUpdates = false;
+        const currentMap = new Map((appState.products || []).map(p => [p.id, p]));
+        cloudProducts.forEach(cp => {
+          if (!currentMap.has(cp.id) || cp.customEdited) {
+            currentMap.set(cp.id, { ...(currentMap.get(cp.id) || {}), ...cp });
+            hasCloudUpdates = true;
+          }
+        });
+        if (hasCloudUpdates) {
+          appState.products = Array.from(currentMap.values());
+          saveStoredProducts(appState.products, true);
+          if (typeof renderProducts === 'function') renderProducts();
+          if (typeof renderInventoryTable === 'function') renderInventoryTable();
+          if (typeof renderPosProducts === 'function') renderPosProducts();
+          if (typeof updateCartUI === 'function') updateCartUI();
+        }
+      }
+    }
   } catch (err) {
-    console.warn('Sync IndexedDB produk info:', err);
+    console.warn('Sync IndexedDB / Cloud produk info:', err);
   }
 }
 window.syncProductsWithIndexedDB = syncProductsWithIndexedDB;
@@ -3437,6 +3460,38 @@ function handleDistributorLogout() {
     localStorage.removeItem('sr12_distributor_session');
   } catch (e) {}
 
+  // 1. Tutup drawer Olsera dan backdrop
+  if (typeof closeOlseraSidebarDrawer === 'function') {
+    closeOlseraSidebarDrawer();
+  } else {
+    document.getElementById('olseraSidebar')?.classList.remove('open');
+    document.getElementById('olseraDrawerBackdrop')?.classList.remove('open');
+  }
+
+  // 2. Tutup semua modal yang masih terbuka
+  document.querySelectorAll('.modal-backdrop.open').forEach(m => m.classList.remove('open'));
+
+  // 3. Pastikan kunci scroll dilepas sepenuhnya dari body dan html
+  document.body.classList.remove('olsera-drawer-open');
+  document.body.classList.remove('modal-open');
+  if (document.documentElement) {
+    document.documentElement.classList.remove('olsera-drawer-open');
+    document.documentElement.classList.remove('modal-open');
+  }
+  if (typeof ensureScrollUnlocked === 'function') {
+    ensureScrollUnlocked();
+  }
+  document.body.style.overflow = '';
+  document.body.style.overflowY = '';
+  document.body.style.height = '';
+  document.body.style.touchAction = '';
+  if (document.documentElement) {
+    document.documentElement.style.overflow = '';
+    document.documentElement.style.overflowY = '';
+    document.documentElement.style.height = '';
+    document.documentElement.style.touchAction = '';
+  }
+
   const portal = document.getElementById('distributorOlseraPortal');
   const olseraNav = document.getElementById('olseraAppNavbar');
   const previewStrip = document.getElementById('distributorPreviewStrip');
@@ -4362,7 +4417,7 @@ function renderProducts() {
     return `
       <div class="product-card" id="card-${prod.id}">
         <div class="product-thumb-box">
-          <img src="${prod.image}" alt="${prod.name}" loading="lazy" />
+          <img src="${prod.image || 'assets/hero-banner.jpg'}" alt="${prod.name}" loading="lazy" onerror="this.onerror=null; this.src='assets/hero-banner.jpg';" />
           <span class="badge-bpom-clean">🌿 BPOM</span>
           ${!isRetail ? `<span class="badge-disc-clean">-${currentTier.discountPct}%</span>` : ''}
           <span class="badge-stock-clean ${(prod.stock ?? 85) <= 15 ? 'low' : ''}">Stok: ${prod.stock ?? 85}</span>
@@ -5514,6 +5569,11 @@ async function handleEditProductSubmit(e) {
     updateCartUI();
     if (typeof renderInventoryTable === 'function') renderInventoryTable();
     if (typeof renderPosProducts === 'function') renderPosProducts();
+
+    // Simpan juga ke Supabase Cloud agar aman dari clear history browser
+    if (typeof saveProductToSupabase === 'function') {
+      saveProductToSupabase(prod, appState.storeSettings?.slug);
+    }
 
     closeModal('modalEditProduct');
     showToast(`✅ Berhasil! Foto & data produk "${prod.name}" tersimpan permanen.`);
@@ -6931,9 +6991,14 @@ function printOrderShippingLabel(trxId) {
 window.printOrderShippingLabel = printOrderShippingLabel;
 
 function openAdminOrdersModal() {
+  if (typeof closeOlseraSidebarDrawer === 'function') {
+    closeOlseraSidebarDrawer();
+  } else {
+    document.getElementById('olseraSidebar')?.classList.remove('open');
+    document.getElementById('olseraDrawerBackdrop')?.classList.remove('open');
+  }
   renderAdminOrdersModal();
-  const modal = document.getElementById('modalAdminOrders');
-  if (modal) modal.classList.add('open');
+  openModal('modalAdminOrders');
 }
 
 function confirmOrderFromModal(trxId) {

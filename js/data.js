@@ -82,7 +82,7 @@ function makeProductIllustration(theme, icon, label, sub) {
     <text x="200" y="235" font-family="'Plus Jakarta Sans', Arial, sans-serif" font-weight="bold" font-size="16" fill="#ffffff" text-anchor="middle">${label}</text>
     <text x="200" y="255" font-family="'Plus Jakarta Sans', Arial, sans-serif" font-size="12" fill="#fde68a" text-anchor="middle">${sub}</text>
   </svg>`;
-  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
 }
 
 // Database Master Produk Resmi SR12 (Dengan visual khusus yang berbeda)
