@@ -697,55 +697,50 @@
             <h2 class="olsera-page-title">📦 Inventori &amp; Manajemen Stok Gudang</h2>
             <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.84rem;">Sistem stok otomatis: barang berkurang saat terjual dan bertambah saat kulakan dari PT SR12 Pusat.</p>
           </div>
-          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button type="button" onclick="openRestockProductModal()" style="background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; border: 1px solid #38bdf8; padding: 7px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);">
-              <span>📥</span> + Kulakan Stok dari Pusat
+          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: nowrap; overflow-x: auto; padding: 4px 0; -webkit-overflow-scrolling: touch;">
+            <button type="button" onclick="openRestockProductModal()" title="Kulakan Stok dari Pusat" aria-label="Kulakan Stok dari Pusat" style="background: #0284c7; color: #fff; border: 1px solid #38bdf8; width: 36px; height: 36px; border-radius: 8px; font-size: 1rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);">
+              📥
             </button>
-            <button type="button" onclick="openStockMutationsModal()" style="background: #f8fafc; color: #334155; border: 1.5px solid #cbd5e1; padding: 7px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
-              <span>📜</span> Kartu Riwayat Mutasi Stok
+            <button type="button" onclick="openStockMutationsModal()" title="Kartu Riwayat Mutasi Stok" aria-label="Kartu Riwayat Mutasi Stok" style="background: #f8fafc; color: #334155; border: 1.5px solid #cbd5e1; width: 36px; height: 36px; border-radius: 8px; font-size: 1rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              📜
             </button>
-            <button type="button" onclick="openAddProductModal()" style="background: #10b981; color: #fff; border: 1px solid #34d399; padding: 7px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
-              <span>+</span> Tambah Produk Baru
+            <button type="button" onclick="openAddProductModal()" title="Tambah Produk Baru" aria-label="Tambah Produk Baru" style="background: #10b981; color: #fff; border: 1px solid #34d399; width: 36px; height: 36px; border-radius: 8px; font-size: 1.1rem; font-weight: 900; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              ➕
             </button>
-            <button type="button" onclick="exportProductCatalogBackup()" style="background: #ecfdf5; color: #065f46; border: 1.5px solid #a7f3d0; padding: 7px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" title="Unduh file backup seluruh data produk dan foto kemasan ke HP/Laptop">
-              <span>💾</span> Backup Foto &amp; Katalog
+            <button type="button" onclick="exportProductCatalogBackup()" title="Backup Foto &amp; Data Produk" aria-label="Backup Foto &amp; Data Produk" style="background: #ecfdf5; color: #065f46; border: 1.5px solid #a7f3d0; width: 36px; height: 36px; border-radius: 8px; font-size: 1rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              💾
             </button>
-            <button type="button" onclick="document.getElementById('importCatalogInput').click()" style="background: #f8fafc; color: #334155; border: 1.5px solid #cbd5e1; padding: 7px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" title="Pulihkan foto dan katalog produk dari file JSON cadangan">
-              <span>📥</span> Pulihkan Backup
+            <button type="button" onclick="document.getElementById('importCatalogInput').click()" title="Pulihkan Backup Katalog" aria-label="Pulihkan Backup Katalog" style="background: #f8fafc; color: #334155; border: 1.5px solid #cbd5e1; width: 36px; height: 36px; border-radius: 8px; font-size: 1rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              📂
             </button>
             <input type="file" id="importCatalogInput" accept=".json" style="display:none;" onchange="importProductCatalogBackup(event)">
-            <button type="button" onclick="resetAllSimulationTransactions()" style="background: #fef2f2; color: #dc2626; border: 1.5px solid #fecaca; padding: 7px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" title="Kosongkan riwayat pesanan & kas simulasi tanpa menghapus foto produk">
-              <span>🗑️</span> Kosongkan Riwayat Transaksi
+            <button type="button" onclick="resetAllSimulationTransactions()" title="Kosongkan Riwayat Transaksi" aria-label="Kosongkan Riwayat Transaksi" style="background: #fef2f2; color: #dc2626; border: 1.5px solid #fecaca; width: 36px; height: 36px; border-radius: 8px; font-size: 1rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              🗑️
             </button>
           </div>
         </div>
 
-        <!-- PANDUAN INDIKATOR STATUS STOK OLSERA -->
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 16px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-          <div style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: #475569; flex-wrap: wrap;">
-            <span style="font-size: 1.1rem;">💡</span>
-            <b>Panduan Indikator Stok Gudang:</b>
-            <span style="background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; padding: 3px 10px; border-radius: 999px; font-weight: 700; font-size: 0.74rem; display: inline-flex; align-items: center; gap: 4px;">
-              <span class="stock-dot green"></span> Ready (&gt; 15 pcs)
-            </span>
-            <span style="background: #fffbeb; color: #92400e; border: 1px solid #fde68a; padding: 3px 10px; border-radius: 999px; font-weight: 700; font-size: 0.74rem; display: inline-flex; align-items: center; gap: 4px;">
-              <span class="stock-dot amber"></span> ⚠️ Menipis (&le; 15 pcs &bull; Segera Restock ke Pusat)
-            </span>
-            <span style="background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; padding: 3px 10px; border-radius: 999px; font-weight: 700; font-size: 0.74rem; display: inline-flex; align-items: center; gap: 4px;">
-              <span class="stock-dot red"></span> 🔴 Habis (0 pcs)
-            </span>
-          </div>
-          <div style="font-size: 0.74rem; color: #64748b;">
-            *Sistem POS otomatis menandai peringatan kuning (⚠️) ketika stok tersisa 15 pcs ke bawah agar Distributor ingat untuk restock.
-          </div>
+        <!-- PANDUAN INDIKATOR STATUS STOK RINGKAS -->
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 7px 12px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span style="font-size: 0.74rem; font-weight: 800; color: #475569; display: flex; align-items: center; gap: 4px;">
+            <span>💡</span> Indikator Stok:
+          </span>
+          <span style="background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; padding: 2px 8px; border-radius: 6px; font-weight: 700; font-size: 0.72rem; display: inline-flex; align-items: center; gap: 4px;">
+            🟢 Aman (&gt; 15)
+          </span>
+          <span style="background: #fffbeb; color: #92400e; border: 1px solid #fde68a; padding: 2px 8px; border-radius: 6px; font-weight: 700; font-size: 0.72rem; display: inline-flex; align-items: center; gap: 4px;">
+            🟡 Menipis (&le; 15)
+          </span>
+          <span style="background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; padding: 2px 8px; border-radius: 6px; font-weight: 700; font-size: 0.72rem; display: inline-flex; align-items: center; gap: 4px;">
+            🔴 Habis (0)
+          </span>
         </div>
 
         <div style="overflow-x: auto; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;">
           <table class="inv-table">
             <thead>
               <tr>
-                <th>Foto</th>
-                <th>Nama Produk SR12</th>
+                <th>Produk SR12</th>
                 <th>Netto</th>
                 <th>Kategori</th>
                 <th>Harga HET</th>
@@ -4263,9 +4258,8 @@
         </div>
 
         <div style="display: flex; align-items: center; gap: 8px; position: relative; z-index: 2;">
-          <button type="button" onclick="clearAllSimulationOrders()" style="background: rgba(255,255,255,0.15); color: #ffffff; border: 1px solid rgba(255,255,255,0.28); font-size: 0.74rem; font-weight: 700; padding: 6px 12px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.35)'; this.style.borderColor='rgba(252,165,165,0.6)';" onmouseout="this.style.background='rgba(255,255,255,0.15)'; this.style.borderColor='rgba(255,255,255,0.28)';" title="Kosongkan seluruh riwayat pesanan">
-            <span style="font-size: 0.85rem;">🗑️</span>
-            <span>Kosongkan</span>
+          <button type="button" onclick="clearAllSimulationOrders()" style="background: rgba(255,255,255,0.15); color: #ffffff; border: 1px solid rgba(255,255,255,0.28); width: 32px; height: 32px; border-radius: 8px; font-size: 0.95rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.35)'; this.style.borderColor='rgba(252,165,165,0.6)';" onmouseout="this.style.background='rgba(255,255,255,0.15)'; this.style.borderColor='rgba(255,255,255,0.28)';" title="Kosongkan seluruh riwayat pesanan" aria-label="Kosongkan Pesanan">
+            🗑️
           </button>
           <button type="button" class="btn-close-modal" style="color: #ffffff; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25); width: 32px; height: 32px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 1.1rem; line-height: 1; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.3)';" onmouseout="this.style.background='rgba(255,255,255,0.15)';" onclick="closeModal('modalAdminOrders')">
             ✕

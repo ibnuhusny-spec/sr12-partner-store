@@ -135,6 +135,16 @@ function showDistributorPortalView(showPortal) {
   if (typeof appState !== 'undefined') {
     appState.isOlseraPortalOpen = !!showPortal;
   }
+  try {
+    if (showPortal) {
+      localStorage.setItem('sr12_active_view_mode', 'portal');
+    } else {
+      localStorage.setItem('sr12_active_view_mode', 'storefront');
+      if (window.location.hash) {
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
+    }
+  } catch (e) {}
 
   // Sembunyikan bar toggle lama & banner admin bertumpuk
   if (oldToggleBar) oldToggleBar.style.display = 'none';
@@ -178,7 +188,10 @@ function showDistributorPortalView(showPortal) {
 
     // Refresh data nama toko, kuota, logo, dan hitungan badge
     updateOlseraHeaderMeta();
-    switchOlseraTab(appState ? appState.activeOlseraTab || 'pos' : 'pos');
+    const currentTab = (window.location.hash ? window.location.hash.replace('#', '') : null) || 
+      (typeof appState !== 'undefined' ? appState.activeOlseraTab : null) || 
+      localStorage.getItem('sr12_active_olsera_tab') || 'pos';
+    switchOlseraTab(currentTab);
   } else {
     // -------------------------------------------------------------
     // 2. MODE TINJAU TOKO ONLINE PEMBELI (BUYER STOREFRONT PREVIEW)
@@ -960,6 +973,12 @@ function switchOlseraTab(tabId) {
   if (typeof appState !== 'undefined') {
     appState.activeOlseraTab = tabId;
   }
+  try {
+    localStorage.setItem('sr12_active_olsera_tab', tabId);
+    if (window.location.hash !== '#' + tabId) {
+      history.replaceState(null, '', '#' + tabId);
+    }
+  } catch (e) {}
 
   // Tutup drawer secara otomatis di mobile saat menu diklik
   closeOlseraSidebarDrawer();
@@ -1995,12 +2014,14 @@ function renderInventoryTable() {
 
     return `
       <tr>
-        <td data-label="Foto">
-          <img src="${p.image || 'assets/hero-banner.jpg'}" alt="${p.name}" style="width: 44px; height: 44px; object-fit: cover; border-radius: 6px; border: 1px solid #e2e8f0;" onerror="this.src='assets/hero-banner.jpg'">
-        </td>
-        <td data-label="Nama Produk">
-          <b style="color: #0f172a;">${p.name}</b>
-          <div style="font-size: 0.72rem; color: #64748b;">ID: ${p.id}</div>
+        <td data-label="Produk" class="inv-td-product">
+          <div style="display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;">
+            <img src="${p.image || 'assets/hero-banner.jpg'}" alt="${p.name}" style="width: 44px; height: 44px; object-fit: cover; border-radius: 6px; border: 1px solid #e2e8f0; flex-shrink: 0;" onerror="this.src='assets/hero-banner.jpg'">
+            <div style="min-width: 0; flex: 1;">
+              <div style="font-weight: 800; color: #0f172a; font-size: 0.88rem; line-height: 1.25; word-break: break-word;">${p.name}</div>
+              <div style="font-size: 0.72rem; color: #64748b; margin-top: 2px;">ID: ${p.id}</div>
+            </div>
+          </div>
         </td>
         <td data-label="Netto">${netto}</td>
         <td data-label="Kategori"><span class="badge-crm" style="background: #f1f5f9; color: #475569;">${p.category || 'Herbal'}</span></td>

@@ -6485,15 +6485,34 @@ body.modal-open {
     max-width: 48% !important;
   }
 
-  /* Baris Header pada Card (No Transaksi, Nama Produk, ID Mitra, ID Marketer) */
+  .inv-table td {
+    padding: 3.5px 0 !important;
+    line-height: 1.25 !important;
+  }
+
+  .inv-table td::before {
+    line-height: 1.25 !important;
+  }
+
+  /* Baris Header pada Card (No Transaksi, Produk SR12, ID Mitra, ID Marketer) */
   .inv-table td[data-label="No. Transaksi"],
-  .inv-table td[data-label="Nama Produk"] {
+  .inv-table td[data-label="Nama Produk"],
+  .inv-table td[data-label="Produk"] {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
     background: #f8fafc !important;
     margin: -4px -4px 6px -4px !important;
     padding: 8px 10px !important;
     border-radius: 8px !important;
     border-bottom: 1px solid #e2e8f0 !important;
     text-align: left !important;
+    width: calc(100% + 8px) !important;
+    box-sizing: border-box !important;
+  }
+
+  .inv-table td[data-label="Produk"]::before {
+    display: none !important;
   }
 
   .crm-table td[data-label="ID & Nama Mitra"],

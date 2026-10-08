@@ -1565,7 +1565,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // atau secara eksplisit meminta mode admin lewat ?admin=1
   const urlParamsCheck = new URLSearchParams(window.location.search);
   const wantsAdmin = urlParamsCheck.get('admin') === '1' || urlParamsCheck.get('mode') === 'admin';
-  const savedDistributorSession = sessionStorage.getItem('sr12_distributor_session') || (wantsAdmin ? localStorage.getItem('sr12_distributor_session') : null);
+  const savedDistributorSession = sessionStorage.getItem('sr12_distributor_session') || localStorage.getItem('sr12_distributor_session');
 
   if (savedDistributorSession) {
     try {
@@ -1668,10 +1668,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   } catch(e) {}
 
-  // Pastikan untuk pembeli (bukan distributor / dev login), portal kasir selalu tertutup rapat
-  if (!appState.isAdminMode && !appState.isDevMasterLoggedIn) {
+  // Pulihkan tampilan aktif (Portal Olsera vs Storefront Pembeli) saat refresh
+  const savedViewMode = localStorage.getItem('sr12_active_view_mode');
+  const validOlseraTabs = ['pos', 'transactions', 'inventory', 'cashflow', 'reports', 'mitra', 'pending', 'marketer', 'settings'];
+  const hashTab = window.location.hash ? window.location.hash.replace('#', '').toLowerCase() : '';
+  const isOlseraHash = validOlseraTabs.includes(hashTab);
+  const savedOlseraTab = localStorage.getItem('sr12_active_olsera_tab');
+  const targetOlseraTab = isOlseraHash ? hashTab : (validOlseraTabs.includes(savedOlseraTab) ? savedOlseraTab : 'pos');
+
+  const shouldOpenPortal = (appState.isAdminMode || appState.isDistributorLoggedIn || appState.isDevMasterLoggedIn) && 
+    (savedViewMode === 'portal' || isOlseraHash || wantsAdmin);
+
+  if (shouldOpenPortal) {
     if (typeof showDistributorPortalView === 'function') {
-      showDistributorPortalView(false);
+      showDistributorPortalView(true);
+      if (typeof switchOlseraTab === 'function') {
+        switchOlseraTab(targetOlseraTab);
+      }
+    }
+  } else {
+    if (!appState.isAdminMode && !appState.isDevMasterLoggedIn) {
+      if (typeof showDistributorPortalView === 'function') {
+        showDistributorPortalView(false);
+      }
     }
   }
 
@@ -3625,6 +3644,10 @@ function handleDistributorLogout() {
   try {
     sessionStorage.removeItem('sr12_distributor_session');
     localStorage.removeItem('sr12_distributor_session');
+    localStorage.setItem('sr12_active_view_mode', 'storefront');
+    if (window.location.hash) {
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
   } catch (e) {}
 
   // 1. Tutup drawer Olsera dan backdrop
