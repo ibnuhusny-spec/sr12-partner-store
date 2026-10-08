@@ -256,7 +256,7 @@
       </button>
 
       <!-- 5. Tinjau Toko Pembeli (Desktop Only - di HP sudah ada di Drawer Menu agar layar rapi) -->
-      <button type="button" class="btn-switch-storefront desktop-only-btn" onclick="showDistributorPortalView(false)" title="Tinjau tampilan web toko dari sudut pandang pembeli / customer">
+      <button type="button" class="btn-switch-storefront desktop-only-btn" onclick="closeOlseraSidebarDrawer(); showDistributorPortalView(false);" title="Tinjau tampilan web toko dari sudut pandang pembeli / customer">
         <span>🌐</span> Tinjau Toko Pembeli
       </button>
 
@@ -354,7 +354,7 @@
           </a>
         </li>
         <li>
-          <a class="olsera-menu-item" id="menuItemCustomerDisplay" onclick="showDistributorPortalView(false)">
+          <a class="olsera-menu-item" id="menuItemCustomerDisplay" onclick="closeOlseraSidebarDrawer(); showDistributorPortalView(false);">
             <span class="olsera-menu-icon">
               <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><circle cx="12" cy="18" r="1"/></svg>
             </span>
@@ -452,7 +452,7 @@
 
       <!-- Sidebar Footer -->
       <div class="olsera-sidebar-footer">
-        <button type="button" onclick="showDistributorPortalView(false)" style="width: 100%; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 8px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+        <button type="button" onclick="closeOlseraSidebarDrawer(); showDistributorPortalView(false);" style="width: 100%; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 8px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 6px;">
           <span>🌐</span> Lihat Toko Online
         </button>
         <button type="button" onclick="handleDistributorLogout()" style="width: 100%; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 8px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
@@ -485,7 +485,7 @@
             <span>👤</span>
             <span id="olseraStaticCashierLabel">Kasir Toko</span>
           </button>
-          <button type="button" class="btn-olsera-static-cfd" onclick="showDistributorPortalView(false)" title="Tinjau Tampilan Pembeli (Etalase Toko)">
+          <button type="button" class="btn-olsera-static-cfd" onclick="closeOlseraSidebarDrawer(); showDistributorPortalView(false);" title="Tinjau Tampilan Pembeli (Etalase Toko)">
             <span>🌐</span>
             <span>Lihat Toko</span>
           </button>

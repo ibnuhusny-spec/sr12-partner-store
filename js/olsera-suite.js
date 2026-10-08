@@ -184,6 +184,39 @@ function showDistributorPortalView(showPortal) {
     // 2. MODE TINJAU TOKO ONLINE PEMBELI (BUYER STOREFRONT PREVIEW)
     // Sembunyikan Olsera workspace & tampilkan toko online pembeli
     // -------------------------------------------------------------
+    // 1. Pastikan drawer Olsera dan backdrop ditutup seketika
+    if (typeof closeOlseraSidebarDrawer === 'function') {
+      closeOlseraSidebarDrawer();
+    }
+    const sidebar = document.getElementById('olseraSidebar') || document.querySelector('.olsera-sidebar');
+    const backdrop = document.getElementById('olseraDrawerBackdrop');
+    if (sidebar) sidebar.classList.remove('open');
+    if (backdrop) backdrop.classList.remove('open');
+
+    // 2. Tutup semua modal yang mungkin masih terbuka
+    document.querySelectorAll('.modal-backdrop.open').forEach(m => m.classList.remove('open'));
+
+    // 3. Lepaskan SEMUA pengunci scroll dari body dan html
+    document.body.classList.remove('olsera-drawer-open');
+    document.body.classList.remove('modal-open');
+    if (document.documentElement) {
+      document.documentElement.classList.remove('olsera-drawer-open');
+      document.documentElement.classList.remove('modal-open');
+    }
+    document.body.style.overflow = '';
+    document.body.style.overflowY = '';
+    document.body.style.height = '';
+    document.body.style.touchAction = '';
+    if (document.documentElement) {
+      document.documentElement.style.overflow = '';
+      document.documentElement.style.overflowY = '';
+      document.documentElement.style.height = '';
+      document.documentElement.style.touchAction = '';
+    }
+    if (typeof ensureScrollUnlocked === 'function') {
+      ensureScrollUnlocked();
+    }
+
     document.body.classList.remove('olsera-portal-active');
     document.body.classList.toggle('is-central-hub', isCentral);
     document.body.classList.toggle('is-partner-store', !isCentral);
@@ -209,6 +242,8 @@ function showDistributorPortalView(showPortal) {
     const isLoggedDistributor = (typeof appState !== 'undefined') && !!appState.isAdminMode && !!appState.isDistributorLoggedIn;
     const btnFloat = document.getElementById('btnFloatingAdminMenu');
     if (btnFloat) btnFloat.style.display = isLoggedDistributor ? 'inline-flex' : 'none';
+
+    if (typeof renderProducts === 'function') renderProducts();
   }
 }
 
