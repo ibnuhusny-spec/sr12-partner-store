@@ -3450,7 +3450,10 @@ function initEventListeners() {
   const cartBackdrop = document.getElementById('cartBackdrop');
 
   window.openCartDrawer = function() {
-    if (cartDrawer) cartDrawer.classList.add('open');
+    if (cartDrawer) {
+      cartDrawer.classList.add('open');
+      document.body.classList.add('modal-open');
+    }
     if (cartBackdrop) cartBackdrop.classList.add('open');
     const nameIn = document.getElementById('cartBuyerNameInput');
     const phoneIn = document.getElementById('cartBuyerPhoneField');
@@ -3460,6 +3463,7 @@ function initEventListeners() {
     if (phoneIn && !phoneIn.value && appState.buyerDetails?.phone) {
       phoneIn.value = appState.buyerDetails.phone;
     }
+    if (typeof updateCartUI === 'function') updateCartUI();
   };
 
   if (btnOpenCart) {
@@ -3467,12 +3471,21 @@ function initEventListeners() {
   }
 
   const closeCart = () => {
-    cartDrawer.classList.remove('open');
-    cartBackdrop.classList.remove('open');
+    if (cartDrawer) cartDrawer.classList.remove('open');
+    if (cartBackdrop) cartBackdrop.classList.remove('open');
+    document.body.classList.remove('modal-open');
   };
+  window.closeCartDrawer = closeCart;
 
   if (btnCloseCart) btnCloseCart.addEventListener('click', closeCart);
   if (cartBackdrop) cartBackdrop.addEventListener('click', closeCart);
+
+  // Tutup keranjang saat tombol Escape ditekan
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && cartDrawer && cartDrawer.classList.contains('open')) {
+      closeCart();
+    }
+  });
 
   // Dropship toggle
   const dropshipCheckbox = document.getElementById('toggleDropship');

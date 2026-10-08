@@ -1896,7 +1896,7 @@
   </div>
 
   <!-- 6. SHOPPING CART DRAWER (SIDE PANEL) -->
-  <div class="modal-backdrop" id="cartBackdrop"></div>
+  <div class="cart-backdrop" id="cartBackdrop"></div>
   <aside class="cart-drawer" id="cartDrawer">
     <div class="cart-drawer-header">
       <h3 style="display: flex; align-items: center; gap: 8px;">
@@ -4250,7 +4250,7 @@
 
   <!-- FLOATING CART BUTTON (HANYA MUNCUL DI TOKO DISTRIBUTOR KETIKA ADA ISI KERANJANG) -->
   <div id="distributorFloatingCart" style="display: none; position: fixed; bottom: 20px; left: 20px; z-index: 9998;">
-    <button type="button" onclick="document.getElementById('cartDrawer').classList.add('open'); document.getElementById('cartBackdrop').classList.add('open');" style="background: linear-gradient(135deg, #059669, #047857); color: #ffffff; border: none; border-radius: 9999px; padding: 12px 20px; font-weight: 800; font-size: 0.88rem; box-shadow: 0 10px 25px -5px rgba(5,150,105,0.45); cursor: pointer; display: inline-flex; align-items: center; gap: 10px; transition: transform 0.2s ease, box-shadow 0.2s ease;">
+    <button type="button" onclick="openCartDrawer()" style="background: linear-gradient(135deg, #059669, #047857); color: #ffffff; border: none; border-radius: 9999px; padding: 12px 20px; font-weight: 800; font-size: 0.88rem; box-shadow: 0 10px 25px -5px rgba(5,150,105,0.45); cursor: pointer; display: inline-flex; align-items: center; gap: 10px; transition: transform 0.2s ease, box-shadow 0.2s ease;">
       <span style="font-size: 1.15rem;">🛒</span>
       <span>Keranjang (<span id="distributorFloatingCartCount">0</span>)</span>
       <span style="opacity: 0.6;">&bull;</span>

@@ -3281,6 +3281,25 @@ body.modal-open {
 /* ========================================================
    CART DRAWER & CHECKOUT SYSTEM
    ======================================================== */
+.cart-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 99998;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.25s ease, visibility 0.25s ease;
+}
+
+.cart-backdrop.open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
 .cart-drawer {
   position: fixed;
   top: 0;
@@ -3289,8 +3308,8 @@ body.modal-open {
   max-width: 460px;
   height: 100vh;
   background: #ffffff;
-  z-index: 10002;
-  box-shadow: -8px 0 30px rgba(0, 0, 0, 0.15);
+  z-index: 100000; /* Selalu di atas backdrop (99998) agar tidak tertutup layar buram */
+  box-shadow: -8px 0 35px rgba(0, 0, 0, 0.25);
   transform: translateX(100%);
   visibility: hidden;
   pointer-events: none;
