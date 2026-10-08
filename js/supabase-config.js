@@ -342,6 +342,142 @@ function subscribeToStoreChanges(onStoreChanged) {
   }
 }
 
+/**
+ * Sinkronisasi data Mitra Binaan (Agen, Sub Agen, Reseller, Marketer) dari Supabase Cloud
+ */
+async function syncMitraFromSupabase(storeSlug = 'sr12-central') {
+  const client = initSupabaseClient();
+  if (!client) return null;
+  try {
+    let query = client.from('mitra_downlines').select('*');
+    if (storeSlug) {
+      query = query.eq('store_slug', storeSlug);
+    }
+    const { data, error } = await query;
+    if (error) {
+      // Tabel belum ada atau belum dimigrasi di cloud, fallback lokal
+      return null;
+    }
+    return (data || []).map(row => ({
+      id: row.partner_code || row.id,
+      name: row.name,
+      phone: row.phone,
+      city: row.city || '',
+      tier: row.tier || 'reseller',
+      bankName: row.bank_name || 'BCA',
+      bankAccount: row.bank_account || '-',
+      bankHolder: row.bank_holder || row.name,
+      qualificationDate: row.qualification_date || row.created_at,
+      lastOrderDate: row.last_order_date || row.created_at,
+      accumulatedSpent90Days: Number(row.accumulated_spent_90_days) || 0,
+      totalOrdersCount: Number(row.total_orders_count) || 0,
+      status: row.status || 'active'
+    }));
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Simpan / Update Mitra ke Supabase Cloud
+ */
+async function saveMitraToSupabase(mitra, storeSlug = 'sr12-central') {
+  const client = initSupabaseClient();
+  if (!client || !mitra || !mitra.id) return;
+  try {
+    const payload = {
+      store_slug: storeSlug,
+      partner_code: mitra.id,
+      name: mitra.name,
+      phone: mitra.phone,
+      city: mitra.city || '',
+      tier: mitra.tier || 'reseller',
+      bank_name: mitra.bankName || 'BCA',
+      bank_account: mitra.bankAccount || '-',
+      bank_holder: mitra.bankHolder || mitra.name,
+      qualification_date: mitra.qualificationDate || new Date().toISOString().split('T')[0],
+      last_order_date: mitra.lastOrderDate || new Date().toISOString().split('T')[0],
+      accumulated_spent_90_days: mitra.accumulatedSpent90Days || 0,
+      total_orders_count: mitra.totalOrdersCount || 0,
+      status: mitra.status || 'active'
+    };
+    await client.from('mitra_downlines').upsert(payload, { onConflict: 'store_slug,partner_code' });
+  } catch (e) {}
+}
+
+/**
+ * Hapus Mitra dari Supabase Cloud
+ */
+async function deleteMitraFromSupabase(partnerCode, storeSlug = 'sr12-central') {
+  const client = initSupabaseClient();
+  if (!client || !partnerCode) return;
+  try {
+    await client.from('mitra_downlines').delete().match({ store_slug: storeSlug, partner_code: partnerCode });
+  } catch (e) {}
+}
+
+/**
+ * Sinkronisasi data Penjualan Marketer dari Supabase Cloud
+ */
+async function syncMarketerSalesFromSupabase(storeSlug = 'sr12-central') {
+  const client = initSupabaseClient();
+  if (!client) return null;
+  try {
+    let query = client.from('marketer_sales').select('*');
+    if (storeSlug) {
+      query = query.eq('store_slug', storeSlug);
+    }
+    const { data, error } = await query;
+    if (error) return null;
+    return (data || []).map(row => ({
+      orderId: row.order_id,
+      marketerId: row.marketer_id,
+      date: row.order_date,
+      monthPeriod: row.month_period,
+      customerName: row.customer_name,
+      customerPhone: row.customer_phone,
+      customerAddress: row.customer_address,
+      fulfillmentType: row.fulfillment_type,
+      itemsSummary: row.items_desc,
+      omsetHet: Number(row.omset_het) || 0,
+      commissionPct: Number(row.commission_pct) || 15,
+      commissionAmount: Number(row.commission_amount) || 0,
+      paidStatus: row.paid_status || 'unpaid',
+      paidDate: row.paid_date
+    }));
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Simpan Catatan Penjualan Marketer ke Supabase Cloud
+ */
+async function saveMarketerSaleToSupabase(sale, storeSlug = 'sr12-central') {
+  const client = initSupabaseClient();
+  if (!client || !sale || !sale.orderId) return;
+  try {
+    const payload = {
+      store_slug: storeSlug,
+      order_id: sale.orderId,
+      marketer_id: sale.marketerId,
+      order_date: sale.date || new Date().toISOString().split('T')[0],
+      month_period: sale.monthPeriod || new Date().toISOString().slice(0, 7),
+      customer_name: sale.customerName || 'Pembeli',
+      customer_phone: sale.customerPhone || '-',
+      customer_address: sale.customerAddress || '-',
+      fulfillment_type: sale.fulfillmentType || 'pickup',
+      items_desc: sale.itemsSummary || '-',
+      omset_het: sale.omsetHet || 0,
+      commission_pct: sale.commissionPct || 15,
+      commission_amount: sale.commissionAmount || 0,
+      paid_status: sale.paidStatus || 'unpaid',
+      paid_date: sale.paidDate || null
+    };
+    await client.from('marketer_sales').upsert(payload, { onConflict: 'store_slug,order_id' });
+  } catch (e) {}
+}
+
 // Window global exports
 window.initSupabaseClient = initSupabaseClient;
 window.syncStoresFromSupabase = syncStoresFromSupabase;
@@ -352,4 +488,9 @@ window.savePendingStoreToSupabase = savePendingStoreToSupabase;
 window.deletePendingStoreFromSupabase = deletePendingStoreFromSupabase;
 window.uploadProductImageToSupabase = uploadProductImageToSupabase;
 window.subscribeToStoreChanges = subscribeToStoreChanges;
+window.syncMitraFromSupabase = syncMitraFromSupabase;
+window.saveMitraToSupabase = saveMitraToSupabase;
+window.deleteMitraFromSupabase = deleteMitraFromSupabase;
+window.syncMarketerSalesFromSupabase = syncMarketerSalesFromSupabase;
+window.saveMarketerSaleToSupabase = saveMarketerSaleToSupabase;
 

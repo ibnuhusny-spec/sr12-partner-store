@@ -629,8 +629,10 @@ function getStoredStoreSettings() {
 // Kapasitas besar (ratusan MB / GB), bebas dari batas 5MB LocalStorage browser
 // ==========================================
 const SR12_DB_NAME = 'sr12_partner_store_db';
-const SR12_DB_VERSION = 1;
+const SR12_DB_VERSION = 2;
 const SR12_STORE_PRODUCTS = 'products_master';
+const SR12_STORE_MITRA = 'mitra_master';
+const SR12_STORE_MARKETER_SALES = 'marketer_sales_master';
 
 function openSR12IndexedDB() {
   return new Promise((resolve) => {
@@ -644,6 +646,12 @@ function openSR12IndexedDB() {
         const db = e.target.result;
         if (!db.objectStoreNames.contains(SR12_STORE_PRODUCTS)) {
           db.createObjectStore(SR12_STORE_PRODUCTS, { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains(SR12_STORE_MITRA)) {
+          db.createObjectStore(SR12_STORE_MITRA, { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains(SR12_STORE_MARKETER_SALES)) {
+          db.createObjectStore(SR12_STORE_MARKETER_SALES, { keyPath: 'orderId' });
         }
       };
       req.onsuccess = () => resolve(req.result);
@@ -727,6 +735,118 @@ async function dbDeleteProduct(productId) {
   });
 }
 
+// ------------------------------------------
+// INDEXEDDB: MITRA BINAAN (AGEN, SUB AGEN, RESELLER, MARKETER)
+// ------------------------------------------
+async function dbSaveMitra(mitra) {
+  if (!mitra || !mitra.id) return;
+  const db = await openSR12IndexedDB();
+  if (!db) return;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction([SR12_STORE_MITRA], 'readwrite');
+      const store = tx.objectStore(SR12_STORE_MITRA);
+      store.put(mitra);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    } catch (e) {
+      console.warn('Gagal simpan mitra ke IndexedDB:', e);
+      resolve(false);
+    }
+  });
+}
+
+async function dbSaveAllMitra(mitraList) {
+  if (!Array.isArray(mitraList)) return;
+  const db = await openSR12IndexedDB();
+  if (!db) return;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction([SR12_STORE_MITRA], 'readwrite');
+      const store = tx.objectStore(SR12_STORE_MITRA);
+      store.clear();
+      mitraList.forEach(m => store.put(m));
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    } catch (e) {
+      console.warn('Gagal simpan semua mitra ke IndexedDB:', e);
+      resolve(false);
+    }
+  });
+}
+
+async function dbGetAllMitra() {
+  const db = await openSR12IndexedDB();
+  if (!db) return [];
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction([SR12_STORE_MITRA], 'readonly');
+      const store = tx.objectStore(SR12_STORE_MITRA);
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    } catch (e) {
+      console.warn('Gagal ambil mitra dari IndexedDB:', e);
+      resolve([]);
+    }
+  });
+}
+
+async function dbDeleteMitra(id) {
+  const db = await openSR12IndexedDB();
+  if (!db) return;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction([SR12_STORE_MITRA], 'readwrite');
+      const store = tx.objectStore(SR12_STORE_MITRA);
+      store.delete(id);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    } catch (e) {
+      resolve(false);
+    }
+  });
+}
+
+// ------------------------------------------
+// INDEXEDDB: REKAP PENJUALAN MARKETER (KOMISI 15%)
+// ------------------------------------------
+async function dbSaveAllMarketerSales(salesList) {
+  if (!Array.isArray(salesList)) return;
+  const db = await openSR12IndexedDB();
+  if (!db) return;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction([SR12_STORE_MARKETER_SALES], 'readwrite');
+      const store = tx.objectStore(SR12_STORE_MARKETER_SALES);
+      store.clear();
+      salesList.forEach(s => store.put(s));
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    } catch (e) {
+      console.warn('Gagal simpan marketer sales ke IndexedDB:', e);
+      resolve(false);
+    }
+  });
+}
+
+async function dbGetAllMarketerSales() {
+  const db = await openSR12IndexedDB();
+  if (!db) return [];
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction([SR12_STORE_MARKETER_SALES], 'readonly');
+      const store = tx.objectStore(SR12_STORE_MARKETER_SALES);
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    } catch (e) {
+      console.warn('Gagal ambil marketer sales dari IndexedDB:', e);
+      resolve([]);
+    }
+  });
+}
+
 // Sinkronisasi otomatis data produk & foto asli dari IndexedDB saat aplikasi dimuat
 async function syncProductsWithIndexedDB() {
   try {
@@ -771,6 +891,75 @@ async function syncProductsWithIndexedDB() {
   }
 }
 window.syncProductsWithIndexedDB = syncProductsWithIndexedDB;
+
+// Sinkronisasi otomatis data mitra binaan & rekap gaji marketer dari IndexedDB saat aplikasi dimuat
+async function syncMitraWithIndexedDB() {
+  try {
+    // 1. Sinkronkan Mitra Binaan (Agen, Sub Agen, Reseller, Marketer)
+    const idbMitra = await dbGetAllMitra();
+    if (idbMitra && idbMitra.length > 0) {
+      if (typeof appState !== 'undefined') {
+        const mitraMap = new Map((appState.mitraList || []).map(m => [m.id, m]));
+        idbMitra.forEach(m => {
+          if (!mitraMap.has(m.id)) {
+            mitraMap.set(m.id, m);
+          }
+        });
+        appState.mitraList = Array.from(mitraMap.values());
+        appState.resellers = appState.mitraList;
+        localStorage.setItem('sr12_distributor_mitra_v2', JSON.stringify(appState.mitraList));
+        localStorage.setItem('sr12_distributor_resellers_v1', JSON.stringify(appState.mitraList));
+        if (typeof renderResellers === 'function') renderResellers();
+        if (typeof updateViewModeUI === 'function') updateViewModeUI();
+      }
+    } else if (typeof appState !== 'undefined' && Array.isArray(appState.mitraList) && appState.mitraList.length > 0) {
+      await dbSaveAllMitra(appState.mitraList);
+    }
+
+    // 2. Sinkronkan Rekap Penjualan Marketer
+    const idbSales = await dbGetAllMarketerSales();
+    if (idbSales && idbSales.length > 0) {
+      if (typeof appState !== 'undefined') {
+        const salesMap = new Map((appState.marketerSales || []).map(s => [s.orderId, s]));
+        idbSales.forEach(s => {
+          if (!salesMap.has(s.orderId)) salesMap.set(s.orderId, s);
+        });
+        appState.marketerSales = Array.from(salesMap.values());
+        localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(appState.marketerSales));
+        if (typeof renderMarketerPayroll === 'function') renderMarketerPayroll();
+      }
+    } else if (typeof appState !== 'undefined' && Array.isArray(appState.marketerSales) && appState.marketerSales.length > 0) {
+      await dbSaveAllMarketerSales(appState.marketerSales);
+    }
+
+    // 3. Sinkronkan dari Supabase Cloud jika online
+    if (typeof syncMitraFromSupabase === 'function' && typeof appState !== 'undefined') {
+      const slug = (appState.storeSettings && appState.storeSettings.slug) || 'sr12-central';
+      const cloudMitra = await syncMitraFromSupabase(slug);
+      if (cloudMitra && cloudMitra.length > 0) {
+        const curMap = new Map((appState.mitraList || []).map(m => [m.id, m]));
+        let cloudAdded = false;
+        cloudMitra.forEach(cm => {
+          if (!curMap.has(cm.id)) {
+            curMap.set(cm.id, cm);
+            cloudAdded = true;
+          }
+        });
+        if (cloudAdded) {
+          appState.mitraList = Array.from(curMap.values());
+          appState.resellers = appState.mitraList;
+          saveStoredMitra(appState.mitraList, false);
+          if (typeof renderResellers === 'function') renderResellers();
+          if (typeof updateViewModeUI === 'function') updateViewModeUI();
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Sync IndexedDB mitra info:', err);
+  }
+}
+window.syncMitraWithIndexedDB = syncMitraWithIndexedDB;
+
 
 function getStoredProducts() {
   const stored = localStorage.getItem('sr12_all_products_v4');
@@ -1085,17 +1274,12 @@ const DEFAULT_DISTRIBUTOR_MITRA = [];
 const DEFAULT_MARKETER_SALES = [];
 
 function getStoredMitra() {
-  const dummyIds = ['AG-001', 'SUB-001', 'RS-001', 'RS-002', 'RS-003', 'MKT-001', 'MKT-002'];
   const stored = localStorage.getItem('sr12_distributor_mitra_v2');
   if (stored) {
     try {
       const list = JSON.parse(stored);
       if (Array.isArray(list)) {
-        const cleaned = list.filter(m => !dummyIds.includes(m.id));
-        if (cleaned.length !== list.length) {
-          saveStoredMitra(cleaned);
-        }
-        return cleaned;
+        return list;
       }
     } catch (e) {}
   }
@@ -1104,19 +1288,36 @@ function getStoredMitra() {
     try {
       const old = JSON.parse(oldStored);
       if (Array.isArray(old)) {
-        const cleaned = old.filter(m => !dummyIds.includes(m.id));
-        saveStoredMitra(cleaned);
-        return cleaned;
+        saveStoredMitra(old, false);
+        return old;
       }
     } catch (e) {}
   }
-  saveStoredMitra([]);
   return [];
 }
 
-function saveStoredMitra(mitraList) {
-  localStorage.setItem('sr12_distributor_mitra_v2', JSON.stringify(mitraList));
-  localStorage.setItem('sr12_distributor_resellers_v1', JSON.stringify(mitraList));
+function saveStoredMitra(mitraList, syncCloud = true) {
+  if (!Array.isArray(mitraList)) return;
+  // 1. Simpan ke LocalStorage
+  try {
+    localStorage.setItem('sr12_distributor_mitra_v2', JSON.stringify(mitraList));
+    localStorage.setItem('sr12_distributor_resellers_v1', JSON.stringify(mitraList));
+  } catch (err) {
+    console.warn('LocalStorage save error:', err);
+  }
+
+  // 2. Simpan permanen ke IndexedDB (Anti-Reset & Kapasitas Besar)
+  if (typeof dbSaveAllMitra === 'function') {
+    dbSaveAllMitra(mitraList);
+  }
+
+  // 3. Sinkronisasi otomatis ke Supabase Cloud jika online
+  if (syncCloud && typeof saveMitraToSupabase === 'function') {
+    const slug = (typeof appState !== 'undefined' && appState.storeSettings && appState.storeSettings.slug) || 'sr12-central';
+    mitraList.forEach(m => {
+      saveMitraToSupabase(m, slug);
+    });
+  }
 }
 
 function getStoredResellers() {
@@ -1128,26 +1329,39 @@ function saveStoredResellers(resellers) {
 }
 
 function getStoredMarketerSales() {
-  const dummyOrders = ['ORD-MKT-101', 'ORD-MKT-102', 'ORD-MKT-103', 'ORD-MKT-104', 'ORD-MKT-105'];
   const stored = localStorage.getItem('sr12_marketer_sales_v1');
   if (stored) {
     try {
       const list = JSON.parse(stored);
       if (Array.isArray(list)) {
-        const cleaned = list.filter(s => !dummyOrders.includes(s.orderId));
-        if (cleaned.length !== list.length) {
-          saveStoredMarketerSales(cleaned);
-        }
-        return cleaned;
+        return list;
       }
     } catch (e) {}
   }
-  saveStoredMarketerSales([]);
   return [];
 }
 
-function saveStoredMarketerSales(sales) {
-  localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(sales));
+function saveStoredMarketerSales(sales, syncCloud = true) {
+  if (!Array.isArray(sales)) return;
+  // 1. Simpan ke LocalStorage
+  try {
+    localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(sales));
+  } catch (err) {
+    console.warn('LocalStorage save error:', err);
+  }
+
+  // 2. Simpan permanen ke IndexedDB
+  if (typeof dbSaveAllMarketerSales === 'function') {
+    dbSaveAllMarketerSales(sales);
+  }
+
+  // 3. Sinkronisasi otomatis ke Supabase Cloud jika online
+  if (syncCloud && typeof saveMarketerSaleToSupabase === 'function') {
+    const slug = (typeof appState !== 'undefined' && appState.storeSettings && appState.storeSettings.slug) || 'sr12-central';
+    sales.forEach(s => {
+      saveMarketerSaleToSupabase(s, slug);
+    });
+  }
 }
 
 function getStoredCart() {
@@ -1374,10 +1588,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   handleDirectProductDeepLink();
   renderRewards();
   renderMarketingKits();
-  // Bersihkan data dummy lama untuk simulasi bersih (Mitra, Marketer, Kasflow, Transaksi)
+  // Memuat data tersimpan Mitra & Marketer (LocalStorage + IndexedDB permanen)
   appState.mitraList = getStoredMitra();
   appState.resellers = appState.mitraList;
   appState.marketerSales = getStoredMarketerSales();
+  if (typeof syncMitraWithIndexedDB === 'function') {
+    syncMitraWithIndexedDB();
+  }
   if (typeof getStoredCashflow === 'function') {
     appState.cashflow = getStoredCashflow();
   }
@@ -7398,6 +7615,12 @@ function deleteMitra(id) {
   appState.mitraList = appState.mitraList.filter(m => m.id !== id);
   appState.resellers = appState.mitraList;
   saveStoredMitra(appState.mitraList);
+  if (typeof dbDeleteMitra === 'function') {
+    dbDeleteMitra(id);
+  }
+  if (typeof deleteMitraFromSupabase === 'function' && appState.storeSettings) {
+    deleteMitraFromSupabase(id, appState.storeSettings.slug || 'sr12-central');
+  }
   renderResellers();
   updateViewModeUI();
   showToast(`Mitra "${found.name}" (${found.id}) berhasil dihapus.`);
@@ -7414,6 +7637,9 @@ function clearAllMitraDatabase() {
   appState.mitraList = [];
   appState.resellers = [];
   saveStoredMitra([]);
+  if (typeof dbSaveAllMitra === 'function') {
+    dbSaveAllMitra([]);
+  }
   renderResellers();
   updateViewModeUI();
   showToast('🗑️ Database Seluruh Mitra berhasil dikosongkan!');
@@ -7426,6 +7652,9 @@ function clearAllMarketerSales() {
   }
   appState.marketerSales = [];
   saveStoredMarketerSales([]);
+  if (typeof dbSaveAllMarketerSales === 'function') {
+    dbSaveAllMarketerSales([]);
+  }
   renderMarketerPayroll();
   showToast('🗑️ Rekap Gaji & Komisi Marketer berhasil dikosongkan!');
 }
@@ -8299,10 +8528,23 @@ window.copyProductDirectLink = copyProductDirectLink;
 async function getImageFileFromUrlOrData(imageUrl, filename = 'produk-sr12') {
   try {
     if (!imageUrl) return null;
+    if (imageUrl.startsWith('data:')) {
+      const parts = imageUrl.split(',');
+      const mimeMatch = (parts[0] || '').match(/:(.*?);/);
+      const mime = (mimeMatch && mimeMatch[1]) || 'image/jpeg';
+      const bstr = atob(parts[1] || '');
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+      }
+      const ext = mime.includes('png') ? 'png' : (mime.includes('webp') ? 'webp' : 'jpg');
+      return new File([u8arr], `${filename}.${ext}`, { type: mime });
+    }
     const res = await fetch(imageUrl);
     const blob = await res.blob();
     const mime = blob.type || (imageUrl.includes('.png') ? 'image/png' : 'image/jpeg');
-    const ext = mime.includes('png') ? 'png' : 'jpg';
+    const ext = mime.includes('png') ? 'png' : (mime.includes('webp') ? 'webp' : 'jpg');
     return new File([blob], `${filename}.${ext}`, { type: mime });
   } catch (e) {
     console.warn('Gagal mengonversi gambar ke File:', e);
