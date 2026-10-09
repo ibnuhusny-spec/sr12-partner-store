@@ -6667,6 +6667,8 @@ function updateDevPortalMetrics() {
   if (wsPin) wsPin.textContent = `${appState.masterDevPin} (Aktif)`;
   if (navStores) navStores.textContent = `${totalStores} Toko`;
   if (navFee) navFee.textContent = formatRupiah(totalFee);
+  const storesCounter_ws = document.getElementById('devTotalStoresCounter_ws');
+  if (storesCounter_ws) storesCounter_ws.textContent = `${totalStores} Toko Terdaftar`;
 
   // Sync Strip Preview Topbar & Master PIN
   const stripName = document.getElementById('devStripStoreName');
@@ -6966,6 +6968,10 @@ function updateDevPortalMetrics() {
           </tr>
         `;
       }).join('');
+    }
+    const networkScopeBadge = document.getElementById('devNetworkScopeBadge');
+    if (networkScopeBadge) {
+      networkScopeBadge.innerHTML = `<span>🌐</span> <span>Global Network (${list.length} Mitra)</span>`;
     }
   }
 }

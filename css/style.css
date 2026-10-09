@@ -649,6 +649,17 @@ body.dev-mode-active {
   -webkit-overflow-scrolling: touch !important;
 }
 
+.dev-store-select-input,
+#devStoreSelect_ws,
+#devStoreSelect {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
 /* ========================================================
    SELLER ADMIN CONTROL BAR (HANYA MUNCUL DI MODE ADMIN)
    ======================================================== */
@@ -6758,6 +6769,47 @@ body.modal-open {
     max-width: 100% !important;
     width: 100% !important;
     box-sizing: border-box !important;
+  }
+
+  /* Developer Workspace & Switcher Box di Layar HP */
+  .dev-workspace-container {
+    padding: 12px 10px !important;
+    margin: 8px auto 40px auto !important;
+    border-radius: 12px !important;
+    max-width: calc(100vw - 16px) !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+
+  .dev-store-switcher-box {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 12px 10px !important;
+    gap: 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  .dev-store-switcher-box > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: none !important;
+    box-sizing: border-box !important;
+  }
+
+  .dev-store-select-input,
+  #devStoreSelect_ws,
+  #devStoreSelect {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    font-size: 0.8rem !important;
   }
 
   /* 15. Tabel Pengajuan Toko & Jaringan Mitra Developer (Responsif Card View di Layar HP) */
