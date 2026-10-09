@@ -738,7 +738,7 @@
 
         <div style="overflow-x: auto; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;">
           <table class="inv-table">
-            <thead>
+            <thead id="inventoryTableHead">
               <tr>
                 <th>Produk SR12</th>
                 <th>Netto</th>
@@ -842,7 +842,7 @@
           <div class="cashflow-card" style="border-left: 4px solid #f59e0b; background: #fff;">
             <div class="cashflow-label">Harga Pokok Penjualan (HPP)</div>
             <div class="cashflow-val" id="repHppCost" style="color: #d97706; font-size: 1.25rem;">Rp 0</div>
-            <div style="font-size: 0.72rem; color: #64748b; margin-top: 4px;">Modal kulakan produk ke Pusat</div>
+            <div style="font-size: 0.72rem; color: #64748b; margin-top: 4px;" id="repHppSubtext">Modal kulakan produk ke Pusat</div>
           </div>
           <div class="cashflow-card" style="border-left: 4px solid #10b981; background: #ecfdf5;">
             <div class="cashflow-label">Laba Kotor (Gross Margin)</div>
@@ -1710,11 +1710,11 @@
               <tr>
                 <th>ID & Nama Mitra</th>
                 <th>Tingkat</th>
-                <th>Rekening Bank / E-Wallet</th>
-                <th>Masa Aktif & Evaluasi (90 Hari)</th>
-                <th>Akumulasi Belanja / Omset</th>
+                <th>Rekening Bank</th>
+                <th>Masa Aktif</th>
+                <th>Akumulasi Belanja</th>
                 <th>Status</th>
-                <th style="text-align: center;">Aksi Distributor</th>
+                <th style="text-align: center;">Aksi</th>
               </tr>
             </thead>
             <tbody id="crmResellersTableBody">
@@ -2720,13 +2720,11 @@
               <input type="text" id="regStoreOwner" placeholder="Nama Lengkap Anda" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: var(--font-main);">
             </div>
             <div>
-              <label style="font-size: 0.8rem; font-weight: 700; color: var(--dark-800); display: block; margin-bottom: 4px;">Level Kemitraan:</label>
+              <label style="font-size: 0.8rem; font-weight: 700; color: var(--dark-800); display: block; margin-bottom: 4px;">Level Kemitraan Toko:</label>
               <select id="regStoreTier" onchange="handleRegStoreTierChange(this.value)" style="width: 100%; padding: 8px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: var(--font-main);">
-                <option value="distributor" selected>👑 Distributor Utama (50%)</option>
-                <option value="agen">⭐ Agen Resmi (40%)</option>
-                <option value="sub_agen">🌟 Sub Agen (30%)</option>
-                <option value="reseller">🌿 Reseller Resmi (20%)</option>
-                <option value="marketer">💼 Marketer (15%)</option>
+                <option value="distributor" selected>👑 Distributor Utama (Diskon 50%)</option>
+                <option value="agen">⭐ Agen Resmi SR12 (Diskon 40%)</option>
+                <option value="sub_agen">🌟 Sub Agen SR12 (Diskon 30%)</option>
               </select>
             </div>
           </div>
@@ -4296,6 +4294,12 @@
       <span>🔐</span> <span>Console Dev</span>
       <span id="devFabPendingBadge" style="display: none; background: #f59e0b; color: #78350f; font-size: 0.7rem; padding: 2px 7px; border-radius: 999px; font-weight: 800;">1</span>
     </button>
+  </div>
+
+  <!-- INDIKATOR GESTUR GESER LAYAR TEPI KE TENGAH DI HP (PREDICTIVE BACK GESTURE) -->
+  <div id="edgeSwipeBackIndicator" class="edge-swipe-back-pill" aria-hidden="true">
+    <span style="font-size: 1.15rem; line-height: 1;">‹</span>
+    <span id="edgeSwipeBackText">Kembali</span>
   </div>
 
   <!-- SCRIPTS -->

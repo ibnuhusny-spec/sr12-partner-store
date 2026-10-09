@@ -943,16 +943,8 @@ function unlockOlseraScreen() {
 
 function openStoreSwitchDropdownFromDrawer() {
   closeOlseraSidebarDrawer();
-  const storeNames = appState.partnerStores.map((s, idx) => `${idx + 1}. ${s.storeName} (${s.storeOwner})`).join('\n');
-  const choice = prompt(`🏪 Pilih Cabang / Toko Olsera yang ingin dibuka:\n\n${storeNames}\n\nMasukkan nomor toko (1 - ${appState.partnerStores.length}):`, '1');
-  if (choice) {
-    const idx = parseInt(choice, 10) - 1;
-    if (idx >= 0 && idx < appState.partnerStores.length) {
-      const selected = appState.partnerStores[idx];
-      switchPartnerStore(selected.slug);
-      updateOlseraHeaderMeta();
-      showToast(`🏪 Berhasil beralih ke: ${selected.storeName}!`);
-    }
+  if (typeof openStoreSwitchModal === 'function') {
+    openStoreSwitchModal();
   }
 }
 
@@ -979,6 +971,13 @@ function switchOlseraTab(tabId) {
       history.replaceState(null, '', '#' + tabId);
     }
   } catch (e) {}
+
+  // Sticky topbar HANYA saat di halaman Point of Sale (POS)
+  if (tabId === 'pos') {
+    document.body.classList.add('olsera-portal-pos-active');
+  } else {
+    document.body.classList.remove('olsera-portal-pos-active');
+  }
 
   // Tutup drawer secara otomatis di mobile saat menu diklik
   closeOlseraSidebarDrawer();
@@ -1022,6 +1021,7 @@ function switchOlseraTab(tabId) {
   // Render content according to tab
   switch (tabId) {
     case 'pos':
+      filterPosBuyerTierByStoreRole();
       renderPosProducts();
       renderPosCart();
       break;
@@ -1957,16 +1957,107 @@ window.viewHistoricalReceipt = viewHistoricalReceipt;
 // ==========================================
 // 6. INVENTORI (KATALOG & STOK GUDANG) LOGIC
 // ==========================================
+function filterPosBuyerTierByStoreRole() {
+  const select = document.getElementById('posBuyerTierSelect');
+  if (!select || typeof appState === 'undefined') return;
+  const storeTier = (appState.storeSettings && appState.storeSettings.partnerTier) || 'distributor';
+  const currentVal = select.value;
+
+  let optionsHtml = '';
+  if (storeTier === 'agen') {
+    // Toko Agen Resmi: Tidak ada pilihan Agen atau Distributor
+    optionsHtml = `
+      <option value="konsumen">👤 Konsumen Retail Umum (HET)</option>
+      <option value="reseller">🌿 Reseller Resmi (Diskon 20%)</option>
+      <option value="sub_agen">🏢 Sub Agen SR12 (Diskon 30%)</option>
+      <option value="marketer">💼 Tim Marketer (15% Komisi)</option>
+    `;
+  } else if (storeTier === 'sub_agen') {
+    // Toko Sub Agen: Tidak ada pilihan Sub Agen, Agen, atau Distributor
+    optionsHtml = `
+      <option value="konsumen">👤 Konsumen Retail Umum (HET)</option>
+      <option value="reseller">🌿 Reseller Resmi (Diskon 20%)</option>
+      <option value="marketer">💼 Tim Marketer (15% Komisi)</option>
+    `;
+  } else {
+    // Toko Distributor Utama: Menjual ke seluruh tingkatan
+    optionsHtml = `
+      <option value="konsumen">👤 Konsumen Retail Umum (HET)</option>
+      <option value="reseller">🌿 Reseller Resmi (Diskon 20%)</option>
+      <option value="sub_agen">🏢 Sub Agen SR12 (Diskon 30%)</option>
+      <option value="agen">👑 Agen Resmi SR12 (Diskon 40%)</option>
+      <option value="marketer">💼 Tim Marketer (15% Komisi)</option>
+    `;
+  }
+  select.innerHTML = optionsHtml;
+  if (Array.from(select.options).some(o => o.value === currentVal)) {
+    select.value = currentVal;
+  } else {
+    select.value = 'konsumen';
+  }
+}
+window.filterPosBuyerTierByStoreRole = filterPosBuyerTierByStoreRole;
+
 function renderInventoryTable() {
   const tbody = document.getElementById('inventoryTableBody');
   if (!tbody || typeof appState === 'undefined') return;
 
   const prods = appState.products || [];
+  const storeTier = (appState.storeSettings && appState.storeSettings.partnerTier) || 'distributor';
+
+  // Render header tabel inventori dinamis sesuai tingkatan toko:
+  // - Distributor: HET, Reseller (20%), Sub Agen (30%), Agen (40%)
+  // - Agen: HET, Reseller (20%), Sub Agen (30%) -> TIDAK ADA Harga Distributor
+  // - Sub Agen: HET, Reseller (20%) -> TIDAK ADA Harga Distributor & Agen
+  const thead = document.getElementById('inventoryTableHead');
+  if (thead) {
+    if (storeTier === 'agen') {
+      thead.innerHTML = `
+        <tr>
+          <th>Produk SR12</th>
+          <th>Netto</th>
+          <th>Kategori</th>
+          <th>Harga HET</th>
+          <th>Reseller (20%)</th>
+          <th>Sub Agen (30%)</th>
+          <th style="text-align: center;">Stok Gudang</th>
+          <th style="text-align: center;">Aksi Cepat</th>
+        </tr>
+      `;
+    } else if (storeTier === 'sub_agen') {
+      thead.innerHTML = `
+        <tr>
+          <th>Produk SR12</th>
+          <th>Netto</th>
+          <th>Kategori</th>
+          <th>Harga HET</th>
+          <th>Reseller (20%)</th>
+          <th style="text-align: center;">Stok Gudang</th>
+          <th style="text-align: center;">Aksi Cepat</th>
+        </tr>
+      `;
+    } else {
+      thead.innerHTML = `
+        <tr>
+          <th>Produk SR12</th>
+          <th>Netto</th>
+          <th>Kategori</th>
+          <th>Harga HET</th>
+          <th>Reseller (20%)</th>
+          <th>Sub Agen (30%)</th>
+          <th>Agen (40%)</th>
+          <th style="text-align: center;">Stok Gudang</th>
+          <th style="text-align: center;">Aksi Cepat</th>
+        </tr>
+      `;
+    }
+  }
 
   if (prods.length === 0) {
+    const colSpan = storeTier === 'agen' ? 8 : (storeTier === 'sub_agen' ? 7 : 9);
     tbody.innerHTML = `
       <tr>
-        <td colspan="9" style="text-align: center; padding: 30px; color: #94a3b8;">
+        <td colspan="${colSpan}" style="text-align: center; padding: 30px; color: #94a3b8;">
           📦 Belum ada data produk di inventori.
         </td>
       </tr>
@@ -1977,18 +2068,15 @@ function renderInventoryTable() {
   tbody.innerHTML = prods.map(p => {
     const het = Number(p.het || p.price || p.het_price) || 0;
     const resPrice = Math.round(het * 0.8);
+    const subPrice = Math.round(het * 0.7);
     const agenPrice = Math.round(het * 0.6);
     const stock = (typeof p.stock !== 'undefined') ? p.stock : 85;
     const netto = p.netto || (p.weightGram ? p.weightGram + 'g' : 'Original');
 
-    // Indikator Stok Cerdas Olsera:
-    // 0 pcs -> Habis (Merah)
-    // 1-15 pcs -> Menipis (Kuning/Oranye ⚠️) - pengingat restock ke PT SR12 Pusat
-    // > 15 pcs -> Ready / Aman (Hijau ✅)
     let stockBadgeHtml = '';
     if (stock <= 0) {
       stockBadgeHtml = `
-        <span class="inv-stock-badge inv-stock-out" title="Stok habis (0 pcs). Segera lakukan pemesanan ulang ke PT SR12 Pusat!">
+        <span class="inv-stock-badge inv-stock-out" title="Stok habis (0 pcs).">
           <span class="stock-dot red"></span>
           <span>0 pcs</span>
           <span style="font-size: 0.68rem; margin-left: 2px;">(Habis)</span>
@@ -1996,7 +2084,7 @@ function renderInventoryTable() {
       `;
     } else if (stock <= 15) {
       stockBadgeHtml = `
-        <span class="inv-stock-badge inv-stock-low" title="Peringatan Stok Menipis: Stok tinggal ${stock} pcs (di bawah batas minimum 15 pcs). Segera lakukan restock ke PT SR12 Pusat!">
+        <span class="inv-stock-badge inv-stock-low" title="Peringatan Stok Menipis: Stok tinggal ${stock} pcs.">
           <span class="stock-dot amber"></span>
           <span>${stock} pcs</span>
           <span style="font-size: 0.68rem; margin-left: 2px;">⚠️ Menipis</span>
@@ -2004,11 +2092,32 @@ function renderInventoryTable() {
       `;
     } else {
       stockBadgeHtml = `
-        <span class="inv-stock-badge inv-stock-ready" title="Stok aman dan tercukupi di gudang.">
+        <span class="inv-stock-badge inv-stock-ready" title="Stok aman di gudang.">
           <span class="stock-dot green"></span>
           <span>${stock} pcs</span>
           <span style="font-size: 0.68rem; margin-left: 2px;">✅ Ready</span>
         </span>
+      `;
+    }
+
+    let priceCellsHtml = '';
+    if (storeTier === 'agen') {
+      priceCellsHtml = `
+        <td data-label="Harga HET" style="font-weight: 700; color: #0284c7;">Rp ${het.toLocaleString('id-ID')}</td>
+        <td data-label="Reseller 20%" style="color: #059669; font-size: 0.82rem;">Rp ${resPrice.toLocaleString('id-ID')}</td>
+        <td data-label="Sub Agen 30%" style="color: #7c3aed; font-size: 0.82rem;">Rp ${subPrice.toLocaleString('id-ID')}</td>
+      `;
+    } else if (storeTier === 'sub_agen') {
+      priceCellsHtml = `
+        <td data-label="Harga HET" style="font-weight: 700; color: #0284c7;">Rp ${het.toLocaleString('id-ID')}</td>
+        <td data-label="Reseller 20%" style="color: #059669; font-size: 0.82rem;">Rp ${resPrice.toLocaleString('id-ID')}</td>
+      `;
+    } else {
+      priceCellsHtml = `
+        <td data-label="Harga HET" style="font-weight: 700; color: #0284c7;">Rp ${het.toLocaleString('id-ID')}</td>
+        <td data-label="Reseller 20%" style="color: #059669; font-size: 0.82rem;">Rp ${resPrice.toLocaleString('id-ID')}</td>
+        <td data-label="Sub Agen 30%" style="color: #7c3aed; font-size: 0.82rem;">Rp ${subPrice.toLocaleString('id-ID')}</td>
+        <td data-label="Agen 40%" style="color: #d97706; font-size: 0.82rem;">Rp ${agenPrice.toLocaleString('id-ID')}</td>
       `;
     }
 
@@ -2025,9 +2134,7 @@ function renderInventoryTable() {
         </td>
         <td data-label="Netto">${netto}</td>
         <td data-label="Kategori"><span class="badge-crm" style="background: #f1f5f9; color: #475569;">${p.category || 'Herbal'}</span></td>
-        <td data-label="Harga HET" style="font-weight: 700; color: #0284c7;">Rp ${het.toLocaleString('id-ID')}</td>
-        <td data-label="Reseller 20%" style="color: #059669; font-size: 0.82rem;">Rp ${resPrice.toLocaleString('id-ID')}</td>
-        <td data-label="Agen 40%" style="color: #d97706; font-size: 0.82rem;">Rp ${agenPrice.toLocaleString('id-ID')}</td>
+        ${priceCellsHtml}
         <td data-label="Stok Gudang" style="text-align: center;">
           ${stockBadgeHtml}
         </td>
@@ -2369,14 +2476,27 @@ function renderReportsView() {
     }
   });
 
-  // HPP Modal Kulakan Distributor (50% HET barang yang laku terjual)
-  const totalHpp = Math.round(totalHet * 0.50);
+  // HPP Modal Kulakan Toko Sesuai Tingkat Toko
+  const storeTier = (appState.storeSettings && appState.storeSettings.partnerTier) || 'distributor';
+  let hppRate = 0.50; // Distributor modal kulakan ke Pusat 50%
+  let hppSubtext = 'Modal kulakan produk ke PT SR12 Pusat (50%)';
+  if (storeTier === 'agen') {
+    hppRate = 0.60; // Agen modal kulakan ke Distributor 60% (diskon 40%)
+    hppSubtext = 'Modal kulakan produk ke Distributor Pembina (60%)';
+  } else if (storeTier === 'sub_agen') {
+    hppRate = 0.70; // Sub Agen modal kulakan ke Agen 70% (diskon 30%)
+    hppSubtext = 'Modal kulakan produk ke Agen/Distributor Pembina (70%)';
+  }
+
+  const totalHpp = Math.round(totalHet * hppRate);
   const grossProfit = Math.max(0, totalNet - totalHpp);
   const grossMarginPct = totalNet > 0 ? Math.round((grossProfit / totalNet) * 100) : 0;
   const netProfit = grossProfit - totalExpenses;
 
   const netRevEl = document.getElementById('repNetRevenue');
   const hppEl = document.getElementById('repHppCost');
+  const hppSubtextEl = document.getElementById('repHppSubtext');
+  if (hppSubtextEl) hppSubtextEl.textContent = hppSubtext;
   const grossEl = document.getElementById('repGrossProfit');
   const grossMarginPctEl = document.getElementById('repGrossMarginPct');
   const expensesEl = document.getElementById('repOperatingExpenses');

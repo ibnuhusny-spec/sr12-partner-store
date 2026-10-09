@@ -1698,6 +1698,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (typeof initUniversalModalGestures === 'function') {
     initUniversalModalGestures();
   }
+  if (typeof initGlobalEdgeSwipeBackGesture === 'function') {
+    initGlobalEdgeSwipeBackGesture();
+  }
 });
 
 function loadStoreBySlug(slug) {
@@ -5603,6 +5606,128 @@ function initUniversalModalGestures() {
 }
 window.initUniversalModalGestures = initUniversalModalGestures;
 
+// ========================================================
+// GESTUR GESER LAYAR TEPI KE TENGAH DI HP (PREDICTIVE BACK)
+// Kembali ke halaman sebelumnya, tutup modal/drawer, atau keluar
+// ========================================================
+function initGlobalEdgeSwipeBackGesture() {
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchStartTime = 0;
+  let isTrackingEdgeSwipe = false;
+  const indicator = document.getElementById('edgeSwipeBackIndicator');
+  const textEl = document.getElementById('edgeSwipeBackText');
+
+  window.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    touchStartX = touch.clientX;
+    touchStartY = touch.clientY;
+    touchStartTime = Date.now();
+
+    // Hanya aktif jika sentuhan dimulai dari area dekat tepi kiri layar (<= 45px)
+    isTrackingEdgeSwipe = touchStartX <= 45;
+  }, { passive: true });
+
+  window.addEventListener('touchmove', (e) => {
+    if (!isTrackingEdgeSwipe || e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    const diffX = touch.clientX - touchStartX;
+    const diffY = touch.clientY - touchStartY;
+
+    // Gerakan harus dominan ke kanan (horizontal)
+    if (diffX > 15 && diffX > Math.abs(diffY) * 1.2) {
+      if (indicator) {
+        indicator.classList.add('active');
+        const progress = Math.min(1, diffX / 75);
+        indicator.style.opacity = `${0.35 + (progress * 0.65)}`;
+        if (textEl) {
+          textEl.textContent = diffX >= 70 ? 'Lepas untuk Kembali' : 'Kembali';
+        }
+      }
+    } else if (diffY > Math.abs(diffX) && diffY > 20) {
+      // Jika ternyata gerakan scroll vertikal, batalkan
+      isTrackingEdgeSwipe = false;
+      if (indicator) indicator.classList.remove('active');
+    }
+  }, { passive: true });
+
+  window.addEventListener('touchend', (e) => {
+    if (!isTrackingEdgeSwipe) return;
+    isTrackingEdgeSwipe = false;
+
+    if (indicator) {
+      indicator.classList.remove('active');
+    }
+
+    const touch = e.changedTouches[0];
+    const diffX = touch.clientX - touchStartX;
+    const diffY = touch.clientY - touchStartY;
+    const elapsed = Date.now() - touchStartTime;
+
+    // Trigger jika tarikan mencapai >= 65px dan dominan horizontal dalam waktu < 800ms
+    if (diffX >= 65 && diffX > Math.abs(diffY) * 1.2 && elapsed < 800) {
+      handleGlobalBackNavigation();
+    }
+  }, { passive: true });
+}
+
+function handleGlobalBackNavigation() {
+  // 1. Jika ada modal aktif yang terbuka, tutup modal teratas
+  const openModals = Array.from(document.querySelectorAll('.modal-backdrop.open'));
+  if (openModals.length > 0) {
+    const topModal = openModals[openModals.length - 1];
+    closeModal(topModal.id);
+    return;
+  }
+
+  // 2. Jika Olsera sidebar drawer terbuka, tutup drawer
+  const sidebar = document.getElementById('olseraSidebar');
+  if (sidebar && sidebar.classList.contains('open')) {
+    if (typeof closeOlseraSidebarDrawer === 'function') {
+      closeOlseraSidebarDrawer();
+    }
+    return;
+  }
+
+  // 3. Jika Keranjang Belanja (cart drawer) terbuka, tutup keranjang
+  const cartDrawer = document.getElementById('cartDrawer');
+  if (cartDrawer && cartDrawer.classList.contains('open')) {
+    if (typeof closeCartDrawer === 'function') {
+      closeCartDrawer();
+    }
+    return;
+  }
+
+  // 4. Jika di dalam Portal Olsera Kasir/Gudang
+  if (document.body.classList.contains('olsera-portal-active')) {
+    const currentTab = (typeof appState !== 'undefined' && appState.activeOlseraTab) || 'pos';
+    if (currentTab !== 'pos') {
+      // Kembali ke kasir POS
+      if (typeof switchOlseraTab === 'function') {
+        switchOlseraTab('pos');
+        showToast('🔙 Kembali ke Kasir Point of Sale');
+      }
+    } else {
+      // Jika sudah di POS, kembali ke Tinjau Etalase Toko
+      if (typeof showDistributorPortalView === 'function') {
+        showDistributorPortalView(false);
+        showToast('🏠 Kembali ke Tinjau Toko Online');
+      }
+    }
+    return;
+  }
+
+  // 5. Jika di etalase toko pembeli
+  if (window.history.length > 1) {
+    window.history.back();
+  } else {
+    showToast('👋 Tekan kembali sekali lagi atau tombol Home untuk keluar');
+  }
+}
+window.initGlobalEdgeSwipeBackGesture = initGlobalEdgeSwipeBackGesture;
+window.handleGlobalBackNavigation = handleGlobalBackNavigation;
+
 function openProductDetailModal(productId) {
   const prod = appState.products.find(p => p.id === productId);
   if (!prod) return;
@@ -6021,7 +6146,36 @@ function renderSwitchStoreModal(filterText = '') {
   if (!container) return;
 
   const q = (filterText || '').trim().toLowerCase();
-  const stores = (appState.partnerStores || []).filter(s => {
+  const currentStore = appState.storeSettings || DEFAULT_STORE_SETTINGS;
+  const currentSlug = currentStore.slug || 'alzam-agency';
+  const currentOwner = (currentStore.storeOwner || '').trim().toLowerCase();
+  const currentName = (currentStore.storeName || '').trim().toLowerCase();
+
+  // FILTER KEPEMILIKAN TOKO KETAT:
+  // Hanya tampilkan toko miliknya sendiri atau cabang binaannya
+  const isMasterDev = !!appState.isDevMasterLoggedIn;
+  const authorizedStores = (appState.partnerStores || []).filter(s => {
+    if (!s || !s.slug) return false;
+    if (isMasterDev) return true;
+
+    // 1. Toko yang sedang aktif
+    if (s.slug === currentSlug) return true;
+
+    // 2. Pemilik yang sama persis
+    if (s.storeOwner && s.storeOwner.trim().toLowerCase() === currentOwner) return true;
+
+    // 3. Toko cabang / binaan yang memilih distributor ini sebagai pembina
+    if (s.recommenderSlug === currentSlug) return true;
+
+    // 4. Afiliasi agensi yang sama (misal sama-sama naungan Alzam Agency)
+    if (currentName.includes('alzam') && (s.storeName?.toLowerCase().includes('alzam') || s.storeOwner?.toLowerCase().includes('alzam'))) return true;
+    if (s.recommenderDistributor && s.recommenderDistributor.toLowerCase().includes(currentName)) return true;
+
+    // Toko milik distributor lain di luar agensi ini tidak diizinkan masuk
+    return false;
+  });
+
+  const stores = authorizedStores.filter(s => {
     if (!q) return true;
     return (s.storeName && s.storeName.toLowerCase().includes(q)) ||
            (s.storeOwner && s.storeOwner.toLowerCase().includes(q)) ||
@@ -6031,15 +6185,15 @@ function renderSwitchStoreModal(filterText = '') {
 
   const totalStoresBadge = document.getElementById('switchStoreTotalBadge');
   if (totalStoresBadge) {
-    totalStoresBadge.textContent = `${appState.partnerStores.length} Toko`;
+    totalStoresBadge.textContent = `${authorizedStores.length} Toko Anda`;
   }
 
   if (stores.length === 0) {
     container.innerHTML = `
       <div style="text-align: center; padding: 30px 10px; color: #94a3b8;">
         <span style="font-size: 2rem; display: block; margin-bottom: 8px;">🔍</span>
-        <div style="font-weight: 700; font-size: 0.9rem;">Tidak ada toko yang cocok</div>
-        <p style="font-size: 0.76rem; margin: 4px 0 0 0;">Coba kata kunci lain atau daftarkan toko mitra baru.</p>
+        <div style="font-weight: 700; font-size: 0.9rem;">Tidak ada cabang toko lain yang cocok</div>
+        <p style="font-size: 0.76rem; margin: 4px 0 0 0;">Hanya toko &amp; cabang resmi di bawah naungan ${currentStore.storeName || 'Alzam Agency'} yang ditampilkan di sini.</p>
       </div>
     `;
     return;
@@ -7773,11 +7927,25 @@ function renderResellers() {
     return `
       <tr>
         <td data-label="ID & Nama Mitra">
-          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 3px;">
-            <span style="background: #0f172a; color: #38bdf8; padding: 2px 7px; border-radius: 4px; font-family: monospace; font-weight: 800; font-size: 0.75rem;">${m.id || 'MITRA'}</span>
-            <b style="font-size: 0.88rem; color: var(--dark-900);">${m.name}</b>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="background: #0f172a; color: #38bdf8; padding: 2px 7px; border-radius: 4px; font-family: monospace; font-weight: 800; font-size: 0.74rem;">${m.id || 'MITRA'}</span>
+              <b style="font-size: 0.92rem; color: #0f172a;">${m.name}</b>
+            </div>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <span style="display: inline-block; padding: 2px 7px; border-radius: 4px; font-weight: 800; font-size: 0.7rem; ${tierBadgeStyle}">
+                ${tierBadgeText}
+              </span>
+              <span class="badge-crm" style="background: ${m.state === 'active' ? '#dcfce7' : (m.state === 'warning' ? '#fef3c7' : '#fee2e2')}; color: ${m.state === 'active' ? '#15803d' : (m.state === 'warning' ? '#92400e' : '#b91c1c')}; padding: 2px 7px; font-size: 0.7rem;">
+                ${m.state === 'active' ? '🟢' : (m.state === 'warning' ? '🟡' : '🔴')} ${m.label}
+              </span>
+            </div>
           </div>
-          <span style="font-family: monospace; font-size: 0.75rem; color: #0284c7;">📱 ${m.phone}</span> &middot; <span style="font-size: 0.72rem; color: var(--dark-500);">${m.city || 'Indonesia'}</span>
+          <div style="font-size: 0.75rem; color: #64748b; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <span><a href="https://wa.me/${m.phone.replace(/[^0-9]/g, '')}" target="_blank" style="color: #0284c7; text-decoration: none; font-weight: 700; font-family: monospace;">📱 ${m.phone}</a></span>
+            <span>&bull;</span>
+            <span>📍 ${m.city || 'Indonesia'}</span>
+          </div>
         </td>
         <td data-label="Tingkat">
           <span style="display: inline-block; padding: 4px 9px; border-radius: 4px; font-weight: 800; font-size: 0.72rem; ${tierBadgeStyle}">
@@ -7785,54 +7953,54 @@ function renderResellers() {
           </span>
         </td>
         <td data-label="Rekening Bank">
-          <div style="font-size: 0.78rem; font-weight: 700; color: #1e293b;">
-            ${m.bankName || 'BCA'} &middot; <span style="font-family: monospace;">${m.bankAccount || '-'}</span>
+          <div style="font-size: 0.8rem; font-weight: 800; color: #0f172a;">
+            🏦 ${m.bankName || 'BCA'} &bull; <span style="font-family: monospace; letter-spacing: 0.02em;">${m.bankAccount || '-'}</span>
           </div>
-          <div style="font-size: 0.7rem; color: #64748b;">
-            a.n ${m.bankHolder || m.name}
+          <div style="font-size: 0.72rem; color: #64748b; margin-top: 2px;">
+            a.n <span style="font-weight: 600; color: #334155;">${m.bankHolder || m.name}</span>
           </div>
         </td>
-        <td data-label="Masa Aktif & Evaluasi">
+        <td data-label="Masa Aktif">
           ${m.tier === 'marketer' ? `
-            <div style="font-size: 0.75rem; color: #0284c7; font-weight: 700;">
+            <div style="font-size: 0.78rem; color: #0284c7; font-weight: 800;">
               ✨ Jualan Tanpa Modal
             </div>
-            <div style="font-size: 0.7rem; color: #64748b;">
-              Bonus 15% ditransfer tiap bulan
+            <div style="font-size: 0.7rem; color: #64748b; margin-top: 2px;">
+              Komisi 15% bulanan
             </div>
           ` : `
-            <div style="font-size: 0.75rem; color: var(--dark-700);">
+            <div style="font-size: 0.75rem; color: #334155;">
               Gabung: <b>${m.qualificationDate || '-'}</b>
             </div>
             ${m.tier === 'reseller' ? `
-              <div style="font-size: 0.72rem; color: ${m.daysLeft <= 30 && m.state !== 'active' ? '#dc2626' : '#64748b'}; font-weight: 700; margin-top: 2px;">
-                ⏳ Sisa Waktu 90 Hari: ${m.daysLeft} Hari
+              <div style="font-size: 0.72rem; color: ${m.daysLeft <= 30 && m.state !== 'active' ? '#dc2626' : '#059669'}; font-weight: 800; margin-top: 2px;">
+                ⏳ Sisa ${m.daysLeft} Hari (90 Hari)
               </div>
             ` : `
               <div style="font-size: 0.72rem; color: #059669; font-weight: 700; margin-top: 2px;">
-                🛡️ Kuota Order Terpelihara
+                🛡️ Kuota Order Aktif
               </div>
             `}
           `}
         </td>
         <td data-label="Akumulasi Belanja">
           ${m.tier === 'marketer' ? `
-            <div style="font-size: 0.78rem; font-weight: 800; color: #0369a1;">
+            <div style="font-size: 0.82rem; font-weight: 800; color: #0369a1;">
               ${formatRupiah(m.accumulatedSpent90Days || 0)}
             </div>
-            <div style="font-size: 0.7rem; color: #64748b;">
+            <div style="font-size: 0.7rem; color: #64748b; margin-top: 2px;">
               ${m.totalOrdersCount || 0} Pesanan Terjual
             </div>
           ` : `
-            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 2px;">
-              <b>${formatRupiah(m.spent)}</b>
-              <span style="color: var(--dark-500);">Target: ${formatRupiah(m.targetNominal)}</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.76rem; margin-bottom: 3px; gap: 6px;">
+              <b style="color: #0f172a;">${formatRupiah(m.spent)}</b>
+              <span style="color: #64748b; font-size: 0.7rem;">Target: ${formatRupiah(m.targetNominal)}</span>
             </div>
-            <div class="progress-bar-bg">
-              <div class="progress-bar-fill" style="width: ${progressPct}%; background: ${m.state === 'active' ? '#10b981' : (m.state === 'warning' ? '#f59e0b' : '#ef4444')};"></div>
+            <div style="background: #e2e8f0; border-radius: 999px; height: 6px; width: 100%; min-width: 90px; overflow: hidden;">
+              <div style="width: ${progressPct}%; height: 100%; background: ${m.state === 'active' ? '#10b981' : (m.state === 'warning' ? '#f59e0b' : '#ef4444')}; border-radius: 999px;"></div>
             </div>
-            <div style="font-size: 0.68rem; color: var(--dark-500); margin-top: 3px;">
-              ${m.deficit > 0 ? `Kurang ${formatRupiah(m.deficit)} lagi` : '✨ Target aman!'}
+            <div style="font-size: 0.68rem; color: ${m.deficit > 0 ? '#b45309' : '#059669'}; margin-top: 3px; font-weight: 700;">
+              ${m.deficit > 0 ? `Kurang ${formatRupiah(m.deficit)}` : '✨ Target RO Tercapai!'}
             </div>
           `}
         </td>
@@ -7842,21 +8010,21 @@ function renderResellers() {
           </span>
         </td>
         <td data-label="Aksi" style="text-align: center;">
-          <div style="display: flex; gap: 6px; justify-content: center;">
+          <div style="display: flex; gap: 6px; justify-content: flex-end;">
             ${m.tier === 'reseller' && m.deficit > 0 ? `
-              <button onclick="sendResellerReminderWA('${m.phone}', '${m.name}', ${m.daysLeft}, ${m.deficit})" title="Kirim Pesan Pengingat Belanja RO ke WhatsApp" style="background: #25d366; color: #fff; border: none; padding: 5px 9px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;">
+              <button onclick="sendResellerReminderWA('${m.phone}', '${m.name}', ${m.daysLeft}, ${m.deficit})" title="Kirim Pengingat RO ke WhatsApp" style="background: #25d366; color: #fff; border: none; padding: 5px 9px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;">
                 <span>📲</span> Ingatkan RO
               </button>
             ` : (m.tier === 'marketer' ? `
-              <button onclick="switchTab('marketers')" title="Lihat Rekap Gaji Marketer Ini" style="background: #0284c7; color: #fff; border: none; padding: 5px 9px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;">
+              <button onclick="switchTab('marketers')" title="Lihat Rekap Gaji Marketer" style="background: #0284c7; color: #fff; border: none; padding: 5px 9px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;">
                 <span>💼</span> Gaji
               </button>
             ` : `
-              <button onclick="sendGeneralMitraWA('${m.phone}', '${m.name}', '${m.tier}')" title="Hubungi Mitra via WhatsApp" style="background: #25d366; color: #fff; border: none; padding: 5px 9px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;">
+              <button onclick="sendGeneralMitraWA('${m.phone}', '${m.name}', '${m.tier}')" title="Hubungi Mitra via WhatsApp" style="background: #25d366; color: #fff; border: none; padding: 5px 9px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;">
                 <span>📲</span> Chat WA
               </button>
             `)}
-            <button onclick="deleteMitra('${m.id}')" title="Hapus Data Mitra" style="background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; padding: 5px 8px; border-radius: 4px; font-size: 0.72rem; cursor: pointer;">
+            <button onclick="deleteMitra('${m.id}')" title="Hapus Data Mitra" style="background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; padding: 5px 8px; border-radius: 6px; font-size: 0.72rem; cursor: pointer;">
               🗑️
             </button>
           </div>
