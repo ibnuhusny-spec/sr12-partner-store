@@ -3159,7 +3159,7 @@ body.modal-open {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.68);
+  background: rgba(15, 23, 42, 0.72);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   z-index: 99999 !important;
@@ -3170,7 +3170,9 @@ body.modal-open {
   opacity: 0;
   transition: opacity 0.22s ease;
   overscroll-behavior: contain !important;
-  touch-action: none !important; /* Mencegah geseran jari di backdrop menggulung halaman belakang */
+  overflow-y: auto !important; /* Memungkinkan backdrop di-scroll leluasa saat modal tinggi atau keyboard muncul */
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-y !important; /* Izinkan gestur scroll vertikal jari di HP */
   user-select: none;
   -webkit-user-select: none;
 }
@@ -3205,6 +3207,28 @@ body.modal-open {
   will-change: transform, opacity;
   user-select: auto;
   -webkit-user-select: auto;
+}
+
+/* Responsif Mobile & Layar Pendek: Mencegah modal tertutup keyboard HP */
+@media (max-width: 640px), (max-height: 720px) {
+  .modal-backdrop {
+    align-items: flex-start !important; /* Letakkan modal mulai dari atas agar tidak terpotong saat keyboard muncul */
+    justify-content: center !important;
+    padding: 14px 10px calc(280px + env(safe-area-inset-bottom, 20px)) 10px !important; /* Ruang scroll ekstra 280px di bawah untuk keyboard HP */
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
+  }
+
+  .modal-backdrop.open {
+    display: flex !important;
+  }
+
+  .modal-dialog {
+    margin: 8px auto 30px auto !important;
+    max-height: none !important; /* Biarkan modal bernapas dan scroll bersama backdrop */
+    width: 100% !important;
+  }
 }
 
 /* Indikator geser (Swipe handle) di smartphone */

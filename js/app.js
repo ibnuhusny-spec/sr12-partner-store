@@ -2721,17 +2721,21 @@ async function approvePendingStore(appId) {
 
   // Siapkan Pesan Konfirmasi WA Aktivasi
   const storeUrl = `${window.location.origin}${window.location.pathname}?store=${approvedStore.slug}`;
+  const ownerPortalUrl = `${storeUrl}&seller=1`;
   const waMsg = encodeURIComponent(
     `Halo Kak ${approvedStore.storeOwner}!\n\n` +
     `🎉 *SELAMAT! PENGAJUAN TOKO SR12 ANDA TELAH DISETUJUI* 🎉\n\n` +
     `Surat Keputusan (SK) Resmi Anda (No: *${approvedStore.verifiedSkNumber}*) telah *DIVERIFIKASI & DISETUJUI* oleh Distributor / Admin SR12 Herbal Perkasa.\n\n` +
     `🏪 *Nama Toko:* ${approvedStore.storeName}\n` +
     `📍 *Kota:* ${approvedStore.storeCity}\n` +
-    `👑 *Level Kemitraan:* ${tierTitle}\n` +
-    `🔗 *Link Resmi Toko Anda:*\n${storeUrl}\n\n` +
+    `👑 *Level Kemitraan:* ${tierTitle}\n\n` +
+    `🔗 *Link Etalase Belanja (Untuk Pembeli):*\n${storeUrl}\n\n` +
+    `🔐 *Link Khusus Kelola Toko (Akses Pemilik):*\n${ownerPortalUrl}\n\n` +
     `🔑 *PIN Admin Toko:* ${approvedStore.storeAdminPin}\n` +
     `⚡ *Bonus Kuota Awal:* 15 Order WhatsApp Gratis\n\n` +
-    `Silakan klik link di atas untuk melihat toko online Anda dan mulai sebarkan ke seluruh mitra maupun calon pembeli. Selamat berjualan dan sukses selalu! 🚀`
+    `💡 *Tips Keamanan Akses ala Shopee:*\n` +
+    `Etalase toko online Anda dibuat bersih tanpa tombol login agar pembeli umum tidak bisa mencoba membobol dashboard Anda. Untuk masuk ke dashboard, Anda cukup membuka *Link Khusus Kelola Toko* di atas, atau ketuk (klik 3x) Foto Logo Toko Anda di halaman toko.\n\n` +
+    `Selamat berjualan dan sukses selalu bersama keluarga besar SR12 Herbal Perkasa! 🚀`
   );
 
   showToast(`🎉 Toko "${approvedStore.storeName}" BERHASIL DISETUJUI & DIAKTIFKAN!`);
@@ -3784,16 +3788,35 @@ function openDistributorLoginModal() {
   const emailInput = document.getElementById('distributorLoginEmail');
   const passInput = document.getElementById('distributorLoginPassword');
   const err = document.getElementById('distributorLoginError');
+  const modalTitle = document.getElementById('distLoginModalTitle');
+  const storeBadge = document.getElementById('distLoginStoreBadge');
 
   const store = appState.storeSettings || DEFAULT_STORE_SETTINGS;
   const storeEmail = store.slug + '@sr12.co.id';
+  const tierName = (store.storeTier || 'Distributor').toUpperCase();
+
+  if (modalTitle) modalTitle.textContent = `Akses Pemilik Toko (${tierName})`;
+  if (storeBadge) storeBadge.textContent = `${store.storeName} (${store.storeCity || 'Mitra Resmi'})`;
 
   if (emailInput) emailInput.value = storeEmail;
   if (passInput) passInput.value = '';
   if (err) err.style.display = 'none';
 
-  if (modal) modal.classList.add('open');
-  if (passInput) setTimeout(() => passInput.focus(), 200);
+  if (typeof openModal === 'function') {
+    openModal('modalDistributorLogin');
+  } else if (modal) {
+    modal.classList.add('open');
+  }
+
+  // Auto focus & scroll input PIN ke tengah viewport agar nyaman di layar HP saat keyboard muncul
+  if (passInput) {
+    setTimeout(() => {
+      passInput.focus();
+      try {
+        passInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } catch(e) {}
+    }, 280);
+  }
 }
 
 function autoFillDemoLogin() {
@@ -4092,8 +4115,8 @@ function updateViewModeUI() {
   
   const distHeroLoginLabel = document.getElementById('distHeroLoginLabel');
   if (btnDistLogin) {
-    btnDistLogin.style.display = isCentral ? 'none' : 'inline-flex';
     if (isLogged) {
+      btnDistLogin.style.display = isCentral ? 'none' : 'inline-flex';
       btnDistLogin.title = "Buka Dashboard Admin & Kasir (Olsera)";
       btnDistLogin.setAttribute('aria-label', 'Dashboard Admin');
       if (distHeroLoginLabel) {
@@ -4107,15 +4130,12 @@ function updateViewModeUI() {
         }
       };
     } else {
-      btnDistLogin.title = "Masuk ke Dashboard Admin Distributor";
-      btnDistLogin.setAttribute('aria-label', 'Login Dashboard Admin');
+      // KEAMANAN STEALTH ALA SHOPEE: Sembunyikan total tombol login dari pembeli publik!
+      btnDistLogin.style.display = 'none';
       if (distHeroLoginLabel) {
         distHeroLoginLabel.textContent = "";
         distHeroLoginLabel.style.display = "none";
       }
-      btnDistLogin.onclick = function() {
-        openDistributorLoginModal();
-      };
     }
   }
 
@@ -4127,7 +4147,8 @@ function updateViewModeUI() {
 
   if (topbarBtnOlseraPos) topbarBtnOlseraPos.style.display = isLogged ? 'inline-flex' : 'none';
   if (topbarBtnShareStore) topbarBtnShareStore.style.display = isLogged ? 'inline-flex' : 'none';
-  if (topbarBtnDistLogin) topbarBtnDistLogin.style.display = isLogged ? 'none' : 'inline-flex';
+  // Sembunyikan tombol login topbar dari pengunjung umum demi privasi & keamanan tinggi
+  if (topbarBtnDistLogin) topbarBtnDistLogin.style.display = 'none';
   if (topbarBtnDistLogout) topbarBtnDistLogout.style.display = isLogged ? 'inline-flex' : 'none';
 
   // 3. KONTROL TOMBOL TAMBAH PRODUK, MENU TOKO & PENGATURAN TOKO DI INTERFACE RETAIL
@@ -4536,35 +4557,141 @@ function initEventListeners() {
     btnCloseDevPortal.addEventListener('click', () => modalDevPortal.classList.remove('open'));
   }
 
-  // 1. Secret Shortcut Keyboard untuk Desktop: Ctrl + Shift + D
+  // ========================================================
+  // SISTEM AKSES TERSEMBUNYI (STEALTH LOGIN ALA SHOPEE & LAZADA)
+  // ========================================================
+
+  // 1. Shortcut Keyboard Rahasia untuk Desktop / Laptop:
+  //    • Ctrl + Shift + D : Akses Master Developer & Super Admin
+  //    • Ctrl + Shift + S / Ctrl + Shift + L : Akses Pemilik Toko (Seller Dashboard)
   window.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
-      e.preventDefault();
-      openDevPinPrompt();
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
+      const key = (e.key || '').toUpperCase();
+      if (key === 'D') {
+        e.preventDefault();
+        openDevPinPrompt();
+      } else if (key === 'S' || key === 'L') {
+        e.preventDefault();
+        if (!appState.isDistributorLoggedIn) {
+          openDistributorLoginModal();
+        } else {
+          if (typeof showDistributorPortalView === 'function') {
+            showDistributorPortalView(true);
+          }
+        }
+      }
     }
   });
 
-  // 2. Secret Mobile Triple-Tap pada Footer Copyright (Untuk akses aman via Smartphone tanpa keyboard)
-  const footerArea = document.querySelector('footer');
-  if (footerArea) {
-    let tapCount = 0;
-    let tapTimeout = null;
-    footerArea.addEventListener('click', () => {
-      tapCount++;
-      clearTimeout(tapTimeout);
-      if (tapCount >= 3) {
-        tapCount = 0;
+  // 2. GESTUR RAHASIA PEMILIK TOKO: Triple-Tap (3x Klik Cepat) & Long-Press (Tahan 1.2s) pada Foto Logo Toko
+  let storeLogoTapCount = 0;
+  let storeLogoTapTimer = null;
+  let storeLogoPressTimer = null;
+
+  document.addEventListener('click', (e) => {
+    const logoTarget = e.target.closest('#distHeroLogoBox, #distHeroLogoImg, .distributor-hero-logo-box');
+    if (logoTarget) {
+      if (appState.isDistributorLoggedIn && appState.isAdminMode) return;
+      storeLogoTapCount++;
+      clearTimeout(storeLogoTapTimer);
+      if (storeLogoTapCount >= 3) {
+        storeLogoTapCount = 0;
+        e.preventDefault();
+        e.stopPropagation();
+        openDistributorLoginModal();
+        if (typeof showToast === 'function') {
+          showToast('👑 Akses Terverifikasi: Silakan masukkan PIN Pemilik Toko');
+        }
+      } else {
+        storeLogoTapTimer = setTimeout(() => { storeLogoTapCount = 0; }, 1200);
+      }
+    }
+  });
+
+  document.addEventListener('touchstart', (e) => {
+    const logoTarget = e.target.closest('#distHeroLogoBox, #distHeroLogoImg, .distributor-hero-logo-box');
+    if (logoTarget) {
+      if (appState.isDistributorLoggedIn && appState.isAdminMode) return;
+      storeLogoPressTimer = setTimeout(() => {
+        try { if (navigator.vibrate) navigator.vibrate(50); } catch(err) {}
+        openDistributorLoginModal();
+        if (typeof showToast === 'function') {
+          showToast('👑 Akses Terverifikasi: Silakan masukkan PIN Pemilik Toko');
+        }
+      }, 1200);
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchend', () => {
+    if (storeLogoPressTimer) clearTimeout(storeLogoPressTimer);
+  }, { passive: true });
+
+  document.addEventListener('touchcancel', () => {
+    if (storeLogoPressTimer) clearTimeout(storeLogoPressTimer);
+  }, { passive: true });
+
+  // 3. GESTUR RAHASIA DEVELOPER SUPER ADMIN: Triple-Tap & Long-Press pada Logo Brand SR12 & Footer Copyright
+  let devLogoTapCount = 0;
+  let devLogoTapTimer = null;
+  let devLogoPressTimer = null;
+
+  document.addEventListener('click', (e) => {
+    const devTarget = e.target.closest('#brandLogoContainer, .footer-simple-copy, footer');
+    if (devTarget) {
+      devLogoTapCount++;
+      clearTimeout(devLogoTapTimer);
+      if (devLogoTapCount >= 3) {
+        devLogoTapCount = 0;
+        e.preventDefault();
+        e.stopPropagation();
         openDevPinPrompt();
       } else {
-        tapTimeout = setTimeout(() => { tapCount = 0; }, 500);
+        devLogoTapTimer = setTimeout(() => { devLogoTapCount = 0; }, 1200);
       }
-    });
-  }
+    }
+  });
 
-  // 3. Akses Rahasia via URL Parameter: ?dev=1
+  document.addEventListener('touchstart', (e) => {
+    const devTarget = e.target.closest('#brandLogoContainer, .footer-simple-copy');
+    if (devTarget) {
+      devLogoPressTimer = setTimeout(() => {
+        try { if (navigator.vibrate) navigator.vibrate(60); } catch(err) {}
+        openDevPinPrompt();
+      }, 1200);
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchend', () => {
+    if (devLogoPressTimer) clearTimeout(devLogoPressTimer);
+  }, { passive: true });
+
+  document.addEventListener('touchcancel', () => {
+    if (devLogoPressTimer) clearTimeout(devLogoPressTimer);
+  }, { passive: true });
+
+  // 4. AKSES RAHASIA VIA URL PARAMETER:
+  //    • ?dev=1 / ?admin=dev : Membuka Master Gate Pengembang
+  //    • ?seller=1 / ?admin=1 / ?portal=1 / ?mode=seller / ?login=1 : Membuka Akses Pemilik Toko
   const urlCheck = new URLSearchParams(window.location.search);
   if (urlCheck.get('dev') === '1' || urlCheck.get('admin') === 'dev') {
     setTimeout(openDevPinPrompt, 400);
+  }
+
+  const isOwnerUrlRequest = urlCheck.get('seller') === '1' ||
+                            urlCheck.get('admin') === '1' ||
+                            urlCheck.get('portal') === '1' ||
+                            urlCheck.get('login') === '1' ||
+                            urlCheck.get('owner') === '1' ||
+                            urlCheck.get('mode') === 'seller' ||
+                            urlCheck.get('mode') === 'admin';
+
+  if (isOwnerUrlRequest) {
+    const isCentral = !appState.storeSettings?.slug || appState.storeSettings.slug === 'sr12-central';
+    if (!isCentral && !appState.isDistributorLoggedIn) {
+      setTimeout(() => {
+        openDistributorLoginModal();
+      }, 500);
+    }
   }
 }
 
@@ -6174,9 +6301,13 @@ function initUniversalModalGestures() {
       }
     });
 
-    // 2. Kunci total touchmove pada area gelap backdrop agar halaman di belakang TIDAK PERNAH bergerak
+    // 2. Kunci touchmove pada area gelap backdrop HANYA jika konten muat di layar.
+    // Jika modal lebih tinggi dari layar (misal saat virtual keyboard HP aktif), izinkan scrolling leluasa!
     backdrop.addEventListener('touchmove', (e) => {
       if (e.target === backdrop) {
+        if (backdrop.scrollHeight > backdrop.clientHeight) {
+          return; // Biarkan sentuhan menggeser layar ke atas/bawah!
+        }
         e.preventDefault();
       }
     }, { passive: false });
@@ -6320,6 +6451,17 @@ function initUniversalModalGestures() {
 
   backdrops.forEach(b => {
     modalObserver.observe(b, { attributes: true, attributeFilter: ['class'] });
+  });
+
+  // Auto-scroll input modal ke tengah pandangan saat keyboard virtual HP muncul
+  document.addEventListener('focusin', (e) => {
+    if (e.target && e.target.matches && e.target.matches('.modal-backdrop input, .modal-dialog input, .modal-dialog textarea')) {
+      setTimeout(() => {
+        try {
+          e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } catch(err) {}
+      }, 280);
+    }
   });
 }
 window.initUniversalModalGestures = initUniversalModalGestures;

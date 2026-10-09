@@ -85,8 +85,8 @@
           🔗 <span class="topbar-btn-text">Bagikan</span>
         </button>
 
-        <!-- Tombol Login Pemilik Toko (Terlihat saat belum login) -->
-        <button class="btn-topbar-action" id="topbarBtnDistLogin" onclick="openDistributorLoginModal()" title="Login Pemilik Toko / Distributor">
+        <!-- Tombol Login Pemilik Toko (Disembunyikan demi keamanan privasi etalase pembeli ala Shopee) -->
+        <button class="btn-topbar-action" id="topbarBtnDistLogin" onclick="openDistributorLoginModal()" title="Login Pemilik Toko / Distributor" style="display: none;">
           🔐 <span class="topbar-btn-text">Login Pemilik Toko</span>
         </button>
         <!-- Tombol Logout Pemilik Toko (Terlihat saat sudah login) -->
@@ -1467,7 +1467,7 @@
 
       <div class="distributor-hero-content-wrap">
         <!-- 1. Logo / Foto Profil Toko di Tengah (Menimpa Latar Belakang / Overlapping Avatar) -->
-        <div class="distributor-hero-logo-box">
+        <div class="distributor-hero-logo-box" id="distHeroLogoBox" title="Foto Profil Toko Resmi SR12" style="cursor: pointer;">
           <img id="distHeroLogoImg" src="assets/sr12-logo.png" alt="Logo Toko Distributor">
           <button type="button" id="btnEditStoreLogo" onclick="openStoreSettingsModalWithFocus('logo')" class="btn-edit-logo-quick" title="Ubah Foto Profil / Logo Toko" style="display: none;">
             📷
@@ -1480,7 +1480,7 @@
           <span class="badge-verified-tick" title="Toko Mitra Terverifikasi Resmi SR12">✓</span>
         </h2>
 
-        <!-- 3. HANYA TIGA TOMBOL ICON (TANPA TEKS): Icon Pesan WA, Icon Home, Icon Dashboard Admin -->
+        <!-- 3. TOMBOL HERO: Bersih untuk Publik (WhatsApp & Home), Dashboard hanya untuk Pemilik yang Login -->
         <div class="distributor-hero-3icons">
           <!-- 1. Icon Pesan / WhatsApp Toko Resmi -->
           <a id="btnDistChatWa" href="https://wa.me/6281234567890" target="_blank" class="btn-hero-icon-only btn-hero-icon-wa" title="Pesan Produk via WhatsApp" aria-label="Pesan via WhatsApp">
@@ -1495,8 +1495,8 @@
               <polyline points="9 22 9 12 15 12 15 22"/>
             </svg>
           </button>
-          <!-- 3. Icon Dashboard Admin Distributor -->
-          <button type="button" id="btnDistLoginHero" onclick="openDistributorLoginModal()" class="btn-hero-icon-only btn-hero-icon-admin" title="Dashboard Admin Distributor" aria-label="Dashboard Admin">
+          <!-- 3. Icon Dashboard Admin (HANYA MUNCUL JIKA PEMILIK SUDAH LOGIN / BUKAN UNTUK PEMBELI PUBLIK) -->
+          <button type="button" id="btnDistLoginHero" onclick="openDistributorLoginModal()" class="btn-hero-icon-only btn-hero-icon-admin" title="Dashboard Admin Distributor" aria-label="Dashboard Admin" style="display: none;">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="3" width="7" height="7" rx="1.5"/>
               <rect x="14" y="3" width="7" height="7" rx="1.5"/>
@@ -1840,8 +1840,8 @@
         <p class="footer-simple-copy">&copy; 2026 SR12-Ku Pro &bull; Produk 100% Original BPOM &amp; Halal MUI</p>
         <div class="footer-simple-links">
           <button type="button" onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="footer-link-btn">⬆ Kembali ke Atas</button>
-          <span class="footer-sep">&bull;</span>
-          <button type="button" onclick="openDevPinPrompt()" class="footer-link-btn footer-dev-link" title="Akses Developer &amp; Super Admin">🔐 Developer</button>
+          <span class="footer-sep" style="display: none;">&bull;</span>
+          <button type="button" onclick="openDevPinPrompt()" class="footer-link-btn footer-dev-link" id="footerDevLinkBtn" title="Akses Developer &amp; Super Admin" style="display: none;">🔐 Developer</button>
         </div>
       </div>
       <!-- Hidden Elements for JS Compatibility (agar skrip JS tetap aman tanpa null pointer) -->
@@ -2886,7 +2886,7 @@
                 <label style="font-size: 0.8rem; font-weight: 700; color: var(--dark-800); margin: 0;">PIN Admin Toko Anda:</label>
                 <span style="font-size: 0.68rem; color: #047857; background: #dcfce7; padding: 2px 6px; border-radius: 4px; font-weight: 700;">Awal: 1234</span>
               </div>
-              <input type="password" id="regStorePin" maxlength="8" placeholder="Default: 1234" value="1234" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: monospace; font-weight: 700;">
+              <input type="password" id="regStorePin" maxlength="8" placeholder="Default: 1234" value="1234" required inputmode="numeric" pattern="[0-9]*" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: monospace; font-weight: 700;">
               <small style="font-size: 0.68rem; color: var(--dark-500); display: block; margin-top: 3px;">PIN awal bawaan: <b>1234</b>. Dapat diganti kapan saja setelah toko aktif.</small>
             </div>
           </div>
@@ -3351,46 +3351,53 @@
     <div class="modal-dialog" style="max-width: 440px;">
       <div class="modal-header" style="background: linear-gradient(135deg, #065f46, #047857); color: #fff;">
         <h3 style="display: flex; align-items: center; gap: 8px; color: #fff; margin: 0; font-size: 1.05rem;">
-          <span>👑</span> Login Pemilik Toko (Distributor)
+          <span>👑</span> <span id="distLoginModalTitle">Akses Pemilik Toko</span>
         </h3>
         <button class="btn-close-modal" id="btnCloseDistributorLogin" style="color: #fff;" onclick="closeModal('modalDistributorLogin')">&times;</button>
       </div>
-      <div class="modal-body" style="padding: 22px;">
-        <p style="font-size: 0.82rem; color: var(--dark-600); margin-bottom: 16px; line-height: 1.5;">
-          Akses khusus <b>Distributor Resmi</b> untuk mengelola produk gudang, database seluruh mitra binaan, pengaturan nama/logo toko, dan pembukuan komisi marketer bulanan.
-        </p>
+      <div class="modal-body" style="padding: 18px 20px;">
+        <!-- Identitas Toko yang Sedang Diakses -->
+        <div style="background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;">
+          <div>
+            <span style="font-size: 0.68rem; font-weight: 800; color: #15803d; text-transform: uppercase; letter-spacing: 0.5px;">Toko Yang Diakses:</span>
+            <div id="distLoginStoreBadge" style="font-size: 0.88rem; font-weight: 800; color: #065f46;">Toko Mitra SR12</div>
+          </div>
+          <span style="font-size: 1.25rem;">🏪</span>
+        </div>
+
         <form onsubmit="handleDistributorLoginSubmit(event)">
           <div style="margin-bottom: 12px;">
-            <label style="font-size: 0.78rem; font-weight: 700; color: var(--dark-800); display: block; margin-bottom: 5px;">Email / No. WhatsApp Distributor:</label>
-            <input type="text" id="distributorLoginEmail" placeholder="Contoh: aisyah@sr12.co.id / 081234567890" required style="width: 100%; padding: 10px 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 0.88rem; font-family: var(--font-main);">
+            <label style="font-size: 0.76rem; font-weight: 700; color: var(--dark-800); display: block; margin-bottom: 4px;">Akun / Email Toko:</label>
+            <input type="text" id="distributorLoginEmail" placeholder="Email atau username toko..." required style="width: 100%; padding: 9px 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 0.85rem; font-family: var(--font-main);">
           </div>
 
           <div style="margin-bottom: 14px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-              <label style="font-size: 0.78rem; font-weight: 700; color: var(--dark-800); margin: 0;">Password / PIN Distributor:</label>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <label style="font-size: 0.76rem; font-weight: 700; color: var(--dark-800); margin: 0;">PIN Keamanan Toko:</label>
             </div>
-            <input type="password" id="distributorLoginPassword" placeholder="Masukkan password akun..." required style="width: 100%; padding: 10px 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 0.95rem; font-family: var(--font-main);">
+            <div style="position: relative; display: flex; align-items: center;">
+              <input type="password" id="distributorLoginPassword" placeholder="Masukkan PIN toko..." required inputmode="numeric" pattern="[0-9]*" maxlength="10" autocomplete="current-password" style="width: 100%; padding: 11px 42px 11px 12px; border: 1.5px solid #10b981; border-radius: var(--radius-sm); font-size: 1.1rem; letter-spacing: 3px; font-family: monospace; font-weight: 700;">
+              <button type="button" onclick="togglePinVisibility('distributorLoginPassword', this)" style="position: absolute; right: 10px; background: none; border: none; color: #64748b; cursor: pointer; font-size: 1rem; padding: 4px;" title="Lihat/Sembunyikan PIN">👁️</button>
+            </div>
             <div id="distributorLoginError" style="display: none; color: #ef4444; font-size: 0.78rem; margin-top: 6px; font-weight: 600;"></div>
           </div>
 
-          <!-- Secure Distributor Security Notice -->
-          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 12px; font-size: 0.76rem; color: #166534; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 1.1rem;">🛡️</span>
-            <div>
-              <b>Akses Terproteksi Distributor:</b> Masukkan email/no. WhatsApp dan PIN pengelola toko Anda.
-            </div>
+          <!-- Secure Notice -->
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; font-size: 0.74rem; color: #475569; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 1rem;">🛡️</span>
+            <div>Masukkan PIN akun untuk membuka dashboard pemilik toko.</div>
           </div>
 
           <div style="display: flex; gap: 10px;">
             <button type="submit" id="btnSubmitDistLogin" style="flex: 1; background: var(--primary-700); color: #fff; border: none; padding: 12px; border-radius: var(--radius-sm); font-weight: 700; font-size: 0.9rem; cursor: pointer;">
-              Masuk Dashboard Distributor
+              Masuk Dashboard Toko
             </button>
             <button type="button" onclick="closeModal('modalDistributorLogin')" style="background: var(--dark-100); color: var(--dark-700); border: 1px solid var(--border-subtle); padding: 12px 16px; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer;">
               Batal
             </button>
           </div>
-          <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed #cbd5e1; text-align: center;">
-            <button type="button" onclick="closeModal('modalDistributorLogin'); openDevPinPrompt();" style="background: none; border: none; color: #0284c7; font-size: 0.78rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+          <div style="margin-top: 14px; padding-top: 10px; border-top: 1px dashed #cbd5e1; text-align: center;">
+            <button type="button" onclick="closeModal('modalDistributorLogin'); openDevPinPrompt();" style="background: none; border: none; color: #0284c7; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
               <span>🔐</span> <u>Masuk Portal Super Admin Pengembang</u>
             </button>
           </div>
@@ -3415,7 +3422,10 @@
         <form onsubmit="verifyDevPinSubmit(event)">
           <div style="margin-bottom: 14px;">
             <label style="font-size: 0.8rem; font-weight: 700; color: #e2e8f0; display: block; margin-bottom: 6px;">Master PIN Developer:</label>
-            <input type="password" id="devPinInput" maxlength="12" placeholder="••••••••" required autocomplete="off" style="width: 100%; padding: 12px 14px; background: #1e293b; border: 1px solid #475569; border-radius: var(--radius-sm); color: #fff; font-size: 1.1rem; letter-spacing: 4px; text-align: center; font-family: monospace;">
+            <div style="position: relative; display: flex; align-items: center;">
+              <input type="password" id="devPinInput" maxlength="12" placeholder="••••••••" required autocomplete="off" inputmode="numeric" pattern="[0-9]*" style="width: 100%; padding: 12px 42px 12px 14px; background: #1e293b; border: 1px solid #475569; border-radius: var(--radius-sm); color: #fff; font-size: 1.1rem; letter-spacing: 4px; text-align: center; font-family: monospace;">
+              <button type="button" onclick="togglePinVisibility('devPinInput', this)" style="position: absolute; right: 10px; background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1rem; padding: 4px;" title="Lihat/Sembunyikan PIN">👁️</button>
+            </div>
             <div id="devPinError" style="display: none; color: #f87171; font-size: 0.78rem; margin-top: 6px; font-weight: 600;"></div>
           </div>
           <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; padding: 10px 12px; font-size: 0.74rem; color: #bae6fd; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
@@ -3465,7 +3475,7 @@
               PIN Saat Ini (Lama):
             </label>
             <div style="position: relative; display: flex; align-items: center;">
-              <input type="password" id="secPinCurrent" maxlength="10" placeholder="Masukkan PIN lama..." required autocomplete="off" style="width: 100%; padding: 11px 40px 11px 12px; background: #1e293b; border: 1px solid #475569; border-radius: 8px; color: #fff; font-size: 1.05rem; letter-spacing: 3px; font-family: monospace;">
+              <input type="password" id="secPinCurrent" maxlength="10" placeholder="Masukkan PIN lama..." required autocomplete="off" inputmode="numeric" pattern="[0-9]*" style="width: 100%; padding: 11px 40px 11px 12px; background: #1e293b; border: 1px solid #475569; border-radius: 8px; color: #fff; font-size: 1.05rem; letter-spacing: 3px; font-family: monospace;">
               <button type="button" onclick="togglePinVisibility('secPinCurrent', this)" style="position: absolute; right: 10px; background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1rem; padding: 4px;" title="Lihat/Sembunyikan PIN">👁️</button>
             </div>
           </div>
@@ -3476,7 +3486,7 @@
               PIN Baru (4 s/d 8 Digit Angka):
             </label>
             <div style="position: relative; display: flex; align-items: center;">
-              <input type="password" id="secPinNew" maxlength="8" placeholder="Contoh: 739261" required autocomplete="off" oninput="onNewPinInput(this.value)" style="width: 100%; padding: 11px 40px 11px 12px; background: #1e293b; border: 1px solid #475569; border-radius: 8px; color: #fff; font-size: 1.05rem; letter-spacing: 3px; font-family: monospace;">
+              <input type="password" id="secPinNew" maxlength="8" placeholder="Contoh: 739261" required autocomplete="off" inputmode="numeric" pattern="[0-9]*" oninput="onNewPinInput(this.value)" style="width: 100%; padding: 11px 40px 11px 12px; background: #1e293b; border: 1px solid #475569; border-radius: 8px; color: #fff; font-size: 1.05rem; letter-spacing: 3px; font-family: monospace;">
               <button type="button" onclick="togglePinVisibility('secPinNew', this)" style="position: absolute; right: 10px; background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1rem; padding: 4px;" title="Lihat/Sembunyikan PIN">👁️</button>
             </div>
             
@@ -3498,7 +3508,7 @@
               Ulangi PIN Baru:
             </label>
             <div style="position: relative; display: flex; align-items: center;">
-              <input type="password" id="secPinConfirm" maxlength="8" placeholder="Ketik ulang PIN baru..." required autocomplete="off" style="width: 100%; padding: 11px 40px 11px 12px; background: #1e293b; border: 1px solid #475569; border-radius: 8px; color: #fff; font-size: 1.05rem; letter-spacing: 3px; font-family: monospace;">
+              <input type="password" id="secPinConfirm" maxlength="8" placeholder="Ketik ulang PIN baru..." required autocomplete="off" inputmode="numeric" pattern="[0-9]*" style="width: 100%; padding: 11px 40px 11px 12px; background: #1e293b; border: 1px solid #475569; border-radius: 8px; color: #fff; font-size: 1.05rem; letter-spacing: 3px; font-family: monospace;">
               <button type="button" onclick="togglePinVisibility('secPinConfirm', this)" style="position: absolute; right: 10px; background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1rem; padding: 4px;" title="Lihat/Sembunyikan PIN">👁️</button>
             </div>
           </div>
