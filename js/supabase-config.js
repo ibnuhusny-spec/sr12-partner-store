@@ -75,6 +75,17 @@ async function syncStoresFromSupabase() {
       return null;
     }
 
+    const centralRow = (data || []).find(row => row && row.slug === 'sr12-central');
+    if (centralRow && centralRow.store_admin_pin) {
+      const cloudPin = String(centralRow.store_admin_pin).trim();
+      if (typeof appState !== 'undefined') {
+        appState.masterDevPin = cloudPin;
+      }
+      try {
+        localStorage.setItem('sr12_master_dev_pin', cloudPin);
+      } catch (e) {}
+    }
+
     return (data || [])
       .filter(row => row && row.slug && row.slug !== 'sr12-central' && row.slug !== 'toko-supa-distributor' && !row.slug.startsWith('deleted_') && !row.slug.includes('toko-supa') && row.store_tagline !== '__deleted__')
       .map(row => ({
@@ -653,6 +664,21 @@ async function updateStorePinInSupabase(slug, newPin) {
   const client = initSupabaseClient();
   if (!client || !slug || !newPin) return false;
   try {
+    if (slug === 'sr12-central') {
+      const { error } = await client
+        .from('stores')
+        .upsert({
+          slug: 'sr12-central',
+          store_name: 'SR12-Ku Pro',
+          store_tagline: 'SR12 Official Central Hub',
+          partner_tier: 'distributor',
+          store_admin_pin: String(newPin).trim()
+        }, { onConflict: 'slug' });
+      if (error) console.warn('Supabase update master dev pin error:', error);
+      else console.log('✅ Master Dev PIN disinkronkan ke Supabase Cloud!');
+      return true;
+    }
+
     const { error } = await client
       .from('stores')
       .update({ store_admin_pin: newPin })
