@@ -1092,8 +1092,11 @@
     <div id="devTabPane_ws_overview" class="dev-tab-pane">
       <div style="display: flex; justify-content: space-between; align-items: center; background: #1e293b; padding: 14px 18px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #334155; flex-wrap: wrap; gap: 10px;">
         <div>
-          <span style="font-size: 0.75rem; color: #94a3b8; display: block;">Master PIN Developer Saat Ini:</span>
-          <span id="currentMasterPinDisplay_ws" style="font-family: monospace; font-size: 1.15rem; color: #38bdf8; font-weight: 800;">8899 (Aktif)</span>
+          <span style="font-size: 0.75rem; color: #94a3b8; display: block;">Master PIN Developer:</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span id="currentMasterPinDisplay_ws" style="font-family: monospace; font-size: 1.15rem; color: #38bdf8; font-weight: 800; letter-spacing: 2px;">•••• (Aktif)</span>
+            <button type="button" onclick="toggleMasterPinVisibilityDisplay()" style="background: #334155; border: 1px solid #475569; color: #cbd5e1; padding: 2px 7px; border-radius: 4px; font-size: 0.75rem; cursor: pointer;" title="Lihat/Sembunyikan Master PIN">👁️</button>
+          </div>
         </div>
         <div style="display: flex; gap: 8px;">
           <button onclick="resetAllDummyDataToZero()" style="background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5; padding: 6px 14px; border-radius: var(--radius-full); font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
@@ -2126,9 +2129,18 @@
           <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--radius-md); padding: 14px; margin-bottom: 14px;">
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
               <div>
-                <label style="font-size: 0.8rem; font-weight: 700; color: #166534; display: block; margin-bottom: 4px;">PIN Admin Toko (Login Penjual):</label>
-                <input type="text" id="settingStoreAdminPin" maxlength="10" placeholder="Default: 1234" style="width: 100%; padding: 8px 12px; border: 1px solid #86efac; border-radius: var(--radius-sm); font-family: monospace; font-weight: 700; font-size: 0.95rem;">
-                <small style="font-size: 0.7rem; color: #15803d;">PIN untuk masuk mode edit toko.</small>
+                <label style="font-size: 0.8rem; font-weight: 700; color: #166534; display: block; margin-bottom: 4px;">Keamanan PIN Admin Toko:</label>
+                <input type="hidden" id="settingStoreAdminPin" value="1234">
+                <div style="display: flex; align-items: center; justify-content: space-between; background: #ffffff; border: 1.5px solid #86efac; padding: 6px 10px; border-radius: var(--radius-sm);">
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <span style="font-size: 0.95rem;">🔒</span>
+                    <span id="settingStorePinMasked" style="font-family: monospace; font-weight: 800; font-size: 0.95rem; color: #166534; letter-spacing: 2px;">••••</span>
+                  </div>
+                  <button type="button" onclick="openChangeSecurityPinModal('store')" style="background: #059669; color: #fff; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+                    <span>🔑</span> Ganti PIN
+                  </button>
+                </div>
+                <small style="font-size: 0.7rem; color: #15803d;">PIN terproteksi untuk masuk mode edit toko.</small>
               </div>
               <div>
                 <label style="font-size: 0.8rem; font-weight: 700; color: #166534; display: block; margin-bottom: 4px;">Penanggung Biaya Sistem (Rp 1.000):</label>
@@ -3322,19 +3334,16 @@
             <div id="distributorLoginError" style="display: none; color: #ef4444; font-size: 0.78rem; margin-top: 6px; font-weight: 600;"></div>
           </div>
 
-          <!-- Quick Test Credentials Box -->
-          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 10px; font-size: 0.75rem; color: #166534; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+          <!-- Secure Distributor Security Notice -->
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 12px; font-size: 0.76rem; color: #166534; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 1.1rem;">🛡️</span>
             <div>
-              <b>Akun Bawaan Toko Ini:</b><br>
-              <span id="quickLoginAccountHint">Email: aisyah@sr12.co.id &middot; Password: 1234</span>
+              <b>Akses Terproteksi Distributor:</b> Masukkan email/no. WhatsApp dan PIN pengelola toko Anda.
             </div>
-            <button type="button" onclick="autoFillDemoLogin()" style="background: #10b981; color: #fff; border: none; padding: 5px 9px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; cursor: pointer;">
-              ⚡ Isi Otomatis
-            </button>
           </div>
 
           <div style="display: flex; gap: 10px;">
-            <button type="submit" style="flex: 1; background: var(--primary-700); color: #fff; border: none; padding: 12px; border-radius: var(--radius-sm); font-weight: 700; font-size: 0.9rem; cursor: pointer;">
+            <button type="submit" id="btnSubmitDistLogin" style="flex: 1; background: var(--primary-700); color: #fff; border: none; padding: 12px; border-radius: var(--radius-sm); font-weight: 700; font-size: 0.9rem; cursor: pointer;">
               Masuk Dashboard Distributor
             </button>
             <button type="button" onclick="closeModal('modalDistributorLogin')" style="background: var(--dark-100); color: var(--dark-700); border: 1px solid var(--border-subtle); padding: 12px 16px; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer;">
@@ -3343,7 +3352,7 @@
           </div>
           <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed #cbd5e1; text-align: center;">
             <button type="button" onclick="closeModal('modalDistributorLogin'); openDevPinPrompt();" style="background: none; border: none; color: #0284c7; font-size: 0.78rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
-              <span>🔐</span> <u>Masuk Portal Super Admin Pengembang (PIN: 8899)</u>
+              <span>🔐</span> <u>Masuk Portal Super Admin Pengembang</u>
             </button>
           </div>
         </form>
@@ -3367,17 +3376,112 @@
         <form onsubmit="verifyDevPinSubmit(event)">
           <div style="margin-bottom: 14px;">
             <label style="font-size: 0.8rem; font-weight: 700; color: #e2e8f0; display: block; margin-bottom: 6px;">Master PIN Developer:</label>
-            <input type="password" id="devPinInput" maxlength="12" placeholder="PIN (Default: 8899)" required autocomplete="off" style="width: 100%; padding: 12px 14px; background: #1e293b; border: 1px solid #475569; border-radius: var(--radius-sm); color: #fff; font-size: 1.1rem; letter-spacing: 4px; text-align: center; font-family: monospace;">
+            <input type="password" id="devPinInput" maxlength="12" placeholder="••••••••" required autocomplete="off" style="width: 100%; padding: 12px 14px; background: #1e293b; border: 1px solid #475569; border-radius: var(--radius-sm); color: #fff; font-size: 1.1rem; letter-spacing: 4px; text-align: center; font-family: monospace;">
             <div id="devPinError" style="display: none; color: #f87171; font-size: 0.78rem; margin-top: 6px; font-weight: 600;"></div>
           </div>
-          <div style="background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 6px; padding: 10px; font-size: 0.75rem; color: #bae6fd; margin-bottom: 16px;">
-            💡 <b>Master PIN Default:</b> <code>8899</code>. PIN ini dapat Anda ubah kapan saja dan tidak diketahui oleh pembeli maupun pemilik toko manapun.
+          <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; padding: 10px 12px; font-size: 0.74rem; color: #bae6fd; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 1rem;">🛡️</span>
+            <div>Akses ini dilindungi sistem verifikasi master. Hanya untuk Pengembang Resmi platform.</div>
           </div>
           <div style="display: flex; gap: 10px;">
-            <button type="submit" style="flex: 1; background: #0284c7; color: #fff; border: none; padding: 11px; border-radius: var(--radius-sm); font-weight: 700; cursor: pointer;">
+            <button type="submit" id="btnSubmitDevPin" style="flex: 1; background: #0284c7; color: #fff; border: none; padding: 11px; border-radius: var(--radius-sm); font-weight: 700; cursor: pointer;">
               Buka Portal Developer
             </button>
             <button type="button" onclick="closeModal('modalDevPin')" style="background: #334155; color: #cbd5e1; border: none; padding: 11px 16px; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer;">
+              Batal
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 15B. MODAL: GANTI PIN KEAMANAN PROFESIONAL (DEV & DISTRIBUTOR) -->
+  <div class="modal-backdrop" id="modalChangeSecurityPin">
+    <div class="modal-dialog" id="modalChangeSecurityPinDialog" style="max-width: 460px; background: #0f172a; color: #f8fafc; border: 1px solid #334155; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75); overflow: hidden;">
+      <div class="modal-header" id="modalChangePinHeader" style="background: #1e293b; border-bottom: 1px solid #334155; padding: 16px 20px;">
+        <div>
+          <div id="modalChangePinBadge" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 2px 8px; border-radius: 9999px; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.5px; margin-bottom: 4px;">
+            🛡️ PROTOKOL KEAMANAN RESMI
+          </div>
+          <h3 id="modalChangePinTitle" style="color: #f8fafc; margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+            <span>🔑</span> Ganti Master PIN Developer
+          </h3>
+        </div>
+        <button class="btn-close-modal" id="btnCloseChangePinModal" style="color: #94a3b8;" onclick="closeModal('modalChangeSecurityPin')">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 22px;">
+        <p id="modalChangePinDesc" style="font-size: 0.82rem; color: #94a3b8; margin-bottom: 18px; line-height: 1.5;">
+          Perbarui PIN untuk menjaga keamanan sistem. Masukkan PIN saat ini untuk verifikasi otentikasi.
+        </p>
+
+        <form id="formChangeSecurityPin" onsubmit="handleSecurityPinChangeSubmit(event)">
+          <!-- Hidden field to identify mode: 'dev' or 'store' -->
+          <input type="hidden" id="secPinTargetType" value="dev">
+
+          <!-- 1. PIN Saat Ini (Current PIN) -->
+          <div style="margin-bottom: 14px;">
+            <label style="font-size: 0.78rem; font-weight: 700; color: #e2e8f0; display: block; margin-bottom: 5px;">
+              PIN Saat Ini (Lama):
+            </label>
+            <div style="position: relative; display: flex; align-items: center;">
+              <input type="password" id="secPinCurrent" maxlength="10" placeholder="Masukkan PIN lama..." required autocomplete="off" style="width: 100%; padding: 11px 40px 11px 12px; background: #1e293b; border: 1px solid #475569; border-radius: 8px; color: #fff; font-size: 1.05rem; letter-spacing: 3px; font-family: monospace;">
+              <button type="button" onclick="togglePinVisibility('secPinCurrent', this)" style="position: absolute; right: 10px; background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1rem; padding: 4px;" title="Lihat/Sembunyikan PIN">👁️</button>
+            </div>
+          </div>
+
+          <!-- 2. PIN Baru (New PIN) -->
+          <div style="margin-bottom: 12px;">
+            <label style="font-size: 0.78rem; font-weight: 700; color: #e2e8f0; display: block; margin-bottom: 5px;">
+              PIN Baru (4 s/d 8 Digit Angka):
+            </label>
+            <div style="position: relative; display: flex; align-items: center;">
+              <input type="password" id="secPinNew" maxlength="8" placeholder="Contoh: 739261" required autocomplete="off" oninput="onNewPinInput(this.value)" style="width: 100%; padding: 11px 40px 11px 12px; background: #1e293b; border: 1px solid #475569; border-radius: 8px; color: #fff; font-size: 1.05rem; letter-spacing: 3px; font-family: monospace;">
+              <button type="button" onclick="togglePinVisibility('secPinNew', this)" style="position: absolute; right: 10px; background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1rem; padding: 4px;" title="Lihat/Sembunyikan PIN">👁️</button>
+            </div>
+            
+            <!-- Real-time PIN Strength Bar -->
+            <div style="margin-top: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; margin-bottom: 4px;">
+                <span style="color: #94a3b8;">Kekuatan Keamanan PIN:</span>
+                <span id="secPinStrengthText" style="font-weight: 700; color: #94a3b8;">Belum diisi</span>
+              </div>
+              <div style="height: 5px; width: 100%; background: #334155; border-radius: 999px; overflow: hidden;">
+                <div id="secPinStrengthBar" style="height: 100%; width: 0%; background: #ef4444; transition: width 0.3s ease, background-color 0.3s ease;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Konfirmasi PIN Baru (Confirm PIN) -->
+          <div style="margin-bottom: 16px;">
+            <label style="font-size: 0.78rem; font-weight: 700; color: #e2e8f0; display: block; margin-bottom: 5px;">
+              Ulangi PIN Baru:
+            </label>
+            <div style="position: relative; display: flex; align-items: center;">
+              <input type="password" id="secPinConfirm" maxlength="8" placeholder="Ketik ulang PIN baru..." required autocomplete="off" style="width: 100%; padding: 11px 40px 11px 12px; background: #1e293b; border: 1px solid #475569; border-radius: 8px; color: #fff; font-size: 1.05rem; letter-spacing: 3px; font-family: monospace;">
+              <button type="button" onclick="togglePinVisibility('secPinConfirm', this)" style="position: absolute; right: 10px; background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1rem; padding: 4px;" title="Lihat/Sembunyikan PIN">👁️</button>
+            </div>
+          </div>
+
+          <!-- Guidelines Box -->
+          <div style="background: rgba(15, 23, 42, 0.6); border: 1px dashed #334155; border-radius: 8px; padding: 10px 12px; font-size: 0.72rem; color: #94a3b8; margin-bottom: 18px; line-height: 1.5;">
+            <b style="color: #cbd5e1; display: block; margin-bottom: 4px;">📋 Syarat PIN Yang Aman:</b>
+            <div style="display: flex; flex-direction: column; gap: 3px;">
+              <span>• Harus berupa <b>4 hingga 8 digit angka</b> (0-9).</span>
+              <span>• Dilarang kombinasi mudah ditebak: <code>1234</code>, <code>0000</code>, <code>8888</code>, angka berurutan / kembar.</span>
+              <span>• Wajib berbeda dengan PIN lama Anda.</span>
+            </div>
+          </div>
+
+          <!-- Error / Success Alert Box -->
+          <div id="secPinAlertBox" style="display: none; padding: 10px 12px; border-radius: 8px; font-size: 0.78rem; font-weight: 600; margin-bottom: 16px;"></div>
+
+          <div style="display: flex; gap: 10px;">
+            <button type="submit" id="btnSubmitChangePin" style="flex: 1; background: #0284c7; color: #fff; border: none; padding: 12px; border-radius: 8px; font-weight: 700; font-size: 0.88rem; cursor: pointer;">
+              💾 Simpan PIN Baru
+            </button>
+            <button type="button" onclick="closeModal('modalChangeSecurityPin')" style="background: #334155; color: #cbd5e1; border: none; padding: 12px 18px; border-radius: 8px; font-weight: 600; font-size: 0.88rem; cursor: pointer;">
               Batal
             </button>
           </div>
@@ -3432,7 +3536,10 @@
           <div style="display: flex; justify-content: space-between; align-items: center; background: #1e293b; padding: 12px 16px; border-radius: 12px; margin-bottom: 16px; border: 1px solid #334155; flex-wrap: wrap; gap: 8px;">
             <div>
               <span style="font-size: 0.75rem; color: #94a3b8; display: block;">Master PIN Developer:</span>
-              <span id="currentMasterPinDisplay" style="font-family: monospace; font-size: 1rem; color: #38bdf8; font-weight: 700;">8899 (Aktif)</span>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span id="currentMasterPinDisplay" style="font-family: monospace; font-size: 1rem; color: #38bdf8; font-weight: 700; letter-spacing: 2px;">•••• (Aktif)</span>
+                <button type="button" onclick="toggleMasterPinVisibilityDisplay()" style="background: #334155; border: 1px solid #475569; color: #cbd5e1; padding: 2px 7px; border-radius: 4px; font-size: 0.75rem; cursor: pointer;" title="Lihat/Sembunyikan Master PIN">👁️</button>
+              </div>
             </div>
             <div style="display: flex; gap: 8px;">
               <button onclick="resetAllDummyDataToZero()" class="btn-dev-pill-danger" title="Nol-kan semua data dummy">

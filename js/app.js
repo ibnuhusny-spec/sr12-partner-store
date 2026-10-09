@@ -334,15 +334,54 @@ function getInitialDemoPendingStoreApp() {
   };
 }
 
+const KNOWN_PURGED_PENDING_IDS = ['APP-565640', 'APP-586760', 'merdeka', 'merdeka-6760'];
+
+function getDeletedPendingStoreIds() {
+  try {
+    const raw = localStorage.getItem('sr12_deleted_pending_app_ids');
+    const parsed = raw ? JSON.parse(raw) : [];
+    const list = Array.isArray(parsed) ? parsed : [];
+    KNOWN_PURGED_PENDING_IDS.forEach(id => {
+      if (!list.includes(id)) list.push(id);
+    });
+    return list;
+  } catch (e) {
+    return [...KNOWN_PURGED_PENDING_IDS];
+  }
+}
+
+function addDeletedPendingStore(id, slug) {
+  try {
+    const deleted = getDeletedPendingStoreIds();
+    let changed = false;
+    if (id && !deleted.includes(id)) {
+      deleted.push(id);
+      changed = true;
+    }
+    if (slug && !deleted.includes(slug)) {
+      deleted.push(slug);
+      changed = true;
+    }
+    if (changed) {
+      localStorage.setItem('sr12_deleted_pending_app_ids', JSON.stringify(deleted));
+      console.log('📌 Tombstone pending store ditambahkan:', { id, slug });
+    }
+  } catch (e) {
+    console.warn('Gagal mencatat tombstone pending store:', e);
+  }
+}
+
 const INITIAL_DEMO_PENDING_STORE_APPS = [getInitialDemoPendingStoreApp()];
 
 function getStoredPendingStores() {
   const stored = localStorage.getItem('sr12_pending_store_apps_v1');
+  const deletedIds = getDeletedPendingStoreIds();
   if (stored !== null) {
     try {
       const parsed = JSON.parse(stored);
       if (Array.isArray(parsed)) {
-        parsed.forEach(app => {
+        const filtered = parsed.filter(app => app && app.id && !deletedIds.includes(app.id) && !deletedIds.includes(app.slug));
+        filtered.forEach(app => {
           if (!app.ktpDocUrl) {
             app.ktpDocUrl = getMockKtpSvgUrl(app.storeOwner, app.nikNumber, app.storeCity);
           }
@@ -356,7 +395,7 @@ function getStoredPendingStores() {
             app.nikNumber = '3374025804820003';
           }
         });
-        return parsed;
+        return filtered;
       }
     } catch (e) {}
   }
@@ -493,33 +532,39 @@ async function syncPendingStoresWithServer() {
       const supaPending = await syncPendingStoresFromSupabase();
       if (Array.isArray(supaPending)) {
         const activeSlugs = new Set((appState.partnerStores || []).map(s => s.slug));
+        const deletedIds = new Set(getDeletedPendingStoreIds());
         
-        supaPending.forEach(apiApp => {
-          if (!apiApp || !apiApp.id) return;
-          if (activeSlugs.has(apiApp.slug) || apiApp.status === 'approved') {
+        for (const apiApp of supaPending) {
+          if (!apiApp || !apiApp.id) continue;
+          if (activeSlugs.has(apiApp.slug) || apiApp.status === 'approved' || deletedIds.has(apiApp.id) || (apiApp.slug && deletedIds.has(apiApp.slug))) {
             if (typeof deletePendingStoreFromSupabase === 'function') {
-              deletePendingStoreFromSupabase(apiApp.id);
+              await deletePendingStoreFromSupabase(apiApp.id, apiApp.slug);
             }
-            return;
+            continue;
           }
-          const idx = appState.pendingStoreApps.findIndex(a => a.id === apiApp.id);
+          const idx = appState.pendingStoreApps.findIndex(a => a.id === apiApp.id || (apiApp.slug && a.slug === apiApp.slug));
           if (idx >= 0) {
             appState.pendingStoreApps[idx] = Object.assign({}, appState.pendingStoreApps[idx], apiApp);
           } else {
             appState.pendingStoreApps.push(apiApp);
             changed = true;
           }
-        });
+        }
 
         const oldLen = appState.pendingStoreApps.length;
-        appState.pendingStoreApps = appState.pendingStoreApps.filter(a => !activeSlugs.has(a.slug) && a.status !== 'approved');
+        appState.pendingStoreApps = appState.pendingStoreApps.filter(a => 
+          !activeSlugs.has(a.slug) && 
+          a.status !== 'approved' &&
+          !deletedIds.has(a.id) &&
+          !deletedIds.has(a.slug)
+        );
         if (appState.pendingStoreApps.length !== oldLen) changed = true;
 
         if (typeof savePendingStoreToSupabase === 'function') {
           const toUpload = appState.pendingStoreApps.filter(localApp => {
             if (!localApp || !localApp.id) return false;
-            if (activeSlugs.has(localApp.slug) || localApp.status === 'approved') return false;
-            return !supaPending.some(s => s.id === localApp.id);
+            if (activeSlugs.has(localApp.slug) || localApp.status === 'approved' || deletedIds.has(localApp.id) || deletedIds.has(localApp.slug)) return false;
+            return !supaPending.some(s => s.id === localApp.id || (localApp.slug && s.slug === localApp.slug));
           });
           for (const a of toUpload) {
             await savePendingStoreToSupabase(a);
@@ -2526,11 +2571,14 @@ function approvePendingStore(appId) {
     }).catch(e => console.warn('Could not DELETE /api/pending-stores:', e));
   }
 
+  // Simpan ke daftar tombstone pending store agar tidak pernah muncul lagi di antrean
+  addDeletedPendingStore(app.id, app.slug);
+
   if (typeof saveStoreToSupabase === 'function') {
     saveStoreToSupabase(approvedStore);
   }
   if (typeof deletePendingStoreFromSupabase === 'function') {
-    deletePendingStoreFromSupabase(appId);
+    deletePendingStoreFromSupabase(app.id, app.slug);
   }
 
   // Jika merupakan toko Agen/Sub Agen di bawah Distributor aktif, otomatis daftarkan ke buku mitra distributor
@@ -2606,7 +2654,10 @@ function rejectPendingStore(appId) {
 
   if (reason === null) return;
 
-  // Remove from pending
+  // 1. Simpan ke daftar tombstone pending store agar tidak muncul lagi
+  addDeletedPendingStore(app.id, app.slug);
+
+  // 2. Remove from pending
   appState.pendingStoreApps.splice(index, 1);
   saveStoredPendingStores(appState.pendingStoreApps);
 
@@ -2618,7 +2669,7 @@ function rejectPendingStore(appId) {
   }
 
   if (typeof deletePendingStoreFromSupabase === 'function') {
-    deletePendingStoreFromSupabase(appId);
+    deletePendingStoreFromSupabase(app.id, app.slug);
   }
 
   closeModal('modalPreviewSkDoc');
@@ -2638,6 +2689,58 @@ function rejectPendingStore(appId) {
   if (sendWa) {
     window.open(`https://wa.me/${app.storeWaNumber}?text=${waMsg}`, '_blank');
   }
+}
+
+async function deletePendingStoreApp(appId) {
+  const index = (appState.pendingStoreApps || []).findIndex(a => a.id === appId);
+  if (index === -1) {
+    alert('Pengajuan toko tidak ditemukan atau sudah terhapus!');
+    return;
+  }
+
+  const app = appState.pendingStoreApps[index];
+  const confirmed = confirm(
+    `🗑️ HAPUS PERMANEN PENGAJUAN TOKO?\n\n` +
+    `Nama Toko: ${app.storeName}\n` +
+    `Calon Pemilik: ${app.storeOwner} (${app.storeCity})\n` +
+    `No. ID Pengajuan: ${app.id}\n\n` +
+    `Data pengajuan ini akan dihapus secara permanen dari perangkat lokal dan database Supabase Cloud agar tidak muncul lagi.\n\nApakah Anda yakin ingin menghapus?`
+  );
+
+  if (!confirmed) return;
+
+  // 1. Catat ke tombstone
+  addDeletedPendingStore(app.id, app.slug);
+
+  // 2. Hapus dari state lokal
+  appState.pendingStoreApps.splice(index, 1);
+  saveStoredPendingStores(appState.pendingStoreApps);
+
+  // 3. Hapus dari Supabase Cloud
+  if (typeof deletePendingStoreFromSupabase === 'function') {
+    await deletePendingStoreFromSupabase(app.id, app.slug);
+  }
+
+  // 4. Hapus dari Server REST API jika ada
+  const apiBase = getApiBaseUrl();
+  if (apiBase && typeof fetch === 'function') {
+    fetch(apiBase + `/api/pending-stores/${app.id}`, {
+      method: 'DELETE'
+    }).catch(e => console.warn('Could not DELETE /api/pending-stores:', e));
+  }
+
+  // 5. Tutup modal & perbarui UI
+  closeModal('modalPreviewSkDoc');
+  const mDist = document.getElementById('modalDistributorPendingStores');
+  if (mDist && mDist.classList.contains('open') && typeof openDistributorPendingStoresModal === 'function') {
+    openDistributorPendingStoresModal();
+  }
+  updateDevPortalMetrics();
+  if (typeof updateDistributorPendingBadges === 'function') {
+    updateDistributorPendingBadges();
+  }
+
+  showToast(`🗑️ Pengajuan toko "${app.storeName}" berhasil dihapus permanen!`);
 }
 
 function contactApplicantWA(appId) {
@@ -2757,6 +2860,9 @@ function openDistributorPendingStoresModal() {
             </div>
           </div>
           <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #e2e8f0; padding-top: 14px; flex-wrap: wrap;">
+            <button type="button" onclick="deletePendingStoreApp('${app.id}')" style="background: #fef2f2; color: #991b1b; border: 1px solid #f87171; padding: 9px 16px; border-radius: 8px; font-weight: 700; font-size: 0.8rem; cursor: pointer;">
+              🗑️ Hapus
+            </button>
             <button type="button" onclick="rejectPendingStore('${app.id}'); openDistributorPendingStoresModal(); updateDistributorPendingBadges();" style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 9px 18px; border-radius: 8px; font-weight: 700; font-size: 0.8rem; cursor: pointer;">
               ❌ Tolak Pengajuan
             </button>
@@ -3489,21 +3595,22 @@ function showCurrentStoreSk() {
 }
 window.showCurrentStoreSk = showCurrentStoreSk;
 
+// Security Lockout Tracker (Anti-Brute Force PIN)
+const securityLockout = {
+  devPinFails: 0,
+  devLockedUntil: 0,
+  storeLoginFails: 0,
+  storeLockedUntil: 0
+};
+
 function openDistributorLoginModal() {
   const modal = document.getElementById('modalDistributorLogin');
   const emailInput = document.getElementById('distributorLoginEmail');
   const passInput = document.getElementById('distributorLoginPassword');
   const err = document.getElementById('distributorLoginError');
-  const hint = document.getElementById('quickLoginAccountHint');
 
   const store = appState.storeSettings || DEFAULT_STORE_SETTINGS;
   const storeEmail = store.slug + '@sr12.co.id';
-  const storeWa = store.storeWaNumber || '081234567890';
-  const storePin = store.storeAdminPin || '1234';
-
-  if (hint) {
-    hint.innerHTML = `Toko: <b>${store.storeName}</b> &middot; Pemilik: <b>${store.storeOwner}</b> &middot; PIN Toko: <b>${storePin}</b>`;
-  }
 
   if (emailInput) emailInput.value = storeEmail;
   if (passInput) passInput.value = '';
@@ -3520,8 +3627,12 @@ function autoFillDemoLogin() {
   const err = document.getElementById('distributorLoginError');
 
   if (emailInput) emailInput.value = store.slug + '@sr12.co.id';
-  if (passInput) passInput.value = store.storeAdminPin || '1234';
+  if (passInput) {
+    passInput.value = '';
+    passInput.focus();
+  }
   if (err) err.style.display = 'none';
+  showToast('📧 Email distributor telah diisi. Silakan masukkan PIN akun Anda.');
 }
 
 async function handleDistributorLoginSubmit(e) {
@@ -3530,6 +3641,16 @@ async function handleDistributorLoginSubmit(e) {
   const password = document.getElementById('distributorLoginPassword')?.value.trim();
   const err = document.getElementById('distributorLoginError');
   const modal = document.getElementById('modalDistributorLogin');
+
+  // Cek Lockout Anti-Brute Force
+  if (Date.now() < securityLockout.storeLockedUntil) {
+    const remSec = Math.ceil((securityLockout.storeLockedUntil - Date.now()) / 1000);
+    if (err) {
+      err.style.display = 'block';
+      err.textContent = `⏳ Login terkunci sementara karena terlalu banyak percobaan gagal. Silakan tunggu ${remSec} detik.`;
+    }
+    return;
+  }
 
   try {
     const res = await fetch('/api/auth/login', {
@@ -3540,6 +3661,9 @@ async function handleDistributorLoginSubmit(e) {
     const result = await res.json();
 
     if (result.success) {
+      securityLockout.storeLoginFails = 0;
+      securityLockout.storeLockedUntil = 0;
+
       appState.isAdminMode = true;
       appState.isDistributorLoggedIn = true;
 
@@ -3571,9 +3695,19 @@ async function handleDistributorLoginSubmit(e) {
       showToast(`👑 Login Berhasil! Selamat datang ${result.store?.storeOwner || 'Distributor'}. Masuk ke Dashboard Admin.`);
       return;
     } else {
-      if (err) {
-        err.style.display = 'block';
-        err.textContent = `❌ ${result.message || 'Email atau password salah!'}`;
+      securityLockout.storeLoginFails++;
+      if (securityLockout.storeLoginFails >= 5) {
+        securityLockout.storeLockedUntil = Date.now() + 30000;
+        securityLockout.storeLoginFails = 0;
+        if (err) {
+          err.style.display = 'block';
+          err.textContent = '❌ Terlalu banyak percobaan gagal (5x). Akses login dibekukan selama 30 detik demi keamanan.';
+        }
+      } else {
+        if (err) {
+          err.style.display = 'block';
+          err.textContent = `❌ ${result.message || 'Email atau PIN salah!'} (Sisa percobaan: ${5 - securityLockout.storeLoginFails})`;
+        }
       }
       return;
     }
@@ -3581,11 +3715,14 @@ async function handleDistributorLoginSubmit(e) {
     console.warn('Backend API offline, using fallback:', netErr);
   }
 
-  // Fallback offline validation
+  // Fallback offline validation (Ketentuan ketat: Hanya PIN Toko sah atau Master Dev PIN)
   const store = appState.storeSettings || DEFAULT_STORE_SETTINGS;
   const correctPin = store.storeAdminPin || '1234';
   const masterPin = appState.masterDevPin || '8899';
-  if (password === correctPin || password === masterPin || password === 'sr12jaya') {
+  if (password === correctPin || password === masterPin) {
+    securityLockout.storeLoginFails = 0;
+    securityLockout.storeLockedUntil = 0;
+
     appState.isAdminMode = true;
     appState.isDistributorLoggedIn = true;
     try {
@@ -3611,9 +3748,19 @@ async function handleDistributorLoginSubmit(e) {
     }
     showToast(`👑 Login Berhasil! Selamat datang ${store.storeOwner}. Masuk ke Dashboard Admin.`);
   } else {
-    if (err) {
-      err.style.display = 'block';
-      err.textContent = `❌ Password / PIN Toko salah! (Gunakan PIN Toko Anda atau PIN Master: 8899)`;
+    securityLockout.storeLoginFails++;
+    if (securityLockout.storeLoginFails >= 5) {
+      securityLockout.storeLockedUntil = Date.now() + 30000;
+      securityLockout.storeLoginFails = 0;
+      if (err) {
+        err.style.display = 'block';
+        err.textContent = '❌ Terlalu banyak percobaan gagal (5x). Akses login dibekukan selama 30 detik demi keamanan.';
+      }
+    } else {
+      if (err) {
+        err.style.display = 'block';
+        err.textContent = `❌ Password / PIN Toko tidak sesuai. (Sisa percobaan: ${5 - securityLockout.storeLoginFails})`;
+      }
     }
   }
 }
@@ -4306,13 +4453,26 @@ function switchDevPortalTab(tabName) {
   });
 }
 
-// Verify PIN Entered
+// Verify PIN Entered (Super Admin Gate)
 function verifyDevPinSubmit(e) {
   if (e) e.preventDefault();
   const pinInput = document.getElementById('devPinInput')?.value.trim();
   const pinError = document.getElementById('devPinError');
 
+  // Cek Lockout Anti-Brute Force
+  if (Date.now() < securityLockout.devLockedUntil) {
+    const remSec = Math.ceil((securityLockout.devLockedUntil - Date.now()) / 1000);
+    if (pinError) {
+      pinError.style.display = 'block';
+      pinError.textContent = `⏳ Akses diblokir sementara karena terlalu banyak percobaan gagal. Silakan tunggu ${remSec} detik.`;
+    }
+    return;
+  }
+
   if (pinInput === appState.masterDevPin) {
+    securityLockout.devPinFails = 0;
+    securityLockout.devLockedUntil = 0;
+
     // Correct PIN! Tutup modal PIN dengan bersih & buka Console Developer Layar Penuh
     if (typeof closeModal === 'function') {
       closeModal('modalDevPin');
@@ -4324,9 +4484,19 @@ function verifyDevPinSubmit(e) {
     showToast('🔓 Akses Master Diterima! Membuka Console Developer.');
   } else {
     // Wrong PIN!
-    if (pinError) {
-      pinError.style.display = 'block';
-      pinError.textContent = '❌ PIN Master Developer Salah! (Default: 8899)';
+    securityLockout.devPinFails++;
+    if (securityLockout.devPinFails >= 5) {
+      securityLockout.devLockedUntil = Date.now() + 30000;
+      securityLockout.devPinFails = 0;
+      if (pinError) {
+        pinError.style.display = 'block';
+        pinError.textContent = '❌ Akses dibekukan selama 30 detik karena 5 kali salah memasukkan Master PIN!';
+      }
+    } else {
+      if (pinError) {
+        pinError.style.display = 'block';
+        pinError.textContent = `❌ Master PIN Pengembang tidak valid! (Sisa percobaan: ${5 - securityLockout.devPinFails})`;
+      }
     }
   }
 }
@@ -4520,21 +4690,301 @@ function contactMitraWA(phone, name) {
   window.open(url, '_blank');
 }
 
-// Change Developer Master PIN
-function changeDevMasterPin() {
-  const newPin = prompt('Masukkan Master PIN Baru untuk Pengembang (minimal 4 karakter):', appState.masterDevPin);
-  if (newPin && newPin.trim().length >= 4) {
-    appState.masterDevPin = newPin.trim();
-    localStorage.setItem('sr12_master_dev_pin', appState.masterDevPin);
-    const pinDisp = document.getElementById('currentMasterPinDisplay');
-    const pinDispWs = document.getElementById('currentMasterPinDisplay_ws');
-    if (pinDisp) pinDisp.textContent = `${appState.masterDevPin} (Aktif)`;
-    if (pinDispWs) pinDispWs.textContent = `${appState.masterDevPin} (Aktif)`;
-    alert(`✅ Master PIN Berhasil Diperbarui!\n\nMaster PIN Pengembang baru Anda: ${appState.masterDevPin}\n\nSimpan PIN ini baik-baik.`);
-    showToast('🔑 Master PIN Developer Berhasil Diperbarui!');
-  } else if (newPin !== null) {
-    alert('PIN minimal harus 4 karakter!');
+// State Visibility Master PIN
+let isMasterPinVisible = false;
+
+function toggleMasterPinVisibilityDisplay() {
+  isMasterPinVisible = !isMasterPinVisible;
+  updateDevPortalMetrics();
+  showToast(isMasterPinVisible ? '👁️ Master PIN Developer Ditampilkan.' : '🔒 Master PIN Developer Disembunyikan (Masked).');
+}
+
+// Validator Keamanan PIN Ketat
+function validateSecurityPinStrength(pin, currentPin) {
+  if (!pin) {
+    return { valid: false, message: 'PIN tidak boleh kosong!', score: 0, label: 'Kosong', color: '#ef4444' };
   }
+  // Hanya angka 4-8 digit
+  if (!/^\d{4,8}$/.test(pin)) {
+    return { valid: false, message: 'PIN harus berupa 4 hingga 8 digit angka murni (0-9)!', score: 10, label: 'Format Salah', color: '#ef4444' };
+  }
+  // Tidak boleh sama dengan PIN saat ini
+  if (currentPin && pin === currentPin) {
+    return { valid: false, message: 'PIN baru tidak boleh sama dengan PIN saat ini!', score: 20, label: 'Sama Dengan Lama', color: '#ef4444' };
+  }
+  // Blacklist kombinasi mudah ditebak
+  const trivialPins = [
+    '0000', '1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999',
+    '00000', '11111', '22222', '33333', '44444', '55555', '66666', '77777', '88888', '99999',
+    '000000', '111111', '222222', '333333', '444444', '555555', '666666', '777777', '888888', '999999',
+    '1234', '2345', '3456', '4567', '5678', '6789', '0123',
+    '4321', '5432', '6543', '7654', '8765', '9876', '3210',
+    '12345', '23456', '34567', '45678', '56789', '54321', '65432',
+    '123456', '654321', '1234567', '7654321', '12345678', '87654321',
+    '1122', '2211', '1212', '2121', '1313', '2424', '0808', '9988', '123123'
+  ];
+  if (trivialPins.includes(pin)) {
+    return { valid: false, message: 'PIN terlalu mudah ditebak (angka kembar / berurutan)! Gunakan PIN yang lebih unik.', score: 25, label: 'Terlalu Lemah', color: '#ef4444' };
+  }
+  // Cek apakah semua karakter identik (contoh: 777777)
+  const isAllSame = pin.split('').every(ch => ch === pin[0]);
+  if (isAllSame) {
+    return { valid: false, message: 'PIN tidak boleh terdiri dari satu digit angka berulang!', score: 25, label: 'Terlalu Lemah', color: '#ef4444' };
+  }
+
+  // Hitung Skor Kekuatan
+  let score = 50;
+  if (pin.length >= 6) score += 30;
+  if (pin.length >= 8) score += 20;
+
+  const uniqueDigits = new Set(pin.split('')).size;
+  if (uniqueDigits >= 4) score = Math.min(100, score + 10);
+
+  if (score >= 80) {
+    return { valid: true, message: 'PIN sangat kuat & aman.', score: 100, label: 'Sangat Kuat 🔒', color: '#10b981' };
+  } else if (score >= 50) {
+    return { valid: true, message: 'PIN cukup aman.', score: 65, label: 'Cukup Aman 🛡️', color: '#f59e0b' };
+  } else {
+    return { valid: true, message: 'PIN memenuhi syarat minimum.', score: 40, label: 'Standar', color: '#38bdf8' };
+  }
+}
+
+function onNewPinInput(val) {
+  const currentPin = document.getElementById('secPinCurrent')?.value.trim();
+  const res = validateSecurityPinStrength(val, currentPin);
+  const bar = document.getElementById('secPinStrengthBar');
+  const txt = document.getElementById('secPinStrengthText');
+  if (bar) {
+    bar.style.width = `${res.score}%`;
+    bar.style.backgroundColor = res.color;
+  }
+  if (txt) {
+    txt.textContent = res.label;
+    txt.style.color = res.color;
+  }
+}
+
+function togglePinVisibility(inputId, btnEl) {
+  const inp = document.getElementById(inputId);
+  if (!inp) return;
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    if (btnEl) btnEl.textContent = '🙈';
+  } else {
+    inp.type = 'password';
+    if (btnEl) btnEl.textContent = '👁️';
+  }
+}
+
+// Buka Modal Ganti PIN Profesional (Dev / Store)
+function openChangeSecurityPinModal(type = 'dev') {
+  const modal = document.getElementById('modalChangeSecurityPin');
+  if (!modal) return;
+
+  const targetTypeInput = document.getElementById('secPinTargetType');
+  const modalTitle = document.getElementById('modalChangePinTitle');
+  const modalBadge = document.getElementById('modalChangePinBadge');
+  const modalDesc = document.getElementById('modalChangePinDesc');
+  const header = document.getElementById('modalChangePinHeader');
+  const alertBox = document.getElementById('secPinAlertBox');
+  const dialog = document.getElementById('modalChangeSecurityPinDialog');
+  const submitBtn = document.getElementById('btnSubmitChangePin');
+
+  const currentInp = document.getElementById('secPinCurrent');
+  const newInp = document.getElementById('secPinNew');
+  const confirmInp = document.getElementById('secPinConfirm');
+  if (currentInp) { currentInp.value = ''; currentInp.type = 'password'; }
+  if (newInp) { newInp.value = ''; newInp.type = 'password'; }
+  if (confirmInp) { confirmInp.value = ''; confirmInp.type = 'password'; }
+  if (alertBox) alertBox.style.display = 'none';
+
+  onNewPinInput('');
+
+  if (targetTypeInput) targetTypeInput.value = type;
+
+  if (type === 'dev') {
+    modal.classList.remove('theme-store');
+    if (dialog) {
+      dialog.style.background = '#0f172a';
+      dialog.style.borderColor = '#334155';
+    }
+    if (header) {
+      header.style.background = '#1e293b';
+      header.style.borderBottomColor = '#334155';
+    }
+    if (modalBadge) {
+      modalBadge.innerHTML = '🛡️ PROTOKOL KEAMANAN DEVELOPER';
+      modalBadge.style.background = 'rgba(56, 189, 248, 0.15)';
+      modalBadge.style.color = '#38bdf8';
+    }
+    if (modalTitle) {
+      modalTitle.innerHTML = '<span>🔑</span> Ganti Master PIN Developer';
+      modalTitle.style.color = '#f8fafc';
+    }
+    if (modalDesc) {
+      modalDesc.innerHTML = 'Perbarui Master PIN Super Admin untuk mengontrol seluruh jaringan toko SR12 dan penerimaan passive income fee sistem.';
+    }
+    if (submitBtn) {
+      submitBtn.style.background = '#0284c7';
+      submitBtn.textContent = '💾 Simpan Master PIN Baru';
+    }
+  } else {
+    // Store mode
+    modal.classList.add('theme-store');
+    const store = appState.storeSettings || DEFAULT_STORE_SETTINGS;
+    if (dialog) {
+      dialog.style.background = '#064e3b';
+      dialog.style.borderColor = '#059669';
+    }
+    if (header) {
+      header.style.background = '#065f46';
+      header.style.borderBottomColor = '#047857';
+    }
+    if (modalBadge) {
+      modalBadge.innerHTML = `👑 TOKO: ${escapeHtml(store.storeName || 'Distributor')}`;
+      modalBadge.style.background = 'rgba(16, 185, 129, 0.2)';
+      modalBadge.style.color = '#a7f3d0';
+    }
+    if (modalTitle) {
+      modalTitle.innerHTML = '<span>🔑</span> Ganti PIN Admin Toko (Distributor)';
+      modalTitle.style.color = '#fff';
+    }
+    if (modalDesc) {
+      modalDesc.innerHTML = `Perbarui PIN pengelola untuk toko <b>${escapeHtml(store.storeName)}</b> (${escapeHtml(store.storeOwner)}). PIN ini melindungi akses dashboard stok dan kas POS.`;
+    }
+    if (submitBtn) {
+      submitBtn.style.background = '#059669';
+      submitBtn.textContent = '💾 Simpan PIN Admin Toko';
+    }
+  }
+
+  modal.classList.add('open');
+  if (currentInp) setTimeout(() => currentInp.focus(), 200);
+}
+
+// Handler Submit Ganti PIN
+async function handleSecurityPinChangeSubmit(e) {
+  if (e) e.preventDefault();
+
+  const type = document.getElementById('secPinTargetType')?.value || 'dev';
+  const currentPin = document.getElementById('secPinCurrent')?.value.trim();
+  const newPin = document.getElementById('secPinNew')?.value.trim();
+  const confirmPin = document.getElementById('secPinConfirm')?.value.trim();
+  const alertBox = document.getElementById('secPinAlertBox');
+  const submitBtn = document.getElementById('btnSubmitChangePin');
+
+  function showAlert(msg, isError = true) {
+    if (!alertBox) return;
+    alertBox.style.display = 'block';
+    alertBox.style.background = isError ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.2)';
+    alertBox.style.border = isError ? '1px solid #ef4444' : '1px solid #10b981';
+    alertBox.style.color = isError ? '#fca5a5' : '#a7f3d0';
+    alertBox.innerHTML = `${isError ? '❌' : '✅'} ${msg}`;
+  }
+
+  // 1. Verifikasi PIN Lama
+  if (type === 'dev') {
+    const actualDevPin = appState.masterDevPin || '8899';
+    if (currentPin !== actualDevPin) {
+      showAlert('PIN Lama Pengembang salah! Verifikasi otentikasi gagal.');
+      return;
+    }
+  } else {
+    const store = appState.storeSettings || DEFAULT_STORE_SETTINGS;
+    const actualStorePin = store.storeAdminPin || '1234';
+    const masterPin = appState.masterDevPin || '8899';
+    if (currentPin !== actualStorePin && currentPin !== masterPin) {
+      showAlert('PIN Lama Toko salah! Verifikasi otentikasi gagal.');
+      return;
+    }
+  }
+
+  // 2. Validasi Kekuatan PIN Baru
+  const strength = validateSecurityPinStrength(newPin, currentPin);
+  if (!strength.valid) {
+    showAlert(strength.message);
+    return;
+  }
+
+  // 3. Verifikasi Konfirmasi PIN
+  if (newPin !== confirmPin) {
+    showAlert('Konfirmasi PIN tidak cocok dengan PIN Baru!');
+    return;
+  }
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = '⏳ Menyimpan...';
+  }
+
+  try {
+    if (type === 'dev') {
+      appState.masterDevPin = newPin;
+      localStorage.setItem('sr12_master_dev_pin', newPin);
+      updateDevPortalMetrics();
+      showAlert('Master PIN Developer berhasil diperbarui!', false);
+      showToast('🔑 Master PIN Developer Berhasil Diperbarui!');
+    } else {
+      const storeSlug = appState.currentStoreSlug || 'alzam-agency';
+      appState.storeSettings = {
+        ...appState.storeSettings,
+        storeAdminPin: newPin
+      };
+      saveStoredSettings(appState.storeSettings);
+
+      // Perbarui partnerStores
+      const idx = (appState.partnerStores || []).findIndex(s => s.slug === storeSlug);
+      if (idx >= 0) {
+        appState.partnerStores[idx].storeAdminPin = newPin;
+        saveStoredPartnerStores(appState.partnerStores);
+      }
+
+      // Update input & badge di Store Settings
+      const pinInp = document.getElementById('settingStoreAdminPin');
+      if (pinInp) pinInp.value = newPin;
+      const maskEl = document.getElementById('settingStorePinMasked');
+      if (maskEl) maskEl.textContent = '•••• (Aktif)';
+
+      // Sinkronkan ke Supabase Cloud
+      if (typeof updateStorePinInSupabase === 'function') {
+        await updateStorePinInSupabase(storeSlug, newPin);
+      }
+
+      // Sinkronkan ke Local Server REST API jika ada
+      const apiBase = getApiBaseUrl();
+      if (apiBase && typeof fetch === 'function') {
+        fetch(`${apiBase}/api/stores/${storeSlug}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ storeAdminPin: newPin })
+        }).catch(e => console.warn(e));
+      }
+
+      showAlert('PIN Admin Toko berhasil diperbarui dan disinkronkan ke Cloud!', false);
+      showToast(`🔑 PIN Toko "${appState.storeSettings.storeName}" Berhasil Diperbarui!`);
+    }
+
+    setTimeout(() => {
+      closeModal('modalChangeSecurityPin');
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '💾 Simpan PIN Baru';
+      }
+    }, 1200);
+
+  } catch (err) {
+    console.error('Gagal memperbarui PIN:', err);
+    showAlert('Terjadi kesalahan sistem saat menyimpan PIN!');
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '💾 Simpan PIN Baru';
+    }
+  }
+}
+
+// Change Developer Master PIN (mengarahkan ke modal profesional)
+function changeDevMasterPin() {
+  openChangeSecurityPinModal('dev');
 }
 
 function setTier(tierId, silent = false) {
@@ -6655,7 +7105,8 @@ function updateDevPortalMetrics() {
   if (dStores) dStores.textContent = `${totalStores} Toko`;
   if (dGmv) dGmv.textContent = formatRupiah(m.totalGMV || 0);
   if (dTopup) dTopup.textContent = formatRupiah(totalTopupKas);
-  if (pinDisp) pinDisp.textContent = `${appState.masterDevPin} (Aktif)`;
+  const devPinFormatted = isMasterPinVisible ? `${appState.masterDevPin} (Aktif)` : '•••• (Aktif)';
+  if (pinDisp) pinDisp.textContent = devPinFormatted;
   if (storesCounter) storesCounter.textContent = `${totalStores} Toko Terdaftar`;
 
   // Sync Workspace Console Numbers
@@ -6664,7 +7115,7 @@ function updateDevPortalMetrics() {
   if (wsStores) wsStores.textContent = `${totalStores} Toko`;
   if (wsTopup) wsTopup.textContent = formatRupiah(totalTopupKas);
   if (wsGmv) wsGmv.textContent = formatRupiah(m.totalGMV || 0);
-  if (wsPin) wsPin.textContent = `${appState.masterDevPin} (Aktif)`;
+  if (wsPin) wsPin.textContent = devPinFormatted;
   if (navStores) navStores.textContent = `${totalStores} Toko`;
   if (navFee) navFee.textContent = formatRupiah(totalFee);
   const storesCounter_ws = document.getElementById('devTotalStoresCounter_ws');
@@ -6682,7 +7133,7 @@ function updateDevPortalMetrics() {
     stripName.innerHTML = `${sName} <span style="font-size: 0.72rem; color: #a5f3fc; font-weight: normal; margin-left: 4px;">(${typeLabel})</span>`;
   }
   if (stripQuota) stripQuota.textContent = typeof appState.storeSettings?.orderQuota === 'number' ? appState.storeSettings.orderQuota : 10;
-  if (consolePin) consolePin.textContent = appState.masterDevPin || '8899';
+  if (consolePin) consolePin.textContent = isMasterPinVisible ? (appState.masterDevPin || '8899') : '••••';
 
   // 1. Render Modal Stores Table
   if (storesTableBody) {
@@ -6869,6 +7320,9 @@ function updateDevPortalMetrics() {
                 <button type="button" onclick="rejectPendingStore('${app.id}')" title="Tolak Pengajuan" style="background: #ef4444; color: #fff; border: none; padding: 5px 9px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; cursor: pointer;">
                   ❌ Tolak
                 </button>
+                <button type="button" onclick="deletePendingStoreApp('${app.id}')" title="Hapus Permanen" style="background: #991b1b; color: #fff; border: none; padding: 5px 9px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; cursor: pointer;">
+                  🗑️ Hapus
+                </button>
               </div>
             </td>
           </tr>
@@ -6930,6 +7384,9 @@ function updateDevPortalMetrics() {
                 </button>
                 <button type="button" onclick="rejectPendingStore('${app.id}')" title="Tolak Pengajuan" style="background: #ef4444; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer;">
                   ❌ Tolak
+                </button>
+                <button type="button" onclick="deletePendingStoreApp('${app.id}')" title="Hapus Permanen dari Database" style="background: #991b1b; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer;">
+                  🗑️ Hapus
                 </button>
               </div>
             </td>
@@ -9390,5 +9847,13 @@ function handleDirectProductDeepLink() {
   }
 }
 window.handleDirectProductDeepLink = handleDirectProductDeepLink;
+
+window.deletePendingStoreApp = deletePendingStoreApp;
+window.openChangeSecurityPinModal = openChangeSecurityPinModal;
+window.handleSecurityPinChangeSubmit = handleSecurityPinChangeSubmit;
+window.toggleMasterPinVisibilityDisplay = toggleMasterPinVisibilityDisplay;
+window.togglePinVisibility = togglePinVisibility;
+window.onNewPinInput = onNewPinInput;
+window.changeDevMasterPin = changeDevMasterPin;
 
 

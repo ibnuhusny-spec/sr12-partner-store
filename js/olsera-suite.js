@@ -1026,7 +1026,7 @@ function unlockOlseraScreen() {
   const correctPin = (appState.storeSettings && appState.storeSettings.storeAdminPin) || '1234';
   const masterPin = appState.masterDevPin || '8899';
 
-  if (input === correctPin || input === masterPin || input === '1234') {
+  if (input === correctPin || input === masterPin) {
     if (modal) modal.classList.remove('open');
     showToast('🔓 Layar POS Berhasil Dibuka Kembali!');
   } else {

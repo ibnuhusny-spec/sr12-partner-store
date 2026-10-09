@@ -7500,3 +7500,22 @@ body.olsera-portal-active #olseraAppNavbar {
   align-items: center;
   justify-content: center;
 }
+
+/* Security PIN Modal Styling */
+#modalChangeSecurityPin .modal-dialog {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#secPinCurrent:focus, #secPinNew:focus, #secPinConfirm:focus {
+  outline: none;
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25);
+}
+
+#modalChangeSecurityPin.theme-store #secPinCurrent:focus,
+#modalChangeSecurityPin.theme-store #secPinNew:focus,
+#modalChangeSecurityPin.theme-store #secPinConfirm:focus {
+  border-color: #10b981 !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+}
+

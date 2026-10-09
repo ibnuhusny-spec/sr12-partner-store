@@ -301,20 +301,30 @@ async function savePendingStoreToSupabase(app) {
 }
 
 /**
- * Hapus Pengajuan Toko dari Supabase Cloud (Setelah Disetujui/Ditolak)
+ * Hapus Pengajuan Toko dari Supabase Cloud (Setelah Disetujui/Ditolak/Dihapus)
  */
-async function deletePendingStoreFromSupabase(id) {
+async function deletePendingStoreFromSupabase(id, slug) {
   const client = initSupabaseClient();
-  if (!client || !id) return;
+  if (!client || (!id && !slug)) return false;
   try {
-    const { error } = await client
-      .from('pending_stores')
-      .delete()
-      .eq('id', id);
-
-    if (error) console.warn('Supabase delete pending store error:', error);
+    if (id) {
+      const { error: err1 } = await client
+        .from('pending_stores')
+        .delete()
+        .eq('id', id);
+      if (err1) console.warn('Supabase delete pending store by id error:', err1);
+    }
+    if (slug) {
+      const { error: err2 } = await client
+        .from('pending_stores')
+        .delete()
+        .eq('slug', slug);
+      if (err2) console.warn('Supabase delete pending store by slug error:', err2);
+    }
+    return true;
   } catch (e) {
     console.warn('Exception deleting pending store from Supabase:', e);
+    return false;
   }
 }
 
@@ -636,11 +646,36 @@ async function syncProductsFromSupabase(storeSlug = 'global') {
   }
 }
 
+/**
+ * Update PIN Admin Toko di Supabase Cloud
+ */
+async function updateStorePinInSupabase(slug, newPin) {
+  const client = initSupabaseClient();
+  if (!client || !slug || !newPin) return false;
+  try {
+    const { error } = await client
+      .from('stores')
+      .update({ store_admin_pin: newPin })
+      .eq('slug', slug);
+
+    if (error) {
+      console.warn('Supabase update store pin error:', error);
+      return false;
+    }
+    console.log('✅ PIN Admin Toko berhasil disinkronkan ke Supabase Cloud untuk:', slug);
+    return true;
+  } catch (e) {
+    console.warn('Exception updating store pin in Supabase:', e);
+    return false;
+  }
+}
+
 // Window global exports
 window.initSupabaseClient = initSupabaseClient;
 window.syncStoresFromSupabase = syncStoresFromSupabase;
 window.saveStoreToSupabase = saveStoreToSupabase;
 window.deleteStoreFromSupabase = deleteStoreFromSupabase;
+window.updateStorePinInSupabase = updateStorePinInSupabase;
 window.syncPendingStoresFromSupabase = syncPendingStoresFromSupabase;
 window.savePendingStoreToSupabase = savePendingStoreToSupabase;
 window.deletePendingStoreFromSupabase = deletePendingStoreFromSupabase;
