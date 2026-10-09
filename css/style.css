@@ -1004,12 +1004,12 @@ body.dev-mode-active .site-header {
 
 /* Top Utility Bar Terintegrasi (Statis dalam Dokumen - Rapi, Sejajar, Tidak Berantakan) */
 .olsera-static-topbar {
-  position: relative !important;
-  top: auto !important;
-  z-index: 10 !important;
-  background: rgba(255, 255, 255, 0.96) !important;
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 100 !important;
+  background: rgba(255, 255, 255, 0.98) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
   border-bottom: 1.5px solid #e2e8f0;
   border-radius: 0 0 14px 14px;
   padding: 10px 18px;
@@ -1021,13 +1021,6 @@ body.dev-mode-active .site-header {
   gap: 14px;
   box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
   box-sizing: border-box;
-}
-
-/* Menu Toko HANYA STICKY saat di halaman Point of Sale (POS) */
-body.olsera-portal-pos-active .olsera-static-topbar {
-  position: sticky !important;
-  top: 0 !important;
-  z-index: 100 !important;
 }
 .olsera-static-topbar-left {
   display: flex;
@@ -4351,9 +4344,28 @@ body.modal-open {
     visibility: visible !important;
   }
 
+  html.olsera-drawer-open,
   body.olsera-drawer-open {
     overflow: hidden !important;
+    height: 100% !important;
+    max-height: 100vh !important;
+    touch-action: none !important;
     overscroll-behavior: none !important;
+  }
+
+  body.olsera-drawer-open .olsera-main-content,
+  body.olsera-drawer-open #distributorOlseraWorkspace,
+  body.olsera-drawer-open .app-main,
+  body.olsera-drawer-open main {
+    pointer-events: none !important;
+    touch-action: none !important;
+    overflow: hidden !important;
+    user-select: none !important;
+  }
+
+  body.olsera-drawer-open #olseraSidebar,
+  body.olsera-drawer-open #olseraDrawerBackdrop {
+    pointer-events: auto !important;
   }
 
   .olsera-drawer-backdrop {
@@ -6566,6 +6578,12 @@ body.modal-open {
     display: none !important;
   }
 
+  /* Hapus duplikasi Tingkat dan Status di mobile card karena sudah ada di header card */
+  .crm-table td[data-label="Tingkat"],
+  .crm-table td[data-label="Status"] {
+    display: none !important;
+  }
+
   .crm-table td[data-label="Rekening Bank"],
   .crm-table td[data-label="Rekening Transfer"],
   .crm-table td[data-label="Masa Aktif"],
@@ -6573,6 +6591,17 @@ body.modal-open {
   .crm-table td[data-label="Akumulasi Belanja"] {
     align-items: flex-start !important;
     padding: 6px 0 !important;
+  }
+
+  .crm-td-cell-wrapper {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    text-align: right !important;
+    min-width: 0 !important;
+    max-width: 65% !important;
+    gap: 3px !important;
+    box-sizing: border-box !important;
   }
 
   .crm-table td[data-label="Pesanan Terjual"],
@@ -7228,9 +7257,9 @@ body.olsera-portal-active #olseraAppNavbar {
    ======================================================== */
 @media (max-width: 768px) {
   .olsera-static-topbar {
-    position: relative !important;
-    top: auto !important;
-    z-index: 10 !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 100 !important;
     display: flex !important;
     flex-direction: row !important;
     align-items: center !important;
@@ -7240,18 +7269,12 @@ body.olsera-portal-active #olseraAppNavbar {
     border-radius: 0 0 14px 14px !important;
     margin-top: 0 !important;
     margin-bottom: 14px !important;
-    background: rgba(255, 255, 255, 0.96) !important;
-    backdrop-filter: blur(8px) !important;
-    -webkit-backdrop-filter: blur(8px) !important;
-    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.07) !important;
+    background: rgba(255, 255, 255, 0.98) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08) !important;
     width: 100% !important;
     box-sizing: border-box !important;
-  }
-
-  body.olsera-portal-pos-active .olsera-static-topbar {
-    position: sticky !important;
-    top: 0 !important;
-    z-index: 100 !important;
   }
 
   /* Indikator Animasi Geser Layar HP untuk Kembali / Keluar */

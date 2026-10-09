@@ -5625,6 +5625,12 @@ function initGlobalEdgeSwipeBackGesture() {
     touchStartY = touch.clientY;
     touchStartTime = Date.now();
 
+    // Jika drawer Menu Toko sedang terbuka, biarkan gesture drawer yang menangani
+    if (document.body.classList.contains('olsera-drawer-open')) {
+      isTrackingEdgeSwipe = false;
+      return;
+    }
+
     // Hanya aktif jika sentuhan dimulai dari area dekat tepi kiri layar (<= 45px)
     isTrackingEdgeSwipe = touchStartX <= 45;
   }, { passive: true });
@@ -7953,56 +7959,62 @@ function renderResellers() {
           </span>
         </td>
         <td data-label="Rekening Bank">
-          <div style="font-size: 0.8rem; font-weight: 800; color: #0f172a;">
-            🏦 ${m.bankName || 'BCA'} &bull; <span style="font-family: monospace; letter-spacing: 0.02em;">${m.bankAccount || '-'}</span>
-          </div>
-          <div style="font-size: 0.72rem; color: #64748b; margin-top: 2px;">
-            a.n <span style="font-weight: 600; color: #334155;">${m.bankHolder || m.name}</span>
+          <div class="crm-td-cell-wrapper" style="display: flex; flex-direction: column; align-items: flex-end; text-align: right; min-width: 0;">
+            <div style="font-size: 0.8rem; font-weight: 800; color: #0f172a; white-space: nowrap;">
+              🏦 ${m.bankName || 'BCA'} &bull; <span style="font-family: monospace; letter-spacing: 0.02em;">${m.bankAccount || '-'}</span>
+            </div>
+            <div style="font-size: 0.72rem; color: #64748b; margin-top: 2px; white-space: nowrap;">
+              a.n <span style="font-weight: 600; color: #334155;">${m.bankHolder || m.name}</span>
+            </div>
           </div>
         </td>
         <td data-label="Masa Aktif">
-          ${m.tier === 'marketer' ? `
-            <div style="font-size: 0.78rem; color: #0284c7; font-weight: 800;">
-              ✨ Jualan Tanpa Modal
-            </div>
-            <div style="font-size: 0.7rem; color: #64748b; margin-top: 2px;">
-              Komisi 15% bulanan
-            </div>
-          ` : `
-            <div style="font-size: 0.75rem; color: #334155;">
-              Gabung: <b>${m.qualificationDate || '-'}</b>
-            </div>
-            ${m.tier === 'reseller' ? `
-              <div style="font-size: 0.72rem; color: ${m.daysLeft <= 30 && m.state !== 'active' ? '#dc2626' : '#059669'}; font-weight: 800; margin-top: 2px;">
-                ⏳ Sisa ${m.daysLeft} Hari (90 Hari)
+          <div class="crm-td-cell-wrapper" style="display: flex; flex-direction: column; align-items: flex-end; text-align: right; min-width: 0;">
+            ${m.tier === 'marketer' ? `
+              <div style="font-size: 0.78rem; color: #0284c7; font-weight: 800; white-space: nowrap;">
+                ✨ Jualan Tanpa Modal
+              </div>
+              <div style="font-size: 0.7rem; color: #64748b; margin-top: 2px; white-space: nowrap;">
+                Komisi 15% bulanan
               </div>
             ` : `
-              <div style="font-size: 0.72rem; color: #059669; font-weight: 700; margin-top: 2px;">
-                🛡️ Kuota Order Aktif
+              <div style="font-size: 0.75rem; color: #334155; white-space: nowrap;">
+                Gabung: <b style="white-space: nowrap; font-family: monospace;">${m.qualificationDate || '-'}</b>
               </div>
+              ${m.tier === 'reseller' ? `
+                <div style="font-size: 0.72rem; color: ${m.daysLeft <= 30 && m.state !== 'active' ? '#dc2626' : '#059669'}; font-weight: 800; margin-top: 2px; white-space: nowrap;">
+                  ⏳ Sisa ${m.daysLeft} Hari (90 Hari)
+                </div>
+              ` : `
+                <div style="font-size: 0.72rem; color: #059669; font-weight: 700; margin-top: 2px; white-space: nowrap;">
+                  🛡️ Kuota Order Aktif
+                </div>
+              `}
             `}
-          `}
+          </div>
         </td>
         <td data-label="Akumulasi Belanja">
-          ${m.tier === 'marketer' ? `
-            <div style="font-size: 0.82rem; font-weight: 800; color: #0369a1;">
-              ${formatRupiah(m.accumulatedSpent90Days || 0)}
-            </div>
-            <div style="font-size: 0.7rem; color: #64748b; margin-top: 2px;">
-              ${m.totalOrdersCount || 0} Pesanan Terjual
-            </div>
-          ` : `
-            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.76rem; margin-bottom: 3px; gap: 6px;">
-              <b style="color: #0f172a;">${formatRupiah(m.spent)}</b>
-              <span style="color: #64748b; font-size: 0.7rem;">Target: ${formatRupiah(m.targetNominal)}</span>
-            </div>
-            <div style="background: #e2e8f0; border-radius: 999px; height: 6px; width: 100%; min-width: 90px; overflow: hidden;">
-              <div style="width: ${progressPct}%; height: 100%; background: ${m.state === 'active' ? '#10b981' : (m.state === 'warning' ? '#f59e0b' : '#ef4444')}; border-radius: 999px;"></div>
-            </div>
-            <div style="font-size: 0.68rem; color: ${m.deficit > 0 ? '#b45309' : '#059669'}; margin-top: 3px; font-weight: 700;">
-              ${m.deficit > 0 ? `Kurang ${formatRupiah(m.deficit)}` : '✨ Target RO Tercapai!'}
-            </div>
-          `}
+          <div class="crm-td-cell-wrapper" style="display: flex; flex-direction: column; align-items: flex-end; text-align: right; width: 100%; max-width: 200px; min-width: 140px;">
+            ${m.tier === 'marketer' ? `
+              <div style="font-size: 0.82rem; font-weight: 800; color: #0369a1; white-space: nowrap;">
+                ${formatRupiah(m.accumulatedSpent90Days || 0)}
+              </div>
+              <div style="font-size: 0.7rem; color: #64748b; margin-top: 2px; white-space: nowrap;">
+                ${m.totalOrdersCount || 0} Pesanan Terjual
+              </div>
+            ` : `
+              <div style="display: flex; justify-content: flex-end; align-items: baseline; font-size: 0.78rem; margin-bottom: 3px; gap: 6px; width: 100%; flex-wrap: wrap;">
+                <b style="color: #0f172a; font-size: 0.82rem; white-space: nowrap;">${formatRupiah(m.spent)}</b>
+                <span style="color: #64748b; font-size: 0.68rem; white-space: nowrap;">Target: ${formatRupiah(m.targetNominal)}</span>
+              </div>
+              <div style="background: #e2e8f0; border-radius: 999px; height: 6px; width: 100%; max-width: 150px; overflow: hidden; margin: 2px 0;">
+                <div style="width: ${progressPct}%; height: 100%; background: ${m.state === 'active' ? '#10b981' : (m.state === 'warning' ? '#f59e0b' : '#ef4444')}; border-radius: 999px;"></div>
+              </div>
+              <div style="font-size: 0.68rem; color: ${m.deficit > 0 ? '#b45309' : '#059669'}; margin-top: 2px; font-weight: 700; white-space: nowrap;">
+                ${m.deficit > 0 ? `Kurang ${formatRupiah(m.deficit)}` : '✨ Target RO Tercapai!'}
+              </div>
+            `}
+          </div>
         </td>
         <td data-label="Status">
           <span class="badge-crm" style="background: ${m.state === 'active' ? '#dcfce7' : (m.state === 'warning' ? '#fef3c7' : '#fee2e2')}; color: ${m.state === 'active' ? '#15803d' : (m.state === 'warning' ? '#92400e' : '#b91c1c')};">

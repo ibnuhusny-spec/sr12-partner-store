@@ -393,8 +393,16 @@ function updateOlseraHeaderMeta() {
 function openOlseraSidebarDrawer() {
   const sidebar = document.getElementById('olseraSidebar') || document.querySelector('.olsera-sidebar');
   const backdrop = document.getElementById('olseraDrawerBackdrop');
-  if (sidebar) sidebar.classList.add('open');
-  if (backdrop) backdrop.classList.add('open');
+  if (sidebar) {
+    sidebar.style.transform = '';
+    sidebar.style.transition = '';
+    sidebar.classList.add('open');
+  }
+  if (backdrop) {
+    backdrop.style.opacity = '';
+    backdrop.classList.add('open');
+  }
+  document.documentElement.classList.add('olsera-drawer-open');
   document.body.classList.add('olsera-drawer-open');
   document.body.style.overflow = 'hidden';
   if (typeof updateAdminNotificationUI === 'function') {
@@ -405,8 +413,16 @@ function openOlseraSidebarDrawer() {
 function closeOlseraSidebarDrawer() {
   const sidebar = document.getElementById('olseraSidebar') || document.querySelector('.olsera-sidebar');
   const backdrop = document.getElementById('olseraDrawerBackdrop');
-  if (sidebar) sidebar.classList.remove('open');
-  if (backdrop) backdrop.classList.remove('open');
+  if (sidebar) {
+    sidebar.classList.remove('open');
+    sidebar.style.transform = '';
+    sidebar.style.transition = '';
+  }
+  if (backdrop) {
+    backdrop.classList.remove('open');
+    backdrop.style.opacity = '';
+  }
+  document.documentElement.classList.remove('olsera-drawer-open');
   document.body.classList.remove('olsera-drawer-open');
   document.body.style.overflow = '';
 }
@@ -423,6 +439,83 @@ function toggleOlseraSidebarDrawer() {
 
 function toggleOlseraMenuInFlow() {
   toggleOlseraSidebarDrawer();
+}
+
+/**
+ * GESTUR GESER LAYAR (SWIPE TO CLOSE) & PENCEGAHAN SCROLL BACKGROUND:
+ * Menjamin saat drawer terbuka di HP, geser layar ke kiri langsung menutup drawer
+ * dan halaman di belakangnya 100% diam terkunci tidak bergerak.
+ */
+function initOlseraDrawerSwipeGesture() {
+  const sidebar = document.getElementById('olseraSidebar') || document.querySelector('.olsera-sidebar');
+  const backdrop = document.getElementById('olseraDrawerBackdrop');
+  if (!sidebar) return;
+
+  let startX = 0;
+  let startY = 0;
+  let currentDiffX = 0;
+  let isSwipingSidebar = false;
+
+  // 1. Geser ke kiri pada sidebar untuk menutup (Swipe left to close)
+  sidebar.addEventListener('touchstart', (e) => {
+    if (!sidebar.classList.contains('open')) return;
+    if (e.touches.length !== 1) return;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    currentDiffX = 0;
+    isSwipingSidebar = false;
+  }, { passive: true });
+
+  sidebar.addEventListener('touchmove', (e) => {
+    if (!sidebar.classList.contains('open')) return;
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    const diffX = touch.clientX - startX;
+    const diffY = touch.clientY - startY;
+
+    // Deteksi tarikan ke kiri secara horizontal
+    if (diffX < -10 && Math.abs(diffX) > Math.abs(diffY) * 1.1) {
+      isSwipingSidebar = true;
+      if (e.cancelable) e.preventDefault(); // Kunci background & menu vertical scroll saat swipe horizontal
+      currentDiffX = Math.min(0, diffX);
+      sidebar.style.transform = `translateX(${currentDiffX}px)`;
+      sidebar.style.transition = 'none';
+      if (backdrop) {
+        const sidebarWidth = sidebar.offsetWidth || 300;
+        const progress = Math.max(0, 1 + (diffX / sidebarWidth));
+        backdrop.style.opacity = `${progress}`;
+      }
+    }
+  }, { passive: false });
+
+  sidebar.addEventListener('touchend', (e) => {
+    if (!sidebar.classList.contains('open')) return;
+    if (isSwipingSidebar) {
+      isSwipingSidebar = false;
+      sidebar.style.transition = '';
+      if (backdrop) backdrop.style.opacity = '';
+
+      // Jika tarikan ke kiri mencapai >= 35px, tutup drawer
+      if (currentDiffX <= -35) {
+        closeOlseraSidebarDrawer();
+      } else {
+        sidebar.style.transform = '';
+      }
+    }
+  }, { passive: true });
+
+  // 2. Sentuhan & geseran pada backdrop: Cegah scroll background dan tutup drawer jika digeser/ditekan
+  if (backdrop) {
+    backdrop.addEventListener('touchmove', (e) => {
+      // 100% pastikan halaman di belakang backdrop tidak bergeser sama sekali
+      if (e.cancelable) e.preventDefault();
+    }, { passive: false });
+
+    backdrop.addEventListener('touchend', (e) => {
+      if (e.cancelable) e.preventDefault();
+      closeOlseraSidebarDrawer();
+    }, { passive: false });
+  }
 }
 
 // ========================================================
@@ -3208,11 +3301,17 @@ window.handleClockOutCashier = handleClockOutCashier;
 window.clearAbsensiLogs = clearAbsensiLogs;
 window.updateCashierBadgeUI = updateCashierBadgeUI;
 window.initCashierAttendanceState = initCashierAttendanceState;
+window.initOlseraDrawerSwipeGesture = initOlseraDrawerSwipeGesture;
+
+function initOlseraSuiteComponents() {
+  initCashierAttendanceState();
+  initOlseraDrawerSwipeGesture();
+}
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initCashierAttendanceState);
+  document.addEventListener('DOMContentLoaded', initOlseraSuiteComponents);
 } else {
-  initCashierAttendanceState();
+  initOlseraSuiteComponents();
 }
 
 
