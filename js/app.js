@@ -6128,8 +6128,15 @@ window.chatActiveStoreWa = chatActiveStoreWa;
  * MODAL: Ganti & Kelola Toko Mitra
  */
 function openStoreSwitchModal() {
-  // Hanya dapat diakses oleh Developer / Super Admin
-  if (!appState.isDevMasterLoggedIn) {
+  const isInsidePortal = document.getElementById('distributorOlseraPortal') && 
+                         document.getElementById('distributorOlseraPortal').style.display !== 'none';
+  const isAuthorized = !!appState.isDevMasterLoggedIn || 
+                       !!appState.isDistributorLoggedIn || 
+                       !!appState.isAdminMode || 
+                       isInsidePortal;
+
+  // Hanya pengunjung umum di luar portal yang diminta PIN dev jika mencoba mengakses
+  if (!isAuthorized) {
     if (typeof openDevPinPrompt === 'function') {
       openDevPinPrompt(() => {
         const modal = document.getElementById('modalSwitchStore');
