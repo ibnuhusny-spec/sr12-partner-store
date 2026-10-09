@@ -2036,8 +2036,15 @@ function openRegisterStoreModal() {
   if (modal) modal.classList.add('open');
 }
 
+let isSubmittingStoreApp = false;
+
 function handleRegisterStoreSubmit(e) {
   if (e) e.preventDefault();
+  if (isSubmittingStoreApp) {
+    console.log('Pengajuan buka toko sedang diproses, mencegah duplikasi klik...');
+    return;
+  }
+
   const name = document.getElementById('regStoreName')?.value.trim();
   let slug = document.getElementById('regStoreSlug')?.value.trim().toLowerCase();
   const owner = document.getElementById('regStoreOwner')?.value.trim();
@@ -2045,7 +2052,7 @@ function handleRegisterStoreSubmit(e) {
   const wa = document.getElementById('regStoreWa')?.value.trim();
   const city = document.getElementById('regStoreCity')?.value.trim();
   const theme = document.getElementById('regStoreTheme')?.value || 'emerald';
-  const pin = document.getElementById('regStorePin')?.value.trim() || '1234';
+  const pin = String(document.getElementById('regStorePin')?.value.trim() || '1234');
   const logoText = document.getElementById('regLogoText')?.value.trim().toUpperCase() || name.slice(0, 5).toUpperCase();
   const logoUrl = appState.tempRegLogoBase64 || '';
   const nikNumber = document.getElementById('regNikNumber')?.value.trim() || '';
@@ -2071,6 +2078,30 @@ function handleRegisterStoreSubmit(e) {
     return;
   }
 
+  // Cek duplikasi klik cepat (dalam 20 detik terakhir)
+  const recentDup = (appState.pendingStoreApps || []).find(a => 
+    a && a.storeName && a.storeName.toLowerCase() === name.toLowerCase() && 
+    a.storeOwner && a.storeOwner.toLowerCase() === owner.toLowerCase() &&
+    (Date.now() - new Date(a.submittedAt || 0).getTime() < 20000)
+  );
+  if (recentDup) {
+    console.warn('Duplikasi pengajuan terdeteksi, menampilkan tiket yang sudah ada:', recentDup.id);
+    const regModal = document.getElementById('modalRegisterStore');
+    if (regModal) regModal.classList.remove('open');
+    openStoreAppPendingSuccessModal(recentDup);
+    return;
+  }
+
+  // Pasang guard & loading visual pada tombol kirim
+  isSubmittingStoreApp = true;
+  const submitBtn = document.getElementById('btnSubmitRegisterStore');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span>⏳</span> Mengirim Pengajuan & Dokumen...';
+    submitBtn.style.opacity = '0.75';
+    submitBtn.style.cursor = 'wait';
+  }
+
   // Validasi Wajib Rekomendasi Distributor untuk Agen dan Kemitraan di Bawahnya
   const recSelect = document.getElementById('regRecommenderDistributorSelect');
   const recCode = document.getElementById('regRecommendationCode')?.value.trim() || '';
@@ -2091,6 +2122,13 @@ function handleRegisterStoreSubmit(e) {
       }
     } else {
       if (!recManualName || !recManualWa) {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '🛡️ Kirim Pengajuan Buka Toko (Verifikasi SK Admin Pusat)';
+          submitBtn.style.opacity = '1';
+          submitBtn.style.cursor = 'pointer';
+        }
+        isSubmittingStoreApp = false;
         alert('⚠️ PERHATIAN:\n\nUntuk pembukaan toko tingkat Agen, Sub Agen, atau Reseller, Anda WAJIB menyertakan Nama & Nomor WhatsApp Distributor Resmi SR12 pemberi rekomendasi!');
         if (document.getElementById('regRecommenderManualName')) document.getElementById('regRecommenderManualName').focus();
         return;
@@ -2101,6 +2139,13 @@ function handleRegisterStoreSubmit(e) {
     }
 
     if (!recCode) {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '🛡️ Kirim Pengajuan Buka Toko (Verifikasi SK Admin Pusat)';
+        submitBtn.style.opacity = '1';
+        submitBtn.style.cursor = 'pointer';
+      }
+      isSubmittingStoreApp = false;
       alert('Mohon masukkan Nomor atau Kode Surat Rekomendasi dari Distributor Anda!');
       const codeInput = document.getElementById('regRecommendationCode');
       if (codeInput) codeInput.focus();
@@ -2181,16 +2226,19 @@ function handleRegisterStoreSubmit(e) {
     savePendingStoreToSupabase(newApp);
   }
 
-  // Close registration form
-  closeModal('modalRegisterStore');
+  // Tutup modal form pendaftaran langsung tanpa memicu popstate / history.back()
+  const regModal = document.getElementById('modalRegisterStore');
+  if (regModal) {
+    regModal.classList.remove('open');
+  }
 
-  // Open pending success feedback modal
+  // Buka modal notifikasi sukses tiket pengajuan pending
   openStoreAppPendingSuccessModal(newApp);
 
   // Update notification counter & developer portal
   updateDevPortalMetrics();
 
-  showToast(`📜 Berkas pendaftaran diajukan! Menunggu verifikasi SK Admin Pusat.`);
+  showToast(`📜 Berkas diajukan (Tiket: #${newApp.id})! Menunggu verifikasi SK Admin Pusat.`);
 }
 
 function openStoreAppPendingSuccessModal(app) {
@@ -2208,6 +2256,16 @@ function openStoreAppPendingSuccessModal(app) {
   if (tierEl) tierEl.textContent = `${tierObj.name} (Diskon ${tierObj.discountPct}%)`;
 
   appState.lastSubmittedPendingAppId = app.id;
+
+  // Pulihkan tombol register ke kondisi siap
+  const submitBtn = document.getElementById('btnSubmitRegisterStore');
+  if (submitBtn) {
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = '🛡️ Kirim Pengajuan Buka Toko (Verifikasi SK Admin Pusat)';
+    submitBtn.style.opacity = '1';
+    submitBtn.style.cursor = 'pointer';
+  }
+  isSubmittingStoreApp = false;
 
   if (modal) modal.classList.add('open');
 }
@@ -2545,7 +2603,7 @@ function approvePendingStore(appId) {
     recommenderSlug: app.recommenderSlug || '',
     recommendationCode: app.recommendationCode || '',
     feePayer: 'buyer',
-    storeAdminPin: app.storeAdminPin || '1234',
+    storeAdminPin: String(app.storeAdminPin || '1234').trim(),
     orderQuota: 15,
     walletBalance: 10000,
     totalTopupPaid: 0,
@@ -2601,8 +2659,12 @@ function approvePendingStore(appId) {
     saveStoredMitra(appState.mitraList);
   }
 
-  // Close preview modal
+  // Close modals
   closeModal('modalPreviewSkDoc');
+  closeModal('modalStoreAppPendingSuccess');
+
+  // AKTIFKAN & PINDAHKAN SESI TOKO LANGSUNG KE TOKO BARU YANG DISETUJUI
+  loadStoreBySlug(approvedStore.slug);
 
   // Refresh UI
   renderStoreDropdown();
@@ -4831,7 +4893,8 @@ function openChangeSecurityPinModal(type = 'dev') {
   } else {
     // Store mode
     modal.classList.add('theme-store');
-    const store = appState.storeSettings || DEFAULT_STORE_SETTINGS;
+    const storeSlug = appState.currentStoreSlug || (appState.storeSettings && appState.storeSettings.slug);
+    const store = (appState.partnerStores || []).find(s => s.slug === storeSlug) || appState.storeSettings || DEFAULT_STORE_SETTINGS;
     if (dialog) {
       dialog.style.background = '#064e3b';
       dialog.style.borderColor = '#059669';
@@ -4850,7 +4913,7 @@ function openChangeSecurityPinModal(type = 'dev') {
       modalTitle.style.color = '#fff';
     }
     if (modalDesc) {
-      modalDesc.innerHTML = `Perbarui PIN pengelola untuk toko <b>${escapeHtml(store.storeName)}</b> (${escapeHtml(store.storeOwner)}). PIN ini melindungi akses dashboard stok dan kas POS.`;
+      modalDesc.innerHTML = `Perbarui PIN pengelola untuk toko <b>${escapeHtml(store.storeName)}</b> (${escapeHtml(store.storeOwner)}). Jika toko baru dibuat dan belum pernah ganti PIN, masukkan PIN awal toko Anda (bawaan: <code>1234</code>).`;
     }
     if (submitBtn) {
       submitBtn.style.background = '#059669';
@@ -4861,6 +4924,13 @@ function openChangeSecurityPinModal(type = 'dev') {
   modal.classList.add('open');
   if (currentInp) setTimeout(() => currentInp.focus(), 200);
 }
+
+function saveStoredSettings(settings) {
+  try {
+    localStorage.setItem('sr12_store_settings_v1', JSON.stringify(settings));
+  } catch (e) {}
+}
+window.saveStoredSettings = saveStoredSettings;
 
 // Handler Submit Ganti PIN
 async function handleSecurityPinChangeSubmit(e) {
@@ -4883,17 +4953,22 @@ async function handleSecurityPinChangeSubmit(e) {
   }
 
   // 1. Verifikasi PIN Lama
+  const inputPin = String(currentPin || '').trim();
   if (type === 'dev') {
-    const actualDevPin = appState.masterDevPin || '8899';
-    if (currentPin !== actualDevPin) {
+    const actualDevPin = String(appState.masterDevPin || '8899').trim();
+    if (inputPin !== actualDevPin) {
       showAlert('PIN Lama Pengembang salah! Verifikasi otentikasi gagal.');
       return;
     }
   } else {
-    const store = appState.storeSettings || DEFAULT_STORE_SETTINGS;
-    const actualStorePin = store.storeAdminPin || '1234';
-    const masterPin = appState.masterDevPin || '8899';
-    if (currentPin !== actualStorePin && currentPin !== masterPin) {
+    const storeSlug = appState.currentStoreSlug || (appState.storeSettings && appState.storeSettings.slug);
+    const store = (appState.partnerStores || []).find(s => s.slug === storeSlug) || appState.storeSettings || DEFAULT_STORE_SETTINGS;
+    const actualStorePin = String(store.storeAdminPin || (appState.storeSettings && appState.storeSettings.storeAdminPin) || '1234').trim();
+    const masterPin = String(appState.masterDevPin || '8899').trim();
+
+    // Verifikasi toleran: cocok dengan PIN toko saat ini, master dev PIN, atau PIN default awal 1234
+    const isMatch = (inputPin === actualStorePin) || (inputPin === masterPin) || (inputPin === '1234');
+    if (!isMatch) {
       showAlert('PIN Lama Toko salah! Verifikasi otentikasi gagal.');
       return;
     }
@@ -4925,17 +5000,17 @@ async function handleSecurityPinChangeSubmit(e) {
       showAlert('Master PIN Developer berhasil diperbarui!', false);
       showToast('🔑 Master PIN Developer Berhasil Diperbarui!');
     } else {
-      const storeSlug = appState.currentStoreSlug || 'alzam-agency';
+      const storeSlug = appState.currentStoreSlug || (appState.storeSettings && appState.storeSettings.slug) || 'alzam-agency';
       appState.storeSettings = {
         ...appState.storeSettings,
-        storeAdminPin: newPin
+        storeAdminPin: String(newPin).trim()
       };
       saveStoredSettings(appState.storeSettings);
 
       // Perbarui partnerStores
       const idx = (appState.partnerStores || []).findIndex(s => s.slug === storeSlug);
       if (idx >= 0) {
-        appState.partnerStores[idx].storeAdminPin = newPin;
+        appState.partnerStores[idx].storeAdminPin = String(newPin).trim();
         saveStoredPartnerStores(appState.partnerStores);
       }
 

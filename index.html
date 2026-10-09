@@ -1351,18 +1351,18 @@
 
     <!-- 4.A MODE 1: SHOWCASE RESMI SR12-KU PRO (SR12 OFFICIAL CENTRAL HUB) -->
     <section id="officialCentralHubHero" class="official-central-hub-hero" style="display: none;">
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 14px;">
-        <div>
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 24px;">
+        <div style="flex: 1; min-width: 280px;">
           <span class="central-hub-header-badge">🌐 SR12-KU PRO &bull; SR12 OFFICIAL CENTRAL HUB</span>
           <h2 class="central-hub-title" id="centralHubTitleDisplay">SR12-Ku Pro</h2>
-          <p class="central-hub-subtitle" id="centralHubSubtitleDisplay">
+          <p class="central-hub-subtitle" id="centralHubSubtitleDisplay" style="margin-bottom: 0;">
             SR12 Official Central Hub &bull; Pusat pasokan &amp; jaringan kemitraan resmi produk SR12 Herbal Skin Care se-Indonesia. Silakan pilih Toko Distributor atau Agen terdekat di kota Anda untuk berbelanja produk asli SR12.
           </p>
         </div>
-        <div style="background: rgba(255,255,255,0.1); border: 1.5px solid rgba(255,255,255,0.25); border-radius: 12px; padding: 12px 18px; text-align: center; min-width: 140px;">
-          <div style="font-size: 0.72rem; color: #a7f3d0; text-transform: uppercase; font-weight: 800;">Status Operasional:</div>
-          <div style="font-size: 1.05rem; font-weight: 900; color: #fde68a;">🟢 CENTRAL HUB LIVE</div>
-          <div style="font-size: 0.7rem; color: #cbd5e1; margin-top: 3px;">Pusat Pasokan Resmi</div>
+        <div style="background: rgba(255,255,255,0.12); border: 1.5px solid rgba(255,255,255,0.28); border-radius: 12px; padding: 12px 20px; text-align: center; min-width: 150px; align-self: flex-start; box-shadow: 0 4px 16px rgba(0,0,0,0.2); backdrop-filter: blur(6px); margin-bottom: 8px;">
+          <div style="font-size: 0.72rem; color: #a7f3d0; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px;">Status Operasional:</div>
+          <div style="font-size: 1.05rem; font-weight: 900; color: #fde68a; margin: 2px 0;">🟢 CENTRAL HUB LIVE</div>
+          <div style="font-size: 0.7rem; color: #cbd5e1;">Pusat Pasokan Resmi</div>
         </div>
       </div>
 
@@ -2883,12 +2883,16 @@
               </select>
             </div>
             <div>
-              <label style="font-size: 0.8rem; font-weight: 700; color: var(--dark-800); display: block; margin-bottom: 4px;">PIN Admin Toko Anda:</label>
-              <input type="password" id="regStorePin" maxlength="6" placeholder="Default: 1234" value="1234" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: monospace; font-weight: 700;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <label style="font-size: 0.8rem; font-weight: 700; color: var(--dark-800); margin: 0;">PIN Admin Toko Anda:</label>
+                <span style="font-size: 0.68rem; color: #047857; background: #dcfce7; padding: 2px 6px; border-radius: 4px; font-weight: 700;">Awal: 1234</span>
+              </div>
+              <input type="password" id="regStorePin" maxlength="8" placeholder="Default: 1234" value="1234" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: monospace; font-weight: 700;">
+              <small style="font-size: 0.68rem; color: var(--dark-500); display: block; margin-top: 3px;">PIN awal bawaan: <b>1234</b>. Dapat diganti kapan saja setelah toko aktif.</small>
             </div>
           </div>
 
-          <button type="submit" style="width: 100%; background: linear-gradient(135deg, var(--primary-700), var(--primary-600)); color: #fff; border: none; padding: 12px; border-radius: var(--radius-md); font-weight: 800; font-size: 0.95rem; cursor: pointer; box-shadow: 0 4px 12px rgba(5,150,105,0.3);">
+          <button type="submit" id="btnSubmitRegisterStore" style="width: 100%; background: linear-gradient(135deg, var(--primary-700), var(--primary-600)); color: #fff; border: none; padding: 12px; border-radius: var(--radius-md); font-weight: 800; font-size: 0.95rem; cursor: pointer; box-shadow: 0 4px 12px rgba(5,150,105,0.3); transition: all 0.2s ease;">
             🛡️ Kirim Pengajuan Buka Toko (Verifikasi SK Admin Pusat)
           </button>
         </form>
