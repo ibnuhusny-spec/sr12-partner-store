@@ -438,20 +438,26 @@ async function syncStoresWithServer() {
       if (Array.isArray(supaStores)) {
         const cloudSlugs = new Set(supaStores.map(s => s.slug));
 
-        // A. Filter toko mitra: Hapus toko yang tidak ada di Supabase Cloud (kecuali sr12-central) atau yang ada di daftar hapus
+        // A. Periksa toko lokal: Jangan hapus toko valid yang baru disetujui/dibuat, melainkan unggah ke Supabase Cloud jika belum ada
         const prevCount = (appState.partnerStores || []).length;
         appState.partnerStores = (appState.partnerStores || []).filter(localStore => {
           if (!localStore || !localStore.slug) return false;
           if (localStore.slug === 'sr12-central') return true;
           if (deletedSlugs.includes(localStore.slug)) return false;
-          // Pastikan hanya toko yang terdaftar resmi di Supabase Cloud yang dipertahankan
-          if (!cloudSlugs.has(localStore.slug)) return false;
+          if (localStore.slug === 'toko-supa-distributor' || localStore.slug.startsWith('deleted_') || localStore.slug.includes('toko-supa')) return false;
+
+          // Jika toko lokal valid tapi belum tercatat di Cloud, otomatis cadangkan ke Supabase Cloud
+          if (!cloudSlugs.has(localStore.slug)) {
+            if (typeof saveStoreToSupabase === 'function') {
+              saveStoreToSupabase(localStore);
+            }
+          }
           return true;
         });
 
         if (appState.partnerStores.length !== prevCount) {
           changed = true;
-          if (appState.currentStoreSlug && !cloudSlugs.has(appState.currentStoreSlug) && appState.currentStoreSlug !== 'sr12-central') {
+          if (appState.currentStoreSlug && deletedSlugs.includes(appState.currentStoreSlug) && appState.currentStoreSlug !== 'sr12-central') {
             switchPartnerStore('sr12-central');
           }
         }
@@ -1558,12 +1564,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         const deletedSlugs = getDeletedStoreSlugs();
         const cloudSlugs = new Set(cloudStores.map(s => s.slug));
 
-        // Bersihkan toko lokal usang/sampah yang tidak ada di Supabase Cloud (agar Laptop & HP sinkron 100%)
+        // Lindungi toko lokal: Jangan hapus toko valid yang baru disetujui, melainkan cadangkan ke Supabase Cloud
         appState.partnerStores = (appState.partnerStores || []).filter(localStore => {
           if (!localStore || !localStore.slug) return false;
           if (localStore.slug === 'sr12-central') return true;
           if (deletedSlugs.includes(localStore.slug)) return false;
-          return cloudSlugs.has(localStore.slug);
+          if (localStore.slug === 'toko-supa-distributor' || localStore.slug.startsWith('deleted_') || localStore.slug.includes('toko-supa')) return false;
+          if (!cloudSlugs.has(localStore.slug)) {
+            if (typeof saveStoreToSupabase === 'function') {
+              saveStoreToSupabase(localStore);
+            }
+          }
+          return true;
         });
 
         cloudStores.forEach(apiStore => {
@@ -2560,7 +2572,7 @@ function previewSkDocument(appId) {
   showToast('📄 Membuka dokumen SK Distributor...');
 }
 
-function approvePendingStore(appId) {
+async function approvePendingStore(appId) {
   const index = (appState.pendingStoreApps || []).findIndex(a => a.id === appId);
   if (index === -1) {
     alert('Pengajuan toko tidak ditemukan atau sudah diproses!');
@@ -2568,12 +2580,13 @@ function approvePendingStore(appId) {
   }
 
   const app = appState.pendingStoreApps[index];
+  const tierTitle = SR12_TIERS[app.partnerTier]?.name || app.partnerTier;
   const confirmApprove = confirm(
-    `✅ PERSETUJUAN DOKUMEN SK DISTRIBUTOR\n\n` +
+    `✅ PERSETUJUAN DOKUMEN SK DISTRIBUTOR / MITRA\n\n` +
     `Nama Toko: ${app.storeName}\n` +
     `Calon Pemilik: ${app.storeOwner} (${app.storeCity})\n` +
     `No. SK: ${app.skNumber}\n` +
-    `Level: ${SR12_TIERS[app.partnerTier]?.name || app.partnerTier}\n\n` +
+    `Level: ${tierTitle}\n\n` +
     `Apakah Anda yakin menyetujui pengajuan ini dan mengaktifkan tokonya sekarang?`
   );
 
@@ -2612,7 +2625,13 @@ function approvePendingStore(appId) {
     approvedAt: new Date().toISOString()
   };
 
-  appState.partnerStores.push(approvedStore);
+  // Pastikan tersimpan di partnerStores tanpa duplikasi
+  const existIdx = (appState.partnerStores || []).findIndex(s => s.slug === approvedStore.slug);
+  if (existIdx >= 0) {
+    appState.partnerStores[existIdx] = Object.assign({}, appState.partnerStores[existIdx], approvedStore);
+  } else {
+    appState.partnerStores.push(approvedStore);
+  }
   saveStoredPartnerStores(appState.partnerStores);
 
   // Sinkronisasi otomatis ke server database API & Supabase Cloud
@@ -2633,10 +2652,18 @@ function approvePendingStore(appId) {
   addDeletedPendingStore(app.id, app.slug);
 
   if (typeof saveStoreToSupabase === 'function') {
-    saveStoreToSupabase(approvedStore);
+    try {
+      await saveStoreToSupabase(approvedStore);
+    } catch (e) {
+      console.warn('saveStoreToSupabase error:', e);
+    }
   }
   if (typeof deletePendingStoreFromSupabase === 'function') {
-    deletePendingStoreFromSupabase(app.id, app.slug);
+    try {
+      await deletePendingStoreFromSupabase(app.id, app.slug);
+    } catch (e) {
+      console.warn('deletePendingStoreFromSupabase error:', e);
+    }
   }
 
   // Jika merupakan toko Agen/Sub Agen di bawah Distributor aktif, otomatis daftarkan ke buku mitra distributor
@@ -2659,45 +2686,105 @@ function approvePendingStore(appId) {
     saveStoredMitra(appState.mitraList);
   }
 
-  // Close modals
+  // Tutup semua modal terkait pengajuan
   closeModal('modalPreviewSkDoc');
   closeModal('modalStoreAppPendingSuccess');
+  closeModal('modalDistributorPendingStores');
 
-  // AKTIFKAN & PINDAHKAN SESI TOKO LANGSUNG KE TOKO BARU YANG DISETUJUI
-  loadStoreBySlug(approvedStore.slug);
-
-  // Refresh UI
+  // Refresh UI data & list
   renderStoreDropdown();
   updateDevPortalMetrics();
-  renderOfficialDistributorDirectory();
+  if (typeof updateDistributorPendingBadges === 'function') {
+    updateDistributorPendingBadges();
+  }
+  if (typeof renderOlseraPendingStores === 'function') {
+    renderOlseraPendingStores();
+  }
   if (typeof renderSwitchStoreModal === 'function') {
     renderSwitchStoreModal();
   }
 
-  // Prepare WA Activation Message
+  // Siapkan Pesan Konfirmasi WA Aktivasi
   const storeUrl = `${window.location.origin}${window.location.pathname}?store=${approvedStore.slug}`;
   const waMsg = encodeURIComponent(
     `Halo Kak ${approvedStore.storeOwner}!\n\n` +
     `🎉 *SELAMAT! PENGAJUAN TOKO SR12 ANDA TELAH DISETUJUI* 🎉\n\n` +
-    `Surat Keputusan (SK) Distributor Resmi Anda (No: *${approvedStore.verifiedSkNumber}*) telah *DIVERIFIKASI & DISETUJUI* oleh Admin Pusat PT. SR12 Herbal Perkasa.\n\n` +
+    `Surat Keputusan (SK) Resmi Anda (No: *${approvedStore.verifiedSkNumber}*) telah *DIVERIFIKASI & DISETUJUI* oleh Distributor / Admin SR12 Herbal Perkasa.\n\n` +
     `🏪 *Nama Toko:* ${approvedStore.storeName}\n` +
     `📍 *Kota:* ${approvedStore.storeCity}\n` +
+    `👑 *Level Kemitraan:* ${tierTitle}\n` +
     `🔗 *Link Resmi Toko Anda:*\n${storeUrl}\n\n` +
     `🔑 *PIN Admin Toko:* ${approvedStore.storeAdminPin}\n` +
     `⚡ *Bonus Kuota Awal:* 15 Order WhatsApp Gratis\n\n` +
     `Silakan klik link di atas untuk melihat toko online Anda dan mulai sebarkan ke seluruh mitra maupun calon pembeli. Selamat berjualan dan sukses selalu! 🚀`
   );
 
-  showToast(`🎉 Toko "${approvedStore.storeName}" BERHASIL DISETUJUI & AKTIF!`);
+  showToast(`🎉 Toko "${approvedStore.storeName}" BERHASIL DISETUJUI & DIAKTIFKAN!`);
 
-  const sendWa = confirm(
-    `🎉 TOKO BERHASIL DIAKTIFKAN!\n\n` +
-    `Toko "${approvedStore.storeName}" sekarang sudah aktif dan dapat diakses publik.\n\n` +
-    `Kirim konfirmasi aktivasi via WhatsApp ke pemilik (+${approvedStore.storeWaNumber}) sekarang?`
+  // Konfirmasi Navigasi: Langsung ke Beranda Official Central Hub (Direktori) atau Buka Toko
+  const goToCentral = confirm(
+    `🎉 TOKO ${tierTitle.toUpperCase()} TELAH DIAKTIFKAN!\n\n` +
+    `Toko: ${approvedStore.storeName}\n` +
+    `Pemilik: ${approvedStore.storeOwner} (${approvedStore.storeCity})\n\n` +
+    `👉 Klik [OK] untuk LANGSUNG MELIHAT toko baru ini di BERANDA OFFICIAL CENTRAL HUB (Direktori Semua Toko)\n\n` +
+    `👉 Klik [BATAL] jika ingin membuka & meninjau etalase toko online Agen ini secara langsung`
   );
-  if (sendWa) {
-    window.open(`https://wa.me/${approvedStore.storeWaNumber}?text=${waMsg}`, '_blank');
+
+  if (goToCentral) {
+    // 1. Tutup Olsera Suite jika sedang terbuka
+    if (typeof showDistributorPortalView === 'function') {
+      showDistributorPortalView(false);
+    }
+    if (typeof closeOlseraSidebarDrawer === 'function') {
+      closeOlseraSidebarDrawer();
+    }
+
+    // 2. Beralih ke Official Central Hub
+    switchPartnerStore('sr12-central');
+
+    // 3. Pastikan tab filter direktori menampilkan semua mitra termasuk toko baru
+    if (typeof filterDirectoryTier === 'function') {
+      filterDirectoryTier('all');
+    }
+    renderOfficialDistributorDirectory('all');
+
+    // 4. Scroll dan sorot kartu toko baru di direktori
+    setTimeout(() => {
+      const dirSec = document.getElementById('officialDistributorDirectorySection');
+      if (dirSec) {
+        dirSec.style.display = 'block';
+        dirSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      const targetCard = document.getElementById(`dirStoreCard_${approvedStore.slug}`);
+      if (targetCard) {
+        targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        targetCard.style.transition = 'all 0.5s ease';
+        targetCard.style.boxShadow = '0 0 0 4px #10b981, 0 10px 25px rgba(16, 185, 129, 0.4)';
+        targetCard.style.transform = 'scale(1.02)';
+        setTimeout(() => {
+          targetCard.style.boxShadow = '';
+          targetCard.style.transform = '';
+        }, 3500);
+      }
+    }, 300);
+  } else {
+    // Tutup Olsera Suite dan buka toko agen
+    if (typeof showDistributorPortalView === 'function') {
+      showDistributorPortalView(false);
+    }
+    loadStoreBySlug(approvedStore.slug);
   }
+
+  // Tawari kirim konfirmasi WhatsApp ke pemilik toko
+  setTimeout(() => {
+    const sendWa = confirm(
+      `📲 KONFIRMASI WHATSAPP AKTIVASI\n\n` +
+      `Kirim notifikasi aktivasi & link toko via WhatsApp ke pemilik (+${approvedStore.storeWaNumber}) sekarang?`
+    );
+    if (sendWa) {
+      window.open(`https://wa.me/${approvedStore.storeWaNumber}?text=${waMsg}`, '_blank');
+    }
+  }, 600);
 }
 
 function rejectPendingStore(appId) {
@@ -3151,11 +3238,17 @@ function renderOfficialDistributorDirectory(filter = currentDirectoryFilter, sea
 
   const grid = document.getElementById('officialDistributorsGrid');
   const countAllEl = document.getElementById('dirCountAll');
+  const countDistEl = document.getElementById('dirCountDistributor');
+  const countAgenEl = document.getElementById('dirCountAgen');
+  const countSubAgenEl = document.getElementById('dirCountSubAgen');
   if (!grid) return;
 
   // Hanya tampilkan Toko Distributor & Agen resmi (sr12-central adalah pusatnya)
   const partnerList = (appState.partnerStores || []).filter(s => s && s.slug && s.slug !== 'sr12-central');
   if (countAllEl) countAllEl.textContent = partnerList.length;
+  if (countDistEl) countDistEl.textContent = partnerList.filter(s => s.partnerTier === 'distributor').length;
+  if (countAgenEl) countAgenEl.textContent = partnerList.filter(s => s.partnerTier === 'agen' || (s.storeName && s.storeName.toLowerCase().includes('agen'))).length;
+  if (countSubAgenEl) countSubAgenEl.textContent = partnerList.filter(s => s.partnerTier === 'sub_agen').length;
 
   const filtered = partnerList.filter(s => {
     let matchTier = false;
@@ -3213,15 +3306,18 @@ function renderOfficialDistributorDirectory(filter = currentDirectoryFilter, sea
     const cleanCity = (store.storeCity || 'Indonesia').split('(')[0].trim();
     const coverUrl = store.heroBannerUrl || 'assets/hero-banner.jpg';
     const cleanWa = (store.storeWaNumber || '6281234567890').replace(/[^0-9]/g, '');
+    const tierIcon = store.partnerTier === 'agen' ? '⭐' : (store.partnerTier === 'sub_agen' ? '🌟' : '👑');
+    const tierName = (tierObj.name || 'Mitra').toUpperCase();
+    const tierBadgeText = tierName.includes('RESMI') ? `${tierIcon} ${tierName}` : `${tierIcon} ${tierName} RESMI`;
 
     return `
-      <div class="distributor-card">
+      <div class="distributor-card" id="dirStoreCard_${store.slug}" data-slug="${store.slug}">
         <!-- Mini Cover Banner Toko di Card Direktori -->
         <div class="dist-card-cover-wrap">
           <img src="${coverUrl}" alt="Cover ${store.storeName}" class="dist-card-cover-img">
           <div class="dist-card-cover-overlay"></div>
           <span class="dist-card-tier-pill tier-${store.partnerTier || 'distributor'}" style="position: absolute; top: 10px; right: 10px; margin: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
-            👑 ${tierObj.name.toUpperCase()} RESMI
+            ${tierBadgeText}
           </span>
         </div>
 
