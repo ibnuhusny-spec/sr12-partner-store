@@ -1039,18 +1039,16 @@ async function syncMitraWithIndexedDB() {
       await dbSaveAllMarketerSales(appState.marketerSales);
     }
 
-    // 3. Sinkronkan dari Supabase Cloud jika online
+    // 3. Sinkronkan dari Supabase Cloud jika online (Ambil seluruh mitra jaringan global lintas toko)
     if (typeof syncMitraFromSupabase === 'function' && typeof appState !== 'undefined') {
-      const slug = (appState.storeSettings && appState.storeSettings.slug) || 'sr12-central';
-      const cloudMitra = await syncMitraFromSupabase(slug);
+      const cloudMitra = await syncMitraFromSupabase();
       if (cloudMitra && cloudMitra.length > 0) {
         const curMap = new Map((appState.mitraList || []).map(m => [m.id, m]));
         let cloudAdded = false;
         cloudMitra.forEach(cm => {
-          if (!curMap.has(cm.id)) {
-            curMap.set(cm.id, cm);
-            cloudAdded = true;
-          }
+          const existing = curMap.get(cm.id);
+          curMap.set(cm.id, Object.assign({}, existing || {}, cm));
+          cloudAdded = true;
         });
         if (cloudAdded) {
           appState.mitraList = Array.from(curMap.values());
@@ -1058,6 +1056,7 @@ async function syncMitraWithIndexedDB() {
           saveStoredMitra(appState.mitraList, false);
           if (typeof renderResellers === 'function') renderResellers();
           if (typeof updateViewModeUI === 'function') updateViewModeUI();
+          if (typeof updateDevPortalMetrics === 'function') updateDevPortalMetrics();
         }
       }
     }
@@ -1422,7 +1421,7 @@ function saveStoredMitra(mitraList, syncCloud = true) {
   if (syncCloud && typeof saveMitraToSupabase === 'function') {
     const slug = (typeof appState !== 'undefined' && appState.storeSettings && appState.storeSettings.slug) || 'sr12-central';
     mitraList.forEach(m => {
-      saveMitraToSupabase(m, slug);
+      saveMitraToSupabase(m, m.store_slug || slug);
     });
   }
 }
@@ -1698,19 +1697,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   setInterval(() => {
     syncStoresWithServer();
     syncPendingStoresWithServer();
+    if (typeof syncMitraWithIndexedDB === 'function') syncMitraWithIndexedDB();
   }, 3000);
 
   window.addEventListener('focus', () => {
     syncStoresWithServer();
     syncPendingStoresWithServer();
+    if (typeof syncMitraWithIndexedDB === 'function') syncMitraWithIndexedDB();
   });
 
-  // Listener WebSocket Cloud Instan: Ketika ada perubahan toko/antrean di HP/Laptop lain, langsung sinkron seketika
+  // Listener WebSocket Cloud Instan: Ketika ada perubahan toko/antrean/mitra di HP/Laptop lain, langsung sinkron seketika
   if (typeof subscribeToStoreChanges === 'function') {
     try {
       subscribeToStoreChanges(() => {
         syncStoresWithServer();
         syncPendingStoresWithServer();
+        if (typeof syncMitraWithIndexedDB === 'function') syncMitraWithIndexedDB();
       });
     } catch(subErr) {
       console.warn('Realtime subscription trigger error:', subErr);
@@ -4354,6 +4356,7 @@ function initEventListeners() {
       phoneIn.value = appState.buyerDetails.phone;
     }
     if (typeof updateCartUI === 'function') updateCartUI();
+    if (typeof syncMitraWithIndexedDB === 'function') syncMitraWithIndexedDB();
   };
 
   if (btnOpenCart) {
@@ -9086,14 +9089,28 @@ function normalizePhone(p) {
 
 function findMitraByIdOrPhone(query) {
   if (!query) return null;
-  const qClean = query.trim().toUpperCase();
-  const qPhone = normalizePhone(query);
+  const qTrim = String(query).trim();
+  const qClean = qTrim.toUpperCase();
+  const qAlphaNum = qClean.replace(/[^A-Z0-9]/g, '');
+  const qPhone = normalizePhone(qTrim);
+  const qPhoneTail = qPhone.length >= 8 ? qPhone.slice(-8) : '';
   const list = appState.mitraList || appState.resellers || [];
 
   return list.find(m => {
-    const idMatch = (m.id && m.id.toUpperCase() === qClean);
-    const phoneMatch = qPhone.length >= 10 && normalizePhone(m.phone) === qPhone;
-    return idMatch || phoneMatch;
+    // 1. Cocokkan ID persis atau tanpa tanda hubung (AG-001 vs AG001 vs ag-001)
+    const mIdClean = (m.id || '').toUpperCase();
+    const mIdAlphaNum = mIdClean.replace(/[^A-Z0-9]/g, '');
+    const idMatch = (mIdClean === qClean) || (mIdAlphaNum.length > 0 && mIdAlphaNum === qAlphaNum);
+
+    // 2. Cocokkan No. WhatsApp (support 08xxx, 628xxx, spasi, tanda hubung)
+    const mPhone = normalizePhone(m.phone || '');
+    const phoneMatch = (qPhone.length >= 9 && mPhone === qPhone) ||
+                       (qPhoneTail.length >= 8 && mPhone.endsWith(qPhoneTail));
+
+    // 3. Cocokkan Nama Mitra (case-insensitive)
+    const nameMatch = m.name && m.name.trim().toLowerCase() === qTrim.toLowerCase();
+
+    return idMatch || phoneMatch || nameMatch;
   });
 }
 
@@ -9462,6 +9479,7 @@ function handleAddMitraSubmit(e) {
   const nowIso = '2026-09-27';
   const newMitra = {
     id: id,
+    store_slug: (appState.storeSettings && appState.storeSettings.slug) || 'sr12-central',
     name: name,
     phone: phone,
     city: city || 'Indonesia',
@@ -10085,17 +10103,60 @@ function sendMarketerSalarySlipWA(marketerId, monthPeriod) {
 // ==========================================
 // CART BUYER / MITRA / MARKETER AUTO-CHECK
 // ==========================================
+let debounceMitraCheckTimer = null;
+
 function checkBuyerMitraPhoneClick() {
   const input = document.getElementById('cartBuyerPhoneInput');
-  if (input) {
-    autoCheckBuyerMitraPhone(input.value);
+  if (input && input.value) {
+    if (debounceMitraCheckTimer) clearTimeout(debounceMitraCheckTimer);
+    const q = input.value.trim();
+    // 1. Cek langsung memori lokal
+    let found = findMitraByIdOrPhone(q);
+    if (found) {
+      applyBuyerMitraVerification(found, q);
+      return;
+    }
+    // 2. Jika belum ada di lokal, periksa langsung ke Supabase Cloud
+    if (typeof findMitraInSupabase === 'function') {
+      const notice = document.getElementById('buyerStatusNotice');
+      if (notice) {
+        notice.style.display = 'block';
+        notice.style.background = '#f0f9ff';
+        notice.style.color = '#0369a1';
+        notice.style.border = '1px solid #bae6fd';
+        notice.innerHTML = `<span>⏳ Memverifikasi ID/No. HP "<b>${escapeHtml(q)}</b>" di Cloud SR12...</span>`;
+      }
+      findMitraInSupabase(q).then(cloudFound => {
+        if (cloudFound) {
+          if (!appState.mitraList) appState.mitraList = [];
+          const existIdx = appState.mitraList.findIndex(m => m.id === cloudFound.id);
+          if (existIdx >= 0) {
+            appState.mitraList[existIdx] = Object.assign({}, appState.mitraList[existIdx], cloudFound);
+          } else {
+            appState.mitraList.unshift(cloudFound);
+          }
+          appState.resellers = appState.mitraList;
+          saveStoredMitra(appState.mitraList, false);
+          applyBuyerMitraVerification(cloudFound, q);
+          showToast(`✅ Data Mitra "${cloudFound.name}" (${cloudFound.id}) berhasil diverifikasi dari Cloud!`);
+        } else {
+          applyBuyerMitraVerification(null, q);
+        }
+      }).catch(err => {
+        console.warn('Cek cloud error:', err);
+        applyBuyerMitraVerification(null, q);
+      });
+    } else {
+      applyBuyerMitraVerification(null, q);
+    }
   }
 }
 
-function autoCheckBuyerMitraPhone(query) {
+async function autoCheckBuyerMitraPhone(query) {
   const notice = document.getElementById('buyerStatusNotice');
   if (!notice) return;
-  if (!query || query.trim().length < 3) {
+  const q = (query || '').trim();
+  if (q.length < 2) {
     notice.style.display = 'none';
     appState.verifiedMitra = null;
     updateCartSummary();
@@ -10106,7 +10167,56 @@ function autoCheckBuyerMitraPhone(query) {
     appState.mitraList = getStoredMitra();
   }
 
-  const found = findMitraByIdOrPhone(query);
+  // 1. Cek dulu di memori lokal (instan tanpa delay)
+  const found = findMitraByIdOrPhone(q);
+  if (found) {
+    if (debounceMitraCheckTimer) clearTimeout(debounceMitraCheckTimer);
+    applyBuyerMitraVerification(found, q);
+    return;
+  }
+
+  // 2. Jika belum ditemukan di lokal, cari ke Supabase Cloud (dengan debounce 350ms)
+  if (typeof findMitraInSupabase === 'function' && q.length >= 3) {
+    notice.style.display = 'block';
+    notice.style.background = '#f0f9ff';
+    notice.style.color = '#0369a1';
+    notice.style.border = '1px solid #bae6fd';
+    notice.innerHTML = `<span>⏳ Mencari "<b>${escapeHtml(q)}</b>" di Database Cloud SR12...</span>`;
+
+    if (debounceMitraCheckTimer) clearTimeout(debounceMitraCheckTimer);
+    debounceMitraCheckTimer = setTimeout(async () => {
+      try {
+        const cloudFound = await findMitraInSupabase(q);
+        if (cloudFound) {
+          if (!appState.mitraList) appState.mitraList = [];
+          const existIdx = appState.mitraList.findIndex(m => m.id === cloudFound.id);
+          if (existIdx >= 0) {
+            appState.mitraList[existIdx] = Object.assign({}, appState.mitraList[existIdx], cloudFound);
+          } else {
+            appState.mitraList.unshift(cloudFound);
+          }
+          appState.resellers = appState.mitraList;
+          saveStoredMitra(appState.mitraList, false);
+          applyBuyerMitraVerification(cloudFound, q);
+          showToast(`✅ Data Mitra "${cloudFound.name}" (${cloudFound.id}) berhasil diverifikasi dari Cloud!`);
+        } else {
+          applyBuyerMitraVerification(null, q);
+        }
+      } catch (e) {
+        console.warn('Auto check cloud mitra error:', e);
+        applyBuyerMitraVerification(null, q);
+      }
+    }, 350);
+    return;
+  }
+
+  applyBuyerMitraVerification(null, q);
+}
+
+function applyBuyerMitraVerification(found, query) {
+  const notice = document.getElementById('buyerStatusNotice');
+  if (!notice) return;
+
   let subtotalHet = 0;
   appState.cart.forEach(item => {
     const prod = appState.products.find(p => p.id === item.productId);
@@ -10217,10 +10327,11 @@ function autoCheckBuyerMitraPhone(query) {
       notice.style.color = '#475569';
       notice.style.border = '1px solid #cbd5e1';
       const def = 500000 - subtotalHet;
-      notice.innerHTML = `ℹ️ Status: <b>Konsumen Retail (Harga HET)</b>.<br>Tambah belanja ${formatRupiah(def)} lagi (total min. Rp 500.000) untuk otomatis bergabung menjadi Reseller Resmi!`;
+      const qText = query ? `ID/No. "<b>${escapeHtml(query)}</b>" belum terdaftar. ` : '';
+      notice.innerHTML = `ℹ️ ${qText}Status: <b>Konsumen Retail (Harga HET)</b>.<br>Tambah belanja ${formatRupiah(def)} lagi (total min. Rp 500.000) untuk otomatis bergabung menjadi Reseller Resmi!`;
     }
-    updateCartSummary();
   }
+  updateCartSummary();
 }
 
 // Global Exports

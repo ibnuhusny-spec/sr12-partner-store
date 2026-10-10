@@ -355,6 +355,10 @@ function subscribeToStoreChanges(onStoreChanged) {
         console.log('⚡ [Realtime Cloud] Perubahan Antrean Terdeteksi:', payload.eventType);
         if (typeof onStoreChanged === 'function') onStoreChanged(payload);
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mitra_downlines' }, (payload) => {
+        console.log('⚡ [Realtime Cloud] Perubahan Mitra Terdeteksi:', payload.eventType);
+        if (typeof onStoreChanged === 'function') onStoreChanged(payload);
+      })
       .subscribe();
     return channel;
   } catch (e) {
@@ -365,22 +369,24 @@ function subscribeToStoreChanges(onStoreChanged) {
 
 /**
  * Sinkronisasi data Mitra Binaan (Agen, Sub Agen, Reseller, Marketer) dari Supabase Cloud
+ * Default: Mengambil seluruh mitra jaringan global agar terbaca di semua perangkat (HP & Laptop)
  */
-async function syncMitraFromSupabase(storeSlug = 'sr12-central') {
+async function syncMitraFromSupabase(storeSlug = null) {
   const client = initSupabaseClient();
   if (!client) return null;
   try {
     let query = client.from('mitra_downlines').select('*');
-    if (storeSlug) {
+    if (storeSlug && storeSlug !== 'all' && storeSlug !== 'global') {
       query = query.eq('store_slug', storeSlug);
     }
     const { data, error } = await query;
     if (error) {
-      // Tabel belum ada atau belum dimigrasi di cloud, fallback lokal
+      console.warn('Supabase fetch mitra error:', error);
       return null;
     }
     return (data || []).map(row => ({
       id: row.partner_code || row.id,
+      store_slug: row.store_slug || '',
       name: row.name,
       phone: row.phone,
       city: row.city || '',
@@ -395,9 +401,117 @@ async function syncMitraFromSupabase(storeSlug = 'sr12-central') {
       status: row.status || 'active'
     }));
   } catch (e) {
+    console.warn('Exception in syncMitraFromSupabase:', e);
     return null;
   }
 }
+
+/**
+ * Cari data Mitra secara instan di Supabase Cloud berdasarkan ID (AG-001 dll), No. WA, atau Nama
+ * Digunakan agar HP lain (misal HP 2) langsung mengenali mitra yang baru disimpan di HP 1
+ */
+async function findMitraInSupabase(query) {
+  const client = initSupabaseClient();
+  if (!client || !query) return null;
+  try {
+    const qTrim = query.trim();
+    const qClean = qTrim.toUpperCase();
+    const qAlphaNum = qClean.replace(/[^A-Z0-9]/g, '');
+    const qDigits = qTrim.replace(/[^0-9]/g, '');
+
+    // 1. Cari berdasarkan partner_code persis / case-insensitive
+    const { data: byCode } = await client
+      .from('mitra_downlines')
+      .select('*')
+      .or(`partner_code.ilike.${qClean},partner_code.ilike.${qAlphaNum}`)
+      .limit(5);
+
+    if (byCode && byCode.length > 0) {
+      const row = byCode[0];
+      return {
+        id: row.partner_code || row.id,
+        store_slug: row.store_slug || '',
+        name: row.name,
+        phone: row.phone,
+        city: row.city || '',
+        tier: row.tier || 'reseller',
+        bankName: row.bank_name || 'BCA',
+        bankAccount: row.bank_account || '-',
+        bankHolder: row.bank_holder || row.name,
+        qualificationDate: row.qualification_date || row.created_at,
+        lastOrderDate: row.last_order_date || row.created_at,
+        accumulatedSpent90Days: Number(row.accumulated_spent_90_days) || 0,
+        totalOrdersCount: Number(row.total_orders_count) || 0,
+        status: row.status || 'active'
+      };
+    }
+
+    // 2. Jika query mengandung angka telepon (minimal 8 digit)
+    if (qDigits.length >= 8) {
+      const tail = qDigits.slice(-8);
+      const { data: byPhone } = await client
+        .from('mitra_downlines')
+        .select('*')
+        .ilike('phone', `%${tail}%`)
+        .limit(5);
+
+      if (byPhone && byPhone.length > 0) {
+        const row = byPhone[0];
+        return {
+          id: row.partner_code || row.id,
+          store_slug: row.store_slug || '',
+          name: row.name,
+          phone: row.phone,
+          city: row.city || '',
+          tier: row.tier || 'reseller',
+          bankName: row.bank_name || 'BCA',
+          bankAccount: row.bank_account || '-',
+          bankHolder: row.bank_holder || row.name,
+          qualificationDate: row.qualification_date || row.created_at,
+          lastOrderDate: row.last_order_date || row.created_at,
+          accumulatedSpent90Days: Number(row.accumulated_spent_90_days) || 0,
+          totalOrdersCount: Number(row.total_orders_count) || 0,
+          status: row.status || 'active'
+        };
+      }
+    }
+
+    // 3. Cari berdasarkan Nama Mitra (ilike)
+    if (qTrim.length >= 3) {
+      const { data: byName } = await client
+        .from('mitra_downlines')
+        .select('*')
+        .ilike('name', `%${qTrim}%`)
+        .limit(1);
+
+      if (byName && byName.length > 0) {
+        const row = byName[0];
+        return {
+          id: row.partner_code || row.id,
+          store_slug: row.store_slug || '',
+          name: row.name,
+          phone: row.phone,
+          city: row.city || '',
+          tier: row.tier || 'reseller',
+          bankName: row.bank_name || 'BCA',
+          bankAccount: row.bank_account || '-',
+          bankHolder: row.bank_holder || row.name,
+          qualificationDate: row.qualification_date || row.created_at,
+          lastOrderDate: row.last_order_date || row.created_at,
+          accumulatedSpent90Days: Number(row.accumulated_spent_90_days) || 0,
+          totalOrdersCount: Number(row.total_orders_count) || 0,
+          status: row.status || 'active'
+        };
+      }
+    }
+
+    return null;
+  } catch (err) {
+    console.warn('findMitraInSupabase error:', err);
+    return null;
+  }
+}
+window.findMitraInSupabase = findMitraInSupabase;
 
 /**
  * Simpan / Update Mitra ke Supabase Cloud
@@ -407,7 +521,7 @@ async function saveMitraToSupabase(mitra, storeSlug = 'sr12-central') {
   if (!client || !mitra || !mitra.id) return;
   try {
     const payload = {
-      store_slug: storeSlug,
+      store_slug: mitra.store_slug || storeSlug,
       partner_code: mitra.id,
       name: mitra.name,
       phone: mitra.phone,
@@ -423,11 +537,10 @@ async function saveMitraToSupabase(mitra, storeSlug = 'sr12-central') {
       status: mitra.status || 'active'
     };
 
-    // Cek apakah data mitra sudah ada di Supabase Cloud
+    // Cek apakah data mitra sudah ada di Supabase Cloud (berdasarkan partner_code unik)
     const { data: existing } = await client
       .from('mitra_downlines')
       .select('id')
-      .eq('store_slug', storeSlug)
       .eq('partner_code', mitra.id)
       .maybeSingle();
 
@@ -714,5 +827,6 @@ window.syncMarketerSalesFromSupabase = syncMarketerSalesFromSupabase;
 window.saveMarketerSaleToSupabase = saveMarketerSaleToSupabase;
 window.saveProductToSupabase = saveProductToSupabase;
 window.syncProductsFromSupabase = syncProductsFromSupabase;
+window.findMitraInSupabase = findMitraInSupabase;
 
 
