@@ -656,7 +656,10 @@ function quickApproveFromPendingModal() {
 function getInitialStoreSlug(stores) {
   const params = new URLSearchParams(window.location.search);
   const storeParam = params.get('store');
-  if (storeParam && stores.some(s => s.slug === storeParam)) {
+  if (storeParam) {
+    const matched = (stores || []).find(s => s.slug === storeParam);
+    if (matched) return matched.slug;
+    // Pertahankan parameter store dari URL agar tidak ter-reset saat boot awal sebelum Supabase selesai
     return storeParam;
   }
   return 'sr12-central';
@@ -1613,22 +1616,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const initSlug = getInitialStoreSlug(appState.partnerStores);
   loadStoreBySlug(initSlug);
 
-  // Pastikan URL di address bar browser selalu mencantumkan parameter toko (?store=...) tanpa menghapus parameter produk (?product=...) di toko mitra
+  // Pastikan URL di address bar browser selalu mencantumkan parameter toko (?store=...) tanpa menghapus parameter produk (?product=...)
   const bootParams = new URLSearchParams(window.location.search);
   let bootParamsChanged = false;
   if (!bootParams.has('store')) {
     bootParams.set('store', initSlug);
     bootParamsChanged = true;
   }
-  if (initSlug === 'sr12-central') {
-    if (bootParams.has('product') || bootParams.has('p') || bootParams.has('prod') || bootParams.has('id')) {
-      bootParams.delete('product');
-      bootParams.delete('p');
-      bootParams.delete('prod');
-      bootParams.delete('id');
-      bootParamsChanged = true;
-    }
-  }
+  // CATATAN PENTING: JANGAN PERNAH menghapus parameter produk (?product=...) agar deep-link link promosi selalu terbuka sempurna!
   if (bootParamsChanged) {
     window.history.replaceState({ store: initSlug }, '', window.location.pathname + '?' + bootParams.toString());
   }
@@ -1825,19 +1820,17 @@ function switchPartnerStore(slug) {
     appState.isDistributorLoggedIn = false;
   }
 
-  // Tutup semua modal dan buka kunci scroll jika berpindah toko
-  document.querySelectorAll('.modal-backdrop.open').forEach(m => m.classList.remove('open'));
+  // Tutup modal administratif umum tetapi jangan paksa tutup modal detail produk atau keranjang
+  document.querySelectorAll('.modal-backdrop.open').forEach(m => {
+    if (m.id !== 'modalProductDetail' && m.id !== 'cartDrawer' && m.id !== 'modalProductPromoShare') {
+      m.classList.remove('open');
+    }
+  });
   if (typeof ensureScrollUnlocked === 'function') ensureScrollUnlocked();
 
   loadStoreBySlug(slug);
   const switchParams = new URLSearchParams(window.location.search);
   switchParams.set('store', slug);
-  if (slug === 'sr12-central') {
-    switchParams.delete('product');
-    switchParams.delete('p');
-    switchParams.delete('prod');
-    switchParams.delete('id');
-  }
   const newUrl = window.location.pathname + '?' + switchParams.toString();
   window.history.pushState({ store: slug }, '', newUrl);
   if (typeof updateDistributorPendingBadges === 'function') {
@@ -3049,11 +3042,6 @@ function openDistributorPendingStoresModal() {
 window.openDistributorPendingStoresModal = openDistributorPendingStoresModal;
 
 function openShareStoreModal() {
-  if (!appState.isDistributorLoggedIn && !appState.isAdminMode) {
-    showToast('🔒 Fitur Link Khusus Mitra: Silakan login sebagai Pemilik Toko.');
-    openDistributorLoginModal();
-    return;
-  }
   const modal = document.getElementById('modalShareStore');
   const targetName = document.getElementById('shareStoreTargetName');
   const fullUrlInput = document.getElementById('shareStoreFullUrlInput');
@@ -4007,8 +3995,12 @@ function handleDistributorLogout() {
     document.getElementById('olseraDrawerBackdrop')?.classList.remove('open');
   }
 
-  // 2. Tutup semua modal yang masih terbuka
-  document.querySelectorAll('.modal-backdrop.open').forEach(m => m.classList.remove('open'));
+  // 2. Tutup modal administratif tetapi pertahankan modal produk jika sedang dibuka via deep-link
+  document.querySelectorAll('.modal-backdrop.open').forEach(m => {
+    if (m.id !== 'modalProductDetail' && m.id !== 'cartDrawer' && m.id !== 'modalProductPromoShare') {
+      m.classList.remove('open');
+    }
+  });
 
   // 3. Pastikan kunci scroll dilepas sepenuhnya dari body dan html
   document.body.classList.remove('olsera-drawer-open');
@@ -4109,34 +4101,18 @@ function updateViewModeUI() {
 
   if (adminActiveBadge) adminActiveBadge.style.display = 'none';
   if (btnDistOpenDrawer) btnDistOpenDrawer.style.display = 'none';
-  if (btnEditCover) btnEditCover.style.display = 'none';
-  if (btnEditLogo) btnEditLogo.style.display = 'none';
-  if (distPendingAlert) distPendingAlert.style.display = 'none';
+  if (btnEditCover) btnEditCover.style.display = (isLogged && !isCentral) ? 'inline-flex' : 'none';
+  if (btnEditLogo) btnEditLogo.style.display = (isLogged && !isCentral) ? 'flex' : 'none';
+  if (distPendingAlert) distPendingAlert.style.display = (isLogged && !isCentral) ? 'block' : 'none';
   
-  const distHeroLoginLabel = document.getElementById('distHeroLoginLabel');
+  // KEAMANAN STEALTH TINGGI ALA SHOPEE & LAZADA:
+  // Tombol login distributor TIDAK PERNAH tampil di kartu hero etalase pembeli!
   if (btnDistLogin) {
-    if (isLogged) {
-      btnDistLogin.style.display = isCentral ? 'none' : 'inline-flex';
-      btnDistLogin.title = "Buka Dashboard Admin & Kasir (Olsera)";
-      btnDistLogin.setAttribute('aria-label', 'Dashboard Admin');
-      if (distHeroLoginLabel) {
-        distHeroLoginLabel.textContent = "";
-        distHeroLoginLabel.style.display = "none";
-      }
-      btnDistLogin.onclick = function() {
-        showDistributorPortalView(true);
-        if (typeof openOlseraSidebarDrawer === 'function') {
-          openOlseraSidebarDrawer();
-        }
-      };
-    } else {
-      // KEAMANAN STEALTH ALA SHOPEE: Sembunyikan total tombol login dari pembeli publik!
-      btnDistLogin.style.display = 'none';
-      if (distHeroLoginLabel) {
-        distHeroLoginLabel.textContent = "";
-        distHeroLoginLabel.style.display = "none";
-      }
-    }
+    btnDistLogin.style.display = 'none';
+  }
+  const btnDistShareHero = document.getElementById('btnDistShareStoreHero');
+  if (btnDistShareHero) {
+    btnDistShareHero.style.display = isCentral ? 'none' : 'inline-flex';
   }
 
   // 2. KONTROL TOPBAR KEMITRAAN (PLATFORM TOPBAR)
@@ -4466,22 +4442,35 @@ function initEventListeners() {
     });
   }
 
-  // Hero Banner Upload
+  // Hero Banner Upload dengan optimasi kompresi
   const settingBannerFileInput = document.getElementById('settingBannerFileInput');
   if (settingBannerFileInput) {
-    settingBannerFileInput.addEventListener('change', (e) => {
+    settingBannerFileInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (file) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          appState.tempHeroBannerBase64 = event.target.result;
+        showToast('⏳ Memproses & mengoptimasi banner toko...');
+        try {
+          const compressed = await compressImageSource(file, 1200, 0.82);
+          appState.tempHeroBannerBase64 = compressed;
           const previewBanner = document.getElementById('settingBannerPreview');
           if (previewBanner) {
-            previewBanner.src = event.target.result;
+            previewBanner.src = compressed;
             previewBanner.style.display = 'block';
           }
-        };
-        reader.readAsDataURL(file);
+          showToast('🖼️ Banner toko siap disimpan!');
+        } catch (err) {
+          console.warn('Gagal kompres banner:', err);
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            appState.tempHeroBannerBase64 = event.target.result;
+            const previewBanner = document.getElementById('settingBannerPreview');
+            if (previewBanner) {
+              previewBanner.src = event.target.result;
+              previewBanner.style.display = 'block';
+            }
+          };
+          reader.readAsDataURL(file);
+        }
       }
     });
   }
@@ -6824,22 +6813,21 @@ function openStoreSettingsModal() {
   const storeAdminPinInput = document.getElementById('settingStoreAdminPin');
   if (storeAdminPinInput) storeAdminPinInput.value = cfg.storeAdminPin || '1234';
 
+  appState.tempStoreLogoBase64 = null;
+  appState.tempHeroBannerBase64 = null;
+  const bannerFileInput = document.getElementById('settingBannerFileInput');
+  if (bannerFileInput) bannerFileInput.value = '';
+  const logoFileInput = document.getElementById('settingLogoFileInput');
+  if (logoFileInput) logoFileInput.value = '';
+
   if (previewLogo) {
-    if (cfg.storeLogoUrl) {
-      previewLogo.src = cfg.storeLogoUrl;
-      previewLogo.style.display = 'block';
-    } else {
-      previewLogo.style.display = 'none';
-    }
+    previewLogo.src = cfg.storeLogoUrl || 'assets/sr12-logo.png';
+    previewLogo.style.display = 'block';
   }
 
   if (previewBanner) {
-    if (cfg.heroBannerUrl) {
-      previewBanner.src = cfg.heroBannerUrl;
-      previewBanner.style.display = 'block';
-    } else {
-      previewBanner.style.display = 'none';
-    }
+    previewBanner.src = cfg.heroBannerUrl || 'assets/hero-banner.jpg';
+    previewBanner.style.display = 'block';
   }
 
   const swatches = document.querySelectorAll('.theme-swatch-btn');
@@ -7171,12 +7159,12 @@ function handleSaveStoreSettingsSubmit(e) {
   const feePayer = document.getElementById('settingFeePayer')?.value || 'buyer';
   const storeAdminPin = document.getElementById('settingStoreAdminPin')?.value.trim() || '1234';
 
-  let logoUrl = appState.storeSettings.storeLogoUrl;
+  let logoUrl = appState.storeSettings.storeLogoUrl || 'assets/sr12-logo.png';
   if (appState.tempStoreLogoBase64) {
     logoUrl = appState.tempStoreLogoBase64;
   }
 
-  let bannerUrl = appState.storeSettings.heroBannerUrl;
+  let bannerUrl = appState.storeSettings.heroBannerUrl || 'assets/hero-banner.jpg';
   if (appState.tempHeroBannerBase64) {
     bannerUrl = appState.tempHeroBannerBase64;
   }
@@ -7208,12 +7196,67 @@ function handleSaveStoreSettingsSubmit(e) {
     saveStoredPartnerStores(appState.partnerStores);
   }
 
+  appState.tempStoreLogoBase64 = null;
+  appState.tempHeroBannerBase64 = null;
+
   localStorage.setItem('sr12_store_settings_v4', JSON.stringify(appState.storeSettings));
+  
+  if (typeof saveStoreToSupabase === 'function') {
+    saveStoreToSupabase(appState.storeSettings);
+  }
+
   renderStoreBranding();
   updateCartSummary();
   closeModal('modalStoreSettings');
   showToast(`🎉 Profil & Tema Toko Berhasil Disimpan: "${appState.storeSettings.storeName}"!`);
 }
+
+function resetStoreBannerToDefault() {
+  appState.tempHeroBannerBase64 = 'assets/hero-banner.jpg';
+  const previewBanner = document.getElementById('settingBannerPreview');
+  if (previewBanner) {
+    previewBanner.src = 'assets/hero-banner.jpg';
+    previewBanner.style.display = 'block';
+  }
+  const fileInput = document.getElementById('settingBannerFileInput');
+  if (fileInput) fileInput.value = '';
+  showToast('🌿 Banner diatur kembali ke Banner Resmi SR12.');
+}
+window.resetStoreBannerToDefault = resetStoreBannerToDefault;
+
+function selectBannerPreset(presetUrl) {
+  if (!presetUrl) return;
+  appState.tempHeroBannerBase64 = presetUrl;
+  const previewBanner = document.getElementById('settingBannerPreview');
+  if (previewBanner) {
+    previewBanner.src = presetUrl;
+    previewBanner.style.display = 'block';
+  }
+  const olseraBannerPreview = document.getElementById('olseraSetBannerPreviewImg');
+  if (olseraBannerPreview) {
+    olseraBannerPreview.src = presetUrl;
+    olseraBannerPreview.style.display = 'block';
+  }
+  const fileInput = document.getElementById('settingBannerFileInput');
+  if (fileInput) fileInput.value = '';
+  showToast('🖼️ Template banner resmi SR12 dipilih!');
+}
+window.selectBannerPreset = selectBannerPreset;
+
+function resetStoreLogoToDefault() {
+  appState.tempStoreLogoBase64 = 'assets/sr12-logo.png';
+  const previewLogo = document.getElementById('settingLogoPreview');
+  if (previewLogo) {
+    previewLogo.src = 'assets/sr12-logo.png';
+    previewLogo.style.display = 'block';
+  }
+  const fileInput = document.getElementById('settingLogoFileInput');
+  if (fileInput) fileInput.value = '';
+  const textInput = document.getElementById('settingLogoText');
+  if (textInput) textInput.value = 'SR12';
+  showToast('🌿 Foto profil dikembalikan ke Logo Resmi SR12.');
+}
+window.resetStoreLogoToDefault = resetStoreLogoToDefault;
 
 function setQuickLogoBadge(text) {
   const logoTextInput = document.getElementById('settingLogoText');
@@ -9913,11 +9956,8 @@ function openProductPromoShareModal(productId) {
   const cleanSlug = curStore.slug || 'sr12-central';
   const tierPrice = getProductTierPrice(prod, appState.currentTier);
   const isPromo = prod.het > tierPrice;
-  // Link langsung khusus produk di toko mitra bersangkutan
-  const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || !window.location.hostname;
-  const productUrl = isLocalHost
-    ? `${window.location.origin}${window.location.pathname}?store=${encodeURIComponent(cleanSlug)}&product=${encodeURIComponent(prod.id)}`
-    : `${window.location.origin}/p?product=${encodeURIComponent(prod.id)}&store=${encodeURIComponent(cleanSlug)}`;
+  // Link langsung khusus produk di toko mitra bersangkutan (Universal untuk Localhost & Online Hosting / GitHub Pages)
+  const productUrl = `${window.location.origin}${window.location.pathname}?store=${encodeURIComponent(cleanSlug)}&product=${encodeURIComponent(prod.id)}`;
   const storeUrl = `${window.location.origin}${window.location.pathname}?store=${encodeURIComponent(cleanSlug)}`;
 
   currentPromoShareData = {
@@ -10152,25 +10192,18 @@ window.downloadProductPromoImage = downloadProductPromoImage;
 // ==========================================
 // DEEP-LINKING PRODUK SPESIFIK (?product=...)
 // ==========================================
-function handleDirectProductDeepLink() {
-  const isCentral = !appState.storeSettings?.slug || appState.storeSettings?.slug === 'sr12-central';
-  if (isCentral) {
-    // Official Central Hub murni direktori toko & kemitraan nasional (TIDAK ADA PRODUK / DEEP LINK)
-    const params = new URLSearchParams(window.location.search);
-    if (params.has('product') || params.has('p') || params.has('prod') || params.has('id')) {
-      params.delete('product');
-      params.delete('p');
-      params.delete('prod');
-      params.delete('id');
-      const cleanUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
-      window.history.replaceState({}, '', cleanUrl);
-    }
-    return;
-  }
-
+function handleDirectProductDeepLink(retryCount = 0) {
   const params = new URLSearchParams(window.location.search);
   const rawParam = params.get('product') || params.get('p') || params.get('prod') || params.get('id');
   if (!rawParam) return;
+
+  // Tunggu jika daftar produk masih dalam proses loading async dari IndexedDB / data.js
+  if (!appState.products || appState.products.length === 0) {
+    if (retryCount < 15) {
+      setTimeout(() => handleDirectProductDeepLink(retryCount + 1), 150);
+    }
+    return;
+  }
 
   const cleanParam = rawParam.toLowerCase().trim();
   const cleanKey = cleanParam.replace(/[^a-z0-9]/g, '');
@@ -10197,8 +10230,12 @@ function handleDirectProductDeepLink() {
     }
   }
 
-  // Jika produk tidak ditemukan, batalkan deep-link (JANGAN fallback ke Lightening Body Lotion)
+  // Jika produk belum ditemukan, beri toleransi waktu retry polling (misal sinkronisasi IndexedDB sedang berlangsung)
   if (!prod) {
+    if (retryCount < 10) {
+      setTimeout(() => handleDirectProductDeepLink(retryCount + 1), 200);
+      return;
+    }
     console.warn('⚠️ [Deep-Link Produk] Produk tidak ditemukan:', rawParam);
     return;
   }
@@ -10218,7 +10255,7 @@ function handleDirectProductDeepLink() {
     if (ogDesc) ogDesc.content = prod.summary || `Beli ${prod.name} resmi BPOM di ${storeName}.`;
     if (ogImage && prod.image) ogImage.content = prod.image;
 
-    // Pastikan wrapper katalog produk aktif & ditampilkan
+    // Pastikan wrapper etalase katalog produk aktif & ditampilkan
     const commerceWrapper = document.getElementById('distributorCommerceWrapper');
     if (commerceWrapper) {
       commerceWrapper.style.display = 'block';
@@ -10252,7 +10289,7 @@ function handleDirectProductDeepLink() {
     // Buka modal detail produk langsung
     openProductDetailModal(prod.id);
 
-    // Safeguard ganda (jika render asynchronous browser membutuhkan waktu tambahan)
+    // Safeguard ganda agar modal tetap terbuka dan tidak tertutup event lain
     setTimeout(() => {
       const modal = document.getElementById('modalProductDetail');
       if (modal && !modal.classList.contains('open')) {
@@ -10262,7 +10299,7 @@ function handleDirectProductDeepLink() {
       if (c) {
         c.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
-    }, 300);
+    }, 350);
   }
 }
 window.handleDirectProductDeepLink = handleDirectProductDeepLink;

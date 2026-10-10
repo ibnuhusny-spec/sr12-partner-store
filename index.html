@@ -982,6 +982,53 @@
               </div>
             </div>
 
+            <!-- 1B. KUSTOMISASI BANNER LATAR BELAKANG TOKO DISTRIBUTOR -->
+            <div style="background: #f8fafc; border: 1.5px dashed #059669; border-radius: 10px; padding: 18px; margin-bottom: 20px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 6px;">
+                <h4 style="margin: 0; font-size: 0.95rem; color: #0f172a; font-weight: 800; display: flex; align-items: center; gap: 6px;">
+                  <span>🖼️</span> Foto Sampul / Banner Toko Distributor
+                </h4>
+                <span id="olseraBannerUploadStatus" style="display: none; font-size: 0.72rem; font-weight: 700; color: #059669; background: #ecfdf5; padding: 2px 8px; border-radius: 999px;"></span>
+              </div>
+              <p style="margin: 0 0 10px 0; font-size: 0.78rem; color: #64748b;">
+                Upload foto sampul toko Anda sendiri atau pilih dari template resmi SR12. Banner otomatis tampil pada etalase utama toko pembeli.
+              </p>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                <input type="file" id="olseraBannerFileInput" accept="image/png,image/jpeg,image/webp" style="display: none;" onchange="handleOlseraBannerUpload(event)">
+                <button type="button" onclick="document.getElementById('olseraBannerFileInput').click()" style="background: #059669; color: #ffffff; border: none; padding: 7px 14px; border-radius: 6px; font-weight: 700; font-size: 0.8rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(5, 150, 105, 0.3);">
+                  <span>📁</span> Upload File Banner
+                </button>
+                <button type="button" onclick="resetOlseraBannerToDefault()" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; padding: 7px 12px; border-radius: 6px; font-weight: 600; font-size: 0.8rem; cursor: pointer;" title="Gunakan banner resmi standar SR12">
+                  🔄 Gunakan Banner Default SR12
+                </button>
+                <span id="olseraBannerFileNameDisplay" style="font-size: 0.75rem; color: #059669; font-weight: 700;"></span>
+              </div>
+              <!-- Template Cepat Banner SR12 -->
+              <div style="margin-top: 10px;">
+                <div class="banner-presets-grid">
+                  <button type="button" class="banner-preset-card" onclick="selectBannerPreset('assets/hero-banner.jpg')">
+                    <img src="assets/hero-banner.jpg" alt="Herbal Nature" class="banner-preset-thumb">
+                    <span class="banner-preset-label">🌿 Herbal Nature (Asli)</span>
+                  </button>
+                  <button type="button" class="banner-preset-card" onclick="selectBannerPreset('https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=1200&q=80')">
+                    <img src="https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=400&q=70" alt="Botanical Care" class="banner-preset-thumb">
+                    <span class="banner-preset-label">🍃 Botanical Care</span>
+                  </button>
+                  <button type="button" class="banner-preset-card" onclick="selectBannerPreset('https://images.unsplash.com/photo-1617897903246-719242758050?auto=format&fit=crop&w=1200&q=80')">
+                    <img src="https://images.unsplash.com/photo-1617897903246-719242758050?auto=format&fit=crop&w=400&q=70" alt="Rose Velvet" class="banner-preset-thumb">
+                    <span class="banner-preset-label">🌸 Velvet Rose</span>
+                  </button>
+                  <button type="button" class="banner-preset-card" onclick="selectBannerPreset('https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=1200&q=80')">
+                    <img src="https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=400&q=70" alt="Gold Luxury" class="banner-preset-thumb">
+                    <span class="banner-preset-label">💎 Luxury Beauty</span>
+                  </button>
+                </div>
+              </div>
+              <div style="margin-top: 8px;">
+                <img id="olseraSetBannerPreviewImg" src="assets/hero-banner.jpg" alt="Preview Banner" style="width: 100%; height: 90px; object-fit: cover; border-radius: 8px; border: 1.5px solid #cbd5e1; display: block;">
+              </div>
+            </div>
+
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 14px;">
               <div>
                 <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Nama Toko Hub:</label>
@@ -1480,7 +1527,7 @@
           <span class="badge-verified-tick" title="Toko Mitra Terverifikasi Resmi SR12">✓</span>
         </h2>
 
-        <!-- 3. TOMBOL HERO: Bersih untuk Publik (WhatsApp & Home), Dashboard hanya untuk Pemilik yang Login -->
+        <!-- 3. TOMBOL HERO: Bersih untuk Publik (WhatsApp, Home Pusat, & Bagikan Toko Ala Shopee/Lazada) -->
         <div class="distributor-hero-3icons">
           <!-- 1. Icon Pesan / WhatsApp Toko Resmi -->
           <a id="btnDistChatWa" href="https://wa.me/6281234567890" target="_blank" class="btn-hero-icon-only btn-hero-icon-wa" title="Pesan Produk via WhatsApp" aria-label="Pesan via WhatsApp">
@@ -1495,20 +1542,22 @@
               <polyline points="9 22 9 12 15 12 15 22"/>
             </svg>
           </button>
-          <!-- 3. Icon Dashboard Admin (HANYA MUNCUL JIKA PEMILIK SUDAH LOGIN / BUKAN UNTUK PEMBELI PUBLIK) -->
-          <button type="button" id="btnDistLoginHero" onclick="openDistributorLoginModal()" class="btn-hero-icon-only btn-hero-icon-admin" title="Dashboard Admin Distributor" aria-label="Dashboard Admin" style="display: none;">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="3" width="7" height="7" rx="1.5"/>
-              <rect x="14" y="3" width="7" height="7" rx="1.5"/>
-              <rect x="14" y="14" width="7" height="7" rx="1.5"/>
-              <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+          <!-- 3. Icon Bagikan Toko (Viral Marketing Ramah Pembeli Ala Shopee & Lazada) -->
+          <button type="button" id="btnDistShareStoreHero" onclick="openShareStoreModal()" class="btn-hero-icon-only btn-hero-icon-share" title="Bagikan Tautan Toko Ini" aria-label="Bagikan Toko">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="18" cy="5" r="3"></circle>
+              <circle cx="6" cy="12" r="3"></circle>
+              <circle cx="18" cy="19" r="3"></circle>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
             </svg>
-            <span id="distHeroLoginLabel" style="display: none !important;"></span>
           </button>
         </div>
 
         <!-- Hidden Compatibility Container: Elemen Metadata Toko Tetap Ada di DOM untuk JS -->
         <div style="display: none !important;" aria-hidden="true">
+          <button type="button" id="btnDistLoginHero" onclick="openDistributorLoginModal()" style="display: none !important;"></button>
+          <span id="distHeroLoginLabel" style="display: none !important;"></span>
           <span id="distHeroTierBadge">👑 DISTRIBUTOR UTAMA RESMI SR12</span>
           <p id="distHeroTagline"></p>
           <span id="distHeroOwner"></span>
@@ -2110,15 +2159,47 @@
               </label>
               <span style="font-size: 0.7rem; color: #0284c7; background: #e0f2fe; padding: 2px 8px; border-radius: 4px; font-weight: 700;">Etalase Atas</span>
             </div>
-            <p style="font-size: 0.74rem; color: #64748b; margin-bottom: 8px;">Upload foto ruko/toko fisik, etalase stok gudang SR12, atau banner promosi toko Anda.</p>
+            <p style="font-size: 0.74rem; color: #64748b; margin-bottom: 8px;">Upload foto ruko/toko fisik, etalase stok gudang SR12, atau pilih banner resmi SR12.</p>
             <div style="margin-bottom: 8px;">
               <input type="text" id="settingHeroTitle" placeholder="Judul Banner Utama (cth: Promo Spesial SR12 Cantik Alami)" style="width: 100%; padding: 7px 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 0.82rem; margin-bottom: 6px;">
               <input type="text" id="settingHeroSubtitle" placeholder="Sub-judul Banner (cth: Dapatkan harga mitra reseller diskon hingga 40%)" style="width: 100%; padding: 7px 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 0.82rem;">
             </div>
             <div>
               <label style="font-size: 0.75rem; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Pilih File Foto Latar Belakang (JPG / PNG):</label>
-              <input type="file" id="settingBannerFileInput" accept="image/*" style="font-size: 0.75rem; width: 100%; padding: 6px; background: #ffffff; border: 1px dashed #94a3b8; border-radius: 6px;">
-              <img id="settingBannerPreview" src="" alt="Preview Banner" style="width: 100%; height: 95px; object-fit: cover; border-radius: 8px; margin-top: 8px; display: none; border: 1px solid #cbd5e1;">
+              <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                <input type="file" id="settingBannerFileInput" accept="image/*" style="font-size: 0.75rem; flex: 1; min-width: 200px; padding: 6px; background: #ffffff; border: 1px dashed #94a3b8; border-radius: 6px;">
+                <button type="button" onclick="resetStoreBannerToDefault()" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; padding: 6px 12px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; white-space: nowrap;" title="Gunakan banner resmi standar SR12">
+                  🔄 Kembalikan ke Banner Bawaan
+                </button>
+              </div>
+
+              <!-- Pilihan Cepat Template Banner Resmi SR12 -->
+              <div style="margin-top: 10px;">
+                <label style="font-size: 0.72rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">Atau Pilih Template Banner Resmi SR12:</label>
+                <div class="banner-presets-grid">
+                  <button type="button" class="banner-preset-card" onclick="selectBannerPreset('assets/hero-banner.jpg')">
+                    <img src="assets/hero-banner.jpg" alt="Herbal Natural" class="banner-preset-thumb">
+                    <span class="banner-preset-label">🌿 Herbal Nature (Asli)</span>
+                  </button>
+                  <button type="button" class="banner-preset-card" onclick="selectBannerPreset('https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=1200&q=80')">
+                    <img src="https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=400&q=70" alt="Botanical Care" class="banner-preset-thumb">
+                    <span class="banner-preset-label">🍃 Botanical Care</span>
+                  </button>
+                  <button type="button" class="banner-preset-card" onclick="selectBannerPreset('https://images.unsplash.com/photo-1617897903246-719242758050?auto=format&fit=crop&w=1200&q=80')">
+                    <img src="https://images.unsplash.com/photo-1617897903246-719242758050?auto=format&fit=crop&w=400&q=70" alt="Rose Velvet" class="banner-preset-thumb">
+                    <span class="banner-preset-label">🌸 Velvet Rose</span>
+                  </button>
+                  <button type="button" class="banner-preset-card" onclick="selectBannerPreset('https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=1200&q=80')">
+                    <img src="https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=400&q=70" alt="Gold Luxury" class="banner-preset-thumb">
+                    <span class="banner-preset-label">💎 Luxury Beauty</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Preview Banner -->
+              <div style="margin-top: 8px;">
+                <img id="settingBannerPreview" src="" alt="Preview Banner" style="width: 100%; height: 95px; object-fit: cover; border-radius: 8px; display: none; border: 1.5px solid #cbd5e1; box-shadow: 0 2px 6px rgba(0,0,0,0.06);">
+              </div>
             </div>
           </div>
 
@@ -2130,7 +2211,7 @@
               </label>
               <span style="font-size: 0.7rem; color: #059669; background: #ecfdf5; padding: 2px 8px; border-radius: 4px; font-weight: 700;">Avatar Tengah</span>
             </div>
-            <p style="font-size: 0.74rem; color: #64748b; margin-bottom: 8px;">Upload logo toko Anda sendiri atau gunakan inisial teks resmi.</p>
+            <p style="font-size: 0.74rem; color: #64748b; margin-bottom: 8px;">Upload logo toko Anda sendiri atau kembalikan ke foto profil bawaan SR12.</p>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
               <div>
                 <label style="font-size: 0.75rem; color: #475569; display: block; margin-bottom: 3px;">Teks Inisial Logo (Bila Tanpa Foto):</label>
@@ -2141,9 +2222,14 @@
                 <input type="file" id="settingLogoFileInput" accept="image/*" style="font-size: 0.75rem; width: 100%; padding: 6px; background: #ffffff; border: 1px dashed #94a3b8; border-radius: 6px;">
               </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 10px; margin-top: 6px;">
-              <span style="font-size: 0.75rem; color: #475569; font-weight: 700;">Preview Foto Profil:</span>
-              <img id="settingLogoPreview" src="" alt="Preview Logo" style="width: 44px; height: 44px; object-fit: contain; border-radius: 50%; border: 2px solid #059669; background: #ffffff; display: none;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #e2e8f0;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 0.75rem; color: #475569; font-weight: 700;">Preview Foto Profil:</span>
+                <img id="settingLogoPreview" src="" alt="Preview Logo" style="width: 44px; height: 44px; object-fit: contain; border-radius: 50%; border: 2px solid #059669; background: #ffffff; display: none;">
+              </div>
+              <button type="button" onclick="resetStoreLogoToDefault()" style="background: #ffffff; color: #065f46; border: 1.5px solid #a7f3d0; padding: 6px 12px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <span>🔄</span> Kembalikan ke Gambar Semula (Logo Asli SR12)
+              </button>
             </div>
           </div>
 

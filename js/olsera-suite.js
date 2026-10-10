@@ -206,8 +206,12 @@ function showDistributorPortalView(showPortal) {
     if (sidebar) sidebar.classList.remove('open');
     if (backdrop) backdrop.classList.remove('open');
 
-    // 2. Tutup semua modal yang mungkin masih terbuka
-    document.querySelectorAll('.modal-backdrop.open').forEach(m => m.classList.remove('open'));
+    // 2. Tutup modal Olsera/admin yang mungkin masih terbuka (jangan tutup modal produk atau keranjang pembeli!)
+    document.querySelectorAll('.modal-backdrop.open').forEach(m => {
+      if (m.id !== 'modalProductDetail' && m.id !== 'cartDrawer' && m.id !== 'modalProductPromoShare') {
+        m.classList.remove('open');
+      }
+    });
 
     // 3. Lepaskan SEMUA pengunci scroll dari body dan html
     document.body.classList.remove('olsera-drawer-open');
@@ -2744,6 +2748,10 @@ function populateOlseraSettingsForm() {
   appState.tempOlseraLogoUrl = store.storeLogoUrl || '';
   updateOlseraSettingsLogoPreview(store.storeLogoUrl);
 
+  // Inisialisasi preview banner
+  appState.tempOlseraBannerUrl = store.heroBannerUrl || 'assets/hero-banner.jpg';
+  updateOlseraSettingsBannerPreview(store.heroBannerUrl || 'assets/hero-banner.jpg');
+
   // Tampilkan zona bahaya hapus toko hanya untuk toko mitra (bukan central)
   const dangerZone = document.getElementById('olseraDangerZoneDeleteStore');
   if (dangerZone) {
@@ -2978,6 +2986,72 @@ function resetOlseraLogoToDefault() {
   }
 }
 
+function handleOlseraBannerUpload(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  const fileNameEl = document.getElementById('olseraBannerFileNameDisplay');
+  const statusEl = document.getElementById('olseraBannerUploadStatus');
+  if (fileNameEl) fileNameEl.textContent = `📁 ${file.name}`;
+  if (statusEl) {
+    statusEl.style.display = 'inline-flex';
+    statusEl.style.background = '#e0f2fe';
+    statusEl.style.color = '#0284c7';
+    statusEl.textContent = '⏳ Mengoptimasi Banner...';
+  }
+
+  if (typeof compressImageSource === 'function') {
+    compressImageSource(file, 1200, 0.82).then(compressed => {
+      appState.tempOlseraBannerUrl = compressed;
+      updateOlseraSettingsBannerPreview(compressed);
+      if (statusEl) {
+        statusEl.style.background = '#ecfdf5';
+        statusEl.style.color = '#065f46';
+        statusEl.textContent = '✅ Banner Siap Disimpan';
+      }
+    }).catch(err => {
+      console.warn('Kompres banner gagal:', err);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        appState.tempOlseraBannerUrl = e.target.result;
+        updateOlseraSettingsBannerPreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    });
+  } else {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      appState.tempOlseraBannerUrl = e.target.result;
+      updateOlseraSettingsBannerPreview(e.target.result);
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+function updateOlseraSettingsBannerPreview(url) {
+  const previewImg = document.getElementById('olseraSetBannerPreviewImg');
+  if (previewImg) {
+    previewImg.src = url || 'assets/hero-banner.jpg';
+    previewImg.style.display = 'block';
+  }
+}
+
+function resetOlseraBannerToDefault() {
+  appState.tempOlseraBannerUrl = 'assets/hero-banner.jpg';
+  updateOlseraSettingsBannerPreview('assets/hero-banner.jpg');
+  const statusEl = document.getElementById('olseraBannerUploadStatus');
+  const fileInput = document.getElementById('olseraBannerFileInput');
+  if (fileInput) fileInput.value = '';
+  if (statusEl) {
+    statusEl.style.display = 'inline-flex';
+    statusEl.style.background = '#ecfdf5';
+    statusEl.style.color = '#065f46';
+    statusEl.textContent = '🌿 Menggunakan Banner Resmi SR12';
+  }
+  if (typeof showToast === 'function') {
+    showToast('🌿 Banner toko diatur ke Banner Resmi SR12');
+  }
+}
+
 function handleSaveOlseraSettings(e) {
   if (e) e.preventDefault();
   if (typeof appState === 'undefined' || !appState.storeSettings) return;
@@ -3000,6 +3074,13 @@ function handleSaveOlseraSettings(e) {
     }
   }
 
+  // Simpan Banner Toko
+  if (typeof appState.tempOlseraBannerUrl !== 'undefined') {
+    appState.storeSettings.heroBannerUrl = appState.tempOlseraBannerUrl;
+  } else if (appState.tempHeroBannerBase64) {
+    appState.storeSettings.heroBannerUrl = appState.tempHeroBannerBase64;
+  }
+
   // Update di daftar partner stores
   const curIdx = (appState.partnerStores || []).findIndex(s => s.slug === appState.storeSettings.slug);
   if (curIdx >= 0) {
@@ -3010,33 +3091,19 @@ function handleSaveOlseraSettings(e) {
     saveStoredPartnerStores(appState.partnerStores);
   }
 
+  // Sinkronisasi ke Supabase Cloud
+  if (typeof saveStoreToSupabase === 'function') {
+    saveStoreToSupabase(appState.storeSettings);
+  }
+
   // Render branding di storefront dan di Olsera
   if (typeof renderStoreBranding === 'function') {
     renderStoreBranding();
   }
   updateOlseraHeaderMeta();
 
-  // Sinkronisasi ke Supabase Cloud jika aktif
-  if (window.supabaseClient && appState.storeSettings.slug) {
-    window.supabaseClient
-      .from('stores')
-      .update({
-        name: appState.storeSettings.storeName,
-        owner_name: appState.storeSettings.storeOwner,
-        whatsapp: appState.storeSettings.storeWaNumber,
-        city: appState.storeSettings.storeCity,
-        tagline: appState.storeSettings.storeTagline,
-        store_logo_url: appState.storeSettings.storeLogoUrl,
-        bank_name: appState.storeSettings.bankName,
-        bank_account: appState.storeSettings.bankAccount
-      })
-      .eq('slug', appState.storeSettings.slug)
-      .then(() => {})
-      .catch(err => console.warn('Supabase store update error:', err));
-  }
-
   if (typeof showToast === 'function') {
-    showToast('✅ Pengaturan profil toko & logo berhasil disimpan!');
+    showToast('✅ Pengaturan profil toko, banner & logo berhasil disimpan!');
   }
 }
 
@@ -3284,6 +3351,9 @@ window.handleOlseraLogoUpload = handleOlseraLogoUpload;
 window.handleOlseraLogoUrlInput = handleOlseraLogoUrlInput;
 window.resetOlseraLogoToDefault = resetOlseraLogoToDefault;
 window.updateOlseraSettingsLogoPreview = updateOlseraSettingsLogoPreview;
+window.handleOlseraBannerUpload = handleOlseraBannerUpload;
+window.updateOlseraSettingsBannerPreview = updateOlseraSettingsBannerPreview;
+window.resetOlseraBannerToDefault = resetOlseraBannerToDefault;
 window.autoTrimAndCenterImage = autoTrimAndCenterImage;
 window.scrollPosToCheckout = function() {
   const panel = document.querySelector('.pos-register-panel');

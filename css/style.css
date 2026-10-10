@@ -1747,6 +1747,65 @@ body.dev-mode-active .site-header {
   box-shadow: 0 8px 18px rgba(2, 132, 199, 0.18);
 }
 
+/* 4. Icon Bagikan Toko (Viral Marketing Ramah Pembeli Ala Shopee) */
+.btn-hero-icon-share {
+  background: #ffffff;
+  color: #0284c7 !important;
+  border-color: #bae6fd;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+.btn-hero-icon-share:hover {
+  background: #f0f9ff;
+  border-color: #38bdf8;
+  color: #0369a1 !important;
+  box-shadow: 0 8px 18px rgba(2, 132, 199, 0.18);
+  transform: translateY(-2px);
+}
+
+/* Banner Preset Selector Styles */
+.banner-presets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+.banner-preset-card {
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  background: #ffffff;
+  transition: all 0.2s ease;
+  text-align: left;
+  padding: 0;
+}
+.banner-preset-card:hover {
+  border-color: #059669;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(5, 150, 105, 0.15);
+}
+.banner-preset-card.active {
+  border-color: #059669;
+  outline: 2px solid #059669;
+}
+.banner-preset-thumb {
+  width: 100%;
+  height: 48px;
+  object-fit: cover;
+  display: block;
+}
+.banner-preset-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #334155;
+  padding: 4px 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 
 /* Tombol Aksi Simbol Toko - Sebaris Rapi, Kompak, Tanpa Wrap */
 .distributor-hero-actions {
