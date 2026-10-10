@@ -1716,35 +1716,36 @@ document.addEventListener('DOMContentLoaded', async () => {
   initEventListeners();
   updateViewModeUI();
 
-  // Sinkronisasi otomatis dua arah (Client <-> Server API)
+  // Sinkronisasi awal toko saat aplikasi dibuka
   syncStoresWithServer();
-  syncPendingStoresWithServer();
 
-  // Real-time synchronization interval (tiap 3 detik) & saat tab browser difokuskan
-  setInterval(() => {
-    syncStoresWithServer();
-    syncPendingStoresWithServer();
-    if (typeof syncMitraWithIndexedDB === 'function') syncMitraWithIndexedDB();
-  }, 3000);
-
-  window.addEventListener('focus', () => {
-    syncStoresWithServer();
-    syncPendingStoresWithServer();
-    if (typeof syncMitraWithIndexedDB === 'function') syncMitraWithIndexedDB();
-  });
-
-  // Listener WebSocket Cloud Instan: Ketika ada perubahan toko/antrean/mitra di HP/Laptop lain, langsung sinkron seketika
+  // Listener WebSocket Cloud Instan: Ketika ada perubahan toko/antrean/mitra di Supabase, langsung sinkron seketika (0 Egress saat idle)
   if (typeof subscribeToStoreChanges === 'function') {
     try {
       subscribeToStoreChanges(() => {
         syncStoresWithServer();
-        syncPendingStoresWithServer();
         if (typeof syncMitraWithIndexedDB === 'function') syncMitraWithIndexedDB();
+        if (typeof appState !== 'undefined' && appState.isDevMasterLoggedIn && typeof syncPendingStoresWithServer === 'function') {
+          syncPendingStoresWithServer();
+        }
       });
     } catch(subErr) {
       console.warn('Realtime subscription trigger error:', subErr);
     }
   }
+
+  // Sinkronisasi saat tab kembali fokus (dibatasi minimal jeda 60 detik agar hemat kuota bandwidth)
+  let lastFocusSyncTime = Date.now();
+  window.addEventListener('focus', () => {
+    if (Date.now() - lastFocusSyncTime > 60000) {
+      lastFocusSyncTime = Date.now();
+      syncStoresWithServer();
+      if (typeof syncMitraWithIndexedDB === 'function') syncMitraWithIndexedDB();
+      if (typeof appState !== 'undefined' && appState.isDevMasterLoggedIn && typeof syncPendingStoresWithServer === 'function') {
+        syncPendingStoresWithServer();
+      }
+    }
+  });
   renderTierQuickBanner();
   renderProducts();
   if (typeof syncProductsWithIndexedDB === 'function') {
@@ -1893,9 +1894,17 @@ function switchPartnerStore(slug, pushHistory = true) {
     appState.isDistributorLoggedIn = false;
   }
 
-  // Tutup modal administratif umum tetapi jangan paksa tutup modal detail produk atau keranjang
+  // Tutup modal administratif umum tetapi jangan paksa tutup modal detail produk, keranjang, atau modal PIN otentikasi
   document.querySelectorAll('.modal-backdrop.open').forEach(m => {
-    if (m.id !== 'modalProductDetail' && m.id !== 'cartDrawer' && m.id !== 'modalProductPromoShare') {
+    if (
+      m.id !== 'modalProductDetail' &&
+      m.id !== 'cartDrawer' &&
+      m.id !== 'modalProductPromoShare' &&
+      m.id !== 'modalDistributorLogin' &&
+      m.id !== 'modalDevPin' &&
+      m.id !== 'modalOlseraLock' &&
+      m.id !== 'modalChangeSecurityPin'
+    ) {
       m.classList.remove('open');
     }
   });
@@ -2565,14 +2574,32 @@ function switchPreviewDocTab(tabName) {
   }
 }
 
-function previewSkDocument(appId) {
+async function previewSkDocument(appId) {
   const app = (appState.pendingStoreApps || []).find(a => a.id === appId);
   if (!app) {
     alert('Data pengajuan toko tidak ditemukan!');
     return;
   }
 
-  // Ensure documents are populated
+  // Jika berkas asli belum terunduh (karena optimasi kuota daftar), unduh on-demand dari Supabase
+  if ((!app.ktpDocUrl || !app.skDocUrl) && typeof fetchPendingStoreDoc === 'function') {
+    try {
+      const [ktp, sk, selfie, rec] = await Promise.all([
+        app.ktpDocUrl ? Promise.resolve(app.ktpDocUrl) : fetchPendingStoreDoc(app.id, 'ktp_doc_url'),
+        app.skDocUrl ? Promise.resolve(app.skDocUrl) : fetchPendingStoreDoc(app.id, 'sk_doc_url'),
+        app.selfieDocUrl ? Promise.resolve(app.selfieDocUrl) : fetchPendingStoreDoc(app.id, 'selfie_doc_url'),
+        app.recommendationDocUrl ? Promise.resolve(app.recommendationDocUrl) : fetchPendingStoreDoc(app.id, 'recommendation_doc_url')
+      ]);
+      if (ktp) app.ktpDocUrl = ktp;
+      if (sk) app.skDocUrl = sk;
+      if (selfie) app.selfieDocUrl = selfie;
+      if (rec) app.recommendationDocUrl = rec;
+    } catch(docErr) {
+      console.warn('On-demand doc fetch warning:', docErr);
+    }
+  }
+
+  // Ensure documents are populated with fallback mock SVG if still empty
   if (!app.ktpDocUrl) {
     app.ktpDocUrl = getMockKtpSvgUrl(app.storeOwner, app.nikNumber, app.storeCity);
   }
@@ -3940,16 +3967,17 @@ function openDistributorLoginModal() {
   if (passInput) passInput.value = '';
   if (err) err.style.display = 'none';
 
-  const now = Date.now();
-  window.modalLastOpenedAt = now;
-  window.modalImmunityUntil = now + 1500;
-
-  if (typeof openModal === 'function') {
-    openModal('modalDistributorLogin');
-  } else if (modal) {
+  // Modal PIN otentikasi dibuka secara langsung & stabil tanpa manipulasi history
+  if (modal) {
+    document.body.classList.add('modal-open');
     modal.classList.add('open');
   }
 
+  if (passInput) {
+    setTimeout(() => {
+      try { passInput.focus(); } catch(e) {}
+    }, 150);
+  }
 }
 
 function autoFillDemoLogin() {
@@ -4880,15 +4908,16 @@ function openDevPinPrompt() {
   if (pinInput) pinInput.value = '';
   if (pinError) pinError.style.display = 'none';
 
-  const now = Date.now();
-  window.modalLastOpenedAt = now;
-  window.modalImmunityUntil = now + 1500;
+  // Buka modal PIN pengembang secara langsung & stabil tanpa manipulasi history
+  if (modal) {
+    document.body.classList.add('modal-open');
+    modal.classList.add('open');
+  }
 
-  if (typeof openModal === 'function') {
-    openModal('modalDevPin');
-  } else {
-    const modal = document.getElementById('modalDevPin');
-    if (modal) modal.classList.add('open');
+  if (pinInput) {
+    setTimeout(() => {
+      try { pinInput.focus(); } catch(e) {}
+    }, 150);
   }
 }
 
@@ -5056,6 +5085,9 @@ function showDeveloperWorkspaceView(showWorkspace) {
     if (consolePin) consolePin.textContent = appState.masterDevPin || '8899';
 
     updateDevPortalMetrics();
+    if (typeof syncPendingStoresWithServer === 'function') {
+      syncPendingStoresWithServer();
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } else {
     // Mode Tinjau Etalase Toko (Storefront Preview) dengan Developer Preview Strip
@@ -6422,14 +6454,12 @@ function openWhatsAppPreviewModal(text, url) {
 // SISTEM KONTROL GESTUR & PENGUNCI SCROLL LATAR MODAL
 // ========================================================
 let isModalHistoryPushed = false;
+const AUTH_SECURITY_MODALS = ['modalDistributorLogin', 'modalDevPin', 'modalOlseraLock', 'modalChangeSecurityPin'];
 
 function openModal(modalId) {
   const modal = document.getElementById(modalId);
   if (!modal) return;
 
-  const now = Date.now();
-  window.modalLastOpenedAt = now;
-  window.modalImmunityUntil = now + 1500;
   document.body.classList.add('modal-open');
   modal.classList.add('open');
 
@@ -6440,13 +6470,15 @@ function openModal(modalId) {
     dialog.style.transition = '';
   }
 
-  // Daftarkan ke History Browser agar gestur geser tepi layar (back gesture bawaan HP) otomatis menutup modal
-  try {
-    if (!history.state || history.state.openModalId !== modalId) {
-      history.pushState({ openModalId: modalId, isModal: true }, '');
-      isModalHistoryPushed = true;
-    }
-  } catch(e) {}
+  // Daftarkan ke History Browser hanya untuk modal umum (KECUALI modal PIN otentikasi)
+  if (!AUTH_SECURITY_MODALS.includes(modalId)) {
+    try {
+      if (!history.state || history.state.openModalId !== modalId) {
+        history.pushState({ openModalId: modalId, isModal: true }, '');
+        isModalHistoryPushed = true;
+      }
+    } catch(e) {}
+  }
 }
 window.openModal = openModal;
 
@@ -6481,8 +6513,8 @@ function closeModal(modalId, isFromPopstate = false, skipHistoryBack = false) {
     }
   }
 
-  // Jika ditutup bukan via popstate dan bukan skipHistoryBack dan history state tercatat modal, kembalikan history agar bersih
-  if (!isFromPopstate && !skipHistoryBack && isModalHistoryPushed && history.state && history.state.isModal) {
+  // Jika ditutup bukan via popstate dan bukan skipHistoryBack dan history state tercatat modal umum
+  if (!AUTH_SECURITY_MODALS.includes(modalId) && !isFromPopstate && !skipHistoryBack && isModalHistoryPushed && history.state && history.state.isModal) {
     try {
       history.back();
       isModalHistoryPushed = false;
@@ -6513,19 +6545,13 @@ window.addEventListener('keydown', (e) => {
 
 // Tangkap gestur Back bawaan HP (geser tepi layar kiri/kanan di Android / iOS) & tombol Back browser Laptop/PC
 window.addEventListener('popstate', (e) => {
-  // Masa imunitas aktif: abaikan popstate liar saat modal baru dibuka dalam kurun waktu 1.5 detik
-  if (Date.now() < (window.modalImmunityUntil || 0)) {
-    return;
-  }
-
   const openModals = Array.from(document.querySelectorAll('.modal-backdrop.open'));
   if (openModals.length > 0) {
     const topModal = openModals[openModals.length - 1];
 
-    // PROTEKSI KHUSUS MODAL PIN / KEAMANAN:
-    // modalDistributorLogin, modalDevPin, dan modalOlseraLock TIDAK BOLEH ditutup oleh popstate liar!
-    // Modal otentikasi hanya boleh ditutup jika pengguna secara sadar menekan tombol Silang (X) atau "Batal"
-    if (topModal.id === 'modalDistributorLogin' || topModal.id === 'modalDevPin' || topModal.id === 'modalOlseraLock') {
+    // PROTEKSI MUTLAK MODAL PIN / KEAMANAN:
+    // modalDistributorLogin, modalDevPin, modalOlseraLock, dan modalChangeSecurityPin SAMA SEKALI TIDAK BOLEH ditutup oleh popstate!
+    if (AUTH_SECURITY_MODALS.includes(topModal.id)) {
       return;
     }
 
@@ -6535,6 +6561,12 @@ window.addEventListener('popstate', (e) => {
   const cartDrawer = document.getElementById('cartDrawer');
   if (cartDrawer && cartDrawer.classList.contains('open')) {
     if (typeof closeCartDrawer === 'function') closeCartDrawer();
+    return;
+  }
+
+  // Jika ada modal PIN yang aktif, jangan izinkan navigasi toko liar
+  const hasAuthModal = document.querySelector('.modal-backdrop.open');
+  if (hasAuthModal && AUTH_SECURITY_MODALS.includes(hasAuthModal.id)) {
     return;
   }
 
@@ -6550,46 +6582,23 @@ window.addEventListener('popstate', (e) => {
 function initUniversalModalGestures() {
   const backdrops = document.querySelectorAll('.modal-backdrop');
   backdrops.forEach(backdrop => {
-    // 1. Ketuk area gelap di luar kotak modal untuk langsung menutup
-    // Verifikasi mousedown & touchstart benar-benar berasal dari backdrop luar agar tidak menutup saat klik/teks terseret dari dalam modal
+    // PROTEKSI TOTAL: Modal PIN & Keamanan sama sekali TIDAK BOLEH dipasangi listener gestur ataupun penutup backdrop otomatis!
+    if (AUTH_SECURITY_MODALS.includes(backdrop.id)) {
+      return;
+    }
+
     let touchStartedOnBackdrop = false;
     let mouseDownStartedOnBackdrop = false;
 
     backdrop.addEventListener('mousedown', (e) => {
-      // Abaikan jika modal dalam masa imunitas atau baru saja dibuka dalam 1000ms
-      if (Date.now() < (window.modalImmunityUntil || 0) || Date.now() - (window.modalLastOpenedAt || 0) < 1000) {
-        mouseDownStartedOnBackdrop = false;
-        return;
-      }
       mouseDownStartedOnBackdrop = (e.target === backdrop);
     });
 
     backdrop.addEventListener('touchstart', (e) => {
-      // Abaikan jika modal dalam masa imunitas atau baru saja dibuka dalam 1000ms
-      if (Date.now() < (window.modalImmunityUntil || 0) || Date.now() - (window.modalLastOpenedAt || 0) < 1000) {
-        touchStartedOnBackdrop = false;
-        return;
-      }
       touchStartedOnBackdrop = (e.target === backdrop);
     }, { passive: true });
 
     backdrop.addEventListener('click', (e) => {
-      // Cooldown setelah modal dibuka: abaikan trailing click/tap
-      if (Date.now() < (window.modalImmunityUntil || 0) || Date.now() - (window.modalLastOpenedAt || 0) < 1000) {
-        mouseDownStartedOnBackdrop = false;
-        touchStartedOnBackdrop = false;
-        return;
-      }
-
-      // PROTEKSI MUTLAK MODAL LOGIN / PIN KEAMANAN:
-      // modalDistributorLogin, modalDevPin, dan modalOlseraLock TIDAK BOLEH ditutup hanya karena ketukan backdrop luar!
-      // Pengguna harus menekan tombol Silang (X) atau "Batal" agar tidak tertutup saat mengetik!
-      if (backdrop.id === 'modalDistributorLogin' || backdrop.id === 'modalDevPin' || backdrop.id === 'modalOlseraLock') {
-        mouseDownStartedOnBackdrop = false;
-        touchStartedOnBackdrop = false;
-        return;
-      }
-
       if (e.target === backdrop && (mouseDownStartedOnBackdrop || touchStartedOnBackdrop)) {
         closeModal(backdrop.id);
       }
@@ -6597,20 +6606,17 @@ function initUniversalModalGestures() {
       touchStartedOnBackdrop = false;
     });
 
-    // 2. Kunci touchmove pada area gelap backdrop HANYA jika konten muat di layar.
-    // Jika modal lebih tinggi dari layar (misal saat virtual keyboard HP aktif), izinkan scrolling leluasa!
+    // Kunci touchmove pada area gelap backdrop HANYA jika konten muat di layar
     backdrop.addEventListener('touchmove', (e) => {
       if (e.target === backdrop) {
         if (backdrop.scrollHeight > backdrop.clientHeight) {
-          return; // Biarkan sentuhan menggeser layar ke atas/bawah!
+          return;
         }
         e.preventDefault();
       }
     }, { passive: false });
 
-    // 3. Deteksi Gestur Geser Sentuhan Layar (Pull Down to Dismiss)
-    // HANYA aktif jika pengguna sengaja menarik dari header modal (.modal-header / .modal-drag-handle)
-    // JANGAN PERNAH aktif ketika pengguna mengetik password, mengisi form, menekan tombol, dsb!
+    // Deteksi Gestur Geser Sentuhan Layar (Pull Down to Dismiss)
     let touchStartY = 0;
     let isPullDown = false;
     let isSwiping = false;
@@ -6619,15 +6625,6 @@ function initUniversalModalGestures() {
     backdrop.addEventListener('touchstart', (e) => {
       if (e.touches.length !== 1) return;
 
-      // Modal Login/PIN terlindungi dari gesture pull down
-      if (backdrop.id === 'modalDistributorLogin' || backdrop.id === 'modalDevPin' || backdrop.id === 'modalOlseraLock') {
-        isPullDown = false;
-        isSwiping = false;
-        activeDialog = null;
-        return;
-      }
-
-      // Proteksi total: Abaikan gesture jika menyentuh input form, tombol, textarea, select, dsb
       if (e.target.closest('input, textarea, select, button, a, label, form, .modal-body, [contenteditable="true"]')) {
         isPullDown = false;
         isSwiping = false;
@@ -6635,7 +6632,6 @@ function initUniversalModalGestures() {
         return;
       }
 
-      // Hanya izinkan pull-down jika sentuhan bermula di header modal atau drag-handle, dan bukan tombol close
       const headerTarget = e.target.closest('.modal-header, .modal-drag-handle');
       if (headerTarget && !e.target.closest('button, .btn-close-modal, a')) {
         activeDialog = backdrop.querySelector('.modal-dialog');
@@ -6659,7 +6655,6 @@ function initUniversalModalGestures() {
       const touch = e.touches[0];
       const diffY = touch.clientY - touchStartY;
 
-      // Geser ke bawah (Pull down to dismiss)
       if (diffY > 15) {
         isSwiping = true;
         activeDialog.style.transition = 'none';
@@ -6680,7 +6675,6 @@ function initUniversalModalGestures() {
       const touch = e.changedTouches[0];
       const diffY = touch.clientY - touchStartY;
 
-      // Tutup jika ditarik ke bawah melebihi 70px
       if (diffY > 70) {
         activeDialog.style.transition = 'transform 0.22s ease-out, opacity 0.22s ease-out';
         activeDialog.style.transform = 'translateY(100%)';
@@ -6708,12 +6702,13 @@ function initUniversalModalGestures() {
     }, { passive: true });
   });
 
-  // Pasang MutationObserver agar jika ada modal yang dibuka via classList.add('open'), otomatis terdaftar
+  // Pasang MutationObserver hanya untuk modal umum
   const modalObserver = new MutationObserver((mutations) => {
     mutations.forEach(mutation => {
       if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
         const target = mutation.target;
         if (target.classList.contains('modal-backdrop')) {
+          if (AUTH_SECURITY_MODALS.includes(target.id)) return; // Jangan manipulasi history untuk modal PIN
           if (target.classList.contains('open')) {
             document.body.classList.add('modal-open');
             try {
@@ -6729,7 +6724,9 @@ function initUniversalModalGestures() {
   });
 
   backdrops.forEach(b => {
-    modalObserver.observe(b, { attributes: true, attributeFilter: ['class'] });
+    if (!AUTH_SECURITY_MODALS.includes(b.id)) {
+      modalObserver.observe(b, { attributes: true, attributeFilter: ['class'] });
+    }
   });
 
 }
@@ -6840,7 +6837,7 @@ function handleGlobalBackNavigation() {
   if (openModals.length > 0) {
     const topModal = openModals[openModals.length - 1];
     // Proteksi modal PIN otentikasi: tidak ditutup oleh edge swipe
-    if (topModal.id === 'modalDistributorLogin' || topModal.id === 'modalDevPin' || topModal.id === 'modalOlseraLock') {
+    if (AUTH_SECURITY_MODALS.includes(topModal.id)) {
       return;
     }
     closeModal(topModal.id);

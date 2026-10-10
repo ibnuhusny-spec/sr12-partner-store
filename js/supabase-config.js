@@ -206,9 +206,11 @@ async function syncPendingStoresFromSupabase() {
   const client = initSupabaseClient();
   if (!client) return null;
   try {
+    // OPTIMASI BANDWIDTH: Jangan unduh kolom dokumen Base64 (KTP, SK, Selfie) yang berukuran megabyte di query daftar!
+    // Dokumen hanya diunduh on-demand saat tombol preview dokumen diklik oleh admin via fetchPendingStoreDoc.
     const { data, error } = await client
       .from('pending_stores')
-      .select('*');
+      .select('id, slug, store_name, store_tagline, store_theme, hero_title, hero_subtitle, hero_banner_url, store_logo_text, store_logo_url, store_wa_number, store_city, store_owner, partner_tier, store_admin_pin, nik_number, ktp_doc_name, sk_number, sk_doc_name, selfie_doc_name, recommender_distributor, recommender_wa, recommender_slug, recommendation_code, recommendation_doc_name, notes, submitted_at, status');
 
     if (error) {
       console.warn('Supabase fetch pending stores error:', error);
@@ -232,18 +234,18 @@ async function syncPendingStoresFromSupabase() {
       partnerTier: row.partner_tier || 'distributor',
       storeAdminPin: row.store_admin_pin || '1234',
       nikNumber: row.nik_number || '',
-      ktpDocUrl: row.ktp_doc_url || '',
+      ktpDocUrl: '', // Diisi on-demand
       ktpDocName: row.ktp_doc_name || '',
       skNumber: row.sk_number || '',
-      skDocUrl: row.sk_doc_url || '',
+      skDocUrl: '', // Diisi on-demand
       skDocName: row.sk_doc_name || '',
-      selfieDocUrl: row.selfie_doc_url || '',
+      selfieDocUrl: '', // Diisi on-demand
       selfieDocName: row.selfie_doc_name || '',
       recommenderDistributor: row.recommender_distributor || '',
       recommenderWa: row.recommender_wa || '',
       recommenderSlug: row.recommender_slug || '',
       recommendationCode: row.recommendation_code || '',
-      recommendationDocUrl: row.recommendation_doc_url || '',
+      recommendationDocUrl: '', // Diisi on-demand
       recommendationDocName: row.recommendation_doc_name || '',
       notes: row.notes || '',
       submittedAt: row.submitted_at,
@@ -254,6 +256,27 @@ async function syncPendingStoresFromSupabase() {
     return null;
   }
 }
+
+/**
+ * Unduh dokumen tertentu (KTP/SK/Selfie/Rekomendasi) secara on-demand hanya saat tombol preview diklik
+ */
+async function fetchPendingStoreDoc(id, docField) {
+  const client = initSupabaseClient();
+  if (!client || !id || !docField) return null;
+  try {
+    const { data, error } = await client
+      .from('pending_stores')
+      .select(`id, ${docField}`)
+      .eq('id', id)
+      .maybeSingle();
+    if (error || !data) return null;
+    return data[docField] || null;
+  } catch(e) {
+    console.warn(`Error fetching pending doc ${docField}:`, e);
+    return null;
+  }
+}
+window.fetchPendingStoreDoc = fetchPendingStoreDoc;
 
 /**
  * Simpan Pengajuan Toko Baru ke Supabase Cloud
