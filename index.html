@@ -2080,7 +2080,7 @@
       <!-- Biaya Penanganan Sistem (Tampil Wajar bagi Pembeli) -->
       <div class="summary-line platform-fee-row">
         <span>Biaya Layanan Sistem:</span>
-        <span id="cartSummaryPlatformFee">+Rp 1.000</span>
+        <span id="cartSummaryPlatformFee">+Rp 1.500</span>
       </div>
 
       <div class="summary-total">
@@ -2246,7 +2246,7 @@
           </div>
 
           <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--radius-md); padding: 14px; margin-bottom: 14px;">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
               <div>
                 <label style="font-size: 0.8rem; font-weight: 700; color: #166534; display: block; margin-bottom: 4px;">Keamanan PIN Admin Toko:</label>
                 <input type="hidden" id="settingStoreAdminPin" value="1234">
@@ -2262,13 +2262,21 @@
                 <small style="font-size: 0.7rem; color: #15803d;">PIN terproteksi untuk masuk mode edit toko.</small>
               </div>
               <div>
-                <label style="font-size: 0.8rem; font-weight: 700; color: #166534; display: block; margin-bottom: 4px;">Penanggung Biaya Sistem (Rp 1.000):</label>
-                <select id="settingFeePayer" style="width: 100%; padding: 8px; border: 1px solid #86efac; border-radius: var(--radius-sm); font-size: 0.82rem; font-family: var(--font-main);">
-                  <option value="buyer">Ditanggung Pembeli (+Rp 1.000 di keranjang)</option>
-                  <option value="seller">Dipotong dari Penjual (Komisi Rp 1.000)</option>
+                <label style="font-size: 0.8rem; font-weight: 700; color: #166534; display: block; margin-bottom: 4px;">Besaran Biaya Layanan Sistem:</label>
+                <select id="settingPlatformFeeAmount" onchange="updateFeePayerLabels()" style="width: 100%; padding: 8px; border: 1.5px solid #86efac; border-radius: var(--radius-sm); font-size: 0.82rem; font-family: var(--font-main); background: #ffffff; font-weight: 700; color: #166534;">
+                  <option value="1500">Rp 1.500 per Transaksi (Standar)</option>
+                  <option value="2000">Rp 2.000 per Transaksi</option>
                 </select>
-                <small style="font-size: 0.7rem; color: #15803d;">Default: Ditanggung Pembeli (Untung Penjual Utuh).</small>
+                <small style="font-size: 0.7rem; color: #15803d;">Pilihan biaya sistem: Rp 1.500 atau Rp 2.000.</small>
               </div>
+            </div>
+            <div style="padding-top: 10px; border-top: 1px dashed #86efac;">
+              <label style="font-size: 0.8rem; font-weight: 700; color: #166534; display: block; margin-bottom: 4px;">Penanggung Biaya Sistem:</label>
+              <select id="settingFeePayer" style="width: 100%; padding: 8px; border: 1px solid #86efac; border-radius: var(--radius-sm); font-size: 0.82rem; font-family: var(--font-main); background: #ffffff;">
+                <option value="buyer">Ditanggung Pembeli (+Rp 1.500 di keranjang)</option>
+                <option value="seller">Dipotong dari Penjual (Komisi per transaksi)</option>
+              </select>
+              <small style="font-size: 0.7rem; color: #15803d;">Default: Ditanggung Pembeli (Keuntungan Penjual Utuh).</small>
             </div>
           </div>
 
@@ -2277,8 +2285,8 @@
             <input type="text" id="settingStoreOwner" placeholder="Contoh: Ibu Aisyah (Distributor Resmi)" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: var(--font-main);">
           </div>
 
-          <button type="submit" style="width: 100%; background: var(--primary-800); color: #fff; border: none; padding: 11px; border-radius: var(--radius-md); font-weight: 700; font-size: 0.9rem; cursor: pointer;">
-            Simpan Perubahan Identitas & Tema Toko
+          <button type="submit" id="btnSubmitStoreSettings" style="width: 100%; background: var(--primary-800); color: #fff; border: none; padding: 12px; border-radius: var(--radius-md); font-weight: 800; font-size: 0.92rem; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+            💾 Simpan Perubahan Identitas & Tema Toko
           </button>
         </form>
 

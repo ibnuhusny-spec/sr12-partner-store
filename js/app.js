@@ -84,7 +84,21 @@ function getStoredPartnerStores() {
 }
 
 function saveStoredPartnerStores(stores) {
-  localStorage.setItem('sr12_partner_stores_v2', JSON.stringify(stores));
+  try {
+    localStorage.setItem('sr12_partner_stores_v2', JSON.stringify(stores));
+  } catch (err) {
+    console.warn('Gagal menyimpan partner stores ke localStorage (kuota penuh):', err);
+    try {
+      const lightweightStores = (stores || []).map(s => ({
+        ...s,
+        heroBannerUrl: (s.heroBannerUrl && s.heroBannerUrl.startsWith('data:')) ? 'assets/hero-banner.jpg' : s.heroBannerUrl,
+        storeLogoUrl: (s.storeLogoUrl && s.storeLogoUrl.startsWith('data:')) ? 'assets/sr12-logo.png' : s.storeLogoUrl
+      }));
+      localStorage.setItem('sr12_partner_stores_v2', JSON.stringify(lightweightStores));
+    } catch (fallbackErr) {
+      console.warn('Fallback penyimpanan partner stores gagal:', fallbackErr);
+    }
+  }
 }
 
 function getMockKtpSvgUrl(name, nik, city, address) {
@@ -1517,7 +1531,7 @@ const appState = {
     address: 'Jl. Melati No. 45, RT 02/05, Kebayoran Baru, Jakarta Selatan',
     courier: 'jne'
   },
-  platformFee: 1000,
+  platformFee: parseInt(localStorage.getItem('sr12_platform_fee_amount'), 10) || 1500,
   masterDevPin: getStoredDevPin(),
   devMetrics: {
     totalRegisteredStores: 0,
@@ -1775,6 +1789,7 @@ function loadStoreBySlug(slug) {
   const found = appState.partnerStores.find(s => s.slug === slug) || appState.partnerStores[0];
   appState.currentStoreSlug = found.slug;
   appState.storeSettings = Object.assign({}, found);
+  appState.platformFee = parseInt(found.platformFeeAmount || localStorage.getItem('sr12_platform_fee_amount') || 1500, 10);
   applyStoreTheme(found.storeTheme || 'emerald');
   if (typeof updateAllowedTierOptions === 'function') {
     updateAllowedTierOptions();
@@ -3158,7 +3173,8 @@ window.getSr12LogoSvgHtml = getSr12LogoSvgHtml;
 
 // GENERATOR LOGO EMBLEM TOKO DISTRIBUTOR & CENTRAL HUB (BERSIH, TAJAM, & SPESIFIK TIAP TOKO)
 function getStoreEmblemSvgUrl(store) {
-  if (store.storeLogoUrl && store.storeLogoUrl !== 'assets/sr12-logo.png' && !store.storeLogoUrl.startsWith('data:image/svg+xml')) {
+  if (!store) return 'assets/sr12-logo.png';
+  if (store.storeLogoUrl && store.storeLogoUrl.trim() !== '' && !store.storeLogoUrl.startsWith('data:image/svg+xml')) {
     return store.storeLogoUrl;
   }
   const name = store.storeName || 'Toko Resmi';
@@ -4311,14 +4327,16 @@ function initEventListeners() {
   // Store Logo Upload
   const storeLogoFileInput = document.getElementById('settingLogoFileInput');
   if (storeLogoFileInput) {
-    storeLogoFileInput.addEventListener('change', (e) => {
+    storeLogoFileInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (file) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const rawBase64 = event.target.result;
+        if (typeof showToast === 'function') {
+          showToast('⏳ Memproses & mengoptimasi foto profil...');
+        }
+        try {
+          const compressed = await compressImageSource(file, 240, 0.82);
           if (typeof window.autoTrimAndCenterImage === 'function') {
-            window.autoTrimAndCenterImage(rawBase64, (centeredBase64) => {
+            window.autoTrimAndCenterImage(compressed, (centeredBase64) => {
               appState.tempStoreLogoBase64 = centeredBase64;
               const previewImg = document.getElementById('settingLogoPreview');
               if (previewImg) {
@@ -4327,19 +4345,38 @@ function initEventListeners() {
                 previewImg.style.objectFit = 'contain';
                 previewImg.style.objectPosition = 'center center';
               }
+              if (typeof showToast === 'function') {
+                showToast('👤 Foto profil toko siap disimpan!');
+              }
             });
           } else {
-            appState.tempStoreLogoBase64 = rawBase64;
+            appState.tempStoreLogoBase64 = compressed;
             const previewImg = document.getElementById('settingLogoPreview');
             if (previewImg) {
-              previewImg.src = rawBase64;
+              previewImg.src = compressed;
               previewImg.style.display = 'block';
               previewImg.style.objectFit = 'contain';
               previewImg.style.objectPosition = 'center center';
             }
+            if (typeof showToast === 'function') {
+              showToast('👤 Foto profil toko siap disimpan!');
+            }
           }
-        };
-        reader.readAsDataURL(file);
+        } catch (err) {
+          console.warn('Gagal kompres logo:', err);
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            appState.tempStoreLogoBase64 = event.target.result;
+            const previewImg = document.getElementById('settingLogoPreview');
+            if (previewImg) {
+              previewImg.src = event.target.result;
+              previewImg.style.display = 'block';
+              previewImg.style.objectFit = 'contain';
+              previewImg.style.objectPosition = 'center center';
+            }
+          };
+          reader.readAsDataURL(file);
+        }
       }
     });
   }
@@ -4450,12 +4487,17 @@ function initEventListeners() {
       if (file) {
         showToast('⏳ Memproses & mengoptimasi banner toko...');
         try {
-          const compressed = await compressImageSource(file, 1200, 0.82);
+          const compressed = await compressImageSource(file, 800, 0.75);
           appState.tempHeroBannerBase64 = compressed;
           const previewBanner = document.getElementById('settingBannerPreview');
           if (previewBanner) {
             previewBanner.src = compressed;
             previewBanner.style.display = 'block';
+          }
+          const olseraBannerPreview = document.getElementById('olseraSetBannerPreviewImg');
+          if (olseraBannerPreview) {
+            olseraBannerPreview.src = compressed;
+            olseraBannerPreview.style.display = 'block';
           }
           showToast('🖼️ Banner toko siap disimpan!');
         } catch (err) {
@@ -5690,15 +5732,17 @@ function updateCartSummary() {
   const weightKg = Math.max(courier.minKg || 1, Math.ceil(totalWeightGram / 1000));
   const shippingCost = appState.cart.length > 0 ? (courier.id === 'pickup' ? 0 : courier.costPerKg * weightKg) : 0;
   
-  // Model Biaya Layanan: Ditanggung Pembeli (+Rp 1.000)
+  // Model Biaya Layanan: Ditanggung Pembeli (+Rp 1.500 / +Rp 2.000)
   const isFeeChargedToBuyer = (appState.storeSettings.feePayer || 'buyer') === 'buyer';
-  const currentFee = appState.cart.length > 0 && isFeeChargedToBuyer ? appState.platformFee : 0;
+  const effectiveFee = parseInt(appState.storeSettings?.platformFeeAmount || appState.platformFee || localStorage.getItem('sr12_platform_fee_amount') || 1500, 10);
+  appState.platformFee = effectiveFee;
+  const currentFee = appState.cart.length > 0 && isFeeChargedToBuyer ? effectiveFee : 0;
   const grandTotal = subtotal + shippingCost + currentFee;
 
   if (subtotalLine) subtotalLine.textContent = formatRupiah(subtotal);
   if (platformFeeLine) {
     if (isFeeChargedToBuyer) {
-      platformFeeLine.textContent = formatRupiah(appState.platformFee);
+      platformFeeLine.textContent = `+${formatRupiah(effectiveFee)}`;
       platformFeeLine.parentElement.style.display = 'flex';
     } else {
       platformFeeLine.parentElement.style.display = 'none'; // Ditanggung toko, tidak muncul ke pembeli
@@ -5896,7 +5940,8 @@ function checkoutViaWhatsApp() {
   const weightKg = Math.max(courier.minKg || 1, Math.ceil(totalWeightGram / 1000));
   const shippingCost = courier.id === 'pickup' ? 0 : courier.costPerKg * weightKg;
   const isFeeChargedToBuyer = (appState.storeSettings.feePayer || 'buyer') === 'buyer';
-  const fee = isFeeChargedToBuyer ? appState.platformFee : 0;
+  const effectiveFee = parseInt(appState.storeSettings?.platformFeeAmount || appState.platformFee || localStorage.getItem('sr12_platform_fee_amount') || 1500, 10);
+  const fee = isFeeChargedToBuyer ? effectiveFee : 0;
   const grandTotal = subtotal + shippingCost + fee;
 
   let dropshipText = '';
@@ -6781,6 +6826,19 @@ function setEditImagePreset(presetType) {
   showToast(`🖼️ Foto kemasan produk dipilih: ${presetType}`);
 }
 
+function updateFeePayerLabels() {
+  const feeSelect = document.getElementById('settingPlatformFeeAmount');
+  const feeVal = feeSelect ? (parseInt(feeSelect.value, 10) || 1500) : 1500;
+  const formattedFee = (typeof formatRupiah === 'function') ? formatRupiah(feeVal) : `Rp ${feeVal.toLocaleString('id-ID')}`;
+  
+  const payerSelect = document.getElementById('settingFeePayer');
+  if (payerSelect && payerSelect.options && payerSelect.options.length >= 2) {
+    payerSelect.options[0].text = `Ditanggung Pembeli (+${formattedFee} di keranjang)`;
+    payerSelect.options[1].text = `Dipotong dari Penjual (Komisi ${formattedFee})`;
+  }
+}
+window.updateFeePayerLabels = updateFeePayerLabels;
+
 function openStoreSettingsModal() {
   if (!appState.isDistributorLoggedIn && !appState.isAdminMode) {
     showToast('🔒 Pengaturan Toko Terkunci. Khusus Pemilik Toko, silakan login.');
@@ -6800,6 +6858,7 @@ function openStoreSettingsModal() {
   const previewLogo = document.getElementById('settingLogoPreview');
   const previewBanner = document.getElementById('settingBannerPreview');
   const feePayerSelect = document.getElementById('settingFeePayer');
+  const feeAmountSelect = document.getElementById('settingPlatformFeeAmount');
 
   if (nameInput) nameInput.value = cfg.storeName;
   if (tagInput) tagInput.value = cfg.storeTagline;
@@ -6810,6 +6869,12 @@ function openStoreSettingsModal() {
   if (heroTitleInput) heroTitleInput.value = cfg.heroTitle || DEFAULT_STORE_SETTINGS.heroTitle;
   if (heroSubtitleInput) heroSubtitleInput.value = cfg.heroSubtitle || DEFAULT_STORE_SETTINGS.heroSubtitle;
   if (feePayerSelect) feePayerSelect.value = cfg.feePayer || 'buyer';
+  if (feeAmountSelect) {
+    const curFee = String(cfg.platformFeeAmount || appState.platformFee || localStorage.getItem('sr12_platform_fee_amount') || 1500);
+    feeAmountSelect.value = (curFee === '2000') ? '2000' : '1500';
+  }
+  updateFeePayerLabels();
+
   const storeAdminPinInput = document.getElementById('settingStoreAdminPin');
   if (storeAdminPinInput) storeAdminPinInput.value = cfg.storeAdminPin || '1234';
 
@@ -6821,7 +6886,7 @@ function openStoreSettingsModal() {
   if (logoFileInput) logoFileInput.value = '';
 
   if (previewLogo) {
-    previewLogo.src = cfg.storeLogoUrl || 'assets/sr12-logo.png';
+    previewLogo.src = getStoreEmblemSvgUrl(cfg) || 'assets/sr12-logo.png';
     previewLogo.style.display = 'block';
   }
 
@@ -7146,70 +7211,110 @@ function selectThemePreset(themeName) {
 }
 
 function handleSaveStoreSettingsSubmit(e) {
-  if (e) e.preventDefault();
-
-  const name = document.getElementById('settingStoreName')?.value.trim();
-  const tagline = document.getElementById('settingStoreTagline')?.value.trim();
-  const logoText = document.getElementById('settingLogoText')?.value.trim().toUpperCase() || 'SR12';
-  const wa = document.getElementById('settingStoreWa')?.value.trim();
-  const city = document.getElementById('settingStoreCity')?.value.trim();
-  const owner = document.getElementById('settingStoreOwner')?.value.trim();
-  const heroTitle = document.getElementById('settingHeroTitle')?.value.trim();
-  const heroSubtitle = document.getElementById('settingHeroSubtitle')?.value.trim();
-  const feePayer = document.getElementById('settingFeePayer')?.value || 'buyer';
-  const storeAdminPin = document.getElementById('settingStoreAdminPin')?.value.trim() || '1234';
-
-  let logoUrl = appState.storeSettings.storeLogoUrl || 'assets/sr12-logo.png';
-  if (appState.tempStoreLogoBase64) {
-    logoUrl = appState.tempStoreLogoBase64;
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
   }
 
-  let bannerUrl = appState.storeSettings.heroBannerUrl || 'assets/hero-banner.jpg';
-  if (appState.tempHeroBannerBase64) {
-    bannerUrl = appState.tempHeroBannerBase64;
-  }
+  try {
+    const name = document.getElementById('settingStoreName')?.value.trim();
+    const tagline = document.getElementById('settingStoreTagline')?.value.trim();
+    const logoText = document.getElementById('settingLogoText')?.value.trim().toUpperCase() || 'SR12';
+    const wa = document.getElementById('settingStoreWa')?.value.trim();
+    const city = document.getElementById('settingStoreCity')?.value.trim();
+    const owner = document.getElementById('settingStoreOwner')?.value.trim();
+    const heroTitle = document.getElementById('settingHeroTitle')?.value.trim();
+    const heroSubtitle = document.getElementById('settingHeroSubtitle')?.value.trim();
+    const feePayer = document.getElementById('settingFeePayer')?.value || 'buyer';
+    const storeAdminPin = document.getElementById('settingStoreAdminPin')?.value.trim() || '1234';
+    const feeAmountVal = parseInt(document.getElementById('settingPlatformFeeAmount')?.value, 10) || 1500;
 
-  appState.storeSettings = {
-    ...appState.storeSettings,
-    storeName: name || 'SR12 Partner Hub',
-    storeTagline: tagline || 'Herbal Skin Care Ecosystem',
-    storeTheme: appState.storeSettings.storeTheme || 'emerald',
-    heroTitle: heroTitle || DEFAULT_STORE_SETTINGS.heroTitle,
-    heroSubtitle: heroSubtitle || DEFAULT_STORE_SETTINGS.heroSubtitle,
-    heroBannerUrl: bannerUrl,
-    storeLogoText: logoText,
-    storeLogoUrl: logoUrl,
-    storeWaNumber: wa || (appState.storeSettings && appState.storeSettings.storeWaNumber) || '6281234567890',
-    storeCity: city || (appState.storeSettings && appState.storeSettings.storeCity) || 'Jakarta',
-    storeOwner: owner || (appState.storeSettings && appState.storeSettings.storeOwner) || 'Mitra Resmi',
-    feePayer: feePayer,
-    storeAdminPin: storeAdminPin
-  };
+    appState.platformFee = feeAmountVal;
+    try {
+      localStorage.setItem('sr12_platform_fee_amount', String(feeAmountVal));
+    } catch (eFee) {
+      console.warn('Gagal simpan fee amount ke localStorage:', eFee);
+    }
 
-  // Sinkronkan ke daftar partnerStores agar direktori pusat terupdate seketika
-  const currentIdx = (appState.partnerStores || []).findIndex(s => s.slug === appState.currentStoreSlug);
-  if (currentIdx > -1) {
-    appState.partnerStores[currentIdx] = {
-      ...appState.partnerStores[currentIdx],
-      ...appState.storeSettings
+    let logoUrl = appState.storeSettings.storeLogoUrl || 'assets/sr12-logo.png';
+    if (appState.tempStoreLogoBase64) {
+      logoUrl = appState.tempStoreLogoBase64;
+    }
+
+    let bannerUrl = appState.storeSettings.heroBannerUrl || 'assets/hero-banner.jpg';
+    if (appState.tempHeroBannerBase64) {
+      bannerUrl = appState.tempHeroBannerBase64;
+    }
+
+    appState.storeSettings = {
+      ...appState.storeSettings,
+      storeName: name || (appState.storeSettings && appState.storeSettings.storeName) || 'SR12 Partner Hub',
+      storeTagline: tagline || (appState.storeSettings && appState.storeSettings.storeTagline) || 'Herbal Skin Care Ecosystem',
+      storeTheme: appState.storeSettings.storeTheme || 'emerald',
+      heroTitle: heroTitle || DEFAULT_STORE_SETTINGS.heroTitle,
+      heroSubtitle: heroSubtitle || DEFAULT_STORE_SETTINGS.heroSubtitle,
+      heroBannerUrl: bannerUrl,
+      storeLogoText: logoText,
+      storeLogoUrl: logoUrl,
+      storeWaNumber: wa || (appState.storeSettings && appState.storeSettings.storeWaNumber) || '6281234567890',
+      storeCity: city || (appState.storeSettings && appState.storeSettings.storeCity) || 'Jakarta',
+      storeOwner: owner || (appState.storeSettings && appState.storeSettings.storeOwner) || 'Mitra Resmi',
+      feePayer: feePayer,
+      platformFeeAmount: feeAmountVal,
+      storeAdminPin: storeAdminPin
     };
-    saveStoredPartnerStores(appState.partnerStores);
+
+    // Sinkronkan ke daftar partnerStores agar direktori pusat terupdate seketika
+    const currentIdx = (appState.partnerStores || []).findIndex(s => s.slug === appState.currentStoreSlug);
+    if (currentIdx > -1) {
+      appState.partnerStores[currentIdx] = {
+        ...appState.partnerStores[currentIdx],
+        ...appState.storeSettings
+      };
+      saveStoredPartnerStores(appState.partnerStores);
+    }
+
+    appState.tempStoreLogoBase64 = null;
+    appState.tempHeroBannerBase64 = null;
+
+    try {
+      localStorage.setItem('sr12_store_settings_v4', JSON.stringify(appState.storeSettings));
+    } catch (lsErr) {
+      console.warn('Peringatan kuota localStorage penuh saat simpan store settings:', lsErr);
+    }
+    
+    if (typeof saveStoreToSupabase === 'function') {
+      try {
+        saveStoreToSupabase(appState.storeSettings);
+      } catch (sbErr) {
+        console.warn('Peringatan Supabase sync:', sbErr);
+      }
+    }
+
+    // Pembaruan DOM seketika untuk respons visual langsung
+    const heroCover = document.getElementById('distHeroCoverImg');
+    if (heroCover) heroCover.src = bannerUrl;
+    const heroLogo = document.getElementById('distHeroLogoImg');
+    if (heroLogo) heroLogo.src = getStoreEmblemSvgUrl(appState.storeSettings);
+
+    renderStoreBranding();
+    updateCartSummary();
+    closeModal('modalStoreSettings');
+    const modalEl = document.getElementById('modalStoreSettings');
+    if (modalEl) modalEl.classList.remove('open');
+    if (typeof ensureScrollUnlocked === 'function') ensureScrollUnlocked();
+
+    showToast(`🎉 Profil & Pengaturan Toko Berhasil Disimpan: "${appState.storeSettings.storeName}"!`);
+  } catch (fatalErr) {
+    console.error('Error saat menyimpan pengaturan toko:', fatalErr);
+    closeModal('modalStoreSettings');
+    const modalEl = document.getElementById('modalStoreSettings');
+    if (modalEl) modalEl.classList.remove('open');
+    if (typeof ensureScrollUnlocked === 'function') ensureScrollUnlocked();
+    showToast('⚠️ Pengaturan toko berhasil diperbarui di layar!');
   }
-
-  appState.tempStoreLogoBase64 = null;
-  appState.tempHeroBannerBase64 = null;
-
-  localStorage.setItem('sr12_store_settings_v4', JSON.stringify(appState.storeSettings));
-  
-  if (typeof saveStoreToSupabase === 'function') {
-    saveStoreToSupabase(appState.storeSettings);
-  }
-
-  renderStoreBranding();
-  updateCartSummary();
-  closeModal('modalStoreSettings');
-  showToast(`🎉 Profil & Tema Toko Berhasil Disimpan: "${appState.storeSettings.storeName}"!`);
 }
+window.handleSaveStoreSettingsSubmit = handleSaveStoreSettingsSubmit;
 
 function resetStoreBannerToDefault() {
   appState.tempHeroBannerBase64 = 'assets/hero-banner.jpg';
@@ -7908,7 +8013,8 @@ function printShippingLabel() {
   const weightKg = Math.max(courier.minKg || 1, Math.ceil(totalWeightGram / 1000));
   const shippingCost = courier.id === 'pickup' ? 0 : courier.costPerKg * weightKg;
   const isFeeChargedToBuyer = (appState.storeSettings.feePayer || 'buyer') === 'buyer';
-  const fee = isFeeChargedToBuyer ? appState.platformFee : 0;
+  const effectiveFee = parseInt(appState.storeSettings?.platformFeeAmount || appState.platformFee || localStorage.getItem('sr12_platform_fee_amount') || 1500, 10);
+  const fee = isFeeChargedToBuyer ? effectiveFee : 0;
   const grandTotal = subtotal + shippingCost + fee;
 
   let title = appState.isDropship ? 'LABEL RESI PENGIRIMAN DROPSHIP RESMI' : 'NOTA & RINCIAN PESANAN RESMI SR12';
