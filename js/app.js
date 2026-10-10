@@ -468,6 +468,17 @@ async function syncStoresWithServer() {
       if (Array.isArray(supaStores)) {
         const cloudSlugs = new Set(supaStores.map(s => s.slug));
 
+        // Pulihkan toko yang aktif di Supabase Cloud dari blacklist deletedSlugs lokal
+        if (deletedSlugs.length > 0) {
+          const updatedDeleted = deletedSlugs.filter(d => !cloudSlugs.has(d));
+          if (updatedDeleted.length !== deletedSlugs.length) {
+            localStorage.setItem('sr12_deleted_store_slugs', JSON.stringify(updatedDeleted));
+            deletedSlugs.length = 0;
+            deletedSlugs.push(...updatedDeleted);
+            changed = true;
+          }
+        }
+
         // A. Periksa toko lokal: Jangan hapus toko valid yang baru disetujui/dibuat, melainkan unggah ke Supabase Cloud jika belum ada
         const prevCount = (appState.partnerStores || []).length;
         appState.partnerStores = (appState.partnerStores || []).filter(localStore => {
@@ -1611,8 +1622,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       const cloudStores = await syncStoresFromSupabase();
       if (Array.isArray(cloudStores)) {
-        const deletedSlugs = getDeletedStoreSlugs();
+        let deletedSlugs = getDeletedStoreSlugs();
         const cloudSlugs = new Set(cloudStores.map(s => s.slug));
+
+        // Pulihkan toko yang aktif di Supabase Cloud dari blacklist deletedSlugs lokal
+        if (deletedSlugs.length > 0) {
+          const updatedDeleted = deletedSlugs.filter(d => !cloudSlugs.has(d));
+          if (updatedDeleted.length !== deletedSlugs.length) {
+            localStorage.setItem('sr12_deleted_store_slugs', JSON.stringify(updatedDeleted));
+            deletedSlugs = updatedDeleted;
+          }
+        }
 
         // Lindungi toko lokal: Jangan hapus toko valid yang baru disetujui, melainkan cadangkan ke Supabase Cloud
         appState.partnerStores = (appState.partnerStores || []).filter(localStore => {
@@ -1832,7 +1852,7 @@ function loadStoreBySlug(slug) {
   }
 }
 
-function switchPartnerStore(slug) {
+function switchPartnerStore(slug, pushHistory = true) {
   // Re-evaluasi sesi distributor saat berpindah toko:
   // Hanya aktifkan admin jika toko tujuan benar-benar memiliki sesi login yang valid
   const savedDistributorSession = localStorage.getItem('sr12_distributor_session');
@@ -1864,10 +1884,19 @@ function switchPartnerStore(slug) {
   if (typeof ensureScrollUnlocked === 'function') ensureScrollUnlocked();
 
   loadStoreBySlug(slug);
-  const switchParams = new URLSearchParams(window.location.search);
-  switchParams.set('store', slug);
-  const newUrl = window.location.pathname + '?' + switchParams.toString();
-  window.history.pushState({ store: slug }, '', newUrl);
+
+  if (pushHistory) {
+    const switchParams = new URLSearchParams(window.location.search);
+    if (slug === 'sr12-central') {
+      switchParams.delete('store');
+    } else {
+      switchParams.set('store', slug);
+    }
+    const queryString = switchParams.toString();
+    const newUrl = window.location.pathname + (queryString ? '?' + queryString : '');
+    window.history.pushState({ store: slug }, '', newUrl);
+  }
+
   if (typeof updateDistributorPendingBadges === 'function') {
     updateDistributorPendingBadges();
   }
@@ -3634,6 +3663,11 @@ function renderStoreBranding() {
   const distHero = document.getElementById('distributorStoreHeroCard');
   const genericHero = document.getElementById('genericStoreHeroBanner') || document.querySelector('.hero-single-banner');
   const commerceWrapper = document.getElementById('distributorCommerceWrapper');
+
+  const partnerBackBar = document.getElementById('partnerStoreBackBar');
+  if (partnerBackBar) {
+    partnerBackBar.style.display = isCentralHub ? 'none' : 'flex';
+  }
 
   if (isCentralHub) {
     // ==========================================
@@ -6441,12 +6475,26 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-// Tangkap gestur Back bawaan HP (geser tepi layar kiri/kanan di Android / iOS)
+// Tangkap gestur Back bawaan HP (geser tepi layar kiri/kanan di Android / iOS) & tombol Back browser Laptop/PC
 window.addEventListener('popstate', (e) => {
   const openModals = Array.from(document.querySelectorAll('.modal-backdrop.open'));
   if (openModals.length > 0) {
     const topModal = openModals[openModals.length - 1];
     closeModal(topModal.id, true);
+    return;
+  }
+  const cartDrawer = document.getElementById('cartDrawer');
+  if (cartDrawer && cartDrawer.classList.contains('open')) {
+    if (typeof closeCartDrawer === 'function') closeCartDrawer();
+    return;
+  }
+
+  // Navigasi Toko / Halaman melalui Tombol Back Browser Laptop/HP
+  const params = new URLSearchParams(window.location.search);
+  const targetSlug = params.get('store') || (e.state && e.state.store) || 'sr12-central';
+  if (targetSlug !== appState.currentStoreSlug) {
+    switchPartnerStore(targetSlug, false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 });
 
