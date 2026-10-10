@@ -3940,6 +3940,10 @@ function openDistributorLoginModal() {
   if (passInput) passInput.value = '';
   if (err) err.style.display = 'none';
 
+  const now = Date.now();
+  window.modalLastOpenedAt = now;
+  window.modalImmunityUntil = now + 1500;
+
   if (typeof openModal === 'function') {
     openModal('modalDistributorLogin');
   } else if (modal) {
@@ -4257,25 +4261,8 @@ function updateViewModeUI() {
   }
   const btnDistOwnerLoginHero = document.getElementById('btnDistOwnerLoginHero');
   if (btnDistOwnerLoginHero) {
-    if (isCentral) {
-      btnDistOwnerLoginHero.style.display = 'none';
-    } else {
-      btnDistOwnerLoginHero.style.display = 'inline-flex';
-      if (isLogged) {
-        btnDistOwnerLoginHero.title = 'Buka Dashboard Admin & Menu Toko';
-        btnDistOwnerLoginHero.setAttribute('aria-label', 'Buka Dashboard');
-        btnDistOwnerLoginHero.onclick = () => {
-          if (typeof showDistributorPortalView === 'function') {
-            showDistributorPortalView(true);
-            if (typeof openOlseraSidebarDrawer === 'function') openOlseraSidebarDrawer();
-          }
-        };
-      } else {
-        btnDistOwnerLoginHero.title = 'Akses Pemilik Toko (Masuk Dashboard Admin / Kasir)';
-        btnDistOwnerLoginHero.setAttribute('aria-label', 'Akses Pemilik Toko');
-        btnDistOwnerLoginHero.onclick = openDistributorLoginModal;
-      }
-    }
+    // Tombol login/akses pemilik toko disembunyikan 100% dari etalase pembeli
+    btnDistOwnerLoginHero.style.display = 'none';
   }
 
   // 2. KONTROL TOPBAR KEMITRAAN (PLATFORM TOPBAR)
@@ -4313,7 +4300,7 @@ function updateViewModeUI() {
   const btnLogin = document.getElementById('btnDistributorLogin');
   const badgeProfile = document.getElementById('distributorProfileBadge');
   const nameDisplay = document.getElementById('loggedDistributorName');
-  if (btnLogin) btnLogin.style.display = isLogged ? 'none' : 'inline-flex';
+  if (btnLogin) btnLogin.style.display = 'none';
   if (badgeProfile) badgeProfile.style.display = isLogged ? 'inline-flex' : 'none';
   if (nameDisplay) {
     nameDisplay.textContent = (appState.storeSettings && appState.storeSettings.storeOwner) || 'Distributor Resmi';
@@ -4777,6 +4764,7 @@ function initEventListeners() {
         storeLogoTapCount = 0;
         e.preventDefault();
         e.stopPropagation();
+        window.modalImmunityUntil = Date.now() + 1500;
         setTimeout(() => {
           openDistributorLoginModal();
         }, 60);
@@ -4795,6 +4783,7 @@ function initEventListeners() {
       if (appState.isDistributorLoggedIn && appState.isAdminMode) return;
       storeLogoPressTimer = setTimeout(() => {
         try { if (navigator.vibrate) navigator.vibrate(50); } catch(err) {}
+        window.modalImmunityUntil = Date.now() + 1500;
         setTimeout(() => {
           openDistributorLoginModal();
         }, 80);
@@ -4827,6 +4816,7 @@ function initEventListeners() {
         devLogoTapCount = 0;
         e.preventDefault();
         e.stopPropagation();
+        window.modalImmunityUntil = Date.now() + 1500;
         openDevPinPrompt();
       } else {
         devLogoTapTimer = setTimeout(() => { devLogoTapCount = 0; }, 1200);
@@ -4839,6 +4829,7 @@ function initEventListeners() {
     if (devTarget) {
       devLogoPressTimer = setTimeout(() => {
         try { if (navigator.vibrate) navigator.vibrate(60); } catch(err) {}
+        window.modalImmunityUntil = Date.now() + 1500;
         openDevPinPrompt();
       }, 1200);
     }
@@ -4888,13 +4879,17 @@ function openDevPinPrompt() {
   const pinError = document.getElementById('devPinError');
   if (pinInput) pinInput.value = '';
   if (pinError) pinError.style.display = 'none';
+
+  const now = Date.now();
+  window.modalLastOpenedAt = now;
+  window.modalImmunityUntil = now + 1500;
+
   if (typeof openModal === 'function') {
     openModal('modalDevPin');
   } else {
     const modal = document.getElementById('modalDevPin');
     if (modal) modal.classList.add('open');
   }
-  if (pinInput) setTimeout(() => pinInput.focus(), 200);
 }
 
 // Switch Tabs inside Developer Super Admin Portal (Workspace & Modal)
@@ -6432,7 +6427,9 @@ function openModal(modalId) {
   const modal = document.getElementById(modalId);
   if (!modal) return;
 
-  window.modalLastOpenedAt = Date.now();
+  const now = Date.now();
+  window.modalLastOpenedAt = now;
+  window.modalImmunityUntil = now + 1500;
   document.body.classList.add('modal-open');
   modal.classList.add('open');
 
@@ -6472,7 +6469,7 @@ function ensureScrollUnlocked() {
 }
 window.ensureScrollUnlocked = ensureScrollUnlocked;
 
-function closeModal(modalId, isFromPopstate = false) {
+function closeModal(modalId, isFromPopstate = false, skipHistoryBack = false) {
   const modal = document.getElementById(modalId);
   if (modal) {
     modal.classList.remove('open');
@@ -6484,8 +6481,8 @@ function closeModal(modalId, isFromPopstate = false) {
     }
   }
 
-  // Jika ditutup bukan via popstate dan history state tercatat modal, kembalikan history agar bersih
-  if (!isFromPopstate && isModalHistoryPushed && history.state && history.state.isModal) {
+  // Jika ditutup bukan via popstate dan bukan skipHistoryBack dan history state tercatat modal, kembalikan history agar bersih
+  if (!isFromPopstate && !skipHistoryBack && isModalHistoryPushed && history.state && history.state.isModal) {
     try {
       history.back();
       isModalHistoryPushed = false;
@@ -6516,9 +6513,22 @@ window.addEventListener('keydown', (e) => {
 
 // Tangkap gestur Back bawaan HP (geser tepi layar kiri/kanan di Android / iOS) & tombol Back browser Laptop/PC
 window.addEventListener('popstate', (e) => {
+  // Masa imunitas aktif: abaikan popstate liar saat modal baru dibuka dalam kurun waktu 1.5 detik
+  if (Date.now() < (window.modalImmunityUntil || 0)) {
+    return;
+  }
+
   const openModals = Array.from(document.querySelectorAll('.modal-backdrop.open'));
   if (openModals.length > 0) {
     const topModal = openModals[openModals.length - 1];
+
+    // PROTEKSI KHUSUS MODAL PIN / KEAMANAN:
+    // modalDistributorLogin, modalDevPin, dan modalOlseraLock TIDAK BOLEH ditutup oleh popstate liar!
+    // Modal otentikasi hanya boleh ditutup jika pengguna secara sadar menekan tombol Silang (X) atau "Batal"
+    if (topModal.id === 'modalDistributorLogin' || topModal.id === 'modalDevPin' || topModal.id === 'modalOlseraLock') {
+      return;
+    }
+
     closeModal(topModal.id, true);
     return;
   }
@@ -6546,8 +6556,8 @@ function initUniversalModalGestures() {
     let mouseDownStartedOnBackdrop = false;
 
     backdrop.addEventListener('mousedown', (e) => {
-      // Abaikan jika modal baru saja dibuka dalam 800ms
-      if (Date.now() - (window.modalLastOpenedAt || 0) < 800) {
+      // Abaikan jika modal dalam masa imunitas atau baru saja dibuka dalam 1000ms
+      if (Date.now() < (window.modalImmunityUntil || 0) || Date.now() - (window.modalLastOpenedAt || 0) < 1000) {
         mouseDownStartedOnBackdrop = false;
         return;
       }
@@ -6555,8 +6565,8 @@ function initUniversalModalGestures() {
     });
 
     backdrop.addEventListener('touchstart', (e) => {
-      // Abaikan jika modal baru saja dibuka dalam 800ms
-      if (Date.now() - (window.modalLastOpenedAt || 0) < 800) {
+      // Abaikan jika modal dalam masa imunitas atau baru saja dibuka dalam 1000ms
+      if (Date.now() < (window.modalImmunityUntil || 0) || Date.now() - (window.modalLastOpenedAt || 0) < 1000) {
         touchStartedOnBackdrop = false;
         return;
       }
@@ -6564,8 +6574,8 @@ function initUniversalModalGestures() {
     }, { passive: true });
 
     backdrop.addEventListener('click', (e) => {
-      // Cooldown 800ms setelah modal dibuka: abaikan trailing click/tap
-      if (Date.now() - (window.modalLastOpenedAt || 0) < 800) {
+      // Cooldown setelah modal dibuka: abaikan trailing click/tap
+      if (Date.now() < (window.modalImmunityUntil || 0) || Date.now() - (window.modalLastOpenedAt || 0) < 1000) {
         mouseDownStartedOnBackdrop = false;
         touchStartedOnBackdrop = false;
         return;
@@ -6740,6 +6750,12 @@ function initGlobalEdgeSwipeBackGesture() {
   window.addEventListener('touchstart', (e) => {
     if (e.touches.length !== 1) return;
 
+    // Jika modal baru saja dibuka dalam kurun waktu imunitas (1.5 detik), nonaktifkan edge swipe
+    if (Date.now() < (window.modalImmunityUntil || 0)) {
+      isTrackingEdgeSwipe = false;
+      return;
+    }
+
     // Jika ada modal apapun yang sedang terbuka, jangan pernah aktifkan edge swipe back gesture!
     const hasOpenModal = document.querySelector('.modal-backdrop.open');
     if (hasOpenModal) {
@@ -6799,6 +6815,10 @@ function initGlobalEdgeSwipeBackGesture() {
       indicator.classList.remove('active');
     }
 
+    if (Date.now() < (window.modalImmunityUntil || 0)) {
+      return;
+    }
+
     const touch = e.changedTouches[0];
     const diffX = touch.clientX - touchStartX;
     const diffY = touch.clientY - touchStartY;
@@ -6812,10 +6832,17 @@ function initGlobalEdgeSwipeBackGesture() {
 }
 
 function handleGlobalBackNavigation() {
-  // 1. Jika ada modal aktif yang terbuka, tutup modal teratas
+  // Masa imunitas aktif: abaikan navigasi back saat modal baru dibuka
+  if (Date.now() < (window.modalImmunityUntil || 0)) return;
+
+  // 1. Jika ada modal aktif yang terbuka, tutup modal teratas (KECUALI modal PIN otentikasi)
   const openModals = Array.from(document.querySelectorAll('.modal-backdrop.open'));
   if (openModals.length > 0) {
     const topModal = openModals[openModals.length - 1];
+    // Proteksi modal PIN otentikasi: tidak ditutup oleh edge swipe
+    if (topModal.id === 'modalDistributorLogin' || topModal.id === 'modalDevPin' || topModal.id === 'modalOlseraLock') {
+      return;
+    }
     closeModal(topModal.id);
     return;
   }

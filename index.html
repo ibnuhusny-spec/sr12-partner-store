@@ -1591,17 +1591,11 @@
               <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
             </svg>
           </button>
-          <!-- 4. Icon Akses Pemilik Toko / Masuk Dashboard Admin -->
-          <button type="button" id="btnDistOwnerLoginHero" onclick="openDistributorLoginModal()" class="btn-hero-icon-only btn-hero-icon-admin" title="Akses Pemilik Toko (Masuk Dashboard Admin / Kasir)" aria-label="Akses Pemilik Toko">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-            </svg>
-          </button>
         </div>
 
         <!-- Hidden Compatibility Container: Elemen Metadata Toko Tetap Ada di DOM untuk JS -->
         <div style="display: none !important;" aria-hidden="true">
+          <button type="button" id="btnDistOwnerLoginHero" onclick="openDistributorLoginModal()" style="display: none !important;"></button>
           <button type="button" id="btnDistLoginHero" onclick="openDistributorLoginModal()" style="display: none !important;"></button>
           <span id="distHeroLoginLabel" style="display: none !important;"></span>
           <span id="distHeroTierBadge">👑 DISTRIBUTOR UTAMA RESMI SR12</span>
@@ -3514,7 +3508,7 @@
             </button>
           </div>
           <div style="margin-top: 14px; padding-top: 10px; border-top: 1px dashed #cbd5e1; text-align: center;">
-            <button type="button" onclick="closeModal('modalDistributorLogin'); openDevPinPrompt();" style="background: none; border: none; color: #0284c7; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+            <button type="button" onclick="closeModal('modalDistributorLogin', false, true); setTimeout(openDevPinPrompt, 120);" style="background: none; border: none; color: #0284c7; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
               <span>🔐</span> <u>Masuk Portal Super Admin Pengembang</u>
             </button>
           </div>
@@ -3540,7 +3534,7 @@
           <div style="margin-bottom: 14px;">
             <label style="font-size: 0.8rem; font-weight: 700; color: #e2e8f0; display: block; margin-bottom: 6px;">Master PIN Developer:</label>
             <div style="position: relative; display: flex; align-items: center;">
-              <input type="password" id="devPinInput" maxlength="12" placeholder="••••••••" required autocomplete="off" inputmode="numeric" pattern="[0-9]*" style="width: 100%; padding: 12px 42px 12px 14px; background: #1e293b; border: 1px solid #475569; border-radius: var(--radius-sm); color: #fff; font-size: 1.1rem; letter-spacing: 4px; text-align: center; font-family: monospace;">
+              <input type="password" id="devPinInput" maxlength="16" placeholder="••••••••" required autocomplete="off" style="width: 100%; padding: 12px 42px 12px 14px; background: #1e293b; border: 1px solid #475569; border-radius: var(--radius-sm); color: #fff; font-size: 1.1rem; letter-spacing: 4px; text-align: center; font-family: monospace;">
               <button type="button" onclick="togglePinVisibility('devPinInput', this)" style="position: absolute; right: 10px; background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1rem; padding: 4px;" title="Lihat/Sembunyikan PIN">👁️</button>
             </div>
             <div id="devPinError" style="display: none; color: #f87171; font-size: 0.78rem; margin-top: 6px; font-weight: 600;"></div>
@@ -3592,7 +3586,7 @@
               PIN Saat Ini (Lama):
             </label>
             <div style="position: relative; display: flex; align-items: center;">
-              <input type="password" id="secPinCurrent" maxlength="10" placeholder="Masukkan PIN lama..." required autocomplete="off" inputmode="numeric" pattern="[0-9]*" style="width: 100%; padding: 11px 40px 11px 12px; background: #1e293b; border: 1px solid #475569; border-radius: 8px; color: #fff; font-size: 1.05rem; letter-spacing: 3px; font-family: monospace;">
+              <input type="password" id="secPinCurrent" maxlength="16" placeholder="Masukkan PIN lama..." required autocomplete="off" style="width: 100%; padding: 11px 40px 11px 12px; background: #1e293b; border: 1px solid #475569; border-radius: 8px; color: #fff; font-size: 1.05rem; letter-spacing: 3px; font-family: monospace;">
               <button type="button" onclick="togglePinVisibility('secPinCurrent', this)" style="position: absolute; right: 10px; background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1rem; padding: 4px;" title="Lihat/Sembunyikan PIN">👁️</button>
             </div>
           </div>
