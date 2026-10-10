@@ -3243,9 +3243,8 @@ body.modal-open {
   overscroll-behavior: contain !important;
   overflow-y: auto !important; /* Memungkinkan backdrop di-scroll leluasa saat modal tinggi atau keyboard muncul */
   -webkit-overflow-scrolling: touch !important;
-  touch-action: pan-y !important; /* Izinkan gestur scroll vertikal jari di HP */
-  user-select: none;
-  -webkit-user-select: none;
+  user-select: auto;
+  -webkit-user-select: auto;
 }
 
 .modal-backdrop.open {

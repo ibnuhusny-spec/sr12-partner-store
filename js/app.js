@@ -3946,14 +3946,6 @@ function openDistributorLoginModal() {
     modal.classList.add('open');
   }
 
-  // Fokus halus ke kolom password tanpa melompatkan viewport
-  if (passInput) {
-    setTimeout(() => {
-      try {
-        passInput.focus({ preventScroll: true });
-      } catch(e) {}
-    }, 150);
-  }
 }
 
 function autoFillDemoLogin() {
@@ -4262,6 +4254,28 @@ function updateViewModeUI() {
   const btnDistShareHero = document.getElementById('btnDistShareStoreHero');
   if (btnDistShareHero) {
     btnDistShareHero.style.display = isCentral ? 'none' : 'inline-flex';
+  }
+  const btnDistOwnerLoginHero = document.getElementById('btnDistOwnerLoginHero');
+  if (btnDistOwnerLoginHero) {
+    if (isCentral) {
+      btnDistOwnerLoginHero.style.display = 'none';
+    } else {
+      btnDistOwnerLoginHero.style.display = 'inline-flex';
+      if (isLogged) {
+        btnDistOwnerLoginHero.title = 'Buka Dashboard Admin & Menu Toko';
+        btnDistOwnerLoginHero.setAttribute('aria-label', 'Buka Dashboard');
+        btnDistOwnerLoginHero.onclick = () => {
+          if (typeof showDistributorPortalView === 'function') {
+            showDistributorPortalView(true);
+            if (typeof openOlseraSidebarDrawer === 'function') openOlseraSidebarDrawer();
+          }
+        };
+      } else {
+        btnDistOwnerLoginHero.title = 'Akses Pemilik Toko (Masuk Dashboard Admin / Kasir)';
+        btnDistOwnerLoginHero.setAttribute('aria-label', 'Akses Pemilik Toko');
+        btnDistOwnerLoginHero.onclick = openDistributorLoginModal;
+      }
+    }
   }
 
   // 2. KONTROL TOPBAR KEMITRAAN (PLATFORM TOPBAR)
@@ -4759,16 +4773,18 @@ function initEventListeners() {
       if (appState.isDistributorLoggedIn && appState.isAdminMode) return;
       storeLogoTapCount++;
       clearTimeout(storeLogoTapTimer);
-      if (storeLogoTapCount >= 3) {
+      if (storeLogoTapCount >= 2) {
         storeLogoTapCount = 0;
         e.preventDefault();
         e.stopPropagation();
-        openDistributorLoginModal();
+        setTimeout(() => {
+          openDistributorLoginModal();
+        }, 60);
         if (typeof showToast === 'function') {
           showToast('👑 Akses Terverifikasi: Silakan masukkan PIN Pemilik Toko');
         }
       } else {
-        storeLogoTapTimer = setTimeout(() => { storeLogoTapCount = 0; }, 1200);
+        storeLogoTapTimer = setTimeout(() => { storeLogoTapCount = 0; }, 1000);
       }
     }
   });
@@ -4779,11 +4795,13 @@ function initEventListeners() {
       if (appState.isDistributorLoggedIn && appState.isAdminMode) return;
       storeLogoPressTimer = setTimeout(() => {
         try { if (navigator.vibrate) navigator.vibrate(50); } catch(err) {}
-        openDistributorLoginModal();
+        setTimeout(() => {
+          openDistributorLoginModal();
+        }, 80);
         if (typeof showToast === 'function') {
           showToast('👑 Akses Terverifikasi: Silakan masukkan PIN Pemilik Toko');
         }
-      }, 1200);
+      }, 1000);
     }
   }, { passive: true });
 
@@ -6414,6 +6432,7 @@ function openModal(modalId) {
   const modal = document.getElementById(modalId);
   if (!modal) return;
 
+  window.modalLastOpenedAt = Date.now();
   document.body.classList.add('modal-open');
   modal.classList.add('open');
 
@@ -6527,14 +6546,40 @@ function initUniversalModalGestures() {
     let mouseDownStartedOnBackdrop = false;
 
     backdrop.addEventListener('mousedown', (e) => {
+      // Abaikan jika modal baru saja dibuka dalam 800ms
+      if (Date.now() - (window.modalLastOpenedAt || 0) < 800) {
+        mouseDownStartedOnBackdrop = false;
+        return;
+      }
       mouseDownStartedOnBackdrop = (e.target === backdrop);
     });
 
     backdrop.addEventListener('touchstart', (e) => {
+      // Abaikan jika modal baru saja dibuka dalam 800ms
+      if (Date.now() - (window.modalLastOpenedAt || 0) < 800) {
+        touchStartedOnBackdrop = false;
+        return;
+      }
       touchStartedOnBackdrop = (e.target === backdrop);
     }, { passive: true });
 
     backdrop.addEventListener('click', (e) => {
+      // Cooldown 800ms setelah modal dibuka: abaikan trailing click/tap
+      if (Date.now() - (window.modalLastOpenedAt || 0) < 800) {
+        mouseDownStartedOnBackdrop = false;
+        touchStartedOnBackdrop = false;
+        return;
+      }
+
+      // PROTEKSI MUTLAK MODAL LOGIN / PIN KEAMANAN:
+      // modalDistributorLogin, modalDevPin, dan modalOlseraLock TIDAK BOLEH ditutup hanya karena ketukan backdrop luar!
+      // Pengguna harus menekan tombol Silang (X) atau "Batal" agar tidak tertutup saat mengetik!
+      if (backdrop.id === 'modalDistributorLogin' || backdrop.id === 'modalDevPin' || backdrop.id === 'modalOlseraLock') {
+        mouseDownStartedOnBackdrop = false;
+        touchStartedOnBackdrop = false;
+        return;
+      }
+
       if (e.target === backdrop && (mouseDownStartedOnBackdrop || touchStartedOnBackdrop)) {
         closeModal(backdrop.id);
       }
@@ -6563,6 +6608,14 @@ function initUniversalModalGestures() {
 
     backdrop.addEventListener('touchstart', (e) => {
       if (e.touches.length !== 1) return;
+
+      // Modal Login/PIN terlindungi dari gesture pull down
+      if (backdrop.id === 'modalDistributorLogin' || backdrop.id === 'modalDevPin' || backdrop.id === 'modalOlseraLock') {
+        isPullDown = false;
+        isSwiping = false;
+        activeDialog = null;
+        return;
+      }
 
       // Proteksi total: Abaikan gesture jika menyentuh input form, tombol, textarea, select, dsb
       if (e.target.closest('input, textarea, select, button, a, label, form, .modal-body, [contenteditable="true"]')) {
