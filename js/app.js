@@ -1054,16 +1054,23 @@ async function syncMitraWithIndexedDB() {
     if (typeof syncMitraFromSupabase === 'function' && typeof appState !== 'undefined') {
       const cloudMitra = await syncMitraFromSupabase();
       if (cloudMitra && cloudMitra.length > 0) {
-        const curMap = new Map((appState.mitraList || []).map(m => [m.id, m]));
+        // Gabungkan dengan key unik komposit: (store_slug + '_' + id) agar tidak saling menimpa antar toko
+        const curMap = new Map();
+        (appState.mitraList || []).forEach(m => {
+          const compKey = `${m.store_slug || 'sr12-central'}_${(m.id || '').toUpperCase()}`;
+          curMap.set(compKey, m);
+        });
         let cloudAdded = false;
         cloudMitra.forEach(cm => {
-          const existing = curMap.get(cm.id);
-          curMap.set(cm.id, Object.assign({}, existing || {}, cm));
+          const compKey = `${cm.store_slug || 'sr12-central'}_${(cm.id || '').toUpperCase()}`;
+          const existing = curMap.get(compKey);
+          curMap.set(compKey, Object.assign({}, existing || {}, cm));
           cloudAdded = true;
         });
         if (cloudAdded) {
           appState.mitraList = Array.from(curMap.values());
-          appState.resellers = appState.mitraList;
+          const curSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+          appState.resellers = appState.mitraList.filter(m => (m.store_slug || 'sr12-central') === curSlug);
           saveStoredMitra(appState.mitraList, false);
           if (typeof renderResellers === 'function') renderResellers();
           if (typeof updateViewModeUI === 'function') updateViewModeUI();
@@ -1748,7 +1755,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderMarketingKits();
   // Memuat data tersimpan Mitra & Marketer (LocalStorage + IndexedDB permanen)
   appState.mitraList = getStoredMitra();
-  appState.resellers = appState.mitraList;
+  const initStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  appState.resellers = (appState.mitraList || []).filter(m => (m.store_slug || 'sr12-central') === initStoreSlug);
   appState.marketerSales = getStoredMarketerSales();
   if (typeof syncMitraWithIndexedDB === 'function') {
     syncMitraWithIndexedDB();
@@ -1835,6 +1843,16 @@ function loadStoreBySlug(slug) {
     updateAllowedTierOptions();
   }
   renderStoreBranding();
+  // ISOLASI KETAT MITRA: Filter daftar mitra aktif eksklusif untuk toko ini
+  if (Array.isArray(appState.mitraList)) {
+    appState.resellers = appState.mitraList.filter(m => (m.store_slug || 'sr12-central') === found.slug);
+  }
+  if (typeof renderResellers === 'function') {
+    renderResellers();
+  }
+  if (typeof renderMarketerPayroll === 'function') {
+    renderMarketerPayroll();
+  }
   // Default standar tampilan harga untuk pembeli/katalog toko selalu Konsumen (HET)
   setTier('konsumen', true);
   const select = document.getElementById('activeStoreSelect');
@@ -6124,7 +6142,8 @@ function checkoutViaWhatsApp() {
     appState.marketerSales = getStoredMarketerSales();
   }
 
-  const foundMitra = findMitraByIdOrPhone(inputPartnerQuery || buyerPhone);
+  const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  const foundMitra = findMitraByIdOrPhone(inputPartnerQuery || buyerPhone, currentStoreSlug);
   let crmNoticeText = '';
 
   if (foundMitra) {
@@ -6132,6 +6151,7 @@ function checkoutViaWhatsApp() {
       const comm = Math.round(subtotal * 0.15);
       const newSale = {
         orderId: 'ORD-MKT-' + Date.now().toString().slice(-4),
+        store_slug: currentStoreSlug,
         marketerId: foundMitra.id,
         date: nowIso,
         monthPeriod: '2026-09',
@@ -6158,7 +6178,7 @@ function checkoutViaWhatsApp() {
       crmNoticeText = `\n💼 *TIM MARKETER RESMI (PENJUALAN TANPA MODAL):*\n` +
         `• Marketer Penjual : ${foundMitra.name} (${foundMitra.id})\n` +
         `• No. Rekening     : ${foundMitra.bankName} - ${foundMitra.bankAccount} (a.n ${foundMitra.bankHolder || foundMitra.name})\n` +
-        `• Komisi Marketer  : ${formatRupiah(comm)} (15% otomatis tercatat di Rekap Gaji Bulanan Distributor)\n`;
+        `• Komisi Marketer  : ${formatRupiah(comm)} (15% otomatis tercatat di Rekap Gaji Bulanan Toko)\n`;
       showToast(`💼 Pesanan berhasil dicatat untuk Tim Marketer: ${foundMitra.name}! Komisi 15% masuk rekap gaji.`);
     } else {
       foundMitra.accumulatedSpent90Days = (foundMitra.accumulatedSpent90Days || 0) + subtotal;
@@ -6169,7 +6189,7 @@ function checkoutViaWhatsApp() {
       }
       saveStoredMitra(appState.mitraList);
 
-      crmNoticeText = `\n🔄 *STATUS KEMITRAAN DISTRIBUTOR:*\n` +
+      crmNoticeText = `\n🔄 *STATUS KEMITRAAN TOKO:*\n` +
         `• ID & Nama Mitra  : ${foundMitra.id} - ${foundMitra.name}\n` +
         `• Tingkat Level    : ${SR12_TIERS[foundMitra.tier]?.name || 'Reseller'} (Diskon ${SR12_TIERS[foundMitra.tier]?.discountPct}%)\n` +
         `• Akumulasi Belanja: ${formatRupiah(foundMitra.accumulatedSpent90Days)}\n`;
@@ -6180,6 +6200,7 @@ function checkoutViaWhatsApp() {
       const nextId = generateNextMitraId('reseller');
       const newReseller = {
         id: nextId,
+        store_slug: currentStoreSlug,
         name: appState.buyerDetails.name || 'Mitra Reseller Baru',
         phone: buyerPhone,
         city: appState.buyerDetails.address?.split(',')[0] || appState.storeSettings.storeCity,
@@ -6194,13 +6215,17 @@ function checkoutViaWhatsApp() {
         status: 'active'
       };
       appState.mitraList.unshift(newReseller);
+      appState.resellers = appState.mitraList.filter(m => (m.store_slug || 'sr12-central') === currentStoreSlug);
       saveStoredMitra(appState.mitraList);
+      if (typeof saveMitraToSupabase === 'function') {
+        saveMitraToSupabase(newReseller, currentStoreSlug);
+      }
 
-      crmNoticeText = `\n🎉 *KUALIFIKASI RESELLER BARU DISTRIBUTOR:*\n` +
+      crmNoticeText = `\n🎉 *KUALIFIKASI RESELLER BARU TOKO:*\n` +
         `• ID Diberikan     : ${nextId}\n` +
         `• Syarat Terpenuhi : Belanja awal ${formatRupiah(subtotal)} (&ge; Rp 500.000)\n` +
         `• Masa Aktif       : Diskon 20% otomatis aktif selama 90 hari ke depan!\n`;
-      showToast(`🎉 Selamat! Anda otomatis tercatat sebagai Reseller Resmi SR12 (ID: ${nextId})!`);
+      showToast(`🎉 Selamat! Anda otomatis tercatat sebagai Reseller Resmi (ID: ${nextId})!`);
     }
   }
 
@@ -8195,9 +8220,14 @@ function updateDevPortalMetrics() {
     } else {
       networkMitraTableBody.innerHTML = list.map(m => {
         const tierName = m.role || m.tier || 'Reseller';
+        const storeObj = appState.partnerStores?.find(s => s.slug === m.store_slug);
+        const storeLabel = storeObj ? storeObj.storeName : (m.store_slug === 'sr12-central' ? 'Official Central Hub' : (m.store_slug || 'Pusat'));
         return `
           <tr style="border-bottom: 1px solid #334155;">
-            <td data-label="Nama Mitra" style="padding: 10px 12px; font-weight: 600; color: #f1f5f9;">${m.name || '-'}</td>
+            <td data-label="Nama Mitra" style="padding: 10px 12px; font-weight: 600; color: #f1f5f9;">
+              ${m.name || '-'}
+              <div style="font-size: 0.7rem; color: #38bdf8; margin-top: 2px;">🏪 ${storeLabel}</div>
+            </td>
             <td data-label="ID Mitra" style="padding: 10px 12px; font-family: monospace; color: #38bdf8;">${m.id || '-'}</td>
             <td data-label="Level" style="padding: 10px 12px;"><span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;">${tierName}</span></td>
             <td data-label="WhatsApp" style="padding: 10px 12px; font-family: monospace; color: #cbd5e1;">${m.phone || '-'}</td>
@@ -9135,14 +9165,18 @@ function normalizePhone(p) {
   return clean;
 }
 
-function findMitraByIdOrPhone(query) {
+function findMitraByIdOrPhone(query, targetStoreSlug = null) {
   if (!query) return null;
+  const currentSlug = targetStoreSlug || (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
   const qTrim = String(query).trim();
   const qClean = qTrim.toUpperCase();
   const qAlphaNum = qClean.replace(/[^A-Z0-9]/g, '');
   const qPhone = normalizePhone(qTrim);
   const qPhoneTail = qPhone.length >= 8 ? qPhone.slice(-8) : '';
-  const list = appState.mitraList || appState.resellers || [];
+  const allList = appState.mitraList || appState.resellers || [];
+
+  // ISOLASI TOKO KETAT: Hanya cari mitra yang terdaftar pada toko aktif yang sedang dituju
+  const list = allList.filter(m => (m.store_slug || 'sr12-central') === currentSlug);
 
   return list.find(m => {
     // 1. Cocokkan ID persis atau tanpa tanda hubung (AG-001 vs AG001 vs ag-001)
@@ -9163,7 +9197,8 @@ function findMitraByIdOrPhone(query) {
 }
 
 function generateNextMitraId(tier) {
-  const list = appState.mitraList || [];
+  const currentSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  const list = (appState.mitraList || []).filter(m => (m.store_slug || 'sr12-central') === currentSlug);
   const prefix = tier === 'agen' ? 'AG' : (tier === 'sub_agen' ? 'SUB' : (tier === 'marketer' ? 'MKT' : 'RS'));
   const sameTier = list.filter(m => (m.id || '').toUpperCase().startsWith(prefix + '-'));
   const nextNum = sameTier.length + 1;
@@ -9252,13 +9287,17 @@ function renderResellers() {
   if (!appState.mitraList) {
     appState.mitraList = getStoredMitra();
   }
-  appState.resellers = appState.mitraList;
+
+  // ISOLASI DATA TOKO: Hanya tampilkan data mitra milik toko aktif saat ini
+  const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  const storeMitraList = (appState.mitraList || []).filter(m => (m.store_slug || 'sr12-central') === currentStoreSlug);
+  appState.resellers = storeMitraList;
 
   let countAgenSub = 0;
   let countResellerActive = 0;
   let countMarketer = 0;
 
-  const evaluatedList = appState.mitraList.map(m => {
+  const evaluatedList = storeMitraList.map(m => {
     const stat = getMitraStatus(m);
     if (m.tier === 'agen' || m.tier === 'sub_agen') countAgenSub++;
     if (m.tier === 'reseller' && stat.state === 'active') countResellerActive++;
@@ -9266,11 +9305,11 @@ function renderResellers() {
     return { ...m, ...stat };
   });
 
-  if (totalEl) totalEl.textContent = `${appState.mitraList.length}`;
+  if (totalEl) totalEl.textContent = `${storeMitraList.length}`;
   if (agenSubEl) agenSubEl.textContent = `${countAgenSub}`;
   if (activeEl) activeEl.textContent = `${countResellerActive}`;
   if (marketerEl) marketerEl.textContent = `${countMarketer}`;
-  if (counterTab) counterTab.textContent = `${appState.mitraList.length} Mitra`;
+  if (counterTab) counterTab.textContent = `${storeMitraList.length} Mitra`;
   if (tabMarketerCounter) tabMarketerCounter.textContent = `${countMarketer} Tim`;
 
   const filtered = evaluatedList.filter(m => {
@@ -9518,16 +9557,19 @@ function handleAddMitraSubmit(e) {
     appState.mitraList = getStoredMitra();
   }
 
-  // Cek apakah ID sudah dipakai
-  if (appState.mitraList.some(m => m.id.toUpperCase() === id)) {
-    alert(`Nomor ID "${id}" sudah digunakan! Silakan gunakan ID lain.`);
+  const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+
+  // Cek apakah ID sudah dipakai di toko ini
+  const storeMitra = (appState.mitraList || []).filter(m => (m.store_slug || 'sr12-central') === currentStoreSlug);
+  if (storeMitra.some(m => (m.id || '').toUpperCase() === id.toUpperCase())) {
+    alert(`Nomor ID "${id}" sudah digunakan di toko ini! Silakan gunakan ID lain.`);
     return;
   }
 
-  const nowIso = '2026-09-27';
+  const nowIso = new Date().toISOString().split('T')[0];
   const newMitra = {
     id: id,
-    store_slug: (appState.storeSettings && appState.storeSettings.slug) || 'sr12-central',
+    store_slug: currentStoreSlug,
     name: name,
     phone: phone,
     city: city || 'Indonesia',
@@ -9543,14 +9585,17 @@ function handleAddMitraSubmit(e) {
   };
 
   appState.mitraList.unshift(newMitra);
-  appState.resellers = appState.mitraList;
+  appState.resellers = appState.mitraList.filter(m => (m.store_slug || 'sr12-central') === currentStoreSlug);
   saveStoredMitra(appState.mitraList);
+  if (typeof saveMitraToSupabase === 'function') {
+    saveMitraToSupabase(newMitra, currentStoreSlug);
+  }
 
   renderResellers();
   updateViewModeUI();
   closeModal('modalAddMitra');
   closeModal('modalAddReseller');
-  showToast(`✅ Berhasil! Mitra "${name}" (${id}) berhasil didaftarkan ke Database Distributor.`);
+  showToast(`✅ Berhasil! Mitra "${name}" (${id}) berhasil didaftarkan ke Database Toko "${appState.storeSettings?.storeName || currentStoreSlug}".`);
 }
 
 function handleAddResellerSubmit(e) {
@@ -9558,18 +9603,19 @@ function handleAddResellerSubmit(e) {
 }
 
 function deleteMitra(id) {
-  const found = (appState.mitraList || []).find(m => m.id === id);
+  const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  const found = (appState.mitraList || []).find(m => m.id === id && (m.store_slug || 'sr12-central') === currentStoreSlug);
   if (!found) return;
-  if (!confirm(`Hapus mitra "${found.name}" (${found.id}) dari database distributor?`)) return;
+  if (!confirm(`Hapus mitra "${found.name}" (${found.id}) dari database toko ini?`)) return;
 
-  appState.mitraList = appState.mitraList.filter(m => m.id !== id);
-  appState.resellers = appState.mitraList;
+  appState.mitraList = appState.mitraList.filter(m => !(m.id === id && (m.store_slug || 'sr12-central') === currentStoreSlug));
+  appState.resellers = appState.mitraList.filter(m => (m.store_slug || 'sr12-central') === currentStoreSlug);
   saveStoredMitra(appState.mitraList);
   if (typeof dbDeleteMitra === 'function') {
     dbDeleteMitra(id);
   }
-  if (typeof deleteMitraFromSupabase === 'function' && appState.storeSettings) {
-    deleteMitraFromSupabase(id, appState.storeSettings.slug || 'sr12-central');
+  if (typeof deleteMitraFromSupabase === 'function') {
+    deleteMitraFromSupabase(id, currentStoreSlug);
   }
   renderResellers();
   updateViewModeUI();
@@ -9581,18 +9627,23 @@ function deleteReseller(id) {
 }
 
 function clearAllMitraDatabase() {
-  if (!confirm('⚠️ Anda yakin ingin mengosongkan seluruh Database Mitra Binaan Toko?\n\nSemua data Agen, Sub Agen, Reseller, dan Marketer akan dihapus untuk simulasi bersih dari awal.')) {
+  const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  if (!confirm(`⚠️ Anda yakin ingin mengosongkan seluruh Database Mitra Binaan Toko "${appState.storeSettings?.storeName || currentStoreSlug}"?\n\nData mitra pada toko ini akan dihapus bersih.`)) {
     return;
   }
-  appState.mitraList = [];
+  const toRemove = (appState.mitraList || []).filter(m => (m.store_slug || 'sr12-central') === currentStoreSlug);
+  appState.mitraList = (appState.mitraList || []).filter(m => (m.store_slug || 'sr12-central') !== currentStoreSlug);
   appState.resellers = [];
-  saveStoredMitra([]);
+  saveStoredMitra(appState.mitraList);
   if (typeof dbSaveAllMitra === 'function') {
-    dbSaveAllMitra([]);
+    dbSaveAllMitra(appState.mitraList);
+  }
+  if (typeof deleteMitraFromSupabase === 'function') {
+    toRemove.forEach(m => deleteMitraFromSupabase(m.id, currentStoreSlug));
   }
   renderResellers();
   updateViewModeUI();
-  showToast('🗑️ Database Seluruh Mitra berhasil dikosongkan!');
+  showToast('🗑️ Database Mitra Toko Ini berhasil dikosongkan!');
 }
 window.clearAllMitraDatabase = clearAllMitraDatabase;
 
@@ -9660,14 +9711,16 @@ function renderMarketerPayroll() {
     appState.marketerSales = getStoredMarketerSales();
   }
 
-  const marketers = appState.mitraList.filter(m => m.tier === 'marketer');
+  const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  const storeMitra = (appState.mitraList || []).filter(m => (m.store_slug || 'sr12-central') === currentStoreSlug);
+  const marketers = storeMitra.filter(m => m.tier === 'marketer');
 
   let grandOrders = 0;
   let grandOmset = 0;
   let grandBonus = 0;
 
   const payrollData = marketers.map(m => {
-    const salesInMonth = appState.marketerSales.filter(s => s.marketerId === m.id && s.monthPeriod === selectedMonth);
+    const salesInMonth = appState.marketerSales.filter(s => s.marketerId === m.id && s.monthPeriod === selectedMonth && (!s.store_slug || s.store_slug === currentStoreSlug));
     const countOrders = salesInMonth.length;
     const omset = salesInMonth.reduce((acc, s) => acc + (s.omsetHet || 0), 0);
     const bonus = Math.round(omset * 0.15);
@@ -9789,10 +9842,12 @@ function openAddMarketerSaleModal(preferredMarketerId) {
   const select = document.getElementById('saleMarketerSelect');
   if (!appState.mitraList) appState.mitraList = getStoredMitra();
 
-  const marketers = appState.mitraList.filter(m => m.tier === 'marketer');
+  const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  const storeMitra = (appState.mitraList || []).filter(m => (m.store_slug || 'sr12-central') === currentStoreSlug);
+  const marketers = storeMitra.filter(m => m.tier === 'marketer');
 
   if (marketers.length === 0) {
-    alert('Belum ada tim marketer yang terdaftar. Daftarkan marketer terlebih dahulu!');
+    alert(`Belum ada tim marketer yang terdaftar di Toko "${appState.storeSettings?.storeName || currentStoreSlug}". Daftarkan marketer terlebih dahulu!`);
     openAddMitraModal('marketer');
     return;
   }
@@ -9982,8 +10037,10 @@ function handleAddMarketerSaleSubmit(e) {
   const monthPeriod = orderDate.slice(0, 7); // '2026-09'
   const commission = Math.round(omsetHet * 0.15);
 
+  const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
   const newSale = {
     orderId: 'ORD-MKT-' + Date.now().toString().slice(-4),
+    store_slug: currentStoreSlug,
     marketerId: marketerId,
     date: orderDate,
     monthPeriod: monthPeriod,
@@ -10004,8 +10061,8 @@ function handleAddMarketerSaleSubmit(e) {
   appState.marketerSales.unshift(newSale);
   saveStoredMarketerSales(appState.marketerSales);
 
-  // Update total omset marketer di data mitra
-  const marketer = (appState.mitraList || []).find(m => m.id === marketerId);
+  // Update total omset marketer di data mitra toko ini
+  const marketer = (appState.mitraList || []).find(m => m.id === marketerId && (m.store_slug || 'sr12-central') === currentStoreSlug);
   if (marketer) {
     marketer.accumulatedSpent90Days = (marketer.accumulatedSpent90Days || 0) + omsetHet;
     marketer.totalOrdersCount = (marketer.totalOrdersCount || 0) + 1;
@@ -10164,26 +10221,28 @@ function checkBuyerMitraPhoneClick() {
       applyBuyerMitraVerification(found, q);
       return;
     }
-    // 2. Jika belum ada di lokal, periksa langsung ke Supabase Cloud
+    // 2. Jika belum ada di lokal, periksa langsung ke Supabase Cloud (Khusus Toko Ini)
     if (typeof findMitraInSupabase === 'function') {
+      const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+      const storeName = appState.storeSettings?.storeName || 'Toko Ini';
       const notice = document.getElementById('buyerStatusNotice');
       if (notice) {
         notice.style.display = 'block';
         notice.style.background = '#f0f9ff';
         notice.style.color = '#0369a1';
         notice.style.border = '1px solid #bae6fd';
-        notice.innerHTML = `<span>⏳ Memverifikasi ID/No. HP "<b>${escapeHtml(q)}</b>" di Cloud SR12...</span>`;
+        notice.innerHTML = `<span>⏳ Memverifikasi ID/No. HP "<b>${escapeHtml(q)}</b>" di Database ${storeName}...</span>`;
       }
-      findMitraInSupabase(q).then(cloudFound => {
+      findMitraInSupabase(q, currentStoreSlug).then(cloudFound => {
         if (cloudFound) {
           if (!appState.mitraList) appState.mitraList = [];
-          const existIdx = appState.mitraList.findIndex(m => m.id === cloudFound.id);
+          const existIdx = appState.mitraList.findIndex(m => m.id === cloudFound.id && (m.store_slug || 'sr12-central') === currentStoreSlug);
           if (existIdx >= 0) {
             appState.mitraList[existIdx] = Object.assign({}, appState.mitraList[existIdx], cloudFound);
           } else {
             appState.mitraList.unshift(cloudFound);
           }
-          appState.resellers = appState.mitraList;
+          appState.resellers = appState.mitraList.filter(m => (m.store_slug || 'sr12-central') === currentStoreSlug);
           saveStoredMitra(appState.mitraList, false);
           applyBuyerMitraVerification(cloudFound, q);
           showToast(`✅ Data Mitra "${cloudFound.name}" (${cloudFound.id}) berhasil diverifikasi dari Cloud!`);
@@ -10215,35 +10274,38 @@ async function autoCheckBuyerMitraPhone(query) {
     appState.mitraList = getStoredMitra();
   }
 
-  // 1. Cek dulu di memori lokal (instan tanpa delay)
-  const found = findMitraByIdOrPhone(q);
+  const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+
+  // 1. Cek dulu di memori lokal (instan tanpa delay, khusus toko ini)
+  const found = findMitraByIdOrPhone(q, currentStoreSlug);
   if (found) {
     if (debounceMitraCheckTimer) clearTimeout(debounceMitraCheckTimer);
     applyBuyerMitraVerification(found, q);
     return;
   }
 
-  // 2. Jika belum ditemukan di lokal, cari ke Supabase Cloud (dengan debounce 350ms)
+  // 2. Jika belum ditemukan di lokal, cari ke Supabase Cloud (dengan debounce 350ms, khusus toko ini)
   if (typeof findMitraInSupabase === 'function' && q.length >= 3) {
+    const storeName = appState.storeSettings?.storeName || 'Toko Ini';
     notice.style.display = 'block';
     notice.style.background = '#f0f9ff';
     notice.style.color = '#0369a1';
     notice.style.border = '1px solid #bae6fd';
-    notice.innerHTML = `<span>⏳ Mencari "<b>${escapeHtml(q)}</b>" di Database Cloud SR12...</span>`;
+    notice.innerHTML = `<span>⏳ Mencari "<b>${escapeHtml(q)}</b>" di Database ${storeName}...</span>`;
 
     if (debounceMitraCheckTimer) clearTimeout(debounceMitraCheckTimer);
     debounceMitraCheckTimer = setTimeout(async () => {
       try {
-        const cloudFound = await findMitraInSupabase(q);
+        const cloudFound = await findMitraInSupabase(q, currentStoreSlug);
         if (cloudFound) {
           if (!appState.mitraList) appState.mitraList = [];
-          const existIdx = appState.mitraList.findIndex(m => m.id === cloudFound.id);
+          const existIdx = appState.mitraList.findIndex(m => m.id === cloudFound.id && (m.store_slug || 'sr12-central') === currentStoreSlug);
           if (existIdx >= 0) {
             appState.mitraList[existIdx] = Object.assign({}, appState.mitraList[existIdx], cloudFound);
           } else {
             appState.mitraList.unshift(cloudFound);
           }
-          appState.resellers = appState.mitraList;
+          appState.resellers = appState.mitraList.filter(m => (m.store_slug || 'sr12-central') === currentStoreSlug);
           saveStoredMitra(appState.mitraList, false);
           applyBuyerMitraVerification(cloudFound, q);
           showToast(`✅ Data Mitra "${cloudFound.name}" (${cloudFound.id}) berhasil diverifikasi dari Cloud!`);
@@ -10375,8 +10437,9 @@ function applyBuyerMitraVerification(found, query) {
       notice.style.color = '#475569';
       notice.style.border = '1px solid #cbd5e1';
       const def = 500000 - subtotalHet;
-      const qText = query ? `ID/No. "<b>${escapeHtml(query)}</b>" belum terdaftar. ` : '';
-      notice.innerHTML = `ℹ️ ${qText}Status: <b>Konsumen Retail (Harga HET)</b>.<br>Tambah belanja ${formatRupiah(def)} lagi (total min. Rp 500.000) untuk otomatis bergabung menjadi Reseller Resmi!`;
+      const storeName = appState.storeSettings?.storeName || 'toko ini';
+      const qText = query ? `ID/No. "<b>${escapeHtml(query)}</b>" tidak terdaftar di ${storeName}. ` : '';
+      notice.innerHTML = `ℹ️ ${qText}Status: <b>Konsumen Retail (Harga HET)</b>.<br>Tambah belanja ${formatRupiah(def)} lagi (total min. Rp 500.000) untuk otomatis bergabung menjadi Reseller Resmi di ${storeName}!`;
     }
   }
   updateCartSummary();

@@ -409,8 +409,9 @@ async function syncMitraFromSupabase(storeSlug = null) {
 /**
  * Cari data Mitra secara instan di Supabase Cloud berdasarkan ID (AG-001 dll), No. WA, atau Nama
  * Digunakan agar HP lain (misal HP 2) langsung mengenali mitra yang baru disimpan di HP 1
+ * Terisolasi ketat per toko jika storeSlug ditentukan (mencegah kebocoran data antar toko)
  */
-async function findMitraInSupabase(query) {
+async function findMitraInSupabase(query, storeSlug = null) {
   const client = initSupabaseClient();
   if (!client || !query) return null;
   try {
@@ -420,11 +421,14 @@ async function findMitraInSupabase(query) {
     const qDigits = qTrim.replace(/[^0-9]/g, '');
 
     // 1. Cari berdasarkan partner_code persis / case-insensitive
-    const { data: byCode } = await client
+    let codeQuery = client
       .from('mitra_downlines')
       .select('*')
-      .or(`partner_code.ilike.${qClean},partner_code.ilike.${qAlphaNum}`)
-      .limit(5);
+      .or(`partner_code.ilike.${qClean},partner_code.ilike.${qAlphaNum}`);
+    if (storeSlug && storeSlug !== 'all' && storeSlug !== 'global') {
+      codeQuery = codeQuery.eq('store_slug', storeSlug);
+    }
+    const { data: byCode } = await codeQuery.limit(5);
 
     if (byCode && byCode.length > 0) {
       const row = byCode[0];
@@ -449,11 +453,14 @@ async function findMitraInSupabase(query) {
     // 2. Jika query mengandung angka telepon (minimal 8 digit)
     if (qDigits.length >= 8) {
       const tail = qDigits.slice(-8);
-      const { data: byPhone } = await client
+      let phoneQuery = client
         .from('mitra_downlines')
         .select('*')
-        .ilike('phone', `%${tail}%`)
-        .limit(5);
+        .ilike('phone', `%${tail}%`);
+      if (storeSlug && storeSlug !== 'all' && storeSlug !== 'global') {
+        phoneQuery = phoneQuery.eq('store_slug', storeSlug);
+      }
+      const { data: byPhone } = await phoneQuery.limit(5);
 
       if (byPhone && byPhone.length > 0) {
         const row = byPhone[0];
@@ -478,11 +485,14 @@ async function findMitraInSupabase(query) {
 
     // 3. Cari berdasarkan Nama Mitra (ilike)
     if (qTrim.length >= 3) {
-      const { data: byName } = await client
+      let nameQuery = client
         .from('mitra_downlines')
         .select('*')
-        .ilike('name', `%${qTrim}%`)
-        .limit(1);
+        .ilike('name', `%${qTrim}%`);
+      if (storeSlug && storeSlug !== 'all' && storeSlug !== 'global') {
+        nameQuery = nameQuery.eq('store_slug', storeSlug);
+      }
+      const { data: byName } = await nameQuery.limit(1);
 
       if (byName && byName.length > 0) {
         const row = byName[0];
@@ -514,14 +524,15 @@ async function findMitraInSupabase(query) {
 window.findMitraInSupabase = findMitraInSupabase;
 
 /**
- * Simpan / Update Mitra ke Supabase Cloud
+ * Simpan / Update Mitra ke Supabase Cloud (Terisolasi per Toko)
  */
 async function saveMitraToSupabase(mitra, storeSlug = 'sr12-central') {
   const client = initSupabaseClient();
   if (!client || !mitra || !mitra.id) return;
   try {
+    const targetStoreSlug = mitra.store_slug || storeSlug || 'sr12-central';
     const payload = {
-      store_slug: mitra.store_slug || storeSlug,
+      store_slug: targetStoreSlug,
       partner_code: mitra.id,
       name: mitra.name,
       phone: mitra.phone,
@@ -537,10 +548,11 @@ async function saveMitraToSupabase(mitra, storeSlug = 'sr12-central') {
       status: mitra.status || 'active'
     };
 
-    // Cek apakah data mitra sudah ada di Supabase Cloud (berdasarkan partner_code unik)
+    // Cek apakah data mitra sudah ada di Supabase Cloud (berdasarkan store_slug DAN partner_code unik)
     const { data: existing } = await client
       .from('mitra_downlines')
       .select('id')
+      .eq('store_slug', targetStoreSlug)
       .eq('partner_code', mitra.id)
       .maybeSingle();
 
@@ -550,13 +562,13 @@ async function saveMitraToSupabase(mitra, storeSlug = 'sr12-central') {
         .update(payload)
         .eq('id', existing.id);
       if (updErr) console.warn('Supabase update mitra error:', updErr);
-      else console.log('☁️ [Supabase] Berhasil update mitra:', mitra.id);
+      else console.log('☁️ [Supabase] Berhasil update mitra:', targetStoreSlug, mitra.id);
     } else {
       const { error: insErr } = await client
         .from('mitra_downlines')
         .insert(payload);
       if (insErr) console.warn('Supabase insert mitra error:', insErr);
-      else console.log('☁️ [Supabase] Berhasil simpan mitra baru:', mitra.id);
+      else console.log('☁️ [Supabase] Berhasil simpan mitra baru:', targetStoreSlug, mitra.id);
     }
   } catch (e) {
     console.warn('Exception saving mitra to Supabase:', e);
