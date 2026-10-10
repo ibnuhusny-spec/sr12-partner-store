@@ -3682,10 +3682,6 @@ function renderStoreBranding() {
   const genericHero = document.getElementById('genericStoreHeroBanner') || document.querySelector('.hero-single-banner');
   const commerceWrapper = document.getElementById('distributorCommerceWrapper');
 
-  const partnerBackBar = document.getElementById('partnerStoreBackBar');
-  if (partnerBackBar) {
-    partnerBackBar.style.display = isCentralHub ? 'none' : 'flex';
-  }
 
   if (isCentralHub) {
     // ==========================================
@@ -3950,14 +3946,13 @@ function openDistributorLoginModal() {
     modal.classList.add('open');
   }
 
-  // Auto focus & scroll input PIN ke tengah viewport agar nyaman di layar HP saat keyboard muncul
+  // Fokus halus ke kolom password tanpa melompatkan viewport
   if (passInput) {
     setTimeout(() => {
-      passInput.focus();
       try {
-        passInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        passInput.focus({ preventScroll: true });
       } catch(e) {}
-    }, 280);
+    }, 150);
   }
 }
 
@@ -6527,10 +6522,24 @@ function initUniversalModalGestures() {
   const backdrops = document.querySelectorAll('.modal-backdrop');
   backdrops.forEach(backdrop => {
     // 1. Ketuk area gelap di luar kotak modal untuk langsung menutup
+    // Verifikasi mousedown & touchstart benar-benar berasal dari backdrop luar agar tidak menutup saat klik/teks terseret dari dalam modal
+    let touchStartedOnBackdrop = false;
+    let mouseDownStartedOnBackdrop = false;
+
+    backdrop.addEventListener('mousedown', (e) => {
+      mouseDownStartedOnBackdrop = (e.target === backdrop);
+    });
+
+    backdrop.addEventListener('touchstart', (e) => {
+      touchStartedOnBackdrop = (e.target === backdrop);
+    }, { passive: true });
+
     backdrop.addEventListener('click', (e) => {
-      if (e.target === backdrop) {
+      if (e.target === backdrop && (mouseDownStartedOnBackdrop || touchStartedOnBackdrop)) {
         closeModal(backdrop.id);
       }
+      mouseDownStartedOnBackdrop = false;
+      touchStartedOnBackdrop = false;
     });
 
     // 2. Kunci touchmove pada area gelap backdrop HANYA jika konten muat di layar.
@@ -6544,69 +6553,61 @@ function initUniversalModalGestures() {
       }
     }, { passive: false });
 
-    // 3. Deteksi Gestur Geser Sentuhan Layar (Swipe to Dismiss)
-    let touchStartX = 0;
+    // 3. Deteksi Gestur Geser Sentuhan Layar (Pull Down to Dismiss)
+    // HANYA aktif jika pengguna sengaja menarik dari header modal (.modal-header / .modal-drag-handle)
+    // JANGAN PERNAH aktif ketika pengguna mengetik password, mengisi form, menekan tombol, dsb!
     let touchStartY = 0;
-    let touchStartTime = 0;
-    let isEdgeSwipe = false;
     let isPullDown = false;
     let isSwiping = false;
     let activeDialog = null;
 
     backdrop.addEventListener('touchstart', (e) => {
       if (e.touches.length !== 1) return;
-      const touch = e.touches[0];
-      touchStartX = touch.clientX;
-      touchStartY = touch.clientY;
-      touchStartTime = Date.now();
-      activeDialog = backdrop.querySelector('.modal-dialog');
-      if (!activeDialog) return;
 
-      const screenWidth = window.innerWidth;
-      // Sentuhan dari dekat tepi layar (<= 65px dari tepi kiri atau kanan)
-      isEdgeSwipe = (touchStartX <= 65 || touchStartX >= screenWidth - 65);
-      
-      // Sentuhan di bagian atas modal ketika belum di-scroll
-      const scrollTop = activeDialog.scrollTop || 0;
-      isPullDown = (scrollTop <= 5 && touchStartY - activeDialog.getBoundingClientRect().top < 90);
-      isSwiping = false;
-    }, { passive: true });
+      // Proteksi total: Abaikan gesture jika menyentuh input form, tombol, textarea, select, dsb
+      if (e.target.closest('input, textarea, select, button, a, label, form, .modal-body, [contenteditable="true"]')) {
+        isPullDown = false;
+        isSwiping = false;
+        activeDialog = null;
+        return;
+      }
 
-    backdrop.addEventListener('touchmove', (e) => {
-      if (e.touches.length !== 1 || !activeDialog) return;
-      const touch = e.touches[0];
-      const diffX = touch.clientX - touchStartX;
-      const diffY = touch.clientY - touchStartY;
-      const screenWidth = window.innerWidth;
-
-      // Kasus A: Geser dari tepi layar ke tengah (Edge swipe inward)
-      if (isEdgeSwipe) {
-        const isSwipingInward = (touchStartX <= 65 && diffX > 15) || (touchStartX >= screenWidth - 65 && diffX < -15);
-        if (isSwipingInward && Math.abs(diffX) > Math.abs(diffY)) {
-          isSwiping = true;
-          const moveAmount = touchStartX <= 65 ? Math.min(diffX, 150) : Math.max(diffX, -150);
-          activeDialog.style.transition = 'none';
-          activeDialog.style.transform = `translateX(${moveAmount}px)`;
-          activeDialog.style.opacity = `${Math.max(0.4, 1 - Math.abs(diffX) / 300)}`;
-          e.preventDefault(); // Kunci scroll halaman saat sedang swipe
+      // Hanya izinkan pull-down jika sentuhan bermula di header modal atau drag-handle, dan bukan tombol close
+      const headerTarget = e.target.closest('.modal-header, .modal-drag-handle');
+      if (headerTarget && !e.target.closest('button, .btn-close-modal, a')) {
+        activeDialog = backdrop.querySelector('.modal-dialog');
+        if (!activeDialog) return;
+        const scrollTop = activeDialog.scrollTop || 0;
+        if (scrollTop <= 2) {
+          touchStartY = e.touches[0].clientY;
+          isPullDown = true;
+          isSwiping = false;
           return;
         }
       }
 
-      // Kasus B: Geser ke bawah (Pull down to dismiss)
-      if (isPullDown && diffY > 15 && Math.abs(diffY) > Math.abs(diffX)) {
+      isPullDown = false;
+      isSwiping = false;
+      activeDialog = null;
+    }, { passive: true });
+
+    backdrop.addEventListener('touchmove', (e) => {
+      if (!isPullDown || !activeDialog || e.touches.length !== 1) return;
+      const touch = e.touches[0];
+      const diffY = touch.clientY - touchStartY;
+
+      // Geser ke bawah (Pull down to dismiss)
+      if (diffY > 15) {
         isSwiping = true;
         activeDialog.style.transition = 'none';
         activeDialog.style.transform = `translateY(${Math.min(diffY, 160)}px)`;
         activeDialog.style.opacity = `${Math.max(0.4, 1 - diffY / 350)}`;
-        e.preventDefault(); // Kunci scroll agar modal tidak tertarik ke background
-        return;
+        if (e.cancelable) e.preventDefault();
       }
     }, { passive: false });
 
     backdrop.addEventListener('touchend', (e) => {
-      if (!activeDialog || !isSwiping) {
-        isEdgeSwipe = false;
+      if (!activeDialog || !isSwiping || !isPullDown) {
         isPullDown = false;
         isSwiping = false;
         activeDialog = null;
@@ -6614,36 +6615,20 @@ function initUniversalModalGestures() {
       }
 
       const touch = e.changedTouches[0];
-      const diffX = touch.clientX - touchStartX;
       const diffY = touch.clientY - touchStartY;
-      const screenWidth = window.innerWidth;
 
-      let shouldClose = false;
-
-      // Kondisi tutup 1: Edge swipe melebihi 50px
-      if (isEdgeSwipe) {
-        if (touchStartX <= 65 && diffX > 50) shouldClose = true;
-        if (touchStartX >= screenWidth - 65 && diffX < -50) shouldClose = true;
-      }
-
-      // Kondisi tutup 2: Pull down melebihi 65px
-      if (isPullDown && diffY > 65) {
-        shouldClose = true;
-      }
-
-      if (shouldClose) {
+      // Tutup jika ditarik ke bawah melebihi 70px
+      if (diffY > 70) {
         activeDialog.style.transition = 'transform 0.22s ease-out, opacity 0.22s ease-out';
-        if (isPullDown && diffY > 60) {
-          activeDialog.style.transform = 'translateY(100%)';
-        } else {
-          activeDialog.style.transform = diffX > 0 ? 'translateX(100%)' : 'translateX(-100%)';
-        }
+        activeDialog.style.transform = 'translateY(100%)';
         activeDialog.style.opacity = '0';
         setTimeout(() => {
           closeModal(backdrop.id);
-          activeDialog.style.transition = '';
-          activeDialog.style.transform = '';
-          activeDialog.style.opacity = '';
+          if (activeDialog) {
+            activeDialog.style.transition = '';
+            activeDialog.style.transform = '';
+            activeDialog.style.opacity = '';
+          }
         }, 190);
       } else {
         activeDialog.style.transition = 'transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.22s ease';
@@ -6654,7 +6639,6 @@ function initUniversalModalGestures() {
         }, 220);
       }
 
-      isEdgeSwipe = false;
       isPullDown = false;
       isSwiping = false;
       activeDialog = null;
@@ -6685,16 +6669,6 @@ function initUniversalModalGestures() {
     modalObserver.observe(b, { attributes: true, attributeFilter: ['class'] });
   });
 
-  // Auto-scroll input modal ke tengah pandangan saat keyboard virtual HP muncul
-  document.addEventListener('focusin', (e) => {
-    if (e.target && e.target.matches && e.target.matches('.modal-backdrop input, .modal-dialog input, .modal-dialog textarea')) {
-      setTimeout(() => {
-        try {
-          e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        } catch(err) {}
-      }, 280);
-    }
-  });
 }
 window.initUniversalModalGestures = initUniversalModalGestures;
 
@@ -6712,16 +6686,30 @@ function initGlobalEdgeSwipeBackGesture() {
 
   window.addEventListener('touchstart', (e) => {
     if (e.touches.length !== 1) return;
-    const touch = e.touches[0];
-    touchStartX = touch.clientX;
-    touchStartY = touch.clientY;
-    touchStartTime = Date.now();
+
+    // Jika ada modal apapun yang sedang terbuka, jangan pernah aktifkan edge swipe back gesture!
+    const hasOpenModal = document.querySelector('.modal-backdrop.open');
+    if (hasOpenModal) {
+      isTrackingEdgeSwipe = false;
+      return;
+    }
 
     // Jika drawer Menu Toko sedang terbuka, biarkan gesture drawer yang menangani
     if (document.body.classList.contains('olsera-drawer-open')) {
       isTrackingEdgeSwipe = false;
       return;
     }
+
+    // Jika sentuhan berada di dalam form control, modal dialog, atau tombol
+    if (e.target.closest('input, textarea, select, button, a, label, .modal-dialog, .modal-backdrop')) {
+      isTrackingEdgeSwipe = false;
+      return;
+    }
+
+    const touch = e.touches[0];
+    touchStartX = touch.clientX;
+    touchStartY = touch.clientY;
+    touchStartTime = Date.now();
 
     // Hanya aktif jika sentuhan dimulai dari area dekat tepi kiri layar (<= 45px)
     isTrackingEdgeSwipe = touchStartX <= 45;
