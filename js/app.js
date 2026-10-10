@@ -3255,6 +3255,47 @@ window.getStoreEmblemSvgUrl = getStoreEmblemSvgUrl;
 let currentDirectoryFilter = 'all';
 let currentDirectorySearch = '';
 
+/**
+ * Daily Seeded Shuffle:
+ * Menghitung seed harian unik berdasarkan tanggal (YYYY-MM-DD) lokal,
+ * lalu mengacak susunan toko secara adil dan konsisten sepanjang hari tersebut.
+ * Setiap pergantian hari, posisi toko otomatis dirotasi ulang secara adil sehingga
+ * toko yang mendaftar lebih dulu tidak memonopoli urutan paling atas.
+ */
+function getDailyStoreSeed() {
+  const now = new Date();
+  const dateKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  let hash = 0;
+  for (let i = 0; i < dateKey.length; i++) {
+    hash = ((hash << 5) - hash) + dateKey.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash) || 12345;
+}
+
+function shuffleStoresDaily(stores) {
+  if (!Array.isArray(stores) || stores.length <= 1) return stores || [];
+  const list = [...stores];
+  let seed = getDailyStoreSeed();
+  
+  // PRNG deterministik berbasis seed (Mulberry32)
+  const random = () => {
+    let t = (seed += 0x6D2B79F5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+
+  // Fisher-Yates shuffle
+  for (let i = list.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [list[i], list[j]] = [list[j], list[i]];
+  }
+  return list;
+}
+window.getDailyStoreSeed = getDailyStoreSeed;
+window.shuffleStoresDaily = shuffleStoresDaily;
+
 function renderOfficialDistributorDirectory(filter = currentDirectoryFilter, searchQuery = currentDirectorySearch) {
   currentDirectoryFilter = filter;
   currentDirectorySearch = (searchQuery || '').toLowerCase().trim();
@@ -3267,7 +3308,10 @@ function renderOfficialDistributorDirectory(filter = currentDirectoryFilter, sea
   if (!grid) return;
 
   // Hanya tampilkan Toko Distributor & Agen resmi (sr12-central adalah pusatnya)
-  const partnerList = (appState.partnerStores || []).filter(s => s && s.slug && s.slug !== 'sr12-central');
+  const rawPartnerList = (appState.partnerStores || []).filter(s => s && s.slug && s.slug !== 'sr12-central');
+  
+  // Acak urutan toko setiap harinya secara adil (Daily Seeded Shuffle)
+  const partnerList = shuffleStoresDaily(rawPartnerList);
   if (countAllEl) countAllEl.textContent = partnerList.length;
   if (countDistEl) countDistEl.textContent = partnerList.filter(s => s.partnerTier === 'distributor').length;
   if (countAgenEl) countAgenEl.textContent = partnerList.filter(s => s.partnerTier === 'agen' || (s.storeName && s.storeName.toLowerCase().includes('agen'))).length;

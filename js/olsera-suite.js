@@ -2743,6 +2743,9 @@ function populateOlseraSettingsForm() {
   setEl('setOlseraTagline', store.storeTagline);
   setEl('setOlseraBankName', store.bankName || 'BCA');
   setEl('setOlseraBankAccount', store.bankAccount || '1234567890');
+  const curFee = String(store.platformFeeAmount || (typeof appState !== 'undefined' && appState.platformFee) || localStorage.getItem('sr12_platform_fee_amount') || 1500);
+  setEl('setOlseraPlatformFeeAmount', (curFee === '2000') ? '2000' : '1500');
+  setEl('setOlseraFeePayer', store.feePayer || 'buyer');
 
   // Inisialisasi preview logo
   appState.tempOlseraLogoUrl = store.storeLogoUrl || '';
@@ -3087,6 +3090,20 @@ function handleSaveOlseraSettings(e) {
     appState.partnerStores[curIdx] = Object.assign({}, appState.storeSettings);
   }
 
+  // Simpan Biaya Layanan Sistem
+  const feeAmountVal = parseInt(document.getElementById('setOlseraPlatformFeeAmount')?.value, 10) || 1500;
+  const feePayerVal = document.getElementById('setOlseraFeePayer')?.value || 'buyer';
+  appState.storeSettings.platformFeeAmount = feeAmountVal;
+  appState.storeSettings.feePayer = feePayerVal;
+  appState.platformFee = feeAmountVal;
+
+  try {
+    localStorage.setItem('sr12_platform_fee_amount', String(feeAmountVal));
+    localStorage.setItem('sr12_store_settings_v4', JSON.stringify(appState.storeSettings));
+  } catch (eFee) {
+    console.warn('Gagal simpan fee amount ke localStorage:', eFee);
+  }
+
   if (typeof saveStoredPartnerStores === 'function') {
     saveStoredPartnerStores(appState.partnerStores);
   }
@@ -3100,12 +3117,22 @@ function handleSaveOlseraSettings(e) {
   if (typeof renderStoreBranding === 'function') {
     renderStoreBranding();
   }
+  if (typeof updateCartSummary === 'function') {
+    updateCartSummary();
+  }
   updateOlseraHeaderMeta();
 
   if (typeof showToast === 'function') {
-    showToast('✅ Pengaturan profil toko, banner & logo berhasil disimpan!');
+    showToast('✅ Pengaturan profil toko, banner, logo & biaya sistem berhasil disimpan!');
   }
 }
+
+function syncOlseraPlatformFeeToModal(val) {
+  const storeModalSelect = document.getElementById('settingPlatformFeeAmount');
+  if (storeModalSelect) storeModalSelect.value = val;
+  if (typeof updateFeePayerLabels === 'function') updateFeePayerLabels();
+}
+window.syncOlseraPlatformFeeToModal = syncOlseraPlatformFeeToModal;
 
 // ==========================================
 // 11. EXPORTS GLOBAL WINDOW

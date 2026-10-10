@@ -1074,6 +1074,33 @@
                   <input type="text" id="setOlseraBankAccount" placeholder="1234567890" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem;">
                 </div>
               </div>
+            <!-- KUSTOMISASI BIAYA LAYANAN SISTEM PLATFORM (RP 1.500 / RP 2.000) -->
+            <div style="background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 10px; padding: 16px 18px; margin-top: 20px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 6px;">
+                <h4 style="margin: 0; font-size: 0.94rem; color: #166534; font-weight: 800; display: flex; align-items: center; gap: 6px;">
+                  <span>💎</span> Biaya Layanan Sistem Platform (SaaS):
+                </h4>
+                <span style="background: #dcfce7; color: #15803d; font-size: 0.68rem; font-weight: 800; padding: 2px 8px; border-radius: 999px;">Pesanan Online</span>
+              </div>
+              <p style="margin: 0 0 12px 0; font-size: 0.78rem; color: #15803d; line-height: 1.4;">
+                Atur besaran biaya layanan sistem yang berlaku untuk pesanan online toko Anda dan tentukan pihak penanggung biaya:
+              </p>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                <div>
+                  <label style="font-size: 0.78rem; font-weight: 700; color: #166534; display: block; margin-bottom: 4px;">Pilihan Tarif Biaya Sistem:</label>
+                  <select id="setOlseraPlatformFeeAmount" style="width: 100%; padding: 8px 12px; border: 1.5px solid #86efac; border-radius: 6px; font-size: 0.82rem; font-weight: 700; color: #166534; background: #ffffff;">
+                    <option value="1500">Rp 1.500 per Transaksi (Standar)</option>
+                    <option value="2000">Rp 2.000 per Transaksi</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size: 0.78rem; font-weight: 700; color: #166534; display: block; margin-bottom: 4px;">Penanggung Biaya Sistem:</label>
+                  <select id="setOlseraFeePayer" style="width: 100%; padding: 8px 12px; border: 1.5px solid #86efac; border-radius: 6px; font-size: 0.82rem; background: #ffffff;">
+                    <option value="buyer">Ditanggung Pembeli (+ di keranjang)</option>
+                    <option value="seller">Dipotong dari Penjual (Komisi transaksi)</option>
+                  </select>
+                </div>
+              </div>
             </div>
 
             <!-- KARTU KEAMANAN PIN ADMIN TOKO DISTRIBUTOR -->
@@ -1450,10 +1477,15 @@
     <!-- 4.A.2 DIREKTORI RESMI TOKO DISTRIBUTOR & AGEN SE-INDONESIA (MODE OFFICIAL CENTRAL HUB) -->
     <section id="officialDistributorDirectorySection" class="official-distributor-directory-section" style="display: none;">
       <div class="directory-header-box">
-        <span class="directory-badge">🌐 JARINGAN RESMI SE-INDONESIA</span>
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
+          <span class="directory-badge">🌐 JARINGAN RESMI SE-INDONESIA</span>
+          <span style="font-size: 0.72rem; color: #0284c7; background: #e0f2fe; border: 1px solid #bae6fd; padding: 4px 10px; border-radius: 999px; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;">
+            <span>⚖️</span> Posisi Toko Dirotasi Otomatis Setiap Hari (Keadilan Mitra)
+          </span>
+        </div>
         <h2 class="directory-title">Direktori Toko Distributor &amp; Agen Resmi SR12</h2>
         <p class="directory-subtitle">
-          Silakan pilih Toko Distributor atau Agen resmi terdekat di kota Anda untuk berbelanja produk asli SR12 Herbal Skin Care. Nikmati pengiriman cepat, stok terjamin BPOM &amp; Halal MUI, serta ongkos kirim yang lebih hemat.
+          Silakan pilih Toko Distributor atau Agen resmi terdekat di kota Anda untuk berbelanja produk asli SR12 Herbal Skin Care. Posisi toko dirotasi secara acak dan adil setiap harinya agar semua mitra resmi mendapat kesempatan yang sama.
         </p>
 
         <div class="directory-controls-row">
