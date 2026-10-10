@@ -1487,6 +1487,12 @@ body.dev-mode-active .site-header {
   background: linear-gradient(135deg, #064e3b, #047857);
   border-radius: 18px 18px 0 0;
 }
+body.theme-navy .distributor-hero-cover-wrap { background: linear-gradient(135deg, #0f172a, #1e3a8a); }
+body.theme-rose .distributor-hero-cover-wrap { background: linear-gradient(135deg, #881337, #be123c); }
+body.theme-amber .distributor-hero-cover-wrap { background: linear-gradient(135deg, #78350f, #b45309); }
+body.theme-amethyst .distributor-hero-cover-wrap { background: linear-gradient(135deg, #4c1d95, #6d28d9); }
+body.theme-gold .distributor-hero-cover-wrap { background: linear-gradient(135deg, #713f12, #a16207); }
+body.theme-dark .distributor-hero-cover-wrap { background: linear-gradient(135deg, #18181b, #27272a); }
 
 .distributor-hero-cover-img {
   width: 100%;
@@ -2227,6 +2233,12 @@ body.dev-mode-active .site-header {
   overflow: hidden;
   background: linear-gradient(135deg, #064e3b, #047857);
 }
+.dist-card-cover-wrap.theme-navy { background: linear-gradient(135deg, #0f172a, #1e3a8a); }
+.dist-card-cover-wrap.theme-rose { background: linear-gradient(135deg, #881337, #be123c); }
+.dist-card-cover-wrap.theme-amber { background: linear-gradient(135deg, #78350f, #b45309); }
+.dist-card-cover-wrap.theme-amethyst { background: linear-gradient(135deg, #4c1d95, #6d28d9); }
+.dist-card-cover-wrap.theme-gold { background: linear-gradient(135deg, #713f12, #a16207); }
+.dist-card-cover-wrap.theme-dark { background: linear-gradient(135deg, #18181b, #27272a); }
 
 .dist-card-cover-img {
   width: 100%;

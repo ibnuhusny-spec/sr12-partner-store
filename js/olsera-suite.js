@@ -374,6 +374,12 @@ function updateOlseraHeaderMeta() {
     });
   }
 
+  // Status Toko Diblokir Peringatan
+  const blockedWarn = document.getElementById('olseraBlockedBannerWarning');
+  if (blockedWarn) {
+    blockedWarn.style.display = (store && store.isBlocked) ? 'block' : 'none';
+  }
+
   // Badges count
   const trxBadge = document.getElementById('olseraTrxBadge');
   if (trxBadge) trxBadge.textContent = (appState && appState.transactions) ? appState.transactions.length : '0';
@@ -1329,6 +1335,13 @@ function filterPosCategory(category, btn) {
 
 function addPosCartItem(productId) {
   if (typeof appState === 'undefined') return;
+
+  // Proteksi Toko Diblokir: Izinkan lihat kas & laporan, tapi tolak transaksi baru
+  if (appState.storeSettings && appState.storeSettings.isBlocked) {
+    alert('🚫 TOKO SEDANG DIBLOKIR PUSAT!\n\nToko Anda saat ini dinonaktifkan sementara oleh Administrator Pusat karena pelanggaran aturan kemitraan. Penambahan item transaksi kasir dinonaktifkan.\n\nAnda tetap dapat meninjau pembukuan Kas Toko, Arus Kas, dan Laporan Keuangan.');
+    return;
+  }
+
   const prod = (appState.products || []).find(p => p.id === productId);
   if (!prod) return;
 
@@ -1556,6 +1569,16 @@ function calculatePosChange() {
 // Checkout POS
 function processPosCheckout(action = 'save') {
   if (typeof appState === 'undefined') return;
+
+  // Proteksi Toko Diblokir: Izinkan lihat kas & laporan, tapi tolak transaksi baru
+  if (appState.storeSettings && appState.storeSettings.isBlocked) {
+    alert('🚫 TOKO SEDANG DIBLOKIR PUSAT!\n\n' +
+      'Toko Anda saat ini dinonaktifkan sementara oleh Administrator Pusat karena pelanggaran aturan kemitraan.\n\n' +
+      '• Anda TETAP DAPAT meninjau pembukuan Kas Toko, Arus Kas, dan Laporan Keuangan.\n' +
+      '• Namun pembuatan transaksi kasir atau pemesanan baru DINONAKTIFKAN.');
+    return;
+  }
+
   const cart = appState.posCart || [];
   if (cart.length === 0) {
     showToast('⚠️ Keranjang kasir masih kosong!');
@@ -2751,9 +2774,9 @@ function populateOlseraSettingsForm() {
   appState.tempOlseraLogoUrl = store.storeLogoUrl || '';
   updateOlseraSettingsLogoPreview(store.storeLogoUrl);
 
-  // Inisialisasi preview banner
-  appState.tempOlseraBannerUrl = store.heroBannerUrl || 'assets/hero-banner.jpg';
-  updateOlseraSettingsBannerPreview(store.heroBannerUrl || 'assets/hero-banner.jpg');
+  // Inisialisasi preview banner (default kosong agar menggunakan gradien warna tema)
+  appState.tempOlseraBannerUrl = store.heroBannerUrl || '';
+  updateOlseraSettingsBannerPreview(store.heroBannerUrl || '');
 
   // Tampilkan zona bahaya hapus toko hanya untuk toko mitra (bukan central)
   const dangerZone = document.getElementById('olseraDangerZoneDeleteStore');
@@ -3033,25 +3056,30 @@ function handleOlseraBannerUpload(event) {
 function updateOlseraSettingsBannerPreview(url) {
   const previewImg = document.getElementById('olseraSetBannerPreviewImg');
   if (previewImg) {
-    previewImg.src = url || 'assets/hero-banner.jpg';
-    previewImg.style.display = 'block';
+    if (url && url.trim()) {
+      previewImg.src = url;
+      previewImg.style.display = 'block';
+    } else {
+      previewImg.src = '';
+      previewImg.style.display = 'none';
+    }
   }
 }
 
 function resetOlseraBannerToDefault() {
-  appState.tempOlseraBannerUrl = 'assets/hero-banner.jpg';
-  updateOlseraSettingsBannerPreview('assets/hero-banner.jpg');
+  appState.tempOlseraBannerUrl = '';
+  updateOlseraSettingsBannerPreview('');
   const statusEl = document.getElementById('olseraBannerUploadStatus');
   const fileInput = document.getElementById('olseraBannerFileInput');
   if (fileInput) fileInput.value = '';
   if (statusEl) {
     statusEl.style.display = 'inline-flex';
-    statusEl.style.background = '#ecfdf5';
-    statusEl.style.color = '#065f46';
-    statusEl.textContent = '🌿 Menggunakan Banner Resmi SR12';
+    statusEl.style.background = '#fef2f2';
+    statusEl.style.color = '#b91c1c';
+    statusEl.textContent = '🗑️ Banner Dikosongkan (Gradien Tema)';
   }
   if (typeof showToast === 'function') {
-    showToast('🌿 Banner toko diatur ke Banner Resmi SR12');
+    showToast('🗑️ Banner toko dikosongkan (memakai gradien tema toko)');
   }
 }
 

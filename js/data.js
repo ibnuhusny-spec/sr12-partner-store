@@ -17,12 +17,13 @@ const SR12_TIERS = {
   marketer: {
     id: 'marketer',
     name: 'Mitra Marketer',
-    label: 'Marketer (15%)',
-    discountPct: 15,
+    label: 'Marketer (Komisi 15%)',
+    discountPct: 0,
+    commissionPct: 15,
     minOrderNominal: 0,
     minOrderPcs: 1,
     badgeColor: '#0284c7',
-    description: 'Bisa jualan tanpa modal, margin komisi 15%'
+    description: 'Harga HET penuh. Komisi 15% diakumulasi dan dicairkan setiap bulan oleh Distributor.'
   },
   reseller: {
     id: 'reseller',

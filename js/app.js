@@ -325,7 +325,7 @@ function getInitialDemoPendingStoreApp() {
     storeTheme: "emerald",
     heroTitle: `Katalog Resmi SR12 ${store}`,
     heroSubtitle: "Solusi perawatan herbal alami berlisensi resmi BPOM. Belanja aman, diskon otomatis, dan cepat sampai.",
-    heroBannerUrl: "assets/hero-banner.jpg",
+    heroBannerUrl: "",
     storeLogoText: "BAROK",
     storeLogoUrl: "",
     storeWaNumber: "6281399887766",
@@ -1549,9 +1549,13 @@ const appState = {
 };
 
 function getProductTierPrice(product, tierId) {
+  // Marketer bayar harga HET penuh di awal (komisi 15% diakumulasi dan dicairkan bulanan oleh Distributor)
+  if (tierId === 'marketer') {
+    return product.het || 0;
+  }
   const tier = SR12_TIERS[tierId] || SR12_TIERS.konsumen;
   const discountMultiplier = 1 - (tier.discountPct / 100);
-  return Math.round(product.het * discountMultiplier);
+  return Math.round((product.het || 0) * discountMultiplier);
 }
 
 function formatRupiah(amount) {
@@ -1569,6 +1573,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   appState.partnerStores = getStoredPartnerStores().filter(s => s && s.slug && s.slug !== 'toko-supa-distributor' && !s.slug.startsWith('deleted_') && !s.slug.includes('toko-supa'));
   saveStoredPartnerStores(appState.partnerStores);
+
+  // Bersihkan data mitra jaringan milik toko yang sudah dihapus sebelumnya
+  try {
+    const deletedSlugs = getDeletedStoreSlugs();
+    if (deletedSlugs.length > 0 && Array.isArray(appState.mitraList)) {
+      const prevCount = appState.mitraList.length;
+      appState.mitraList = appState.mitraList.filter(m => !m.store_slug || !deletedSlugs.includes(m.store_slug));
+      if (appState.mitraList.length !== prevCount) {
+        saveStoredMitra(appState.mitraList, false);
+      }
+    }
+  } catch (eClean) {
+    console.warn('Gagal bersihkan orphan mitra terhapus:', eClean);
+  }
 
   // Reset dummy inflated numbers from previous sessions if present
   let needsStoreSave = false;
@@ -2219,7 +2237,7 @@ function handleRegisterStoreSubmit(e) {
     storeTheme: theme,
     heroTitle: `Katalog Resmi SR12 ${name}`,
     heroSubtitle: `Solusi perawatan herbal alami berlisensi resmi BPOM. Belanja aman, diskon otomatis, dan cepat sampai.`,
-    heroBannerUrl: 'assets/hero-banner.jpg',
+    heroBannerUrl: '',
     storeLogoText: logoText,
     storeLogoUrl: logoUrl,
     storeWaNumber: cleanWa,
@@ -2627,7 +2645,8 @@ async function approvePendingStore(appId) {
     storeTheme: app.storeTheme || 'emerald',
     heroTitle: app.heroTitle,
     heroSubtitle: app.heroSubtitle,
-    heroBannerUrl: app.heroBannerUrl || 'assets/hero-banner.jpg',
+    heroBannerUrl: app.heroBannerUrl || '',
+    isBlocked: false,
     storeLogoText: app.storeLogoText,
     storeLogoUrl: app.storeLogoUrl || '',
     storeWaNumber: app.storeWaNumber,
@@ -2693,7 +2712,8 @@ async function approvePendingStore(appId) {
   if (app.recommenderSlug && app.recommenderSlug !== 'manual') {
     const newMitra = {
       id: generateNextMitraId(app.partnerTier),
-      store_slug: app.recommenderSlug,
+      store_slug: app.slug,
+      recommender_slug: app.recommenderSlug,
       name: app.storeOwner,
       phone: app.storeWaNumber,
       city: app.storeCity,
@@ -3380,8 +3400,8 @@ function renderOfficialDistributorDirectory(filter = currentDirectoryFilter, sea
     return `
       <div class="distributor-card" id="dirStoreCard_${store.slug}" data-slug="${store.slug}">
         <!-- Mini Cover Banner Toko di Card Direktori -->
-        <div class="dist-card-cover-wrap">
-          <img src="${coverUrl}" alt="Cover ${store.storeName}" class="dist-card-cover-img">
+        <div class="dist-card-cover-wrap theme-${store.storeTheme || 'emerald'}">
+          ${store.heroBannerUrl ? `<img src="${store.heroBannerUrl}" alt="Cover ${store.storeName}" class="dist-card-cover-img">` : ''}
           <div class="dist-card-cover-overlay"></div>
           <span class="dist-card-tier-pill tier-${store.partnerTier || 'distributor'}" style="position: absolute; top: 10px; right: 10px; margin: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
             ${tierBadgeText}
@@ -3670,7 +3690,13 @@ function renderStoreBranding() {
     const btnDistSettingsHero = document.getElementById('btnDistSettingsHero');
 
     if (distCover) {
-      distCover.src = cfg.heroBannerUrl || 'assets/hero-banner.jpg';
+      if (cfg.heroBannerUrl && cfg.heroBannerUrl.trim()) {
+        distCover.src = cfg.heroBannerUrl;
+        distCover.style.display = 'block';
+      } else {
+        distCover.src = '';
+        distCover.style.display = 'none';
+      }
     }
     if (distLogo) distLogo.src = storeLogo;
     if (distName) distName.textContent = cfg.storeName;
@@ -3751,7 +3777,21 @@ function renderStoreBranding() {
   const heroImg = document.getElementById('heroBannerImg');
   if (heroTitle) heroTitle.textContent = cfg.heroTitle || DEFAULT_STORE_SETTINGS.heroTitle;
   if (heroSubtitle) heroSubtitle.textContent = cfg.heroSubtitle || DEFAULT_STORE_SETTINGS.heroSubtitle;
-  if (heroImg && cfg.heroBannerUrl) heroImg.src = cfg.heroBannerUrl;
+  if (heroImg) {
+    if (cfg.heroBannerUrl && cfg.heroBannerUrl.trim()) {
+      heroImg.src = cfg.heroBannerUrl;
+      heroImg.style.display = 'block';
+    } else {
+      heroImg.src = '';
+      heroImg.style.display = 'none';
+    }
+  }
+
+  // 5. Sinkronisasi Banner Peringatan Toko Diblokir
+  const blockedBanner = document.getElementById('storeBlockedBanner');
+  if (blockedBanner) {
+    blockedBanner.style.display = (cfg && cfg.isBlocked) ? 'block' : 'none';
+  }
 }
 
 function showCurrentStoreSk() {
@@ -5531,13 +5571,14 @@ function renderProducts() {
     const tierPrice = getProductTierPrice(prod, appState.currentTier);
     const profitMargin = prod.het - tierPrice;
     const isRetail = appState.currentTier === 'konsumen';
+    const isMarketer = appState.currentTier === 'marketer';
 
     return `
       <div class="product-card" id="card-${prod.id}">
         <div class="product-thumb-box">
           <img src="${prod.image || 'assets/hero-banner.jpg'}" alt="${prod.name}" loading="lazy" onerror="this.onerror=null; this.src='assets/hero-banner.jpg';" />
           <span class="badge-bpom-clean">🌿 BPOM</span>
-          ${!isRetail ? `<span class="badge-disc-clean">-${currentTier.discountPct}%</span>` : ''}
+          ${isMarketer ? `<span class="badge-disc-clean" style="background: #0284c7; color: #fff;">💼 Komisi 15%</span>` : (!isRetail ? `<span class="badge-disc-clean">-${currentTier.discountPct}%</span>` : '')}
           <span class="badge-stock-clean ${(prod.stock ?? 85) <= 15 ? 'low' : ''}">Stok: ${prod.stock ?? 85}</span>
 
           ${appState.isAdminMode ? `
@@ -5560,15 +5601,18 @@ function renderProducts() {
           <div class="price-block">
             <div class="price-main-row">
               <span class="tier-price-val">${formatRupiah(tierPrice)}</span>
-              ${!isRetail ? `<span class="badge-mini-disc">-${currentTier.discountPct}%</span>` : ''}
+              ${isMarketer ? `<span class="badge-mini-disc" style="background: #0284c7; color: #fff;">💼 Komisi 15%</span>` : (!isRetail ? `<span class="badge-mini-disc">-${currentTier.discountPct}%</span>` : '')}
             </div>
             <div class="price-sub-row">
-              ${!isRetail ? `
+              ${isMarketer ? `
+                <span class="het-text-plain">HET Penuh</span>
+                <span class="tier-profit-margin" style="color: #0284c7; background: #e0f2fe; padding: 1px 6px; border-radius: 4px;">💼 +Komisi 15% (${formatRupiah(Math.round(prod.het * 0.15))}) Cair Bulanan</span>
+              ` : (!isRetail ? `
                 <span class="het-text">HET: <del>${formatRupiah(prod.het)}</del></span>
                 <span class="tier-profit-margin">+Profit ${formatRupiah(profitMargin)}</span>
               ` : `
                 <span class="het-text-plain">HET Resmi</span>
-              `}
+              `)}
             </div>
           </div>
 
@@ -5597,6 +5641,12 @@ function renderProducts() {
 }
 
 function addToCart(productId) {
+  // Proteksi Toko Diblokir Pusat
+  if (appState.storeSettings && appState.storeSettings.isBlocked) {
+    alert('🚫 TOKO DIBEKUKAN SEMENTARA!\n\nToko ini sedang dinonaktifkan sementara oleh Administrator Pusat karena pelanggaran aturan kemitraan. Pemesanan produk tidak dapat diproses.');
+    return;
+  }
+
   const existing = appState.cart.find(item => item.productId === productId);
   if (existing) {
     existing.qty += 1;
@@ -5763,7 +5813,21 @@ function updateCartSummary() {
     }
     if (savingsBadge) {
       savingsBadge.style.display = 'block';
+      savingsBadge.style.background = '';
+      savingsBadge.style.borderColor = '';
+      savingsBadge.style.color = '';
       if (savingsAmount) savingsAmount.textContent = `${formatRupiah(totalSavings)} (${tier.name} ${tier.discountPct}%)`;
+    }
+  } else if (appState.currentTier === 'marketer' && subtotal > 0) {
+    if (hetRow) hetRow.style.display = 'none';
+    if (discountRow) discountRow.style.display = 'none';
+    if (savingsBadge) {
+      savingsBadge.style.display = 'block';
+      savingsBadge.style.background = '#e0f2fe';
+      savingsBadge.style.borderColor = '#7dd3fc';
+      savingsBadge.style.color = '#0369a1';
+      const mComm = Math.round(subtotal * 0.15);
+      if (savingsAmount) savingsAmount.innerHTML = `💼 Komisi Marketer: +<b>${formatRupiah(mComm)}</b> (15% diakumulasi bulanan)`;
     }
   } else {
     if (hetRow) hetRow.style.display = 'none';
@@ -5913,6 +5977,12 @@ function formatWaNumber(phone) {
 window.formatWaNumber = formatWaNumber;
 
 function checkoutViaWhatsApp() {
+  // Proteksi Toko Diblokir Pusat
+  if (appState.storeSettings && appState.storeSettings.isBlocked) {
+    alert('🚫 PEMESANAN DINONAKTIFKAN!\n\nToko ini sedang dinonaktifkan sementara oleh Administrator Pusat karena pelanggaran aturan kemitraan. Pesanan tidak dapat diproses.');
+    return;
+  }
+
   if (appState.cart.length === 0) {
     alert('Keranjang belanja Anda masih kosong!');
     return;
@@ -6098,7 +6168,15 @@ function checkoutViaWhatsApp() {
   }
 
   let mitraVerificationText = '';
-  if (appState.currentTier !== 'konsumen') {
+  if (appState.currentTier === 'marketer') {
+    const marketerComm = Math.round(subtotal * 0.15);
+    const mitraId = (foundMitra && foundMitra.id) || document.getElementById('buyerMitraIdInput')?.value.trim() || 'Tim Marketer';
+    mitraVerificationText = `\n💼 *DATA MARKETER RESMI SR12:*\n` +
+      `• Level Mitra  : Mitra Marketer\n` +
+      `• Pembayaran   : Harga HET Penuh (Rp ${subtotal.toLocaleString('id-ID')})\n` +
+      `• Hak Komisi   : 15% (+${formatRupiah(marketerComm)}) otomatis dicatat di rekap penjualan & dicairkan setiap bulan oleh Distributor.\n` +
+      `• No. ID Mitra : ${mitraId}\n`;
+  } else if (appState.currentTier !== 'konsumen') {
     const mitraId = (foundMitra && foundMitra.id) || document.getElementById('buyerMitraIdInput')?.value.trim() || 'Mitra Resmi';
     mitraVerificationText = `\n🆔 *DATA KEMITRAAN RESMI SR12:*\n` +
       `• Level Mitra : ${tier.name} (Diskon ${tier.discountPct}%)\n` +
@@ -6935,8 +7013,13 @@ function openStoreSettingsModal() {
   }
 
   if (previewBanner) {
-    previewBanner.src = cfg.heroBannerUrl || 'assets/hero-banner.jpg';
-    previewBanner.style.display = 'block';
+    if (cfg.heroBannerUrl && cfg.heroBannerUrl.trim()) {
+      previewBanner.src = cfg.heroBannerUrl;
+      previewBanner.style.display = 'block';
+    } else {
+      previewBanner.src = '';
+      previewBanner.style.display = 'none';
+    }
   }
 
   const swatches = document.querySelectorAll('.theme-swatch-btn');
@@ -6993,6 +7076,23 @@ async function deletePartnerStore(slug) {
   // 2. Hapus dari appState.partnerStores
   appState.partnerStores = (appState.partnerStores || []).filter(s => s.slug !== slug);
   saveStoredPartnerStores(appState.partnerStores);
+
+  // 2.B Bersihkan data mitra jaringan milik toko yang dihapus dari database mitra sentral
+  if (Array.isArray(appState.mitraList)) {
+    const prevCount = appState.mitraList.length;
+    appState.mitraList = appState.mitraList.filter(m => {
+      if (m.store_slug && m.store_slug === slug) return false;
+      if (targetStore && targetStore.storeWaNumber && m.phone === targetStore.storeWaNumber) return false;
+      if (targetStore && targetStore.storeOwner && m.name && m.name.toLowerCase() === targetStore.storeOwner.toLowerCase()) return false;
+      return true;
+    });
+    if (appState.mitraList.length !== prevCount) {
+      if (appState.resellers) {
+        appState.resellers = appState.mitraList;
+      }
+      saveStoredMitra(appState.mitraList, true);
+    }
+  }
 
   // 3. Hapus juga dari antrean pending jika ada
   if (Array.isArray(appState.pendingStoreApps)) {
@@ -7285,10 +7385,9 @@ function handleSaveStoreSettingsSubmit(e) {
       logoUrl = appState.tempStoreLogoBase64;
     }
 
-    let bannerUrl = appState.storeSettings.heroBannerUrl || 'assets/hero-banner.jpg';
-    if (appState.tempHeroBannerBase64) {
-      bannerUrl = appState.tempHeroBannerBase64;
-    }
+    let bannerUrl = (appState.tempHeroBannerBase64 !== null && appState.tempHeroBannerBase64 !== undefined)
+      ? appState.tempHeroBannerBase64
+      : (appState.storeSettings.heroBannerUrl || '');
 
     appState.storeSettings = {
       ...appState.storeSettings,
@@ -7337,7 +7436,15 @@ function handleSaveStoreSettingsSubmit(e) {
 
     // Pembaruan DOM seketika untuk respons visual langsung
     const heroCover = document.getElementById('distHeroCoverImg');
-    if (heroCover) heroCover.src = bannerUrl;
+    if (heroCover) {
+      if (bannerUrl && bannerUrl.trim()) {
+        heroCover.src = bannerUrl;
+        heroCover.style.display = 'block';
+      } else {
+        heroCover.src = '';
+        heroCover.style.display = 'none';
+      }
+    }
     const heroLogo = document.getElementById('distHeroLogoImg');
     if (heroLogo) heroLogo.src = getStoreEmblemSvgUrl(appState.storeSettings);
 
@@ -7361,15 +7468,15 @@ function handleSaveStoreSettingsSubmit(e) {
 window.handleSaveStoreSettingsSubmit = handleSaveStoreSettingsSubmit;
 
 function resetStoreBannerToDefault() {
-  appState.tempHeroBannerBase64 = 'assets/hero-banner.jpg';
+  appState.tempHeroBannerBase64 = '';
   const previewBanner = document.getElementById('settingBannerPreview');
   if (previewBanner) {
-    previewBanner.src = 'assets/hero-banner.jpg';
-    previewBanner.style.display = 'block';
+    previewBanner.src = '';
+    previewBanner.style.display = 'none';
   }
   const fileInput = document.getElementById('settingBannerFileInput');
   if (fileInput) fileInput.value = '';
-  showToast('🌿 Banner diatur kembali ke Banner Resmi SR12.');
+  showToast('🗑️ Banner dikosongkan (toko memakai gradien tema).');
 }
 window.resetStoreBannerToDefault = resetStoreBannerToDefault;
 
@@ -7742,26 +7849,38 @@ function updateDevPortalMetrics() {
     storesTableBody.innerHTML = appState.partnerStores.map(s => {
       const tierObj = SR12_TIERS[s.partnerTier] || SR12_TIERS.reseller;
       const quotaVal = typeof s.orderQuota === 'number' ? s.orderQuota : 10;
+      const statusBadge = s.isBlocked
+        ? `<span style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); padding: 1px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 800;">🚫 DIBLOKIR</span>`
+        : `<span style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); padding: 1px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 700;">🟢 AKTIF</span>`;
       return `
         <tr style="border-bottom: 1px solid #334155;">
           <td style="padding: 6px 8px; font-weight: 700;">
             ${s.storeName}
             <div style="font-size: 0.7rem; color: #38bdf8; font-family: monospace;">?store=${s.slug}</div>
+            <div style="margin-top: 2px;">${statusBadge}</div>
           </td>
           <td style="padding: 6px 8px;">${s.storeOwner}</td>
           <td style="padding: 6px 8px;"><span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">${tierObj.name}</span></td>
           <td style="padding: 6px 8px; font-family: monospace;">${s.storeWaNumber}</td>
           <td style="padding: 6px 8px; text-align: center;">
-            <span style="background: ${quotaVal <= 2 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}; color: ${quotaVal <= 2 ? '#f87171' : '#34d399'}; padding: 2px 8px; border-radius: 9999px; font-weight: 800; font-size: 0.72rem;">
-              ${quotaVal} Order
-            </span>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 3px;">
+              <span style="background: ${quotaVal <= 2 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}; color: ${quotaVal <= 2 ? '#f87171' : '#34d399'}; padding: 2px 8px; border-radius: 9999px; font-weight: 800; font-size: 0.72rem;">
+                ${quotaVal} Order
+              </span>
+              <button type="button" onclick="promptAddStoreQuota('${s.slug}')" style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #34d399; padding: 1px 6px; border-radius: 4px; font-size: 0.66rem; font-weight: 700; cursor: pointer;" title="Tambah Kuota Manual">
+                + Kuota
+              </button>
+            </div>
           </td>
           <td style="padding: 6px 8px; text-align: center;">
-            <div style="display: inline-flex; gap: 4px; justify-content: center; align-items: center;">
-              <button onclick="switchPartnerStore('${s.slug}'); closeModal('modalDevPortal');" style="background: #0284c7; color: #fff; border: none; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer;">
+            <div style="display: inline-flex; gap: 4px; justify-content: center; align-items: center; flex-wrap: wrap;">
+              <button onclick="switchPartnerStore('${s.slug}'); closeModal('modalDevPortal');" style="background: #0284c7; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer;">
                 Buka
               </button>
               ${s.slug !== 'sr12-central' ? `
+              <button onclick="toggleBlockStore('${s.slug}')" style="background: ${s.isBlocked ? '#059669' : '#dc2626'}; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer;" title="${s.isBlocked ? 'Buka Blokir Toko' : 'Blokir Toko Karena Pelanggaran'}">
+                ${s.isBlocked ? '✅ Buka' : '🚫 Blok'}
+              </button>
               <button onclick="deletePartnerStore('${s.slug}')" style="background: #ef4444; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer;" title="Hapus Toko Permanen">
                 🗑️
               </button>` : ''}
@@ -7777,11 +7896,15 @@ function updateDevPortalMetrics() {
     storesTableBody_ws.innerHTML = appState.partnerStores.map(s => {
       const tierObj = SR12_TIERS[s.partnerTier] || SR12_TIERS.reseller;
       const quotaVal = typeof s.orderQuota === 'number' ? s.orderQuota : 10;
+      const statusBadge = s.isBlocked
+        ? `<span style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); padding: 2px 7px; border-radius: 4px; font-size: 0.68rem; font-weight: 800; display: inline-block;">🚫 DIBLOKIR</span>`
+        : `<span style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 7px; border-radius: 4px; font-size: 0.68rem; font-weight: 700; display: inline-block;">🟢 AKTIF</span>`;
       return `
         <tr style="border-bottom: 1px solid #334155;">
           <td data-label="Nama Toko" style="padding: 10px 12px; font-weight: 700;">
             <div style="font-size: 0.9rem; color: #f8fafc;">${s.storeName}</div>
             <div style="font-size: 0.72rem; color: #38bdf8; font-family: monospace;">?store=${s.slug}</div>
+            <div style="margin-top: 4px;">${statusBadge}</div>
           </td>
           <td data-label="Pemilik & Kota" style="padding: 10px 12px;">
             <div style="font-weight: 600; color: #f1f5f9;">${s.storeOwner}</div>
@@ -7790,21 +7913,29 @@ function updateDevPortalMetrics() {
           <td data-label="Level" style="padding: 10px 12px;"><span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;">${tierObj.name}</span></td>
           <td data-label="WhatsApp" style="padding: 10px 12px; font-family: monospace; color: #cbd5e1;">+${s.storeWaNumber}</td>
           <td data-label="Sisa Kuota" style="padding: 10px 12px; text-align: center;">
-            <span style="background: ${quotaVal <= 2 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}; color: ${quotaVal <= 2 ? '#f87171' : '#34d399'}; padding: 3px 10px; border-radius: 9999px; font-weight: 800; font-size: 0.75rem;">
-              ${quotaVal} Order
-            </span>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+              <span style="background: ${quotaVal <= 2 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}; color: ${quotaVal <= 2 ? '#f87171' : '#34d399'}; padding: 3px 10px; border-radius: 9999px; font-weight: 800; font-size: 0.75rem;">
+                ${quotaVal} Order
+              </span>
+              <button type="button" onclick="promptAddStoreQuota('${s.slug}')" style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #34d399; padding: 2px 8px; border-radius: 4px; font-size: 0.68rem; font-weight: 700; cursor: pointer;" title="Tambah Kuota Order Manual">
+                ⚡ + Kuota
+              </button>
+            </div>
           </td>
           <td data-label="Aksi" style="padding: 10px 12px; text-align: center; white-space: nowrap;">
-            <div style="display: inline-flex; gap: 8px; align-items: center; width: 100%; justify-content: flex-end; flex-wrap: wrap;">
-              <button type="button" onclick="switchPartnerStore('${s.slug}'); showDeveloperWorkspaceView(false);" style="background: #0284c7; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
-                👁️ Tinjau Etalase
+            <div style="display: inline-flex; gap: 6px; align-items: center; width: 100%; justify-content: flex-end; flex-wrap: wrap;">
+              <button type="button" onclick="switchPartnerStore('${s.slug}'); showDeveloperWorkspaceView(false);" style="background: #0284c7; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+                👁️ Tinjau
               </button>
-              <button type="button" onclick="openDevStoreAdminBackoffice('${s.slug}')" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(245, 158, 11, 0.3);">
-                👑 Masuk Backoffice
+              <button type="button" onclick="openDevStoreAdminBackoffice('${s.slug}')" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(245, 158, 11, 0.3);">
+                👑 Backoffice
               </button>
               ${s.slug !== 'sr12-central' ? `
-              <button type="button" onclick="deletePartnerStore('${s.slug}')" style="background: #ef4444; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(239, 68, 68, 0.25);" title="Hapus Toko Permanen">
-                🗑️ Hapus Toko
+              <button type="button" onclick="toggleBlockStore('${s.slug}')" style="background: ${s.isBlocked ? 'linear-gradient(135deg, #059669, #047857)' : 'linear-gradient(135deg, #dc2626, #b91c1c)'}; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="${s.isBlocked ? 'Buka Blokir Toko' : 'Blokir Toko Karena Pelanggaran'}">
+                ${s.isBlocked ? '✅ Buka' : '🚫 Blok'}
+              </button>
+              <button type="button" onclick="deletePartnerStore('${s.slug}')" style="background: #ef4444; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(239, 68, 68, 0.25);" title="Hapus Toko Permanen">
+                🗑️
               </button>` : ''}
             </div>
           </td>
@@ -8000,7 +8131,8 @@ function updateDevPortalMetrics() {
 
   // 5. Render Database Seluruh Mitra Jaringan (Workspace Dedicated)
   if (networkMitraTableBody) {
-    const list = appState.mitraList || [];
+    const deletedSlugs = getDeletedStoreSlugs();
+    const list = (appState.mitraList || []).filter(m => !m.store_slug || !deletedSlugs.includes(m.store_slug));
     if (list.length === 0) {
       networkMitraTableBody.innerHTML = `
         <tr>
@@ -8019,10 +8151,15 @@ function updateDevPortalMetrics() {
             <td data-label="Level" style="padding: 10px 12px;"><span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;">${tierName}</span></td>
             <td data-label="WhatsApp" style="padding: 10px 12px; font-family: monospace; color: #cbd5e1;">${m.phone || '-'}</td>
             <td data-label="Poin" style="padding: 10px 12px; font-weight: 700; color: #fbbf24;">${m.points || 0} Poin</td>
-            <td data-label="Aksi" style="padding: 10px 12px; text-align: center;">
-              <button type="button" onclick="contactMitraWA('${m.phone || ''}', '${m.name || ''}')" style="background: rgba(37, 211, 102, 0.15); border: 1px solid #25d366; color: #4ade80; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer;">
-                Hubungi WA
-              </button>
+            <td data-label="Aksi" style="padding: 10px 12px; text-align: center; white-space: nowrap;">
+              <div style="display: inline-flex; gap: 4px; align-items: center; justify-content: center;">
+                <button type="button" onclick="contactMitraWA('${m.phone || ''}', '${m.name || ''}')" style="background: rgba(37, 211, 102, 0.15); border: 1px solid #25d366; color: #4ade80; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer;">
+                  Hubungi WA
+                </button>
+                <button type="button" onclick="deleteNetworkMitra('${m.id || ''}')" style="background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #f87171; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer;" title="Hapus Mitra dari Database Sentral">
+                  🗑️
+                </button>
+              </div>
             </td>
           </tr>
         `;
@@ -8751,7 +8888,7 @@ function confirmSimulatedTopupPayment() {
 function updateNewProdTierCalc(het) {
   const tiers = {
     konsumen: Math.round(het * 1.0),
-    marketer: Math.round(het * 0.85),
+    marketer: Math.round(het * 1.0), // Marketer bayar harga HET penuh, komisi 15% dicairkan bulanan
     reseller: Math.round(het * 0.80),
     sub_agen: Math.round(het * 0.70),
     agen: Math.round(het * 0.60),
@@ -8759,14 +8896,20 @@ function updateNewProdTierCalc(het) {
   };
   Object.keys(tiers).forEach(k => {
     const el = document.getElementById(`newCalc_${k}`);
-    if (el) el.textContent = formatRupiah(tiers[k]);
+    if (el) {
+      if (k === 'marketer') {
+        el.textContent = `${formatRupiah(tiers[k])} (Komisi 15% Bulanan)`;
+      } else {
+        el.textContent = formatRupiah(tiers[k]);
+      }
+    }
   });
 }
 
 function updateEditProdTierCalc(het) {
   const tiers = {
     konsumen: Math.round(het * 1.0),
-    marketer: Math.round(het * 0.85),
+    marketer: Math.round(het * 1.0), // Marketer bayar harga HET penuh, komisi 15% dicairkan bulanan
     reseller: Math.round(het * 0.80),
     sub_agen: Math.round(het * 0.70),
     agen: Math.round(het * 0.60),
@@ -8774,9 +8917,104 @@ function updateEditProdTierCalc(het) {
   };
   Object.keys(tiers).forEach(k => {
     const el = document.getElementById(`editCalc_${k}`);
-    if (el) el.textContent = formatRupiah(tiers[k]);
+    if (el) {
+      if (k === 'marketer') {
+        el.textContent = `${formatRupiah(tiers[k])} (Komisi 15%)`;
+      } else {
+        el.textContent = formatRupiah(tiers[k]);
+      }
+    }
   });
 }
+
+/**
+ * 1. Tambah Kuota Order Manual oleh Super Admin / Developer
+ */
+function promptAddStoreQuota(slug) {
+  const store = (appState.partnerStores || []).find(s => s.slug === slug);
+  if (!store) return;
+  const currentQ = typeof store.orderQuota === 'number' ? store.orderQuota : 10;
+  const input = prompt(
+    `⚡ TAMBAH KUOTA ORDER MANUAL (SUPER ADMIN / DEVELOPER)\n\n` +
+    `🏪 Toko: ${store.storeName} (${store.storeOwner})\n` +
+    `📦 Sisa Kuota Sekarang: ${currentQ} Order\n\n` +
+    `Masukkan JUMLAH ORDER yang ingin ditambahkan ke toko ini:\n` +
+    `(Contoh: ketik 25, 50, atau 100)\n\n` +
+    `Tips: Anda juga dapat memasukkan angka minus jika ingin mengurangi kuota.`,
+    '25'
+  );
+  if (input === null) return;
+  const qty = parseInt(input, 10);
+  if (isNaN(qty) || qty === 0) {
+    alert('⚠️ Jumlah kuota yang dimasukkan tidak valid.');
+    return;
+  }
+  
+  store.orderQuota = Math.max(0, currentQ + qty);
+  if (appState.storeSettings && appState.storeSettings.slug === slug) {
+    appState.storeSettings.orderQuota = store.orderQuota;
+  }
+  saveStoredPartnerStores(appState.partnerStores);
+  updateDevPortalMetrics();
+  updateStoreQuotaUI();
+  showToast(`✅ Kuota toko "${store.storeName}" berhasil disesuaikan: ${currentQ} -> ${store.orderQuota} Order!`);
+}
+window.promptAddStoreQuota = promptAddStoreQuota;
+
+/**
+ * 2. Blokir / Buka Blokir Toko yang Melanggar Aturan
+ * Saat diblokir: Toko tetap bisa lihat kas & laporan, namun etalase & pesanan baru dinonaktifkan
+ */
+function toggleBlockStore(slug) {
+  if (slug === 'sr12-central') {
+    alert('⚠️ Toko Pusat (SR12-Ku Pro) tidak dapat diblokir.');
+    return;
+  }
+  const store = (appState.partnerStores || []).find(s => s.slug === slug);
+  if (!store) return;
+  const willBlock = !store.isBlocked;
+  const actionText = willBlock ? 'MEMBLOKIR' : 'MEMBUKA BLOKIR';
+  const reasonText = willBlock 
+    ? 'Toko ini akan dibekukan: Etalase belanja & checkout pesanan dinonaktifkan.\nPemilik toko TETAP DAPAT mengakses pembukuan kas & laporan keuangan toko.'
+    : 'Toko akan kembali aktif normal dan dapat menerima pesanan pelanggan kembali.';
+    
+  const confirmed = confirm(
+    `⚠️ KONFIRMASI ${actionText} TOKO\n\n` +
+    `Apakah Anda yakin ingin ${actionText} toko:\n` +
+    `"${store.storeName}" (Pemilik: ${store.storeOwner})?\n\n` +
+    `${reasonText}\n\n` +
+    `Lanjutkan?`
+  );
+  if (!confirmed) return;
+
+  store.isBlocked = willBlock;
+  if (appState.storeSettings && appState.storeSettings.slug === slug) {
+    appState.storeSettings.isBlocked = willBlock;
+  }
+  saveStoredPartnerStores(appState.partnerStores);
+  updateDevPortalMetrics();
+  renderStoreBranding();
+  showToast(`✅ Status toko "${store.storeName}" berhasil diperbarui: ${willBlock ? 'DIBLOKIR' : 'AKTIF'}!`);
+}
+window.toggleBlockStore = toggleBlockStore;
+
+/**
+ * 3. Hapus Mitra Jaringan Tertentu dari Database Global
+ */
+function deleteNetworkMitra(mitraId) {
+  if (!mitraId) return;
+  const target = (appState.mitraList || []).find(m => m.id === mitraId);
+  const name = target ? target.name : mitraId;
+  if (!confirm(`Hapus data mitra "${name}" (ID: ${mitraId}) dari database sentral jaringan?`)) return;
+  appState.mitraList = (appState.mitraList || []).filter(m => m.id !== mitraId);
+  if (appState.resellers) {
+    appState.resellers = appState.resellers.filter(m => m.id !== mitraId);
+  }
+  saveStoredMitra(appState.mitraList, true);
+  updateDevPortalMetrics();
+  showToast(`🗑️ Mitra "${name}" berhasil dihapus dari database.`);
+}
+window.deleteNetworkMitra = deleteNetworkMitra;
 
 
 function clearAllDummyData(silent = false) {
