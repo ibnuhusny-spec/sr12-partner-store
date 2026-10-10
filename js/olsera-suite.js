@@ -388,7 +388,11 @@ function updateOlseraHeaderMeta() {
   if (invBadge) invBadge.textContent = (appState && appState.products) ? appState.products.length : '0';
 
   const mitraBadge = document.getElementById('olseraMitraBadge');
-  if (mitraBadge) mitraBadge.textContent = (appState && appState.mitraList) ? appState.mitraList.length : '0';
+  if (mitraBadge) {
+    const curStoreSlug = (appState && appState.storeSettings && appState.storeSettings.slug) || (appState && appState.currentStoreSlug) || 'sr12-central';
+    const storeMitraCount = (appState && appState.mitraList) ? appState.mitraList.filter(m => (m.store_slug || 'sr12-central') === curStoreSlug).length : 0;
+    mitraBadge.textContent = String(storeMitraCount);
+  }
 
   // Perbarui juga notifikasi pesanan masuk real-time
   if (typeof updateAdminNotificationUI === 'function') {

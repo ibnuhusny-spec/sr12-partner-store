@@ -4830,36 +4830,65 @@ function initEventListeners() {
     if (storeLogoPressTimer) clearTimeout(storeLogoPressTimer);
   }, { passive: true });
 
-  // 3. GESTUR RAHASIA DEVELOPER SUPER ADMIN: Triple-Tap & Long-Press pada Logo Brand SR12 & Footer Copyright
-  let devLogoTapCount = 0;
-  let devLogoTapTimer = null;
+  // 3. GESTUR RAHASIA DEVELOPER SUPER ADMIN:
+  //    • Ketuk 3x (Triple-Tap) atau 2x Cepat pada Footer / Copyright / Logo Brand
+  //    • Atau Tekan & Tahan (Long-Press 1 detik) pada Footer
+  let devTouchTapCount = 0;
+  let devTouchTapTimer = null;
   let devLogoPressTimer = null;
 
-  document.addEventListener('click', (e) => {
-    const devTarget = e.target.closest('#brandLogoContainer, .footer-simple-copy, footer');
-    if (devTarget) {
-      devLogoTapCount++;
-      clearTimeout(devLogoTapTimer);
-      if (devLogoTapCount >= 3) {
-        devLogoTapCount = 0;
-        e.preventDefault();
-        e.stopPropagation();
-        window.modalImmunityUntil = Date.now() + 1500;
+  const isDevTarget = (target) => {
+    if (!target) return false;
+    return !!target.closest('#brandLogoContainer, footer, #siteStorefrontFooter, .site-storefront-footer, .footer-simple-copy, .footer-inner-content, .footer-simple-brand, .footer-simple-meta');
+  };
+
+  // A. Multi-Tap responsif via Touchend (Mobile Phone Native - tidak terhalang zoom/scroll browser)
+  document.addEventListener('touchend', (e) => {
+    if (isDevTarget(e.target)) {
+      devTouchTapCount++;
+      clearTimeout(devTouchTapTimer);
+      if (devTouchTapCount >= 3) {
+        devTouchTapCount = 0;
+        try { if (navigator.vibrate) navigator.vibrate(60); } catch(err) {}
+        if (typeof showToast === 'function') {
+          showToast('🔐 Akses Developer: Silakan masukkan Master PIN');
+        }
         openDevPinPrompt();
       } else {
-        devLogoTapTimer = setTimeout(() => { devLogoTapCount = 0; }, 1200);
+        devTouchTapTimer = setTimeout(() => { devTouchTapCount = 0; }, 1400);
+      }
+    }
+  }, { passive: true });
+
+  // B. Click listener (Laptop / Desktop Mouse)
+  document.addEventListener('click', (e) => {
+    if (isDevTarget(e.target)) {
+      devTouchTapCount++;
+      clearTimeout(devTouchTapTimer);
+      if (devTouchTapCount >= 3) {
+        devTouchTapCount = 0;
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof showToast === 'function') {
+          showToast('🔐 Akses Developer: Silakan masukkan Master PIN');
+        }
+        openDevPinPrompt();
+      } else {
+        devTouchTapTimer = setTimeout(() => { devTouchTapCount = 0; }, 1400);
       }
     }
   });
 
+  // C. Long-Press (Tekan & Tahan 1 detik pada Footer atau Logo Brand)
   document.addEventListener('touchstart', (e) => {
-    const devTarget = e.target.closest('#brandLogoContainer, .footer-simple-copy');
-    if (devTarget) {
+    if (isDevTarget(e.target)) {
       devLogoPressTimer = setTimeout(() => {
         try { if (navigator.vibrate) navigator.vibrate(60); } catch(err) {}
-        window.modalImmunityUntil = Date.now() + 1500;
+        if (typeof showToast === 'function') {
+          showToast('🔐 Akses Developer: Silakan masukkan Master PIN');
+        }
         openDevPinPrompt();
-      }, 1200);
+      }, 1000);
     }
   }, { passive: true });
 
@@ -9376,6 +9405,8 @@ function renderResellers() {
   if (marketerEl) marketerEl.textContent = `${countMarketer}`;
   if (counterTab) counterTab.textContent = `${storeMitraList.length} Mitra`;
   if (tabMarketerCounter) tabMarketerCounter.textContent = `${countMarketer} Tim`;
+  const olseraMitraBadgeEl = document.getElementById('olseraMitraBadge');
+  if (olseraMitraBadgeEl) olseraMitraBadgeEl.textContent = `${storeMitraList.length}`;
 
   const filtered = evaluatedList.filter(m => {
     let matchFilter = true;

@@ -925,6 +925,9 @@ body.dev-mode-active .site-header {
   border-top: 1px solid #e2e8f0;
   background: #f8fafc;
   color: #64748b;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
 }
 .footer-inner-content {
   max-width: 800px;
