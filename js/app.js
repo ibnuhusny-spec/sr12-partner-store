@@ -1665,6 +1665,34 @@ function getStoredDevPin() {
   return localStorage.getItem('sr12_master_dev_pin') || '8899'; // Default PIN Master Developer: 8899
 }
 
+async function fetchLatestDevPinFromCloud() {
+  if (typeof initSupabaseClient !== 'function') return null;
+  const client = initSupabaseClient();
+  if (!client) return null;
+  try {
+    const { data, error } = await client
+      .from('stores')
+      .select('store_admin_pin')
+      .eq('slug', 'sr12-central')
+      .maybeSingle();
+
+    if (data && data.store_admin_pin) {
+      const pin = String(data.store_admin_pin).trim();
+      if (typeof appState !== 'undefined') {
+        appState.masterDevPin = pin;
+      }
+      try {
+        localStorage.setItem('sr12_master_dev_pin', pin);
+      } catch(e) {}
+      return pin;
+    }
+  } catch(e) {
+    console.warn('Gagal fetch dev PIN dari Supabase:', e);
+  }
+  return null;
+}
+window.fetchLatestDevPinFromCloud = fetchLatestDevPinFromCloud;
+
 // Database Seluruh Mitra Binaan Distributor (Agen 40%, Sub Agen 30%, Reseller 20%, Marketer 15%)
 const DEFAULT_DISTRIBUTOR_MITRA = [];
 
@@ -1925,8 +1953,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (localStore.slug === 'sr12-central') return true;
             if (deletedSlugs.includes(localStore.slug)) return false;
             if (localStore.slug === 'toko-supa-distributor' || localStore.slug.startsWith('deleted_') || localStore.slug.includes('toko-supa')) return false;
-            return true;
+            return cloudSlugs.has(localStore.slug);
           });
+
+          if (appState.currentStoreSlug && !cloudSlugs.has(appState.currentStoreSlug) && appState.currentStoreSlug !== 'sr12-central') {
+            switchPartnerStore('sr12-central');
+          }
 
           cloudStores.forEach(apiStore => {
             if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central' || apiStore.slug === 'toko-supa-distributor' || apiStore.slug.startsWith('deleted_') || apiStore.slug.includes('toko-supa') || deletedSlugs.includes(apiStore.slug)) return;
@@ -3077,6 +3109,18 @@ async function approvePendingStore(appId) {
 
   // Simpan ke daftar tombstone pending store agar tidak pernah muncul lagi di antrean
   addDeletedPendingStore(app.id, app.slug);
+
+  // Hapus slug dari daftar tombstone toko terhapus jika toko dibuat ulang dengan nama yang sama
+  try {
+    const rawDel = localStorage.getItem('sr12_deleted_store_slugs');
+    if (rawDel) {
+      const parsedDel = JSON.parse(rawDel);
+      if (Array.isArray(parsedDel) && parsedDel.includes(approvedStore.slug)) {
+        const filteredDel = parsedDel.filter(s => s !== approvedStore.slug);
+        localStorage.setItem('sr12_deleted_store_slugs', JSON.stringify(filteredDel));
+      }
+    }
+  } catch(e) {}
 
   if (typeof saveStoreToSupabase === 'function') {
     try {
@@ -5262,6 +5306,11 @@ function openDevPinPrompt(callbackOnSuccess = null) {
     window.devPinSuccessCallback = null;
   }
 
+  // Tarik PIN terbaru langsung dari Supabase Cloud di latar belakang
+  if (typeof fetchLatestDevPinFromCloud === 'function') {
+    fetchLatestDevPinFromCloud();
+  }
+
   // Buka modal PIN pengembang secara langsung & stabil tanpa manipulasi history
   if (modal) {
     document.body.classList.add('modal-open');
@@ -5317,8 +5366,8 @@ function switchDevPortalTab(tabName) {
   });
 }
 
-// Verify PIN Entered (Super Admin Gate)
-function verifyDevPinSubmit(e) {
+// Verify PIN Entered (Super Admin Gate) - Terhubung Realtime ke Supabase Cloud
+async function verifyDevPinSubmit(e) {
   if (e) e.preventDefault();
   const pinInput = document.getElementById('devPinInput')?.value.trim();
   const pinError = document.getElementById('devPinError');
@@ -5333,14 +5382,23 @@ function verifyDevPinSubmit(e) {
     return;
   }
 
-  const validDevPins = [
-    String(appState.masterDevPin || '').trim(),
-    String(getStoredDevPin() || '').trim(),
-    String(localStorage.getItem('sr12_master_dev_pin') || '').trim(),
-    '8899'
-  ].filter(Boolean);
+  // 1. Cek PIN lokal saat ini
+  let currentDevPin = String(appState.masterDevPin || localStorage.getItem('sr12_master_dev_pin') || '').trim();
 
-  if (validDevPins.includes(pinInput)) {
+  // 2. Jika input tidak cocok dengan PIN lokal, lakukan cek real-time ke Supabase Cloud
+  if (pinInput !== currentDevPin && typeof fetchLatestDevPinFromCloud === 'function') {
+    const cloudPin = await fetchLatestDevPinFromCloud();
+    if (cloudPin) {
+      currentDevPin = cloudPin;
+    }
+  }
+
+  // Tentukan apakah PIN cocok:
+  // Jika PIN kustom sudah dibuat (misal '170845'), hanya PIN tersebut yang berlaku.
+  // PIN standar '8899' hanya berlaku jika belum pernah diubah sama sekali.
+  const isMatch = currentDevPin ? (pinInput === currentDevPin) : (pinInput === '8899');
+
+  if (isMatch) {
     securityLockout.devPinFails = 0;
     securityLockout.devLockedUntil = 0;
 
@@ -5476,6 +5534,23 @@ function showDeveloperWorkspaceView(showWorkspace) {
     if (siteHeader) siteHeader.style.display = 'block';
     if (tierBanner) tierBanner.style.display = 'block';
 
+    // Pulihkan tampilan etalase & direktori Official Hub seketika tanpa perlu refresh
+    const centralHero = document.getElementById('officialCentralHubHero');
+    if (centralHero) centralHero.style.display = '';
+    const directorySection = document.getElementById('officialDistributorDirectorySection');
+    if (directorySection) directorySection.style.display = '';
+
+    renderStoreBranding();
+    if (appState.currentStoreSlug === 'sr12-central') {
+      if (typeof renderOfficialDistributorDirectory === 'function') {
+        renderOfficialDistributorDirectory();
+      }
+    } else {
+      if (typeof renderProducts === 'function') {
+        renderProducts();
+      }
+    }
+
     if (appState.isDevMasterLoggedIn) {
       if (devPreviewStrip) {
         const isCentral = appState.storeSettings?.slug === 'sr12-central';
@@ -5527,9 +5602,28 @@ function handleDeveloperLogout() {
   if (devFab) devFab.style.display = 'none';
 
   if (storefront) storefront.style.display = 'block';
+  const siteFooter = document.getElementById('siteStorefrontFooter');
+  if (siteFooter) siteFooter.style.display = '';
   if (platformTopbar) platformTopbar.style.display = 'none';
   if (siteHeader) siteHeader.style.display = 'block';
   if (tierBanner) tierBanner.style.display = 'block';
+
+  // Pulihkan tampilan etalase & direktori Official Hub seketika tanpa perlu refresh
+  const centralHero = document.getElementById('officialCentralHubHero');
+  if (centralHero) centralHero.style.display = '';
+  const directorySection = document.getElementById('officialDistributorDirectorySection');
+  if (directorySection) directorySection.style.display = '';
+
+  renderStoreBranding();
+  if (appState.currentStoreSlug === 'sr12-central') {
+    if (typeof renderOfficialDistributorDirectory === 'function') {
+      renderOfficialDistributorDirectory();
+    }
+  } else {
+    if (typeof renderProducts === 'function') {
+      renderProducts();
+    }
+  }
 
   showToast('🔒 Sesi Developer Super Admin Telah Berakhir.');
 }
@@ -7702,8 +7796,8 @@ async function deletePartnerStore(slug) {
   }
 
   // 9. Perbarui metrik Developer Workspace, Olsera headers, dan modal switcher
-  if (typeof updateDeveloperMetricsUI === 'function') {
-    updateDeveloperMetricsUI();
+  if (typeof updateDevPortalMetrics === 'function') {
+    updateDevPortalMetrics();
   }
   if (typeof renderDistributorNetworkMitraTable === 'function') {
     renderDistributorNetworkMitraTable();
@@ -7726,8 +7820,92 @@ function deleteCurrentActiveStore() {
   deletePartnerStore(appState.storeSettings.slug);
 }
 
+/**
+ * Hapus seluruh toko mitra sekaligus dari sistem & Cloud (Reset Bersih Total)
+ */
+async function deleteAllPartnerStores() {
+  const storesToDelete = (appState.partnerStores || []).filter(s => s && s.slug && s.slug !== 'sr12-central');
+  if (storesToDelete.length === 0) {
+    alert('Tidak ada toko mitra untuk dihapus. Hanya Toko Utama Pusat (SR12-Ku Pro) yang aktif.');
+    return;
+  }
+
+  const confirmed = confirm(
+    `⚠️ KONFIRMASI HAPUS SELURUH TOKO MITRA\n\n` +
+    `Apakah Anda yakin ingin MENGHAPUS SEMUA (${storesToDelete.length}) TOKO MITRA dari database lokal dan Supabase Cloud?\n\n` +
+    `• Seluruh toko distributor & agen akan dihapus permanen.\n` +
+    `• Toko Utama Pusat (SR12-Ku Pro) akan tetap aktif.\n` +
+    `• Tindakan ini akan diterapkan ke semua perangkat (HP & Laptop).\n\n` +
+    `Lanjutkan penghapusan seluruh toko?`
+  );
+  if (!confirmed) return;
+
+  const slugs = storesToDelete.map(s => s.slug);
+
+  // 1. Catat ke deletedSlugs lokal
+  try {
+    const rawDel = localStorage.getItem('sr12_deleted_store_slugs');
+    let deletedSlugs = rawDel ? JSON.parse(rawDel) : [];
+    if (!Array.isArray(deletedSlugs)) deletedSlugs = [];
+    slugs.forEach(slug => {
+      if (!deletedSlugs.includes(slug)) deletedSlugs.push(slug);
+    });
+    localStorage.setItem('sr12_deleted_store_slugs', JSON.stringify(deletedSlugs));
+  } catch(e) {}
+
+  // 2. Bersihkan storage spesifik per toko
+  slugs.forEach(slug => {
+    try {
+      localStorage.removeItem('sr12_store_product_overrides_' + slug);
+      localStorage.removeItem('sr12_transactions_' + slug);
+      localStorage.removeItem('sr12_cashflow_' + slug);
+      localStorage.removeItem('sr12_mutations_' + slug);
+    } catch(e) {}
+  });
+
+  // 3. Sisakan hanya sr12-central di partnerStores
+  const centralStore = (appState.partnerStores || []).find(s => s.slug === 'sr12-central') || DEFAULT_PARTNER_STORES[0];
+  appState.partnerStores = [centralStore];
+  saveStoredPartnerStores(appState.partnerStores);
+
+  // 4. Bersihkan mitra binaan milik toko-toko ini
+  if (Array.isArray(appState.mitraList)) {
+    appState.mitraList = appState.mitraList.filter(m => !m.store_slug || m.store_slug === 'sr12-central');
+    appState.resellers = appState.mitraList;
+    saveStoredMitra(appState.mitraList, true);
+  }
+
+  // 5. Hapus dari Supabase Cloud
+  if (typeof deleteStoreFromSupabase === 'function') {
+    for (const slug of slugs) {
+      try {
+        await deleteStoreFromSupabase(slug);
+      } catch(e) {}
+    }
+  }
+
+  // 6. Alihkan ke sr12-central jika sedang di toko lain
+  switchPartnerStore('sr12-central');
+  if (typeof history !== 'undefined' && history.replaceState) {
+    history.replaceState(null, '', window.location.pathname);
+  }
+
+  // 7. Update seluruh tampilan UI
+  renderStoreDropdown();
+  renderStoreBranding();
+  if (typeof updateDevPortalMetrics === 'function') {
+    updateDevPortalMetrics();
+  }
+  if (typeof renderOfficialDistributorDirectory === 'function') {
+    renderOfficialDistributorDirectory();
+  }
+
+  showToast(`✅ Berhasil! Seluruh ${slugs.length} toko mitra telah dihapus bersih dari sistem dan Cloud.`);
+}
+
 window.deletePartnerStore = deletePartnerStore;
 window.deleteCurrentActiveStore = deleteCurrentActiveStore;
+window.deleteAllPartnerStores = deleteAllPartnerStores;
 
 function chatActiveStoreWa() {
   const cfg = appState.storeSettings || DEFAULT_STORE_SETTINGS;

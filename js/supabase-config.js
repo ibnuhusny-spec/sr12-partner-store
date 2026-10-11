@@ -143,6 +143,16 @@ async function deleteStoreFromSupabase(slug) {
       await client.from('pending_stores').delete().eq('slug', slug);
     } catch(pErr) {}
 
+    // 3. Bersihkan katalog produk kustom toko ini di Cloud
+    try {
+      await client.from('products').delete().eq('store_slug', slug);
+    } catch(prodErr) {}
+
+    // 4. Bersihkan data mitra jaringan eksklusif toko ini di Cloud
+    try {
+      await client.from('mitra_downlines').delete().eq('store_slug', slug);
+    } catch(mErr) {}
+
     return true;
   } catch (e) {
     console.warn('Exception deleting store from Supabase:', e);
