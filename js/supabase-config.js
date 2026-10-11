@@ -187,7 +187,7 @@ async function saveStoreToSupabase(store) {
       recommendation_code: store.recommendationCode || '',
       fee_payer: store.feePayer || 'buyer',
       store_admin_pin: store.storeAdminPin || '1234',
-      order_quota: store.orderQuota || 15,
+      order_quota: (typeof store.orderQuota === 'number') ? store.orderQuota : 15,
       wallet_balance: store.walletBalance || 10000,
       total_topup_paid: store.totalTopupPaid || 0,
       total_tx: store.totalTx || 0,
@@ -948,6 +948,34 @@ async function updateStorePinInSupabase(slug, newPin) {
 }
 
 /**
+ * Update Kuota Pemesanan Toko di Supabase Cloud (agar tersimpan permanen & tidak ter-reset saat refresh)
+ */
+async function updateStoreQuotaInSupabase(slug, newQuota) {
+  const client = initSupabaseClient();
+  if (!client || !slug) return false;
+  try {
+    const quotaVal = Math.max(0, parseInt(newQuota, 10) || 0);
+    const { error } = await client
+      .from('stores')
+      .update({ 
+        order_quota: quotaVal,
+        updated_at: new Date().toISOString()
+      })
+      .eq('slug', slug);
+
+    if (error) {
+      console.warn('Supabase update store quota error:', error);
+      return false;
+    }
+    console.log(`✅ Kuota pesanan toko ${slug} berhasil diperbarui di Supabase Cloud: ${quotaVal} kuota tersisa`);
+    return true;
+  } catch (e) {
+    console.warn('Exception updating store quota in Supabase:', e);
+    return false;
+  }
+}
+
+/**
  * Simpan Pesanan Masuk (Web Order) ke Supabase Cloud
  * Bekerja secara otomatis sinkron antar Laptop, HP pembeli, dan HP Distributor
  */
@@ -1176,5 +1204,6 @@ window.fetchSingleProductFromSupabase = fetchSingleProductFromSupabase;
 window.saveOrderToSupabase = saveOrderToSupabase;
 window.syncOrdersFromSupabase = syncOrdersFromSupabase;
 window.updateOrderStatusInSupabase = updateOrderStatusInSupabase;
+window.updateStoreQuotaInSupabase = updateStoreQuotaInSupabase;
 
 

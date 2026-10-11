@@ -1214,14 +1214,15 @@ function saveStoreProductOverride(storeSlug, prod) {
   if (!storeSlug || !prod || !prod.id) return;
   try {
     const overrides = getStoreProductOverrides(storeSlug);
+    const existing = overrides[prod.id] || {};
     overrides[prod.id] = {
-      image: prod.image,
-      name: prod.name,
-      category: prod.category,
-      het: Number(prod.het || prod.price) || 0,
-      price: Number(prod.het || prod.price) || 0,
-      stock: (typeof prod.stock !== 'undefined') ? Number(prod.stock) : 50,
-      summary: prod.summary || '',
+      image: prod.image || existing.image,
+      name: prod.name || existing.name,
+      category: prod.category || existing.category,
+      het: Number(prod.het || prod.price || existing.het) || 0,
+      price: Number(prod.het || prod.price || existing.price) || 0,
+      stock: (typeof prod.stock !== 'undefined') ? Number(prod.stock) : (existing.stock !== undefined ? existing.stock : 50),
+      summary: prod.summary || existing.summary || '',
       customEdited: true
     };
     localStorage.setItem(`sr12_store_product_overrides_${storeSlug}`, JSON.stringify(overrides));
@@ -1229,6 +1230,7 @@ function saveStoreProductOverride(storeSlug, prod) {
     console.warn('Gagal simpan override produk lokal:', e);
   }
 }
+window.saveStoreProductOverride = saveStoreProductOverride;
 
 async function loadStoreProducts(storeSlug) {
   if (!storeSlug) {
@@ -6749,6 +6751,10 @@ function checkoutViaWhatsApp() {
     storeInList.orderQuota = appState.storeSettings.orderQuota;
     saveStoredPartnerStores(appState.partnerStores);
   }
+  // SINKRONKAN PENGURANGAN KUOTA KE SUPABASE CLOUD AGAR TIDAK TER-RESET SAAT REFRESH
+  if (typeof updateStoreQuotaInSupabase === 'function') {
+    updateStoreQuotaInSupabase(appState.currentStoreSlug, appState.storeSettings.orderQuota);
+  }
   updateStoreQuotaUI();
 
   let totalWeightGram = 0;
@@ -7061,6 +7067,18 @@ function checkoutViaWhatsApp() {
         const newStock = Math.max(0, oldStock - qtySold);
         p.stock = newStock;
         p.sold = (Number(p.sold) || 0) + qtySold;
+
+        // 1. Simpan ke override stok toko ini (LocalStorage terisolasi)
+        if (typeof saveStoreProductOverride === 'function') {
+          saveStoreProductOverride(currentStoreSlug, p);
+        }
+
+        // 2. Simpan ke Supabase Cloud tabel products
+        if (typeof saveProductToSupabase === 'function') {
+          saveProductToSupabase(p, currentStoreSlug);
+        }
+
+        // 3. Catat mutasi stok
         if (typeof recordStockMutation === 'function') {
           recordStockMutation({
             date: dateFormatted,
@@ -7073,13 +7091,36 @@ function checkoutViaWhatsApp() {
             stockAfter: newStock,
             refNo: webOrder.id,
             notes: `Order web dari ${appState.buyerDetails.name || 'Pelanggan'}`
-          });
+          }, currentStoreSlug);
         }
       }
     });
-    saveStoredProducts(appState.products);
+    if (typeof saveStoredProducts === 'function') saveStoredProducts(appState.products);
     renderProducts();
     if (typeof renderInventoryTable === 'function') renderInventoryTable();
+  }
+
+  // Catat ke Buku Arus Kas Masuk Toko Distributor (Kas Masuk)
+  if (!appState.cashflow) {
+    appState.cashflow = (typeof getStoredCashflow === 'function') ? getStoredCashflow(currentStoreSlug) : [];
+  }
+  const cashflowMethod = (courier.id === 'cod') ? 'CASH' : 'TRANSFER';
+  const newCashflowEntry = {
+    id: 'CSH-ORD-' + Date.now().toString().slice(-6),
+    store_slug: currentStoreSlug,
+    date: nowIso,
+    type: 'in',
+    account: cashflowMethod,
+    category: `Penjualan Online (${SR12_TIERS[appState.currentTier]?.name || 'Retail'})`,
+    notes: `${webOrder.id} - ${appState.buyerDetails.name || 'Pelanggan'} (${appState.cart.length} macam barang) [${webOrder.paymentMethod}]`,
+    amount: grandTotal
+  };
+  appState.cashflow.unshift(newCashflowEntry);
+  if (typeof saveStoredCashflow === 'function') {
+    saveStoredCashflow(appState.cashflow, currentStoreSlug);
+  }
+  if (typeof renderCashflowTable === 'function') {
+    renderCashflowTable();
   }
 
   // Kosongkan keranjang pembeli agar siap untuk pesanan berikutnya (tidak tertinggal di browser)
@@ -8788,6 +8829,21 @@ function switchTab(tabId) {
   try {
     localStorage.setItem('sr12_active_public_tab', tabId);
   } catch(e) {}
+
+  // Jika sedang berada di dalam antarmuka Olsera Suite Dashboard, arahkan ke tab Olsera terkait agar layar tidak putih
+  const olseraApp = document.getElementById('olseraDashboardApp');
+  const isOlseraActive = olseraApp && olseraApp.style.display !== 'none';
+  if (isOlseraActive && typeof switchOlseraTab === 'function') {
+    if (tabId === 'marketers') {
+      switchOlseraTab('marketer');
+      return;
+    }
+    if (tabId === 'resellers') {
+      switchOlseraTab('mitra');
+      return;
+    }
+  }
+
   const sections = ['catalogSection', 'rewardsSection', 'marketingKitSection', 'resellersSection', 'marketersSection'];
   sections.forEach(secId => {
     const el = document.getElementById(secId);
@@ -9848,6 +9904,27 @@ function confirmOrderFromModal(trxId) {
     }
   }
 
+  // Catat atau pastikan pesanan tercatat di buku Kas Masuk
+  if (!appState.cashflow) appState.cashflow = (typeof getStoredCashflow === 'function') ? getStoredCashflow(curSlug) : [];
+  const existingCf = (appState.cashflow || []).find(c => c.notes && c.notes.includes(trxId));
+  if (!existingCf && ord) {
+    const isCash = (ord.paymentMethod && (ord.paymentMethod.includes('COD') || ord.paymentMethod.includes('Ambil') || ord.paymentMethod === 'CASH'));
+    appState.cashflow.unshift({
+      id: 'CSH-ORD-' + Date.now().toString().slice(-6),
+      store_slug: curSlug,
+      date: new Date().toISOString().split('T')[0],
+      type: 'in',
+      account: isCash ? 'CASH' : 'TRANSFER',
+      category: `Pesanan Selesai (${ord.tierLabel || 'Retail'})`,
+      notes: `${ord.id} - ${ord.customerName} [${ord.paymentMethod}]`,
+      amount: Number(ord.grandTotal) || 0
+    });
+    if (typeof saveStoredCashflow === 'function') {
+      saveStoredCashflow(appState.cashflow, curSlug);
+    }
+  }
+  if (typeof renderCashflowTable === 'function') renderCashflowTable();
+
   renderAdminOrdersModal();
   updateAdminNotificationUI();
   if (typeof renderPosTransactions === 'function') renderPosTransactions();
@@ -10625,7 +10702,7 @@ function renderResellers() {
                 <span>📲</span> Ingatkan RO
               </button>
             ` : (m.tier === 'marketer' ? `
-              <button onclick="switchTab('marketers')" title="Lihat Rekap Gaji Marketer" style="background: #0284c7; color: #fff; border: none; padding: 5px 9px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;">
+              <button onclick="goToMarketerPayroll('${m.id}')" title="Lihat Rekap Gaji Marketer" style="background: #0284c7; color: #fff; border: none; padding: 5px 9px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;">
                 <span>💼</span> Gaji
               </button>
             ` : `
@@ -10642,6 +10719,33 @@ function renderResellers() {
     `;
   }).join('');
 }
+
+function goToMarketerPayroll(marketerId) {
+  const olseraApp = document.getElementById('olseraDashboardApp');
+  const isOlseraActive = olseraApp && olseraApp.style.display !== 'none';
+
+  if (isOlseraActive && typeof switchOlseraTab === 'function') {
+    switchOlseraTab('marketer');
+  } else if (typeof switchTab === 'function') {
+    switchTab('marketers');
+  }
+
+  if (typeof renderMarketerPayroll === 'function') {
+    renderMarketerPayroll();
+  }
+
+  if (marketerId) {
+    setTimeout(() => {
+      const row = document.querySelector(`[data-marketer-id="${marketerId}"]`);
+      if (row) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        row.style.outline = '2.5px solid #0284c7';
+        setTimeout(() => { row.style.outline = ''; }, 2500);
+      }
+    }, 200);
+  }
+}
+window.goToMarketerPayroll = goToMarketerPayroll;
 
 function filterMitra(tierFilter) {
   appState.selectedMitraFilter = tierFilter;
@@ -10870,8 +10974,7 @@ function sendResellerReminderWA(phone, name, daysLeft, deficit) {
 function renderMarketerPayroll() {
   const tbody = document.getElementById('payrollTableBody');
   const monthSelect = document.getElementById('payrollMonthSelect');
-  const currentMonthStr = new Date().toISOString().slice(0, 7);
-  const selectedMonth = monthSelect ? monthSelect.value : (appState.selectedPayrollMonth || currentMonthStr);
+  const selectedMonth = monthSelect ? monthSelect.value : (appState.selectedPayrollMonth || 'all');
   appState.selectedPayrollMonth = selectedMonth;
 
   const totalMarketersEl = document.getElementById('payrollTotalMarketers');
@@ -10935,7 +11038,7 @@ function renderMarketerPayroll() {
     // 1. Ambil dari appState.marketerSales
     const salesFromRecords = (appState.marketerSales || []).filter(s => {
       const isStore = (!s.store_slug || s.store_slug === currentStoreSlug);
-      const isM = (s.marketerId === m.id);
+      const isM = (s.marketerId === m.id || s.marketerId === m.partner_code);
       if (!isStore || !isM) return false;
       if (selectedMonth === 'all') return true;
       return (s.monthPeriod === selectedMonth || (s.date && s.date.startsWith(selectedMonth)));
@@ -10945,7 +11048,7 @@ function renderMarketerPayroll() {
     const existingOrderIds = new Set(salesFromRecords.map(s => s.orderId).filter(Boolean));
     const salesFromTrx = (appState.transactions || []).filter(t => {
       if (!t || !t.id || existingOrderIds.has(t.id)) return false;
-      const isM = (t.marketerId === m.id) || (t.tier === 'marketer' && (t.customerPhone === m.phone || (t.customerName && t.customerName.includes(m.id))));
+      const isM = (t.marketerId === m.id || t.marketerId === m.partner_code) || (t.tier === 'marketer' && (t.customerPhone === m.phone || (t.customerName && t.customerName.includes(m.id))));
       if (!isM) return false;
       if (selectedMonth === 'all') return true;
       const tDate = t.date || t.dateTime || '';
@@ -10966,6 +11069,26 @@ function renderMarketerPayroll() {
     }));
 
     const combinedSales = [...salesFromRecords, ...salesFromTrx];
+
+    // 3. Jika marketer tercatat memiliki pembelanjaan akumulasi di Database Mitra tapi catatan pesanan kosong di memori ini, sintesiskan agar tidak tampil 0
+    if (combinedSales.length === 0 && Number(m.accumulatedSpent90Days) > 0) {
+      const spent = Number(m.accumulatedSpent90Days) || 0;
+      combinedSales.push({
+        orderId: 'ORD-' + (m.id || m.partner_code || 'MKT') + '-AKUMULASI',
+        store_slug: currentStoreSlug,
+        marketerId: m.id,
+        date: m.lastOrderDate || new Date().toISOString().split('T')[0],
+        monthPeriod: selectedMonth,
+        customerName: m.name,
+        customerPhone: m.phone,
+        customerAddress: m.city || 'Indonesia',
+        omsetHet: spent,
+        commissionPct: 15,
+        commissionAmount: Math.round(spent * 0.15),
+        paidStatus: (m.totalOrdersCount > 0) ? 'paid' : 'unpaid'
+      });
+    }
+
     const countOrders = combinedSales.length;
     const omset = combinedSales.reduce((acc, s) => acc + (Number(s.omsetHet) || 0), 0);
     const bonus = Math.round(omset * 0.15);
@@ -11012,7 +11135,7 @@ function renderMarketerPayroll() {
                       `<span style="background: #fef3c7; color: #92400e; padding: 3px 8px; border-radius: 4px; font-weight: 700; font-size: 0.72rem;">⏳ Belum Ditransfer</span>`);
 
     return `
-      <tr>
+      <tr data-marketer-id="${m.id}">
         <td data-label="ID & Nama Marketer">
           <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin-bottom: 6px;">
             <div style="display: flex; align-items: center; gap: 6px;">

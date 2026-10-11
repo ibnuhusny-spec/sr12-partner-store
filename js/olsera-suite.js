@@ -1680,10 +1680,13 @@ function processPosCheckout(action = 'save') {
     updateCashierBadgeUI();
   }
 
+  const curPosStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+
   // Catat arus kas masuk terpisah akun (Kas Tunai Laci vs Transfer Bank)
-  if (!appState.cashflow) appState.cashflow = [];
+  if (!appState.cashflow) appState.cashflow = (typeof getStoredCashflow === 'function') ? getStoredCashflow(curPosStoreSlug) : [];
   appState.cashflow.unshift({
     id: 'CSH-' + Math.floor(1000 + Math.random() * 9000),
+    store_slug: curPosStoreSlug,
     date: dateStr.split(' ')[0],
     type: 'in',
     account: isCash ? 'CASH' : 'TRANSFER',
@@ -1691,7 +1694,9 @@ function processPosCheckout(action = 'save') {
     notes: `${trxId} - ${customerName} (${cart.length} macam barang) [${isCash ? 'Kas Tunai Laci' : 'Transfer Bank'}]`,
     amount: grandTotal
   });
-  saveStoredCashflow(appState.cashflow);
+  if (typeof saveStoredCashflow === 'function') {
+    saveStoredCashflow(appState.cashflow, curPosStoreSlug);
+  }
 
   // PENGURANGAN STOK FISIK GUDANG & PENCATATAN MUTASI STOK OTOMATIS
   if (Array.isArray(appState.products)) {
@@ -1703,6 +1708,17 @@ function processPosCheckout(action = 'save') {
         const newStock = Math.max(0, oldStock - qtySold);
         p.stock = newStock;
         p.sold = (Number(p.sold) || 0) + qtySold;
+
+        // Simpan ke override stok toko ini (LocalStorage terisolasi)
+        if (typeof saveStoreProductOverride === 'function') {
+          saveStoreProductOverride(curPosStoreSlug, p);
+        }
+
+        // Simpan ke Supabase Cloud tabel products
+        if (typeof saveProductToSupabase === 'function') {
+          saveProductToSupabase(p, curPosStoreSlug);
+        }
+
         if (typeof recordStockMutation === 'function') {
           recordStockMutation({
             date: dateStr,
@@ -1715,7 +1731,7 @@ function processPosCheckout(action = 'save') {
             stockAfter: newStock,
             refNo: trxId,
             notes: `Penjualan kasir tingkat ${getTierLabelName(tier)} kepada ${customerName}`
-          });
+          }, curPosStoreSlug);
         }
       }
     });
@@ -1734,6 +1750,9 @@ function processPosCheckout(action = 'save') {
     }
     appState.storeSettings.totalTx = (appState.storeSettings.totalTx || 0) + 1;
     saveStoredPartnerStores(appState.partnerStores);
+    if (typeof updateStoreQuotaInSupabase === 'function') {
+      updateStoreQuotaInSupabase(appState.currentStoreSlug, appState.storeSettings.orderQuota);
+    }
     updateStoreQuotaUI();
   }
 
@@ -2332,6 +2351,36 @@ function renderCashflowTable() {
   const outEl = document.getElementById('cashflowTotalOutDisplay');
   const netEl = document.getElementById('cashflowNetDisplay');
   if (!tbody || typeof appState === 'undefined') return;
+
+  const curSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  if (!appState.cashflow) {
+    appState.cashflow = (typeof getStoredCashflow === 'function') ? getStoredCashflow(curSlug) : [];
+  }
+
+  // Rekonsiliasi otomatis jika ada transaksi pesanan toko tapi buku kas masih kosong / belum tercatat
+  if (Array.isArray(appState.transactions) && appState.transactions.length > 0) {
+    let hasNewTrx = false;
+    appState.transactions.forEach(t => {
+      const exists = (appState.cashflow || []).some(c => c.notes && c.notes.includes(t.id));
+      if (!exists && Number(t.grandTotal) > 0) {
+        const isCash = (t.paymentMethod && (t.paymentMethod === 'CASH' || t.paymentMethod.includes('Ambil') || t.paymentMethod.includes('COD')));
+        appState.cashflow.push({
+          id: 'CSH-' + (t.id ? t.id.replace(/[^0-9]/g, '') : Date.now()),
+          store_slug: t.store_slug || curSlug,
+          date: t.dateTime ? (t.dateTime.includes(' ') ? t.dateTime.split(' ')[0] : t.dateTime) : (t.date || new Date().toISOString().split('T')[0]),
+          type: 'in',
+          account: isCash ? 'CASH' : 'TRANSFER',
+          category: `Pesanan Selesai (${t.tierLabel || 'Retail'})`,
+          notes: `${t.id} - ${t.customerName || 'Pelanggan'} [${t.paymentMethod || 'Lunas'}]`,
+          amount: Number(t.grandTotal) || 0
+        });
+        hasNewTrx = true;
+      }
+    });
+    if (hasNewTrx && typeof saveStoredCashflow === 'function') {
+      saveStoredCashflow(appState.cashflow, curSlug);
+    }
+  }
 
   const records = appState.cashflow || [];
 
