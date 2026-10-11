@@ -2091,46 +2091,64 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateAdminNotificationUI();
   updateDevPortalMetrics();
 
-  // Pulihkan sesi Developer Super Admin jika sebelumnya aktif
+  // 1. Pulihkan sesi Developer Super Admin jika sebelumnya aktif
+  let isDevWorkspaceOpenNow = false;
   try {
     const devSession = localStorage.getItem('sr12_dev_session');
-    if (devSession === 'active' && window.innerWidth > 768) {
+    const isDevOpen = localStorage.getItem('sr12_dev_workspace_open') === 'active' || window.location.hash === '#developer';
+    if (devSession === 'active') {
       appState.isDevMasterLoggedIn = true;
-      const devStrip = document.getElementById('devPreviewStrip');
-      if (devStrip) {
-        devStrip.style.display = 'flex';
-        const stripName = document.getElementById('devStripStoreName');
-        const stripQuota = document.getElementById('devStripOrderQuota');
-        if (stripName) stripName.textContent = (appState.storeSettings && appState.storeSettings.storeName) || 'Toko Aktif';
-        if (stripQuota) stripQuota.textContent = typeof appState.storeSettings?.orderQuota === 'number' ? appState.storeSettings.orderQuota : 10;
+      if (isDevOpen) {
+        showDeveloperWorkspaceView(true);
+        isDevWorkspaceOpenNow = true;
+        const savedDevTab = localStorage.getItem('sr12_active_dev_tab') || 'overview';
+        if (typeof switchDevPortalTab === 'function') {
+          switchDevPortalTab(savedDevTab);
+        }
+      } else {
+        const devStrip = document.getElementById('devPreviewStrip');
+        if (devStrip) {
+          devStrip.style.display = 'flex';
+          const stripName = document.getElementById('devStripStoreName');
+          const stripQuota = document.getElementById('devStripOrderQuota');
+          if (stripName) stripName.textContent = (appState.storeSettings && appState.storeSettings.storeName) || 'Toko Aktif';
+          if (stripQuota) stripQuota.textContent = typeof appState.storeSettings?.orderQuota === 'number' ? appState.storeSettings.orderQuota : 10;
+        }
+        const devFab = document.getElementById('devFloatingFab');
+        if (devFab) devFab.style.display = 'flex';
       }
-      const devFab = document.getElementById('devFloatingFab');
-      if (devFab) devFab.style.display = 'flex';
     }
   } catch(e) {}
 
-  // Pulihkan tampilan aktif (Portal Olsera vs Storefront Pembeli) saat refresh
-  const savedViewMode = localStorage.getItem('sr12_active_view_mode');
-  const validOlseraTabs = ['pos', 'transactions', 'inventory', 'cashflow', 'reports', 'mitra', 'pending', 'marketer', 'settings'];
-  const hashTab = window.location.hash ? window.location.hash.replace('#', '').toLowerCase() : '';
-  const isOlseraHash = validOlseraTabs.includes(hashTab);
-  const savedOlseraTab = localStorage.getItem('sr12_active_olsera_tab');
-  const targetOlseraTab = isOlseraHash ? hashTab : (validOlseraTabs.includes(savedOlseraTab) ? savedOlseraTab : 'pos');
+  // 2. Pulihkan tampilan aktif (Portal Olsera vs Storefront Pembeli) saat refresh (hanya jika TIDAK sedang di Developer Workspace)
+  if (!isDevWorkspaceOpenNow) {
+    const savedViewMode = localStorage.getItem('sr12_active_view_mode');
+    const validOlseraTabs = ['pos', 'transactions', 'inventory', 'cashflow', 'reports', 'mitra', 'pending', 'marketer', 'settings'];
+    const hashTab = window.location.hash ? window.location.hash.replace('#', '').toLowerCase() : '';
+    const isOlseraHash = validOlseraTabs.includes(hashTab);
+    const savedOlseraTab = localStorage.getItem('sr12_active_olsera_tab');
+    const targetOlseraTab = isOlseraHash ? hashTab : (validOlseraTabs.includes(savedOlseraTab) ? savedOlseraTab : 'pos');
 
-  const shouldOpenPortal = (appState.isAdminMode || appState.isDistributorLoggedIn || appState.isDevMasterLoggedIn) && 
-    (savedViewMode === 'portal' || isOlseraHash || wantsAdmin);
+    const shouldOpenPortal = (appState.isAdminMode || appState.isDistributorLoggedIn || appState.isDevMasterLoggedIn) && 
+      (savedViewMode === 'portal' || isOlseraHash || wantsAdmin);
 
-  if (shouldOpenPortal) {
-    if (typeof showDistributorPortalView === 'function') {
-      showDistributorPortalView(true);
-      if (typeof switchOlseraTab === 'function') {
-        switchOlseraTab(targetOlseraTab);
-      }
-    }
-  } else {
-    if (!appState.isAdminMode && !appState.isDevMasterLoggedIn) {
+    if (shouldOpenPortal) {
       if (typeof showDistributorPortalView === 'function') {
-        showDistributorPortalView(false);
+        showDistributorPortalView(true);
+        if (typeof switchOlseraTab === 'function') {
+          switchOlseraTab(targetOlseraTab);
+        }
+      }
+    } else {
+      if (!appState.isAdminMode && !appState.isDevMasterLoggedIn) {
+        if (typeof showDistributorPortalView === 'function') {
+          showDistributorPortalView(false);
+        }
+      }
+      // Pulihkan tab etalase publik yang aktif (katalog/rewards/marketing/reseller)
+      const savedPublicTab = localStorage.getItem('sr12_active_public_tab');
+      if (savedPublicTab && typeof switchTab === 'function') {
+        switchTab(savedPublicTab);
       }
     }
   }
@@ -5326,6 +5344,9 @@ function openDevPinPrompt(callbackOnSuccess = null) {
 
 // Switch Tabs inside Developer Super Admin Portal (Workspace & Modal)
 function switchDevPortalTab(tabName) {
+  try {
+    localStorage.setItem('sr12_active_dev_tab', tabName);
+  } catch(e) {}
   const tabs = ['overview', 'stores', 'pending', 'networkMitra', 'payment'];
   tabs.forEach(t => {
     // 1. Workspace Panes & Buttons (Dedicated Full-Screen Console)
@@ -5457,6 +5478,10 @@ function showDeveloperWorkspaceView(showWorkspace) {
     appState.isDevMasterLoggedIn = true;
     try {
       localStorage.setItem('sr12_dev_session', 'active');
+      localStorage.setItem('sr12_dev_workspace_open', 'active');
+      if (window.location.hash !== '#developer') {
+        history.replaceState(null, '', window.location.pathname + window.location.search + '#developer');
+      }
     } catch(e) {}
 
     // 1. Bersihkan seluruh backdrop modal & BUKA KUNCI SCROLL LAYAR SECARA TOTAL
@@ -5516,6 +5541,13 @@ function showDeveloperWorkspaceView(showWorkspace) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } else {
     // Mode Tinjau Etalase Toko (Storefront Preview) dengan Developer Preview Strip
+    try {
+      localStorage.removeItem('sr12_dev_workspace_open');
+      if (window.location.hash === '#developer') {
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
+    } catch(e) {}
+
     document.body.classList.remove('dev-mode-active');
     if (document.documentElement) document.documentElement.classList.remove('dev-mode-active');
     document.body.style.overflowY = '';
@@ -5578,6 +5610,10 @@ function handleDeveloperLogout() {
   appState.isDevMasterLoggedIn = false;
   try {
     localStorage.removeItem('sr12_dev_session');
+    localStorage.removeItem('sr12_dev_workspace_open');
+    if (window.location.hash === '#developer') {
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
   } catch(e) {}
 
   document.body.classList.remove('dev-mode-active');
@@ -7746,7 +7782,7 @@ async function deletePartnerStore(slug) {
   // 3. Hapus juga dari antrean pending jika ada
   if (Array.isArray(appState.pendingStoreApps)) {
     appState.pendingStoreApps = appState.pendingStoreApps.filter(a => a.slug !== slug);
-    saveStoredPendingStoreApps(appState.pendingStoreApps);
+    saveStoredPendingStores(appState.pendingStoreApps);
   }
 
   // 4. Hapus sesi distributor lokal jika sedang login di toko yang dihapus
@@ -7780,14 +7816,21 @@ async function deletePartnerStore(slug) {
   }
 
   // 7. Jika toko yang dihapus adalah toko yang sedang aktif dibuka, beralih ke sr12-central
+  const isDevOpen = appState.isDevMasterLoggedIn && document.getElementById('devSuperAdminWorkspace')?.style.display !== 'none';
   if (appState.currentStoreSlug === slug) {
-    switchPartnerStore('sr12-central');
+    if (isDevOpen) {
+      loadStoreBySlug('sr12-central');
+    } else {
+      switchPartnerStore('sr12-central');
+    }
     if (typeof history !== 'undefined' && history.replaceState) {
-      history.replaceState(null, '', window.location.pathname);
+      history.replaceState(null, '', window.location.pathname + (isDevOpen ? '#developer' : ''));
     }
   } else {
     renderStoreDropdown();
-    renderStoreBranding();
+    if (!isDevOpen) {
+      renderStoreBranding();
+    }
   }
 
   // 8. Tutup modal pengaturan jika terbuka
@@ -7885,19 +7928,26 @@ async function deleteAllPartnerStores() {
   }
 
   // 6. Alihkan ke sr12-central jika sedang di toko lain
-  switchPartnerStore('sr12-central');
+  const isDevOpen = appState.isDevMasterLoggedIn && document.getElementById('devSuperAdminWorkspace')?.style.display !== 'none';
+  if (isDevOpen) {
+    loadStoreBySlug('sr12-central');
+  } else {
+    switchPartnerStore('sr12-central');
+  }
   if (typeof history !== 'undefined' && history.replaceState) {
-    history.replaceState(null, '', window.location.pathname);
+    history.replaceState(null, '', window.location.pathname + (isDevOpen ? '#developer' : ''));
   }
 
   // 7. Update seluruh tampilan UI
   renderStoreDropdown();
-  renderStoreBranding();
+  if (!isDevOpen) {
+    renderStoreBranding();
+    if (typeof renderOfficialDistributorDirectory === 'function') {
+      renderOfficialDistributorDirectory();
+    }
+  }
   if (typeof updateDevPortalMetrics === 'function') {
     updateDevPortalMetrics();
-  }
-  if (typeof renderOfficialDistributorDirectory === 'function') {
-    renderOfficialDistributorDirectory();
   }
 
   showToast(`✅ Berhasil! Seluruh ${slugs.length} toko mitra telah dihapus bersih dari sistem dan Cloud.`);
@@ -7906,6 +7956,116 @@ async function deleteAllPartnerStores() {
 window.deletePartnerStore = deletePartnerStore;
 window.deleteCurrentActiveStore = deleteCurrentActiveStore;
 window.deleteAllPartnerStores = deleteAllPartnerStores;
+
+/**
+ * Reset PIN Toko Mitra Tertentu oleh Developer
+ */
+async function promptResetStorePin(slug) {
+  const store = (appState.partnerStores || []).find(s => s.slug === slug);
+  if (!store) return;
+
+  const currentPin = store.storeAdminPin || '1234';
+  const newPin = prompt(
+    `🔑 RESET PIN ADMIN TOKO\n\n` +
+    `Nama Toko: ${store.storeName} (${slug})\n` +
+    `PIN Saat Ini: ${currentPin}\n\n` +
+    `Masukkan PIN Baru untuk toko ini (minimal 4 digit):`,
+    '1234'
+  );
+
+  if (!newPin) return;
+  const cleanPin = String(newPin).trim();
+  if (cleanPin.length < 4) {
+    alert('PIN harus minimal 4 karakter!');
+    return;
+  }
+
+  // 1. Update ke memori lokal
+  store.storeAdminPin = cleanPin;
+  if (appState.storeSettings && appState.storeSettings.slug === slug) {
+    appState.storeSettings.storeAdminPin = cleanPin;
+    saveStoredSettings(appState.storeSettings);
+  }
+  saveStoredPartnerStores(appState.partnerStores);
+
+  // 2. Sinkronkan ke Supabase Cloud
+  if (typeof updateStorePinInSupabase === 'function') {
+    try {
+      await updateStorePinInSupabase(slug, cleanPin);
+    } catch(e) {
+      console.warn('Gagal update PIN ke Cloud:', e);
+    }
+  }
+
+  // 3. Perbarui tampilan UI
+  if (typeof updateDevPortalMetrics === 'function') {
+    updateDevPortalMetrics();
+  }
+
+  alert(`✅ Sukses! PIN Admin untuk toko "${store.storeName}" berhasil direset menjadi: ${cleanPin}\n\nSilakan berikan PIN ini kepada pemilik toko.`);
+  showToast(`🔑 PIN toko "${store.storeName}" direset ke ${cleanPin}`);
+}
+window.promptResetStorePin = promptResetStorePin;
+
+/**
+ * Reset PIN Seluruh Toko Mitra Sekaligus oleh Developer
+ */
+async function resetAllStoresPin() {
+  const customStores = (appState.partnerStores || []).filter(s => s && s.slug && s.slug !== 'sr12-central');
+  if (customStores.length === 0) {
+    alert('Tidak ada toko mitra untuk direset PIN. Hanya Toko Pusat yang aktif.');
+    return;
+  }
+
+  const defaultResetPin = prompt(
+    `🔑 RESET PIN SELURUH TOKO MITRA\n\n` +
+    `Fitur ini akan mereset PIN login untuk SEMUA (${customStores.length}) toko mitra.\n\n` +
+    `Masukkan PIN default baru (minimal 4 digit):`,
+    '1234'
+  );
+
+  if (!defaultResetPin) return;
+  const cleanPin = String(defaultResetPin).trim();
+  if (cleanPin.length < 4) {
+    alert('PIN harus minimal 4 karakter!');
+    return;
+  }
+
+  const confirmed = confirm(
+    `⚠️ KONFIRMASI RESET PIN MASSAL\n\n` +
+    `Apakah Anda yakin ingin mereset PIN login SEMUA (${customStores.length}) toko mitra menjadi "${cleanPin}"?\n\n` +
+    `Tindakan ini akan disimpan ke memori dan disinkronkan ke Supabase Cloud.`
+  );
+  if (!confirmed) return;
+
+  // 1. Update di memori lokal
+  customStores.forEach(s => {
+    s.storeAdminPin = cleanPin;
+  });
+  if (appState.storeSettings && appState.storeSettings.slug !== 'sr12-central') {
+    appState.storeSettings.storeAdminPin = cleanPin;
+    saveStoredSettings(appState.storeSettings);
+  }
+  saveStoredPartnerStores(appState.partnerStores);
+
+  // 2. Sinkronkan ke Supabase Cloud
+  if (typeof updateStorePinInSupabase === 'function') {
+    for (const s of customStores) {
+      try {
+        await updateStorePinInSupabase(s.slug, cleanPin);
+      } catch(e) {}
+    }
+  }
+
+  // 3. Perbarui tampilan UI
+  if (typeof updateDevPortalMetrics === 'function') {
+    updateDevPortalMetrics();
+  }
+
+  alert(`✅ Berhasil! Seluruh (${customStores.length}) toko mitra telah direset PIN-nya menjadi: ${cleanPin}`);
+  showToast(`🔑 PIN seluruh toko mitra berhasil direset ke ${cleanPin}`);
+}
+window.resetAllStoresPin = resetAllStoresPin;
 
 function chatActiveStoreWa() {
   const cfg = appState.storeSettings || DEFAULT_STORE_SETTINGS;
@@ -8476,6 +8636,9 @@ function copyCaption(id) {
 function switchTab(tabId) {
   if (tabId === 'products') tabId = 'catalog';
   appState.activeTab = tabId;
+  try {
+    localStorage.setItem('sr12_active_public_tab', tabId);
+  } catch(e) {}
   const sections = ['catalogSection', 'rewardsSection', 'marketingKitSection', 'resellersSection', 'marketersSection'];
   sections.forEach(secId => {
     const el = document.getElementById(secId);
@@ -8615,6 +8778,9 @@ function updateDevPortalMetrics() {
                 Buka
               </button>
               ${s.slug !== 'sr12-central' ? `
+              <button onclick="promptResetStorePin('${s.slug}')" style="background: #0284c7; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer;" title="Reset PIN Toko (PIN Saat Ini: ${s.storeAdminPin || '1234'})">
+                🔑
+              </button>
               <button onclick="toggleBlockStore('${s.slug}')" style="background: ${s.isBlocked ? '#059669' : '#dc2626'}; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer;" title="${s.isBlocked ? 'Buka Blokir Toko' : 'Blokir Toko Karena Pelanggaran'}">
                 ${s.isBlocked ? '✅ Buka' : '🚫 Blok'}
               </button>
@@ -8641,6 +8807,7 @@ function updateDevPortalMetrics() {
           <td data-label="Nama Toko" style="padding: 10px 12px; font-weight: 700;">
             <div style="font-size: 0.9rem; color: #f8fafc;">${s.storeName}</div>
             <div style="font-size: 0.72rem; color: #38bdf8; font-family: monospace;">?store=${s.slug}</div>
+            <div style="font-size: 0.72rem; color: #fde047; font-weight: 700; margin-top: 2px;">🔑 PIN: <span style="font-family: monospace; letter-spacing: 1px; color: #fef08a;">${s.storeAdminPin || '1234'}</span></div>
             <div style="margin-top: 4px;">${statusBadge}</div>
           </td>
           <td data-label="Pemilik & Kota" style="padding: 10px 12px;">
@@ -8668,6 +8835,9 @@ function updateDevPortalMetrics() {
                 👑 Backoffice
               </button>
               ${s.slug !== 'sr12-central' ? `
+              <button type="button" onclick="promptResetStorePin('${s.slug}')" style="background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);" title="Reset PIN Login Toko (PIN Saat Ini: ${s.storeAdminPin || '1234'})">
+                🔑 PIN
+              </button>
               <button type="button" onclick="toggleBlockStore('${s.slug}')" style="background: ${s.isBlocked ? 'linear-gradient(135deg, #059669, #047857)' : 'linear-gradient(135deg, #dc2626, #b91c1c)'}; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="${s.isBlocked ? 'Buka Blokir Toko' : 'Blokir Toko Karena Pelanggaran'}">
                 ${s.isBlocked ? '✅ Buka' : '🚫 Blok'}
               </button>
