@@ -814,6 +814,96 @@ async function dbGetAllProducts() {
   });
 }
 
+async function dbGetProduct(productId) {
+  if (!productId) return null;
+  const db = await openSR12IndexedDB();
+  if (!db) return null;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction([SR12_STORE_PRODUCTS], 'readonly');
+      const store = tx.objectStore(SR12_STORE_PRODUCTS);
+      const req = store.get(productId);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    } catch (e) {
+      resolve(null);
+    }
+  });
+}
+window.dbGetProduct = dbGetProduct;
+
+function normalizeProductKey(str) {
+  if (!str) return '';
+  return String(str)
+    .toLowerCase()
+    .replace(/^sr12[-_\s]*/gi, '')
+    .replace(/[-_\s]*sr12[-_\s]*/gi, '')
+    .replace(/[-_\s]*[0-9]+(?:\.[0-9]+)?[-_\s]*(?:g|gr|gram|ml|l|kg|pcs|pc|tablet|kapsul|tube|box|sachet)?$/gi, '')
+    .replace(/[^a-z0-9]/g, '');
+}
+window.normalizeProductKey = normalizeProductKey;
+
+function findBestProductMatch(products, queryParam) {
+  if (!Array.isArray(products) || products.length === 0 || !queryParam) return null;
+  const raw = String(queryParam).trim().toLowerCase();
+  const clean = raw.replace(/[^a-z0-9]/g, '');
+
+  // 1. Exact ID / SKU / Slug match
+  const exact = products.find(p => 
+    (p.id && p.id.toLowerCase() === raw) || 
+    (p.sku && p.sku.toLowerCase() === raw) ||
+    (p.slug && p.slug.toLowerCase() === raw) ||
+    (p.id && p.id.toLowerCase().replace(/[^a-z0-9]/g, '') === clean)
+  );
+  if (exact) return exact;
+
+  // 2. Filter kandidat berdasarkan normalisasi key / nama
+  const normQuery = normalizeProductKey(raw);
+  const candidates = products.filter(p => {
+    const pNorm = normalizeProductKey(p.id);
+    const pNameNorm = normalizeProductKey(p.name);
+    const pCleanId = (p.id || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const pCleanName = (p.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    return (normQuery && (pNorm === normQuery || pNameNorm === normQuery)) ||
+           (clean.length >= 5 && (pCleanId.includes(clean) || clean.includes(pCleanId))) ||
+           (clean.length >= 5 && (pCleanName.includes(clean) || clean.includes(pCleanName)));
+  });
+
+  if (candidates.length === 0) {
+    // Fallback: pencarian kata kunci
+    const words = clean.replace(/^sr12/i, '').split(/[-_\s]+/).filter(w => w.length > 2);
+    if (words.length > 0) {
+      const wordMatch = products.find(p => {
+        const text = (p.id + ' ' + p.name + ' ' + (p.sku || '')).toLowerCase();
+        return words.every(w => text.includes(w));
+      });
+      if (wordMatch) return wordMatch;
+    }
+    return null;
+  }
+
+  // Prioritaskan produk yang memiliki foto asli (bukan ilustrasi SVG dummy) atau customEdited
+  candidates.sort((a, b) => {
+    const aReal = a.customEdited || (a.image && !a.image.startsWith('data:image/svg+xml'));
+    const bReal = b.customEdited || (b.image && !b.image.startsWith('data:image/svg+xml'));
+    if (aReal && !bReal) return -1;
+    if (!aReal && bReal) return 1;
+    return 0;
+  });
+
+  // Jika terdapat varian ukuran (misal 500 ml vs 250 ml), cocokkan angka ukuran
+  const numMatch = raw.replace(/^sr12[-_]?/i, '').match(/\d+/);
+  if (numMatch) {
+    const num = numMatch[0];
+    const withNum = candidates.find(p => (p.id + ' ' + p.name).includes(num));
+    if (withNum) return withNum;
+  }
+
+  return candidates[0];
+}
+window.findBestProductMatch = findBestProductMatch;
+
 async function dbDeleteProduct(productId) {
   const db = await openSR12IndexedDB();
   if (!db) return;
@@ -942,30 +1032,31 @@ async function dbGetAllMarketerSales() {
   });
 }
 
-// Sinkronisasi otomatis data produk & foto asli dari IndexedDB saat aplikasi dimuat
+// Sinkronisasi otomatis data produk & foto asli dari IndexedDB & Supabase Cloud saat aplikasi dimuat
 async function syncProductsWithIndexedDB() {
   try {
     const idbProducts = await dbGetAllProducts();
+    let hasChanges = false;
+
     if (idbProducts && idbProducts.length > 0) {
-      let hasChanges = false;
-      const idbMap = new Map();
-      idbProducts.forEach(p => idbMap.set(p.id, p));
-
       if (typeof appState !== 'undefined' && Array.isArray(appState.products)) {
-        appState.products = appState.products.map(p => {
-          if (idbMap.has(p.id)) {
-            const fromDb = idbMap.get(p.id);
-            idbMap.delete(p.id);
+        idbProducts.forEach(idbP => {
+          if (!idbP) return;
+          const target = findBestProductMatch(appState.products, idbP.id || idbP.name);
+          if (target) {
+            if (idbP.image && !idbP.image.startsWith('data:image/svg+xml')) {
+              target.image = idbP.image;
+              target.customEdited = true;
+            }
+            if (idbP.name) target.name = idbP.name;
+            if (idbP.het) { target.het = idbP.het; target.price = idbP.het; }
+            if (idbP.stock !== undefined) target.stock = idbP.stock;
+            if (idbP.summary) target.summary = idbP.summary;
             hasChanges = true;
-            return { ...p, ...fromDb };
+          } else {
+            appState.products.push(idbP);
+            hasChanges = true;
           }
-          return p;
-        });
-
-        // Masukkan produk baru yang ada di IndexedDB
-        idbMap.forEach(newP => {
-          appState.products.push(newP);
-          hasChanges = true;
         });
 
         if (hasChanges) {
@@ -973,34 +1064,57 @@ async function syncProductsWithIndexedDB() {
           if (typeof renderInventoryTable === 'function') renderInventoryTable();
           if (typeof renderPosProducts === 'function') renderPosProducts();
           if (typeof updateCartUI === 'function') updateCartUI();
-          // Update cache LocalStorage secara aman tanpa menimpa IndexedDB
           saveStoredProducts(appState.products, false);
         }
       }
     } else if (typeof appState !== 'undefined' && Array.isArray(appState.products) && appState.products.length > 0) {
-      // Inisialisasi awal IndexedDB dari data saat ini
       dbSaveAllProducts(appState.products);
     }
 
     // 2. Sinkronkan dengan Supabase Cloud (memulihkan katalog & foto meskipun browser di-clear history)
     if (typeof syncProductsFromSupabase === 'function') {
-      const cloudProducts = await syncProductsFromSupabase(appState.storeSettings?.slug);
+      const activeSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+      const cloudProducts = await syncProductsFromSupabase(activeSlug);
       if (Array.isArray(cloudProducts) && cloudProducts.length > 0) {
         let hasCloudUpdates = false;
-        const currentMap = new Map((appState.products || []).map(p => [p.id, p]));
+
         cloudProducts.forEach(cp => {
-          if (!currentMap.has(cp.id) || cp.customEdited) {
-            currentMap.set(cp.id, { ...(currentMap.get(cp.id) || {}), ...cp });
+          if (!cp) return;
+          const target = findBestProductMatch(appState.products, cp.id || cp.name);
+          if (target) {
+            if (cp.image && !cp.image.startsWith('data:image/svg+xml')) {
+              target.image = cp.image;
+              target.customEdited = true;
+            }
+            if (cp.name) target.name = cp.name;
+            if (cp.het) { target.het = cp.het; target.price = cp.het; }
+            if (cp.stock !== undefined) target.stock = cp.stock;
+            if (cp.summary) target.summary = cp.summary;
+            hasCloudUpdates = true;
+          } else {
+            appState.products.push(cp);
             hasCloudUpdates = true;
           }
         });
+
         if (hasCloudUpdates) {
-          appState.products = Array.from(currentMap.values());
           saveStoredProducts(appState.products, true);
           if (typeof renderProducts === 'function') renderProducts();
           if (typeof renderInventoryTable === 'function') renderInventoryTable();
           if (typeof renderPosProducts === 'function') renderPosProducts();
           if (typeof updateCartUI === 'function') updateCartUI();
+
+          // PENTING: Jika modal detail produk sedang terbuka, perbarui foto & judul seketika!
+          const modalDetail = document.getElementById('modalProductDetail');
+          if (modalDetail && modalDetail.classList.contains('open') && appState.activeDetailProductId) {
+            const activeP = findBestProductMatch(appState.products, appState.activeDetailProductId);
+            if (activeP) {
+              const modalImg = document.getElementById('modalProdImage');
+              if (modalImg && activeP.image) modalImg.src = activeP.image;
+              const modalTitle = document.getElementById('modalProdTitle');
+              if (modalTitle && activeP.name) modalTitle.textContent = activeP.name;
+            }
+          }
         }
       }
     }
@@ -1122,7 +1236,26 @@ function getStoredProducts() {
       } catch(e) {}
     }
 
-    list = [...masterList, ...customUserProducts];
+    // Pertahankan custom edits & foto produk yang sudah diubah user agar tidak tertimpa dummy SVG
+    const existingEdits = list.filter(p => p.customEdited || (p.image && !p.image.startsWith('data:image/svg+xml')));
+
+    const merged = masterList.map(mp => {
+      if (existingEdits.length > 0) {
+        const match = existingEdits.find(e => {
+          if (e.id === mp.id) return true;
+          if (typeof normalizeProductKey === 'function') {
+            return normalizeProductKey(e.id) === normalizeProductKey(mp.id);
+          }
+          return false;
+        });
+        if (match) {
+          return { ...mp, ...match, id: mp.id };
+        }
+      }
+      return mp;
+    });
+
+    list = [...merged, ...customUserProducts];
     saveStoredProducts(list, false);
   }
 
@@ -7013,8 +7146,13 @@ window.initGlobalEdgeSwipeBackGesture = initGlobalEdgeSwipeBackGesture;
 window.handleGlobalBackNavigation = handleGlobalBackNavigation;
 
 function openProductDetailModal(productId) {
-  const prod = appState.products.find(p => p.id === productId);
+  let prod = (appState.products || []).find(p => p.id === productId);
+  if (!prod && typeof findBestProductMatch === 'function') {
+    prod = findBestProductMatch(appState.products || [], productId);
+  }
   if (!prod) return;
+
+  appState.activeDetailProductId = prod.id;
 
   const bBar = document.getElementById('posMobileBottomBar');
   if (bBar) {
@@ -7036,7 +7174,28 @@ function openProductDetailModal(productId) {
   const btnEdit = document.getElementById('modalBtnEditProd');
 
   if (title) title.textContent = prod.name;
-  if (image) image.src = prod.image;
+  if (image) {
+    image.src = prod.image;
+    image.alt = prod.name;
+    image.onerror = function() {
+      this.onerror = null;
+      this.src = 'assets/hero-banner.jpg';
+    };
+  }
+
+  // Jika foto saat ini masih ilustrasi dummy SVG, cek apakah ada foto asli di IndexedDB
+  if (typeof dbGetProduct === 'function' && (!prod.customEdited || (prod.image && prod.image.startsWith('data:image/svg+xml')))) {
+    dbGetProduct(prod.id).then(idbP => {
+      if (idbP && idbP.image && !idbP.image.startsWith('data:image/svg+xml')) {
+        prod.image = idbP.image;
+        prod.customEdited = true;
+        if (appState.activeDetailProductId === prod.id && image) {
+          image.src = idbP.image;
+        }
+      }
+    });
+  }
+
   if (bpom) bpom.textContent = prod.bpom;
   if (halal) halal.textContent = prod.halal || 'MUI Terdaftar';
   if (het) het.textContent = formatRupiah(prod.het);
@@ -11003,32 +11162,23 @@ function handleDirectProductDeepLink(retryCount = 0) {
     return;
   }
 
-  const cleanParam = rawParam.toLowerCase().trim();
-  const cleanKey = cleanParam.replace(/[^a-z0-9]/g, '');
+  // Gunakan pencocokan cerdas kandidat terbaik (prioritaskan produk yang punya foto asli / customEdited)
+  let prod = (typeof findBestProductMatch === 'function') 
+    ? findBestProductMatch(appState.products, rawParam)
+    : null;
 
-  // 1. Pencarian produk yang sangat fleksibel & komprehensif
-  let prod = (appState.products || []).find(p => 
-    p.id.toLowerCase() === cleanParam ||
-    (p.sku && p.sku.toLowerCase() === cleanParam) ||
-    (p.slug && p.slug.toLowerCase() === cleanParam) ||
-    p.id.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanKey ||
-    p.name.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanKey ||
-    p.id.toLowerCase().replace(/[^a-z0-9]/g, '').includes(cleanKey) ||
-    cleanKey.includes(p.id.toLowerCase().replace(/[^a-z0-9]/g, ''))
-  );
-
-  // 2. Fallback pencarian kata kunci jika slug terpotong atau bervariasi
   if (!prod) {
-    const words = cleanParam.replace(/^sr12-?/i, '').split(/[-_\s]+/).filter(w => w.length > 2);
-    if (words.length > 0) {
-      prod = (appState.products || []).find(p => {
-        const text = (p.id + ' ' + p.name + ' ' + (p.sku || '')).toLowerCase();
-        return words.every(w => text.includes(w));
-      });
-    }
+    const cleanParam = rawParam.toLowerCase().trim();
+    const cleanKey = cleanParam.replace(/[^a-z0-9]/g, '');
+    prod = (appState.products || []).find(p => 
+      p.id.toLowerCase() === cleanParam ||
+      (p.sku && p.sku.toLowerCase() === cleanParam) ||
+      (p.slug && p.slug.toLowerCase() === cleanParam) ||
+      p.id.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanKey ||
+      p.name.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanKey
+    );
   }
 
-  // Jika produk belum ditemukan, beri toleransi waktu retry polling (misal sinkronisasi IndexedDB sedang berlangsung)
   if (!prod) {
     if (retryCount < 10) {
       setTimeout(() => handleDirectProductDeepLink(retryCount + 1), 200);
@@ -11038,66 +11188,97 @@ function handleDirectProductDeepLink(retryCount = 0) {
     return;
   }
 
-  if (prod) {
-    console.log('🎯 [Deep-Link Produk] Membuka produk spesifik:', prod.name, `(${prod.id})`);
-    
-    // Perbarui judul tab browser dan meta tag Open Graph sesuai produk
-    const pageTitle = document.getElementById('pageTitleMeta') || document.querySelector('title');
-    const ogTitle = document.getElementById('ogTitleMeta');
-    const ogDesc = document.getElementById('ogDescMeta');
-    const ogImage = document.getElementById('ogImageMeta');
-    const storeName = appState.storeSettings?.storeName || 'SR12 Official';
+  console.log('🎯 [Deep-Link Produk] Membuka produk spesifik:', prod.name, `(${prod.id})`);
 
-    if (pageTitle) pageTitle.textContent = `${prod.name} | ${storeName}`;
-    if (ogTitle) ogTitle.content = `${prod.name} - ${storeName}`;
-    if (ogDesc) ogDesc.content = prod.summary || `Beli ${prod.name} resmi BPOM di ${storeName}.`;
-    if (ogImage && prod.image) ogImage.content = prod.image;
+  // Perbarui judul tab browser dan meta tag Open Graph sesuai produk
+  const pageTitle = document.getElementById('pageTitleMeta') || document.querySelector('title');
+  const ogTitle = document.getElementById('ogTitleMeta');
+  const ogDesc = document.getElementById('ogDescMeta');
+  const ogImage = document.getElementById('ogImageMeta');
+  const storeName = appState.storeSettings?.storeName || 'SR12 Official';
 
-    // Pastikan wrapper etalase katalog produk aktif & ditampilkan
-    const commerceWrapper = document.getElementById('distributorCommerceWrapper');
-    if (commerceWrapper) {
-      commerceWrapper.style.display = 'block';
+  if (pageTitle) pageTitle.textContent = `${prod.name} | ${storeName}`;
+  if (ogTitle) ogTitle.content = `${prod.name} - ${storeName}`;
+  if (ogDesc) ogDesc.content = prod.summary || `Beli ${prod.name} resmi BPOM di ${storeName}.`;
+  if (ogImage && prod.image) ogImage.content = prod.image;
+
+  // Pastikan wrapper etalase katalog produk aktif & ditampilkan
+  const commerceWrapper = document.getElementById('distributorCommerceWrapper');
+  if (commerceWrapper) {
+    commerceWrapper.style.display = 'block';
+  }
+  const catalogSection = document.getElementById('catalogSection');
+  if (catalogSection) {
+    catalogSection.style.display = 'block';
+  }
+
+  // Pastikan filter kategori dan pencarian dinetralkan agar kartu produk pasti ada di DOM
+  if (appState.selectedCategory !== 'all' || appState.searchQuery) {
+    appState.selectedCategory = 'all';
+    appState.searchQuery = '';
+    renderProducts();
+  }
+
+  // Pastikan kartu produk ada di DOM
+  let card = document.getElementById(`card-${prod.id}`);
+  if (!card) {
+    renderProducts();
+    card = document.getElementById(`card-${prod.id}`);
+  }
+
+  // Gulir halus ke kartu produk dan berikan efek sorotan
+  if (card) {
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    card.classList.add('product-card-highlighted');
+    setTimeout(() => card.classList.remove('product-card-highlighted'), 3500);
+  }
+
+  // Buka modal detail produk langsung
+  openProductDetailModal(prod.id);
+
+  // Safeguard ganda agar modal tetap terbuka dan tidak tertutup event lain
+  setTimeout(() => {
+    const modal = document.getElementById('modalProductDetail');
+    if (modal && !modal.classList.contains('open')) {
+      openProductDetailModal(prod.id);
     }
-    const catalogSection = document.getElementById('catalogSection');
-    if (catalogSection) {
-      catalogSection.style.display = 'block';
-    }
+  }, 350);
 
-    // Pastikan filter kategori dan pencarian dinetralkan agar kartu produk pasti ada di DOM
-    if (appState.selectedCategory !== 'all' || appState.searchQuery) {
-      appState.selectedCategory = 'all';
-      appState.searchQuery = '';
-      renderProducts();
-    }
+  // JIKA FOTO MASIH ILUSTRASI DUMMY SVG:
+  // Segera ambil foto asli produk langsung dari Supabase Cloud untuk toko ini!
+  const isDummyImage = !prod.image || prod.image.startsWith('data:image/svg+xml');
+  if (isDummyImage && typeof fetchSingleProductFromSupabase === 'function') {
+    const activeSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+    fetchSingleProductFromSupabase(rawParam, activeSlug).then(cloudProd => {
+      if (cloudProd && cloudProd.image && !cloudProd.image.startsWith('data:image/svg+xml')) {
+        console.log('⚡ [Deep-Link Produk] Foto asli produk berhasil dimuat dari Cloud:', cloudProd.name);
+        prod.image = cloudProd.image;
+        prod.customEdited = true;
+        if (cloudProd.name) prod.name = cloudProd.name;
+        if (cloudProd.het) { prod.het = cloudProd.het; prod.price = cloudProd.het; }
+        if (cloudProd.summary) prod.summary = cloudProd.summary;
 
-    // Pastikan kartu produk ada di DOM
-    let card = document.getElementById(`card-${prod.id}`);
-    if (!card) {
-      renderProducts();
-      card = document.getElementById(`card-${prod.id}`);
-    }
+        // Perbarui gambar & judul di modal yang sedang terbuka secara seketika
+        const modalImg = document.getElementById('modalProdImage');
+        if (modalImg) modalImg.src = cloudProd.image;
+        const modalTitle = document.getElementById('modalProdTitle');
+        if (modalTitle && cloudProd.name) modalTitle.textContent = cloudProd.name;
+        const modalHet = document.getElementById('modalProdHet');
+        if (modalHet && cloudProd.het) modalHet.textContent = formatRupiah(cloudProd.het);
 
-    // Gulir halus ke kartu produk dan berikan efek sorotan
-    if (card) {
-      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      card.classList.add('product-card-highlighted');
-      setTimeout(() => card.classList.remove('product-card-highlighted'), 3500);
-    }
+        // Perbarui gambar di kartu etalase
+        const c = document.getElementById(`card-${prod.id}`);
+        if (c) {
+          const imgEl = c.querySelector('.product-thumb-box img');
+          if (imgEl) imgEl.src = cloudProd.image;
+        }
 
-    // Buka modal detail produk langsung
-    openProductDetailModal(prod.id);
-
-    // Safeguard ganda agar modal tetap terbuka dan tidak tertutup event lain
-    setTimeout(() => {
-      const modal = document.getElementById('modalProductDetail');
-      if (modal && !modal.classList.contains('open')) {
-        openProductDetailModal(prod.id);
+        // Simpan ke IndexedDB untuk fast-boot kunjungan berikutnya
+        if (typeof dbSaveProduct === 'function') {
+          dbSaveProduct(prod);
+        }
       }
-      const c = document.getElementById(`card-${prod.id}`);
-      if (c) {
-        c.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }, 350);
+    }).catch(err => console.warn('Cloud single prod fetch warning:', err));
   }
 }
 window.handleDirectProductDeepLink = handleDirectProductDeepLink;

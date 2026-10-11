@@ -711,7 +711,9 @@ async function saveProductToSupabase(prod, storeSlug = 'global') {
   const client = initSupabaseClient();
   if (!client || !prod) return null;
   try {
-    const uuid = stringToUuid(prod.id || prod.name);
+    const cleanStore = (storeSlug && storeSlug !== 'all') ? storeSlug : 'global';
+    const uuid = stringToUuid(`${cleanStore}_${prod.id}`);
+    const legacyUuid = stringToUuid(prod.id || prod.name);
     const metaDesc = JSON.stringify({
       localId: prod.id,
       summary: prod.summary || '',
@@ -724,7 +726,7 @@ async function saveProductToSupabase(prod, storeSlug = 'global') {
 
     const payload = {
       id: uuid,
-      store_slug: storeSlug || 'global',
+      store_slug: cleanStore,
       name: prod.name,
       category: prod.category || 'Body Care',
       netto: prod.netto || '100 ml',
@@ -737,15 +739,17 @@ async function saveProductToSupabase(prod, storeSlug = 'global') {
     const { data: existing } = await client
       .from('products')
       .select('id')
-      .eq('id', uuid)
+      .or(`id.eq.${uuid},id.eq.${legacyUuid}`)
+      .eq('store_slug', cleanStore)
       .maybeSingle();
 
     if (existing && existing.id) {
-      await client.from('products').update(payload).eq('id', uuid);
+      payload.id = existing.id;
+      await client.from('products').update(payload).eq('id', existing.id);
     } else {
       await client.from('products').insert(payload);
     }
-    console.log('✅ Produk berhasil disinkronkan ke Supabase Cloud:', prod.name);
+    console.log('✅ Produk berhasil disinkronkan ke Supabase Cloud:', prod.name, `[Toko: ${cleanStore}]`);
     return true;
   } catch (err) {
     console.warn('Gagal simpan produk ke Supabase:', err);
@@ -755,15 +759,19 @@ async function saveProductToSupabase(prod, storeSlug = 'global') {
 
 /**
  * Sinkronisasi data produk dari Supabase Cloud (memulihkan katalog & foto meskipun browser di-clear history)
+ * Terisolasi ketat per toko mitra (data tidak bocor ke toko lain)
  */
 async function syncProductsFromSupabase(storeSlug = 'global') {
   const client = initSupabaseClient();
   if (!client) return null;
   try {
-    const { data, error } = await client
-      .from('products')
-      .select('*');
+    const cleanStore = (storeSlug && storeSlug !== 'all') ? storeSlug : 'global';
+    let query = client.from('products').select('*');
+    if (cleanStore !== 'all') {
+      query = query.or(`store_slug.eq.${cleanStore},store_slug.eq.global`);
+    }
 
+    const { data, error } = await query;
     if (error) {
       console.warn('Supabase fetch products error:', error);
       return null;
@@ -794,13 +802,85 @@ async function syncProductsFromSupabase(storeSlug = 'global') {
         stock: (typeof row.stock !== 'undefined') ? Number(row.stock) : 50,
         rating: meta.rating || 5,
         summary: meta.summary || row.description || '',
-        customEdited: true
+        customEdited: true,
+        store_slug: row.store_slug
       };
     });
 
     return mapped;
   } catch (err) {
     console.warn('Error syncing products from Supabase:', err);
+    return null;
+  }
+}
+
+/**
+ * Pengambilan instan 1 produk dari Supabase Cloud khusus untuk deep-link (?product=...)
+ */
+async function fetchSingleProductFromSupabase(productKey, storeSlug = 'global') {
+  const client = initSupabaseClient();
+  if (!client || !productKey) return null;
+  try {
+    const cleanStore = (storeSlug && storeSlug !== 'all') ? storeSlug : 'global';
+    const cleanKey = String(productKey).toLowerCase().replace(/[^a-z0-9]/g, '');
+    let query = client.from('products').select('*');
+    if (cleanStore !== 'all') {
+      query = query.or(`store_slug.eq.${cleanStore},store_slug.eq.global`);
+    }
+
+    const { data, error } = await query;
+    if (error || !Array.isArray(data) || data.length === 0) return null;
+
+    const matchedRow = data.find(row => {
+      let meta = {};
+      try {
+        if (row.description && row.description.startsWith('{')) {
+          meta = JSON.parse(row.description);
+        }
+      } catch (e) {}
+
+      const localId = (meta.localId || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const rowId = (row.id || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const rowName = (row.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const sku = (meta.sku || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      return localId === cleanKey ||
+        rowId === cleanKey ||
+        rowName === cleanKey ||
+        sku === cleanKey ||
+        (localId.length >= 5 && (localId.includes(cleanKey) || cleanKey.includes(localId))) ||
+        (rowName.length >= 5 && (rowName.includes(cleanKey) || cleanKey.includes(rowName)));
+    });
+
+    if (!matchedRow) return null;
+
+    let meta = {};
+    try {
+      if (matchedRow.description && matchedRow.description.startsWith('{')) {
+        meta = JSON.parse(matchedRow.description);
+      }
+    } catch (e) {}
+
+    return {
+      id: meta.localId || matchedRow.id,
+      name: matchedRow.name,
+      category: matchedRow.category || 'Body Care',
+      sku: meta.sku || matchedRow.netto || 'SR12-PROD',
+      bpom: meta.bpom || 'NA18190122375',
+      halal: meta.halal || 'MUI-00150084520917',
+      image: matchedRow.image_url || 'assets/hero-banner.jpg',
+      het: Number(matchedRow.het_price) || 0,
+      price: Number(matchedRow.het_price) || 0,
+      weightGram: meta.weightGram || 100,
+      netto: matchedRow.netto || '100 ml',
+      stock: (typeof matchedRow.stock !== 'undefined') ? Number(matchedRow.stock) : 50,
+      rating: meta.rating || 5,
+      summary: meta.summary || matchedRow.description || '',
+      customEdited: true,
+      store_slug: matchedRow.store_slug
+    };
+  } catch (err) {
+    console.warn('Gagal fetch single product dari Supabase:', err);
     return null;
   }
 }
@@ -863,5 +943,6 @@ window.saveMarketerSaleToSupabase = saveMarketerSaleToSupabase;
 window.saveProductToSupabase = saveProductToSupabase;
 window.syncProductsFromSupabase = syncProductsFromSupabase;
 window.findMitraInSupabase = findMitraInSupabase;
+window.fetchSingleProductFromSupabase = fetchSingleProductFromSupabase;
 
 
