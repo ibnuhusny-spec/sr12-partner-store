@@ -1879,7 +1879,9 @@
           <div style="display: flex; align-items: center; gap: 10px;">
             <label style="font-size: 0.82rem; font-weight: 700; color: var(--dark-700);">📅 Periode Bulan:</label>
             <select id="payrollMonthSelect" onchange="renderMarketerPayroll()" style="padding: 6px 12px; border-radius: 4px; border: 1px solid #cbd5e1; font-weight: 700; color: var(--dark-800); font-family: var(--font-main);">
-              <option value="2026-09" selected>September 2026 (Bulan Ini)</option>
+              <option value="all">Semua Periode (Akumulasi)</option>
+              <option value="2026-10" selected>Oktober 2026 (Bulan Ini)</option>
+              <option value="2026-09">September 2026</option>
               <option value="2026-08">Agustus 2026</option>
               <option value="2026-07">Juli 2026</option>
             </select>
@@ -4526,6 +4528,15 @@
             ✕
           </button>
         </div>
+      </div>
+      <!-- Tabs Filter Status Pesanan Masuk -->
+      <div style="display: flex; gap: 8px; padding: 10px 18px; background: #ffffff; border-bottom: 1px solid #e2e8f0;">
+        <button type="button" id="btnTabOrdersPending" onclick="switchAdminOrdersTab('pending')" style="flex: 1; padding: 8px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 800; border: 1.5px solid #059669; background: #ecfdf5; color: #065f46; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+          ⏳ Perlu Diproses <span id="adminOrdersTabBadgePending" style="background: #059669; color: #ffffff; padding: 1px 7px; border-radius: 999px; font-size: 0.7rem;">0</span>
+        </button>
+        <button type="button" id="btnTabOrdersDone" onclick="switchAdminOrdersTab('done')" style="flex: 1; padding: 8px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 700; border: 1.5px solid #cbd5e1; background: #f8fafc; color: #64748b; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+          ✅ Riwayat Selesai <span id="adminOrdersTabBadgeDone" style="background: #e2e8f0; color: #475569; padding: 1px 7px; border-radius: 999px; font-size: 0.7rem;">0</span>
+        </button>
       </div>
       <div class="modal-body" style="padding: 18px; overflow-y: auto; flex: 1; background: #f8fafc;" id="adminOrdersListBody">
         <!-- Rendered dynamically via renderAdminOrdersModal() -->
