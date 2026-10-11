@@ -10,56 +10,10 @@ const DEFAULT_TRANSACTIONS = [];
 
 const DEFAULT_CASHFLOW = [];
 
-function getStoredTransactions() {
-  const s = localStorage.getItem('sr12_pos_transactions_v1');
-  if (s) {
-    try {
-      const parsed = JSON.parse(s);
-      if (Array.isArray(parsed)) {
-        // Hapus pesanan dummy bawaan agar simulasi bersih dari awal
-        const cleaned = parsed.filter(t => !['TRX-2026-101', 'TRX-2026-102', 'TRX-2026-103'].includes(t.id));
-        if (cleaned.length !== parsed.length) {
-          saveStoredTransactions(cleaned);
-        }
-        return cleaned;
-      }
-    } catch (e) {}
-  }
-  return [];
-}
-
-function saveStoredTransactions(list) {
-  localStorage.setItem('sr12_pos_transactions_v1', JSON.stringify(list));
-}
-
-function getStoredCashflow() {
-  const dummyCashIds = ['CSH-001', 'CSH-002', 'CSH-003', 'CSH-004', 'CSH-005'];
-  const s = localStorage.getItem('sr12_cashflow_records_v1');
-  if (s) {
-    try {
-      const parsed = JSON.parse(s);
-      if (Array.isArray(parsed)) {
-        const cleaned = parsed.filter(c => !dummyCashIds.includes(c.id));
-        if (cleaned.length !== parsed.length) {
-          saveStoredCashflow(cleaned);
-        }
-        return cleaned;
-      }
-    } catch (e) {}
-  }
-  saveStoredCashflow([]);
-  return [];
-}
-
-function saveStoredCashflow(list) {
-  localStorage.setItem('sr12_cashflow_records_v1', JSON.stringify(list));
-}
-
-// ------------------------------------------
-// 1.5. KARTU RIWAYAT MUTASI STOK GUDANG OTOMATIS
-// ------------------------------------------
-function getStoredStockMutations() {
-  const s = localStorage.getItem('sr12_stock_mutations_v1');
+function getStoredTransactions(slug) {
+  const curSlug = slug || (typeof appState !== 'undefined' && appState.currentStoreSlug) || 'sr12-central';
+  const key = `sr12_pos_transactions_v2_${curSlug}`;
+  const s = localStorage.getItem(key);
   if (s) {
     try {
       const parsed = JSON.parse(s);
@@ -69,8 +23,51 @@ function getStoredStockMutations() {
   return [];
 }
 
-function saveStoredStockMutations(list) {
-  localStorage.setItem('sr12_stock_mutations_v1', JSON.stringify(list));
+function saveStoredTransactions(list, slug) {
+  const curSlug = slug || (typeof appState !== 'undefined' && appState.currentStoreSlug) || 'sr12-central';
+  const key = `sr12_pos_transactions_v2_${curSlug}`;
+  localStorage.setItem(key, JSON.stringify(list || []));
+}
+
+function getStoredCashflow(slug) {
+  const curSlug = slug || (typeof appState !== 'undefined' && appState.currentStoreSlug) || 'sr12-central';
+  const key = `sr12_cashflow_records_v2_${curSlug}`;
+  const s = localStorage.getItem(key);
+  if (s) {
+    try {
+      const parsed = JSON.parse(s);
+      if (Array.isArray(parsed)) return parsed;
+    } catch (e) {}
+  }
+  return [];
+}
+
+function saveStoredCashflow(list, slug) {
+  const curSlug = slug || (typeof appState !== 'undefined' && appState.currentStoreSlug) || 'sr12-central';
+  const key = `sr12_cashflow_records_v2_${curSlug}`;
+  localStorage.setItem(key, JSON.stringify(list || []));
+}
+
+// ------------------------------------------
+// 1.5. KARTU RIWAYAT MUTASI STOK GUDANG OTOMATIS
+// ------------------------------------------
+function getStoredStockMutations(slug) {
+  const curSlug = slug || (typeof appState !== 'undefined' && appState.currentStoreSlug) || 'sr12-central';
+  const key = `sr12_stock_mutations_v2_${curSlug}`;
+  const s = localStorage.getItem(key);
+  if (s) {
+    try {
+      const parsed = JSON.parse(s);
+      if (Array.isArray(parsed)) return parsed;
+    } catch (e) {}
+  }
+  return [];
+}
+
+function saveStoredStockMutations(list, slug) {
+  const curSlug = slug || (typeof appState !== 'undefined' && appState.currentStoreSlug) || 'sr12-central';
+  const key = `sr12_stock_mutations_v2_${curSlug}`;
+  localStorage.setItem(key, JSON.stringify(list || []));
 }
 
 function recordStockMutation(entry) {
@@ -1163,9 +1160,15 @@ function renderOlseraPendingStores() {
   const mount = document.getElementById('olseraPendingStoresMount');
   if (!mount || typeof appState === 'undefined') return;
 
-  const currentDistSlug = (appState.storeSettings && appState.storeSettings.slug) || 'alzam-agency';
+  const curStore = appState.storeSettings || {};
+  const currentSlug = curStore.slug || appState.currentStoreSlug || 'sr12-central';
+  const isDistributor = curStore.partnerTier === 'distributor';
+  const activeSlugs = new Set((appState.partnerStores || []).map(s => s.slug));
+
   const apps = (appState.pendingStoreApps || []).filter(a => {
-    return a.recommenderSlug === currentDistSlug || a.recommenderDistributor?.toLowerCase().includes('alzam') || appState.isDevMasterLoggedIn;
+    if (!a || !a.id || activeSlugs.has(a.slug) || a.status === 'approved' || a.slug === currentSlug) return false;
+    if (appState.isDevMasterLoggedIn) return true;
+    return isDistributor && a.recommenderSlug === currentSlug;
   });
 
   if (apps.length === 0) {

@@ -348,7 +348,7 @@ function getInitialDemoPendingStoreApp() {
   };
 }
 
-const KNOWN_PURGED_PENDING_IDS = ['APP-565640', 'APP-586760', 'merdeka', 'merdeka-6760'];
+const KNOWN_PURGED_PENDING_IDS = ['APP-565640', 'APP-586760', 'merdeka', 'merdeka-6760', 'APP-029104', 'barokah-sr12'];
 
 function getDeletedPendingStoreIds() {
   try {
@@ -385,7 +385,7 @@ function addDeletedPendingStore(id, slug) {
   }
 }
 
-const INITIAL_DEMO_PENDING_STORE_APPS = [getInitialDemoPendingStoreApp()];
+const INITIAL_DEMO_PENDING_STORE_APPS = [];
 
 function getStoredPendingStores() {
   const stored = localStorage.getItem('sr12_pending_store_apps_v1');
@@ -1881,6 +1881,17 @@ function loadStoreBySlug(slug) {
   if (typeof renderMarketerPayroll === 'function') {
     renderMarketerPayroll();
   }
+
+  // ISOLASI KETAT TRANSAKSI, KAS & MUTASI STOK: Muat data spesifik toko ini
+  if (typeof getStoredTransactions === 'function') {
+    appState.transactions = getStoredTransactions(found.slug);
+  }
+  if (typeof getStoredCashflow === 'function') {
+    appState.cashflow = getStoredCashflow(found.slug);
+  }
+  if (typeof getStoredStockMutations === 'function') {
+    appState.stockMutations = getStoredStockMutations(found.slug);
+  }
   // Default standar tampilan harga untuk pembeli/katalog toko selalu Konsumen (HET)
   setTier('konsumen', true);
   const select = document.getElementById('activeStoreSelect');
@@ -3079,22 +3090,22 @@ function updateDistributorPendingBadges() {
   // Toko yang sudah aktif di partnerStores tidak boleh dihitung lagi
   const activeSlugs = new Set((appState.partnerStores || []).map(s => s.slug));
   const unapprovedApps = (appState.pendingStoreApps || []).filter(a => {
-    return !activeSlugs.has(a.slug) && a.status !== 'approved';
+    return a && a.id && !activeSlugs.has(a.slug) && a.status !== 'approved';
   });
 
-  // HANYA MUNCUL JIKA:
-  // 1. Toko yang sedang aktif dibuka adalah Toko DISTRIBUTOR (Bukan Toko Agen seperti Iyoutique!)
-  // 2. Calon agen memilih toko distributor ini sebagai pembina (recommenderSlug === currentSlug)
-  // 3. Hanya muncul jika sedang mode Admin / Distributor login / Developer
   const isAuthorized = appState.isAdminMode || appState.isDistributorLoggedIn || appState.isDevMasterLoggedIn;
 
-  const relevantApps = unapprovedApps.filter(a => {
-    if (!isDistributor && !appState.isDevMasterLoggedIn) return false;
-    return a.recommenderSlug === currentSlug || (currentSlug === 'alzam-agency' && (a.recommenderDistributor || '').toLowerCase().includes('alzam'));
-  });
+  // HANYA MUNCUL JIKA:
+  // 1. Toko yang sedang aktif dibuka adalah Toko DISTRIBUTOR (Bukan Toko Agen / Sub Agen)
+  // 2. Pemilik toko sedang login sah (isAuthorized)
+  // 3. Calon agen secara eksplisit memilih toko distributor ini sebagai pembina (a.recommenderSlug === currentSlug)
+  // 4. Toko pemohon BUKAN toko ini sendiri (a.slug !== currentSlug)
+  const relevantApps = (isDistributor && isAuthorized)
+    ? unapprovedApps.filter(a => a.slug !== currentSlug && a.recommenderSlug === currentSlug)
+    : [];
 
   if (alertBox) {
-    if (isAuthorized && isDistributor && relevantApps.length > 0) {
+    if (relevantApps.length > 0) {
       alertBox.style.display = 'block';
       if (alertCount) alertCount.textContent = relevantApps.length;
     } else {
@@ -3103,7 +3114,7 @@ function updateDistributorPendingBadges() {
   }
 
   if (olseraBadge) {
-    if (isAuthorized && isDistributor && relevantApps.length > 0) {
+    if (relevantApps.length > 0) {
       olseraBadge.style.display = 'inline-block';
       olseraBadge.textContent = `${relevantApps.length} Baru`;
     } else {
@@ -3124,12 +3135,13 @@ function openDistributorPendingStoresModal() {
 
   const activeSlugs = new Set((appState.partnerStores || []).map(s => s.slug));
   const unapprovedApps = (appState.pendingStoreApps || []).filter(a => {
-    return !activeSlugs.has(a.slug) && a.status !== 'approved';
+    return a && a.id && !activeSlugs.has(a.slug) && a.status !== 'approved';
   });
 
   const apps = unapprovedApps.filter(a => {
-    if (!isDistributor && !appState.isDevMasterLoggedIn) return false;
-    return a.recommenderSlug === currentSlug || (currentSlug === 'alzam-agency' && (a.recommenderDistributor || '').toLowerCase().includes('alzam'));
+    if (a.slug === currentSlug) return false;
+    if (appState.isDevMasterLoggedIn) return true;
+    return isDistributor && a.recommenderSlug === currentSlug;
   });
 
   if (apps.length === 0) {
@@ -3562,9 +3574,6 @@ function renderOfficialDistributorDirectory(filter = currentDirectoryFilter, sea
               </a>
               <button type="button" onclick="showSpecificStoreSk('${store.slug}')" class="btn-card-sub btn-card-sub-sk" title="Periksa Dokumen SK Resmi Distributor" aria-label="SK Resmi">
                 <span>📜</span>
-              </button>
-              <button type="button" onclick="switchPartnerStore('${store.slug}'); openStoreSettingsModal();" class="btn-card-sub btn-card-sub-settings" title="Pengaturan & Kustomisasi Toko Ini" aria-label="Atur Toko">
-                <span>⚙️</span>
               </button>
             </div>
           </div>
@@ -4319,7 +4328,12 @@ function updateViewModeUI() {
   if (btnDistOpenDrawer) btnDistOpenDrawer.style.display = 'none';
   if (btnEditCover) btnEditCover.style.display = (isLogged && !isCentral) ? 'inline-flex' : 'none';
   if (btnEditLogo) btnEditLogo.style.display = (isLogged && !isCentral) ? 'flex' : 'none';
-  if (distPendingAlert) distPendingAlert.style.display = (isLogged && !isCentral) ? 'block' : 'none';
+  // Evaluasi dinamis: alert pengajuan hanya muncul jika toko ini adalah distributor dan ada calon agen valid yang menunggu persetujuannya
+  if (typeof updateDistributorPendingBadges === 'function') {
+    updateDistributorPendingBadges();
+  } else if (distPendingAlert) {
+    distPendingAlert.style.display = 'none';
+  }
   
   // KEAMANAN STEALTH TINGGI ALA SHOPEE & LAZADA:
   // Tombol login distributor TIDAK PERNAH tampil di kartu hero etalase pembeli!
