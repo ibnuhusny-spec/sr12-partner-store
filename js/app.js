@@ -27,7 +27,7 @@ const DEFAULT_PARTNER_STORES = [
   }
 ];
 
-const LEGACY_DELETED_SLUGS = ['agung', 'adini', 'iyoutique', 'toko-supa-distributor'];
+const LEGACY_DELETED_SLUGS = ['toko-supa-distributor'];
 
 function getDeletedStoreSlugs() {
   try {
@@ -1355,13 +1355,13 @@ window.getStoreProductOverrides = getStoreProductOverrides;
 window.saveStoreProductOverride = saveStoreProductOverride;
 window.loadStoreProducts = loadStoreProducts;
 
-function getStoredProducts() {
-  const curSlug = (typeof appState !== 'undefined' && appState.storeSettings && appState.storeSettings.slug) || (typeof appState !== 'undefined' && appState.currentStoreSlug) || 'sr12-central';
+function getStoredProducts(targetSlug = null) {
   const masterList = (typeof DEFAULT_SR12_PRODUCTS !== 'undefined' && Array.isArray(DEFAULT_SR12_PRODUCTS))
     ? DEFAULT_SR12_PRODUCTS
     : [];
 
   const baseProducts = masterList.map(mp => Object.assign({}, mp));
+  const curSlug = targetSlug || 'sr12-central';
   const overrides = getStoreProductOverrides(curSlug);
 
   baseProducts.forEach(p => {
@@ -1659,8 +1659,8 @@ function getStoredRewards() {
 }
 
 function getStoredDevPin() {
-  if (typeof appState !== 'undefined' && appState.masterDevPin) {
-    return String(appState.masterDevPin).trim();
+  if (typeof window !== 'undefined' && window.appState && window.appState.masterDevPin) {
+    return String(window.appState.masterDevPin).trim();
   }
   return localStorage.getItem('sr12_master_dev_pin') || '8899'; // Default PIN Master Developer: 8899
 }
@@ -1778,7 +1778,7 @@ function saveStoredCart(cart) {
 }
 
 // Global Application State
-const appState = {
+var appState = {
   isAdminMode: false,
   isDistributorLoggedIn: false,
   isDevMasterLoggedIn: false,
@@ -1838,6 +1838,7 @@ const appState = {
   tempRegLogoBase64: null,
   tempHeroBannerBase64: null
 };
+window.appState = appState;
 
 function getProductTierPrice(product, tierId) {
   // Marketer bayar harga HET penuh di awal (komisi 15% diakumulasi dan dicairkan bulanan oleh Distributor)
@@ -6331,9 +6332,9 @@ function updateCartSummary() {
   if (platformFeeLine) {
     if (isFeeChargedToBuyer) {
       platformFeeLine.textContent = `+${formatRupiah(effectiveFee)}`;
-      platformFeeLine.parentElement.style.display = 'flex';
+      if (platformFeeLine.parentElement) platformFeeLine.parentElement.style.display = 'flex';
     } else {
-      platformFeeLine.parentElement.style.display = 'none'; // Ditanggung toko, tidak muncul ke pembeli
+      if (platformFeeLine.parentElement) platformFeeLine.parentElement.style.display = 'none'; // Ditanggung toko, tidak muncul ke pembeli
     }
   }
 
