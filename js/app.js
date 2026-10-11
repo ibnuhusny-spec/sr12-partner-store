@@ -4927,15 +4927,26 @@ function initEventListeners() {
 }
 
 // Open PIN Prompt for Developer Portal
-function openDevPinPrompt() {
+function openDevPinPrompt(callbackOnSuccess = null) {
   if (appState.isDevMasterLoggedIn) {
-    showDeveloperWorkspaceView(true);
+    if (typeof callbackOnSuccess === 'function') {
+      callbackOnSuccess();
+    } else {
+      showDeveloperWorkspaceView(true);
+    }
     return;
   }
+  const modal = document.getElementById('modalDevPin');
   const pinInput = document.getElementById('devPinInput');
   const pinError = document.getElementById('devPinError');
   if (pinInput) pinInput.value = '';
   if (pinError) pinError.style.display = 'none';
+
+  if (typeof callbackOnSuccess === 'function') {
+    window.devPinSuccessCallback = callbackOnSuccess;
+  } else {
+    window.devPinSuccessCallback = null;
+  }
 
   // Buka modal PIN pengembang secara langsung & stabil tanpa manipulasi history
   if (modal) {
@@ -5026,7 +5037,14 @@ function verifyDevPinSubmit(e) {
       const modalDevPin = document.getElementById('modalDevPin');
       if (modalDevPin) modalDevPin.classList.remove('open');
     }
-    showDeveloperWorkspaceView(true);
+
+    if (typeof window.devPinSuccessCallback === 'function') {
+      const cb = window.devPinSuccessCallback;
+      window.devPinSuccessCallback = null;
+      cb();
+    } else {
+      showDeveloperWorkspaceView(true);
+    }
     showToast('🔓 Akses Master Diterima! Membuka Console Developer.');
   } else {
     // Wrong PIN!

@@ -3,8 +3,8 @@
  * Konfigurasi resmi Supabase Cloud untuk database multi-tenant & image storage
  */
 
-const SUPABASE_URL = 'https://ogjlmzugeggnpavoiukv.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9namxtenVnZWdnbnBhdm9pdWt2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEwNTczNDQsImV4cCI6MjEwNjYzMzM0NH0.5_93l0rvmpQv2J1-sGwMMWT8DuYyGyZn3wJx7N-o5L8';
+const SUPABASE_URL = 'https://roezaobiexlmhxpuvfds.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJvZXphb2JpZXhsbWh4cHV2ZmRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NjM4MjAsImV4cCI6MjEwNzIzOTgyMH0.o-H8qNxBT4D88VTxcJNPTVr1xN7ajL-VE_jwtyggRNc';
 
 let supaClient = null;
 
