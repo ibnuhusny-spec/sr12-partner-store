@@ -765,10 +765,10 @@ async function syncProductsFromSupabase(storeSlug = 'global') {
   const client = initSupabaseClient();
   if (!client) return null;
   try {
-    const cleanStore = (storeSlug && storeSlug !== 'all') ? storeSlug : 'global';
+    const cleanStore = (storeSlug && storeSlug !== 'all') ? storeSlug : 'sr12-central';
     let query = client.from('products').select('*');
     if (cleanStore !== 'all') {
-      query = query.or(`store_slug.eq.${cleanStore},store_slug.eq.global`);
+      query = query.eq('store_slug', cleanStore);
     }
 
     const { data, error } = await query;
@@ -821,11 +821,11 @@ async function fetchSingleProductFromSupabase(productKey, storeSlug = 'global') 
   const client = initSupabaseClient();
   if (!client || !productKey) return null;
   try {
-    const cleanStore = (storeSlug && storeSlug !== 'all') ? storeSlug : 'global';
+    const cleanStore = (storeSlug && storeSlug !== 'all') ? storeSlug : 'sr12-central';
     const cleanKey = String(productKey).toLowerCase().replace(/[^a-z0-9]/g, '');
     let query = client.from('products').select('*');
     if (cleanStore !== 'all') {
-      query = query.or(`store_slug.eq.${cleanStore},store_slug.eq.global`);
+      query = query.eq('store_slug', cleanStore);
     }
 
     const { data, error } = await query;
@@ -899,6 +899,9 @@ async function updateStorePinInSupabase(slug, newPin) {
           slug: 'sr12-central',
           store_name: 'SR12-Ku Pro',
           store_tagline: 'SR12 Official Central Hub',
+          store_wa_number: '081234567890',
+          store_city: 'Jakarta Pusat',
+          store_owner: 'SR12 Central Developer',
           partner_tier: 'distributor',
           store_admin_pin: String(newPin).trim()
         }, { onConflict: 'slug' });

@@ -27,13 +27,16 @@ const DEFAULT_PARTNER_STORES = [
   }
 ];
 
+const LEGACY_DELETED_SLUGS = ['agung', 'adini', 'iyoutique', 'toko-supa-distributor'];
+
 function getDeletedStoreSlugs() {
   try {
     const raw = localStorage.getItem('sr12_deleted_store_slugs');
     const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
+    const list = Array.isArray(parsed) ? parsed : [];
+    return Array.from(new Set([...list, ...LEGACY_DELETED_SLUGS]));
   } catch(e) {
-    return [];
+    return [...LEGACY_DELETED_SLUGS];
   }
 }
 
@@ -479,21 +482,17 @@ async function syncStoresWithServer() {
           }
         }
 
-        // A. Periksa toko lokal: Jangan hapus toko valid yang baru disetujui/dibuat, melainkan unggah ke Supabase Cloud jika belum ada
+        // A. Periksa toko lokal: Supabase Cloud adalah single source of truth untuk daftar toko aktif
         const prevCount = (appState.partnerStores || []).length;
         appState.partnerStores = (appState.partnerStores || []).filter(localStore => {
           if (!localStore || !localStore.slug) return false;
           if (localStore.slug === 'sr12-central') return true;
           if (deletedSlugs.includes(localStore.slug)) return false;
+          if (LEGACY_DELETED_SLUGS.includes(localStore.slug)) return false;
           if (localStore.slug === 'toko-supa-distributor' || localStore.slug.startsWith('deleted_') || localStore.slug.includes('toko-supa')) return false;
 
-          // Jika toko lokal valid tapi belum tercatat di Cloud, otomatis cadangkan ke Supabase Cloud
-          if (!cloudSlugs.has(localStore.slug)) {
-            if (typeof saveStoreToSupabase === 'function') {
-              saveStoreToSupabase(localStore);
-            }
-          }
-          return true;
+          // Jika toko tidak ada di Supabase Cloud, hapus dari lokal (jangan re-upload toko yang sudah dihapus dari Cloud)
+          return cloudSlugs.has(localStore.slug);
         });
 
         if (appState.partnerStores.length !== prevCount) {
@@ -505,7 +504,7 @@ async function syncStoresWithServer() {
 
         // B. Update atau tambahkan toko yang ada di Cloud ke memori lokal
         supaStores.forEach(apiStore => {
-          if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central' || apiStore.slug === 'toko-supa-distributor' || apiStore.slug.startsWith('deleted_') || apiStore.slug.includes('toko-supa') || deletedSlugs.includes(apiStore.slug)) return;
+          if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central' || apiStore.slug === 'toko-supa-distributor' || apiStore.slug.startsWith('deleted_') || apiStore.slug.includes('toko-supa') || deletedSlugs.includes(apiStore.slug) || LEGACY_DELETED_SLUGS.includes(apiStore.slug)) return;
           const idx = appState.partnerStores.findIndex(s => s.slug === apiStore.slug);
           if (idx >= 0) {
             appState.partnerStores[idx] = Object.assign({}, appState.partnerStores[idx], apiStore);
@@ -1038,11 +1037,15 @@ async function syncProductsWithIndexedDB() {
     const idbProducts = await dbGetAllProducts();
     let hasChanges = false;
 
+    const activeSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+
     if (idbProducts && idbProducts.length > 0) {
       if (typeof appState !== 'undefined' && Array.isArray(appState.products)) {
         idbProducts.forEach(idbP => {
           if (!idbP) return;
-          const target = findBestProductMatch(appState.products, idbP.id || idbP.name);
+          // Hanya terapkan jika produk ini milik toko aktif
+          if (idbP.store_slug && idbP.store_slug !== activeSlug) return;
+          const target = findBestProductMatch(appState.products, idbP.originalId || idbP.id || idbP.name);
           if (target) {
             if (idbP.image && !idbP.image.startsWith('data:image/svg+xml')) {
               target.image = idbP.image;
@@ -1052,9 +1055,7 @@ async function syncProductsWithIndexedDB() {
             if (idbP.het) { target.het = idbP.het; target.price = idbP.het; }
             if (idbP.stock !== undefined) target.stock = idbP.stock;
             if (idbP.summary) target.summary = idbP.summary;
-            hasChanges = true;
-          } else {
-            appState.products.push(idbP);
+            saveStoreProductOverride(activeSlug, target);
             hasChanges = true;
           }
         });
@@ -1064,16 +1065,12 @@ async function syncProductsWithIndexedDB() {
           if (typeof renderInventoryTable === 'function') renderInventoryTable();
           if (typeof renderPosProducts === 'function') renderPosProducts();
           if (typeof updateCartUI === 'function') updateCartUI();
-          saveStoredProducts(appState.products, false);
         }
       }
-    } else if (typeof appState !== 'undefined' && Array.isArray(appState.products) && appState.products.length > 0) {
-      dbSaveAllProducts(appState.products);
     }
 
     // 2. Sinkronkan dengan Supabase Cloud (memulihkan katalog & foto meskipun browser di-clear history)
     if (typeof syncProductsFromSupabase === 'function') {
-      const activeSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
       const cloudProducts = await syncProductsFromSupabase(activeSlug);
       if (Array.isArray(cloudProducts) && cloudProducts.length > 0) {
         let hasCloudUpdates = false;
@@ -1090,15 +1087,12 @@ async function syncProductsWithIndexedDB() {
             if (cp.het) { target.het = cp.het; target.price = cp.het; }
             if (cp.stock !== undefined) target.stock = cp.stock;
             if (cp.summary) target.summary = cp.summary;
-            hasCloudUpdates = true;
-          } else {
-            appState.products.push(cp);
+            saveStoreProductOverride(activeSlug, target);
             hasCloudUpdates = true;
           }
         });
 
         if (hasCloudUpdates) {
-          saveStoredProducts(appState.products, true);
           if (typeof renderProducts === 'function') renderProducts();
           if (typeof renderInventoryTable === 'function') renderInventoryTable();
           if (typeof renderPosProducts === 'function') renderPosProducts();
@@ -1199,68 +1193,188 @@ async function syncMitraWithIndexedDB() {
 window.syncMitraWithIndexedDB = syncMitraWithIndexedDB;
 
 
-function getStoredProducts() {
-  const stored = localStorage.getItem('sr12_all_products_v5_full');
-  let list = [];
-  if (stored) {
-    try {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        list = parsed;
-      }
-    } catch (e) {
-      console.error(e);
+// ========================================================
+// SISTEM MULTI-TENANT ISOLASI PRODUK & FOTO RESMI PER DISTRIBUTOR
+// Memungkinkan setiap toko mitra mengunggah / memilih foto produk terbaiknya
+// tanpa mempengaruhi foto di toko mitra distributor lain.
+// ========================================================
+function getStoreProductOverrides(storeSlug) {
+  if (!storeSlug) storeSlug = 'sr12-central';
+  try {
+    const raw = localStorage.getItem(`sr12_store_product_overrides_${storeSlug}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') return parsed;
     }
+  } catch(e) {}
+  return {};
+}
+
+function saveStoreProductOverride(storeSlug, prod) {
+  if (!storeSlug || !prod || !prod.id) return;
+  try {
+    const overrides = getStoreProductOverrides(storeSlug);
+    overrides[prod.id] = {
+      image: prod.image,
+      name: prod.name,
+      category: prod.category,
+      het: Number(prod.het || prod.price) || 0,
+      price: Number(prod.het || prod.price) || 0,
+      stock: (typeof prod.stock !== 'undefined') ? Number(prod.stock) : 50,
+      summary: prod.summary || '',
+      customEdited: true
+    };
+    localStorage.setItem(`sr12_store_product_overrides_${storeSlug}`, JSON.stringify(overrides));
+  } catch(e) {
+    console.warn('Gagal simpan override produk lokal:', e);
+  }
+}
+
+async function loadStoreProducts(storeSlug) {
+  if (!storeSlug) {
+    storeSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
   }
 
-  // Jika cache belum ada atau belum lengkap (kurang dari jumlah master produk SR12),
-  // inisialisasi / migrasikan dengan 171 Master Produk Resmi SR12 harga terbaru
   const masterList = (typeof DEFAULT_SR12_PRODUCTS !== 'undefined' && Array.isArray(DEFAULT_SR12_PRODUCTS))
     ? DEFAULT_SR12_PRODUCTS
     : [];
 
-  if (list.length < masterList.length) {
-    // Pertahankan produk kustom tambahan toko jika sebelumnya pernah menambah produk
-    const oldStored = localStorage.getItem('sr12_all_products_v4');
-    const customUserProducts = [];
-    if (oldStored) {
-      try {
-        const oldParsed = JSON.parse(oldStored);
+  // 1. Clone produk dasar dari master catalog (murni, bersih dari edit toko lain)
+  const baseProducts = masterList.map(mp => Object.assign({}, mp));
+
+  // 2. Terapkan override lokal khusus untuk toko ini
+  const overrides = getStoreProductOverrides(storeSlug);
+
+  // Jika ini toko alzam-agency dan belum ada overrides khusus, migrasikan edit lama jika ada di cache
+  if (storeSlug === 'alzam-agency' && Object.keys(overrides).length === 0) {
+    try {
+      const oldRaw = localStorage.getItem('sr12_all_products_v5_full');
+      if (oldRaw) {
+        const oldParsed = JSON.parse(oldRaw);
         if (Array.isArray(oldParsed)) {
           oldParsed.forEach(p => {
-            if (p.isCustomAdded || !masterList.some(mp => mp.id === p.id)) {
-              customUserProducts.push(p);
+            if (p.customEdited || (p.image && !p.image.startsWith('data:image/svg+xml') && p.image !== 'assets/hero-banner.jpg')) {
+              overrides[p.id] = {
+                image: p.image,
+                name: p.name,
+                category: p.category,
+                het: p.het || p.price,
+                price: p.het || p.price,
+                stock: p.stock,
+                summary: p.summary,
+                customEdited: true
+              };
             }
           });
-        }
-      } catch(e) {}
-    }
-
-    // Pertahankan custom edits & foto produk yang sudah diubah user agar tidak tertimpa dummy SVG
-    const existingEdits = list.filter(p => p.customEdited || (p.image && !p.image.startsWith('data:image/svg+xml')));
-
-    const merged = masterList.map(mp => {
-      if (existingEdits.length > 0) {
-        const match = existingEdits.find(e => {
-          if (e.id === mp.id) return true;
-          if (typeof normalizeProductKey === 'function') {
-            return normalizeProductKey(e.id) === normalizeProductKey(mp.id);
-          }
-          return false;
-        });
-        if (match) {
-          return { ...mp, ...match, id: mp.id };
+          localStorage.setItem(`sr12_store_product_overrides_alzam-agency`, JSON.stringify(overrides));
         }
       }
-      return mp;
-    });
-
-    list = [...merged, ...customUserProducts];
-    saveStoredProducts(list, false);
+    } catch(e) {}
   }
 
-  // Sinkronisasi otomatis field het, price, dan default stock
-  list.forEach(p => {
+  // Gabungkan override ke produk dasar
+  baseProducts.forEach(p => {
+    const o = overrides[p.id];
+    if (o) {
+      if (o.image) p.image = o.image;
+      if (o.name) p.name = o.name;
+      if (o.category) p.category = o.category;
+      if (o.het !== undefined) { p.het = o.het; p.price = o.het; }
+      if (o.stock !== undefined) p.stock = o.stock;
+      if (o.summary) p.summary = o.summary;
+      p.customEdited = true;
+    }
+    const val = Number(p.het || p.price || p.het_price) || 0;
+    p.het = val;
+    p.price = val;
+    if (typeof p.stock === 'undefined') p.stock = 50;
+  });
+
+  // Periksa apakah ada produk kustom tambahan toko ini
+  if (overrides._customProducts && Array.isArray(overrides._customProducts)) {
+    baseProducts.push(...overrides._customProducts);
+  }
+
+  appState.products = baseProducts;
+
+  // Render UI katalog, inventory, dan POS
+  if (typeof renderProducts === 'function') renderProducts();
+  if (typeof renderInventoryTable === 'function') renderInventoryTable();
+  if (typeof renderPosProducts === 'function') renderPosProducts();
+  if (typeof updateCartUI === 'function') updateCartUI();
+
+  // 3. Sinkronkan dengan Supabase Cloud eksklusif untuk toko ini
+  if (typeof syncProductsFromSupabase === 'function') {
+    try {
+      const supaProds = await syncProductsFromSupabase(storeSlug);
+      if (Array.isArray(supaProds) && supaProds.length > 0) {
+        let changed = false;
+        supaProds.forEach(sp => {
+          if (!sp) return;
+          const target = findBestProductMatch(appState.products, sp.id || sp.name);
+          if (target) {
+            if (sp.image && !sp.image.startsWith('data:image/svg+xml')) {
+              target.image = sp.image;
+              target.customEdited = true;
+            }
+            if (sp.name) target.name = sp.name;
+            if (sp.het) { target.het = sp.het; target.price = sp.het; }
+            if (sp.stock !== undefined) target.stock = sp.stock;
+            if (sp.summary) target.summary = sp.summary;
+            saveStoreProductOverride(storeSlug, target);
+            changed = true;
+          }
+        });
+
+        if (changed) {
+          if (typeof renderProducts === 'function') renderProducts();
+          if (typeof renderInventoryTable === 'function') renderInventoryTable();
+          if (typeof renderPosProducts === 'function') renderPosProducts();
+          if (typeof updateCartUI === 'function') updateCartUI();
+
+          const modalDetail = document.getElementById('modalProductDetail');
+          if (modalDetail && modalDetail.classList.contains('open') && appState.activeDetailProductId) {
+            const activeP = findBestProductMatch(appState.products, appState.activeDetailProductId);
+            if (activeP) {
+              const modalImg = document.getElementById('modalProdImage');
+              if (modalImg && activeP.image) modalImg.src = activeP.image;
+              const modalTitle = document.getElementById('modalProdTitle');
+              if (modalTitle && activeP.name) modalTitle.textContent = activeP.name;
+            }
+          }
+        }
+      }
+    } catch(err) {
+      console.warn('Sync cloud products per store error:', err);
+    }
+  }
+
+  return appState.products;
+}
+window.getStoreProductOverrides = getStoreProductOverrides;
+window.saveStoreProductOverride = saveStoreProductOverride;
+window.loadStoreProducts = loadStoreProducts;
+
+function getStoredProducts() {
+  const curSlug = (typeof appState !== 'undefined' && appState.storeSettings && appState.storeSettings.slug) || (typeof appState !== 'undefined' && appState.currentStoreSlug) || 'sr12-central';
+  const masterList = (typeof DEFAULT_SR12_PRODUCTS !== 'undefined' && Array.isArray(DEFAULT_SR12_PRODUCTS))
+    ? DEFAULT_SR12_PRODUCTS
+    : [];
+
+  const baseProducts = masterList.map(mp => Object.assign({}, mp));
+  const overrides = getStoreProductOverrides(curSlug);
+
+  baseProducts.forEach(p => {
+    const o = overrides[p.id];
+    if (o) {
+      if (o.image) p.image = o.image;
+      if (o.name) p.name = o.name;
+      if (o.category) p.category = o.category;
+      if (o.het !== undefined) { p.het = o.het; p.price = o.het; }
+      if (o.stock !== undefined) p.stock = o.stock;
+      if (o.summary) p.summary = o.summary;
+      p.customEdited = true;
+    }
     const val = Number(p.het || p.price || p.het_price) || 0;
     p.het = val;
     p.price = val;
@@ -1272,7 +1386,7 @@ function getStoredProducts() {
     syncProductsWithIndexedDB();
   }, 100);
 
-  return list;
+  return baseProducts;
 }
 
 /**
@@ -1545,6 +1659,9 @@ function getStoredRewards() {
 }
 
 function getStoredDevPin() {
+  if (typeof appState !== 'undefined' && appState.masterDevPin) {
+    return String(appState.masterDevPin).trim();
+  }
   return localStorage.getItem('sr12_master_dev_pin') || '8899'; // Default PIN Master Developer: 8899
 }
 
@@ -2004,6 +2121,10 @@ function loadStoreBySlug(slug) {
     updateAllowedTierOptions();
   }
   renderStoreBranding();
+  // ISOLASI KETAT PRODUK & FOTO: Muat katalog terisolasi khusus untuk toko ini
+  if (typeof loadStoreProducts === 'function') {
+    loadStoreProducts(found.slug);
+  }
   // ISOLASI KETAT MITRA: Filter daftar mitra aktif eksklusif untuk toko ini
   if (Array.isArray(appState.mitraList)) {
     appState.resellers = appState.mitraList.filter(m => (m.store_slug || 'sr12-central') === found.slug);
@@ -3900,8 +4021,10 @@ function renderStoreBranding() {
     // MODE 1: SR12-KU PRO (SR12 OFFICIAL CENTRAL HUB)
     // ==========================================
     // Official Central Hub MURNI Direktori Toko & Kemitraan se-Indonesia (TIDAK BERISI PRODUK RITEL / KERANJANG)
-    if (centralHero) centralHero.style.display = 'block';
-    if (directorySection) directorySection.style.display = 'block';
+    const isDevActive = document.body.classList.contains('dev-mode-active') || (typeof appState !== 'undefined' && appState.isDevMasterLoggedIn && document.getElementById('devSuperAdminWorkspace')?.style.display !== 'none');
+    const isOlseraActive = document.body.classList.contains('olsera-portal-active');
+    if (centralHero) centralHero.style.display = (isDevActive || isOlseraActive) ? 'none' : 'block';
+    if (directorySection) directorySection.style.display = (isDevActive || isOlseraActive) ? 'none' : 'block';
     if (distHero) distHero.style.display = 'none';
     if (genericHero) genericHero.style.display = 'none';
     if (commerceWrapper) commerceWrapper.style.display = 'none';
@@ -5299,8 +5422,14 @@ function showDeveloperWorkspaceView(showWorkspace) {
       document.documentElement.style.touchAction = 'auto';
     }
 
-    // 2. Sembunyikan Storefront & Distributor Olsera
+    // 2. Sembunyikan Storefront, Footer Publik & Distributor Olsera
     if (storefront) storefront.style.display = 'none';
+    const siteFooter = document.getElementById('siteStorefrontFooter');
+    if (siteFooter) siteFooter.style.display = 'none';
+    const centralHero = document.getElementById('officialCentralHubHero');
+    if (centralHero) centralHero.style.display = 'none';
+    const directorySection = document.getElementById('officialDistributorDirectorySection');
+    if (directorySection) directorySection.style.display = 'none';
     if (platformTopbar) platformTopbar.style.display = 'none';
     if (siteHeader) siteHeader.style.display = 'none';
     if (tierBanner) tierBanner.style.display = 'none';
@@ -5340,6 +5469,8 @@ function showDeveloperWorkspaceView(showWorkspace) {
     if (distStrip) distStrip.style.display = 'none';
 
     if (storefront) storefront.style.display = 'block';
+    const siteFooter = document.getElementById('siteStorefrontFooter');
+    if (siteFooter) siteFooter.style.display = '';
     if (platformTopbar) platformTopbar.style.display = 'none';
     if (siteHeader) siteHeader.style.display = 'block';
     if (tierBanner) tierBanner.style.display = 'block';
@@ -7320,22 +7451,24 @@ async function handleEditProductSubmit(e) {
     prod.image = finalImage;
     prod.customEdited = true;
 
-    // Simpan langsung ke IndexedDB (Permanen, kapasitas ratusan MB)
-    if (typeof dbSaveProduct === 'function') {
-      await dbSaveProduct(prod);
-    }
+    const activeStoreSlug = appState.currentStoreSlug || (appState.storeSettings && appState.storeSettings.slug) || 'alzam-agency';
 
-    // Simpan ke LocalStorage sebagai fast-cache
-    saveStoredProducts(appState.products);
+    // 1. Simpan override terisolasi khusus untuk toko ini (LocalStorage terisolasi)
+    saveStoreProductOverride(activeStoreSlug, prod);
+
+    // 2. Simpan ke IndexedDB dengan key unik per toko
+    if (typeof dbSaveProduct === 'function') {
+      await dbSaveProduct({ ...prod, id: `${activeStoreSlug}___${prod.id}`, originalId: prod.id, store_slug: activeStoreSlug });
+    }
 
     renderProducts();
     updateCartUI();
     if (typeof renderInventoryTable === 'function') renderInventoryTable();
     if (typeof renderPosProducts === 'function') renderPosProducts();
 
-    // Simpan juga ke Supabase Cloud agar aman dari clear history browser
+    // 3. Simpan juga ke Supabase Cloud dengan store_slug spesifik toko ini
     if (typeof saveProductToSupabase === 'function') {
-      saveProductToSupabase(prod, appState.storeSettings?.slug);
+      saveProductToSupabase(prod, activeStoreSlug);
     }
 
     closeModal('modalEditProduct');
@@ -7992,11 +8125,15 @@ function handleAddProductSubmit(e) {
     howToUse: 'Gunakan sesuai petunjuk pada kemasan produk.'
   };
 
+  const activeSlug = appState.currentStoreSlug || (appState.storeSettings && appState.storeSettings.slug) || 'alzam-agency';
   appState.products.unshift(newProduct);
+  saveStoreProductOverride(activeSlug, newProduct);
   if (typeof dbSaveProduct === 'function') {
-    dbSaveProduct(newProduct);
+    dbSaveProduct({ ...newProduct, id: `${activeSlug}___${newProduct.id}`, originalId: newProduct.id, store_slug: activeSlug });
   }
-  saveStoredProducts(appState.products);
+  if (typeof saveProductToSupabase === 'function') {
+    saveProductToSupabase(newProduct, activeSlug);
+  }
 
   renderProducts();
   if (typeof renderInventoryTable === 'function') renderInventoryTable();

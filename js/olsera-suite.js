@@ -402,6 +402,7 @@ function updateOlseraHeaderMeta() {
 // 2.1 OLSERA MOBILE & DESKTOP DRAWER CONTROLS (SESUAI PERSIS SCREENSHOT USER)
 // ==========================================
 function openOlseraSidebarDrawer() {
+  const isMobile = window.innerWidth <= 992;
   const sidebar = document.getElementById('olseraSidebar') || document.querySelector('.olsera-sidebar');
   const backdrop = document.getElementById('olseraDrawerBackdrop');
   if (sidebar) {
@@ -409,13 +410,24 @@ function openOlseraSidebarDrawer() {
     sidebar.style.transition = '';
     sidebar.classList.add('open');
   }
-  if (backdrop) {
-    backdrop.style.opacity = '';
-    backdrop.classList.add('open');
+  if (isMobile) {
+    if (backdrop) {
+      backdrop.style.opacity = '';
+      backdrop.classList.add('open');
+    }
+    document.documentElement.classList.add('olsera-drawer-open');
+    document.body.classList.add('olsera-drawer-open');
+    document.body.style.overflow = 'hidden';
+  } else {
+    // Di Laptop & Desktop: Jangan pernah tampilkan backdrop blur dan jangan kunci scroll
+    if (backdrop) {
+      backdrop.classList.remove('open');
+      backdrop.style.display = 'none';
+    }
+    document.documentElement.classList.remove('olsera-drawer-open');
+    document.body.classList.remove('olsera-drawer-open');
+    document.body.style.overflow = '';
   }
-  document.documentElement.classList.add('olsera-drawer-open');
-  document.body.classList.add('olsera-drawer-open');
-  document.body.style.overflow = 'hidden';
   if (typeof updateAdminNotificationUI === 'function') {
     updateAdminNotificationUI();
   }
