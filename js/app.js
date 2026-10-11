@@ -1086,7 +1086,7 @@ window.syncMitraWithIndexedDB = syncMitraWithIndexedDB;
 
 
 function getStoredProducts() {
-  const stored = localStorage.getItem('sr12_all_products_v4');
+  const stored = localStorage.getItem('sr12_all_products_v5_full');
   let list = [];
   if (stored) {
     try {
@@ -1098,8 +1098,32 @@ function getStoredProducts() {
       console.error(e);
     }
   }
-  if (list.length === 0 && typeof DEFAULT_SR12_PRODUCTS !== 'undefined') {
-    list = [...DEFAULT_SR12_PRODUCTS];
+
+  // Jika cache belum ada atau belum lengkap (kurang dari jumlah master produk SR12),
+  // inisialisasi / migrasikan dengan 171 Master Produk Resmi SR12 harga terbaru
+  const masterList = (typeof DEFAULT_SR12_PRODUCTS !== 'undefined' && Array.isArray(DEFAULT_SR12_PRODUCTS))
+    ? DEFAULT_SR12_PRODUCTS
+    : [];
+
+  if (list.length < masterList.length) {
+    // Pertahankan produk kustom tambahan toko jika sebelumnya pernah menambah produk
+    const oldStored = localStorage.getItem('sr12_all_products_v4');
+    const customUserProducts = [];
+    if (oldStored) {
+      try {
+        const oldParsed = JSON.parse(oldStored);
+        if (Array.isArray(oldParsed)) {
+          oldParsed.forEach(p => {
+            if (p.isCustomAdded || !masterList.some(mp => mp.id === p.id)) {
+              customUserProducts.push(p);
+            }
+          });
+        }
+      } catch(e) {}
+    }
+
+    list = [...masterList, ...customUserProducts];
+    saveStoredProducts(list, false);
   }
 
   // Sinkronisasi otomatis field het, price, dan default stock
@@ -1184,7 +1208,7 @@ function saveStoredProducts(productsList, syncToIdb = true) {
 
   // 2. Simpan ke LocalStorage sebagai fast-boot cache
   try {
-    localStorage.setItem('sr12_all_products_v4', JSON.stringify(productsList));
+    localStorage.setItem('sr12_all_products_v5_full', JSON.stringify(productsList));
   } catch (err) {
     console.warn('LocalStorage quota penuh saat menyimpan produk, menggunakan cache aman (IndexedDB tetap menyimpan gambar asli)...', err);
     try {
@@ -1195,7 +1219,7 @@ function saveStoredProducts(productsList, syncToIdb = true) {
         }
         return p;
       });
-      localStorage.setItem('sr12_all_products_v4', JSON.stringify(leanProducts));
+      localStorage.setItem('sr12_all_products_v5_full', JSON.stringify(leanProducts));
     } catch (e2) {
       console.warn('LocalStorage penuh, foto produk tetap aman di IndexedDB.');
     }
@@ -5687,7 +5711,24 @@ function renderProducts() {
   const counterEl = document.getElementById('catalogCountDisplay');
   if (!container) return;
 
-  const filtered = appState.products.filter(prod => {
+  // PERMINTAAN USER: PRODUK TIDAK BOLEH TAMPIL DI HALAMAN OFFICIAL HUB (sr12-central)
+  const isCentralHub = (appState.currentStoreSlug === 'sr12-central' || (appState.storeSettings && appState.storeSettings.slug === 'sr12-central'));
+  if (isCentralHub) {
+    container.innerHTML = '';
+    const commerceWrapper = document.getElementById('distributorCommerceWrapper');
+    if (commerceWrapper) commerceWrapper.style.display = 'none';
+    const catSec = document.getElementById('catalogSection');
+    if (catSec) catSec.style.display = 'none';
+    return;
+  }
+
+  // ROTASI PRODUK HARIAN: Urutan produk terotasi secara dinamis & deterministik setiap harinya
+  // sehingga posisi produk tidak monoton bagi pembeli yang sering berkunjung
+  const baseProducts = (typeof getDailyRotatedProducts === 'function')
+    ? getDailyRotatedProducts(appState.products || [])
+    : (appState.products || []);
+
+  const filtered = baseProducts.filter(prod => {
     const matchCat = appState.selectedCategory === 'all' || prod.category.toLowerCase().includes(appState.selectedCategory.toLowerCase());
     const matchSearch = prod.name.toLowerCase().includes(appState.searchQuery) ||
                         prod.sku.toLowerCase().includes(appState.searchQuery) ||
