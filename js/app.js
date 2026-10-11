@@ -2096,13 +2096,17 @@ window.handleRegStoreTierChange = handleRegStoreTierChange;
 
 function openRegisterStoreModal() {
   const modal = document.getElementById('modalRegisterStore');
-  appState.tempRegLogoBase64 = null;
-  appState.tempRegSkBase64 = null;
-  appState.tempRegSkDocName = null;
-  appState.tempRegKtpBase64 = null;
-  appState.tempRegKtpDocName = null;
-  appState.tempRegSelfieBase64 = null;
-  appState.tempRegSelfieDocName = null;
+  if (typeof appState !== 'undefined' && appState) {
+    appState.tempRegLogoBase64 = null;
+    appState.tempRegSkBase64 = null;
+    appState.tempRegSkDocName = null;
+    appState.tempRegKtpBase64 = null;
+    appState.tempRegKtpDocName = null;
+    appState.tempRegSelfieBase64 = null;
+    appState.tempRegSelfieDocName = null;
+    appState.tempRegRecBase64 = null;
+    appState.tempRegRecDocName = null;
+  }
 
   const logoPreviewBox = document.getElementById('regLogoPreviewBox');
   if (logoPreviewBox) logoPreviewBox.style.display = 'none';
@@ -2156,8 +2160,6 @@ function openRegisterStoreModal() {
   if (notesInput) notesInput.value = '';
 
   // Recommendation fields reset
-  appState.tempRegRecBase64 = null;
-  appState.tempRegRecDocName = null;
   const recFileInput = document.getElementById('regRecommendationFileInput');
   if (recFileInput) recFileInput.value = '';
   const recCodeInput = document.getElementById('regRecommendationCode');
@@ -2172,11 +2174,25 @@ function openRegisterStoreModal() {
   const tierSelect = document.getElementById('regStoreTier');
   if (tierSelect) {
     tierSelect.value = 'distributor';
-    handleRegStoreTierChange('distributor');
+    if (typeof handleRegStoreTierChange === 'function') {
+      handleRegStoreTierChange('distributor');
+    }
   }
 
-  if (modal) modal.classList.add('open');
+  if (typeof openModal === 'function') {
+    openModal('modalRegisterStore');
+  } else if (modal) {
+    document.body.classList.add('modal-open');
+    modal.classList.add('open');
+  }
+
+  setTimeout(() => {
+    const nameInput = document.getElementById('regStoreName');
+    if (nameInput && typeof nameInput.focus === 'function') nameInput.focus();
+  }, 120);
 }
+window.openRegisterStoreModal = openRegisterStoreModal;
+
 
 let isSubmittingStoreApp = false;
 

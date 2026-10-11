@@ -3194,11 +3194,130 @@ function getDailyRotatedProducts(products) {
   return list;
 }
 
+// Whitelist Validasi SR12
+const SR12_OFFICIAL_WHITELIST = {
+  brandName: 'SR12 Herbal Skin Care',
+  allowedPrefixes: ['SR12-', 'SR-'],
+  validBPOMPrefixes: ['NA18', 'TR18', 'TR16', 'TR17', 'TR19', 'NA19', 'NA20', 'NA21', 'NA22', 'NA23', 'NA24', 'NA25', 'MD80'],
+  knownSKUs: [
+    'SR12-DEO-60', 'SR12-DEO-PREM', 'SR12-LIP-01', 'SR12-MJK-01', 'SR12-SLM-01',
+    'SR12-BLS-SOAP', 'SR12-BLS-OIL', 'SR12-VCO-100', 'SR12-VCO-250', 'SR12-SUN-30',
+    'SR12-COF-MASK', 'SR12-KRASNY-DAY', 'SR12-KRASNY-NIGHT', 'SR12-GOMILK-ORI',
+    'SR12-SHAMPOO-APPLE', 'SR12-TONER-CHAMOMILE', 'SR12-ACNE-TOTOL', 'SR12-SERUM-GOLD',
+    'SR12-RICE-SOAP'
+  ]
+};
+
+// Database Reward (Program Resmi Nasional vs Promo Khusus Toko)
+const DEFAULT_SR12_REWARDS = [
+  {
+    id: 'rew-resmi-1',
+    scope: 'resmi',
+    title: 'Logam Mulia Emas Antam 0.5 Gram (Resmi)',
+    requiredPoints: 500,
+    category: 'Emas Murni',
+    description: 'Program reward resmi PT. SR12 Herbal Perkasa untuk akumulasi poin repeat order mitra.',
+    badge: 'Program Resmi SR12 Pusat'
+  },
+  {
+    id: 'rew-resmi-2',
+    scope: 'resmi',
+    title: 'Logam Mulia Emas Antam 2.0 Gram (Resmi)',
+    requiredPoints: 1800,
+    category: 'Emas Murni',
+    description: 'Reward tahunan resmi untuk pencapaian omzet kemitraan Agen & Distributor.',
+    badge: 'Program Resmi SR12 Pusat'
+  },
+  {
+    id: 'rew-resmi-3',
+    scope: 'resmi',
+    title: 'Paket Ibadah Umrah SR12 Eksekutif 9 Hari',
+    requiredPoints: 25000,
+    category: 'Grand Prize',
+    description: 'Grand Prize Tahunan dari Manajemen Pusat SR12 untuk mitra berprestasi.',
+    badge: 'Grand Prize Nasional'
+  },
+  {
+    id: 'rew-toko-1',
+    scope: 'toko',
+    title: 'Bonus 2 Pcs Lip Care (Promo Gajian Toko)',
+    requiredPoints: 50,
+    category: 'Promo Toko',
+    description: 'Khusus pembelanjaan minggu ini: bonus langsung 2 pcs Lip Care dari Distributor toko ini.',
+    badge: 'Promo Khusus Toko Kami'
+  },
+  {
+    id: 'rew-toko-2',
+    scope: 'toko',
+    title: 'Cashback Belanja Rp 150.000',
+    requiredPoints: 150,
+    category: 'Cashback Toko',
+    description: 'Insentif saldo pembelanjaan tambahan khusus tim reseller internal kami.',
+    badge: 'Insentif Internal'
+  }
+];
+
+// Marketing Kit & Bahan Promosi Siap Share
+const DEFAULT_MARKETING_KITS = [
+  {
+    id: 'mk-1',
+    productName: 'SR12 Deodorant Spray Herbal',
+    headline: 'Bebas Bau Badan 24 Jam Nonstop!',
+    caption: `Bau badan bikin minder pas kumpul sama teman atau keluarga? 🥺\n\nNih rahasia ketiak tetap wangi segar seharian tanpa noda kuning di baju: SR12 Deodorant Spray Herbal! 🍃\n\n✨ 100% bahan alami tawas pilihan\n✨ Mencegah bau badan 24 jam nonstop\n✨ Bantu mencerahkan ketiak\n✨ Sudah BPOM & Halal MUI!\n\nHarga cuma Rp 40.000 tapi awet dipakai 2-3 bulan! Mau order sekarang sebelum kehabisan? Langsung WA ya: [No HP Kamu] 📲`,
+    tags: ['#SR12Deodorant', '#SR12HerbalSkinCare', '#BebasBauBadan', '#HalalBPOM']
+  },
+  {
+    id: 'mk-2',
+    productName: 'SR12 GoMilku Susu Kambing Etawa',
+    headline: 'Asam Lambung & Maag Sembuh Alami',
+    caption: `Sering kembung, begah, atau perih ulu hati karena asam lambung naik? 🥛\n\nIkhtiar sehat yuk dengan SR12 GoMilku! Susu kambing etawa premium yang diformulasikan khusus dengan Daun Kelor, Ikan Gabus, dan Madu murni.\n\n🌿 Menetralisir asam lambung & maag\n🌿 Memperkuat sendi dan tulang\n🌿 Rasanya gurih enak, sama sekali TIDAK AMIS/PRENGUS!\n🌿 Cocok untuk anak-anak hingga lansia\n\nYuk sediakan GoMilku untuk kesehatan keluarga tercinta. Chat admin sekarang yuk! 💕`,
+    tags: ['#GoMilkuSR12', '#SusuKambingEtawa', '#SolusiMaag', '#HerbalKeluarga']
+  },
+  {
+    id: 'mk-3',
+    productName: 'SR12 Manjakani & Herbal Rahasia Wanita',
+    headline: 'Solusi Tuntas Keputihan & Masalah Kewanitaan',
+    caption: `Bunda sering merasa risih dengan masalah keputihan atau haid yang tidak teratur? 🌸\n\nAlhamdulillah ribuan wanita sudah membuktikan khasiat legendaris Manjakani SR12! Diproses secara higienis dari buah manjakani Persia kualitas nomor satu.\n\n✅ Tuntaskan keputihan & bau tidak sedap\n✅ Merapatkan organ kewanitaan\n✅ Terdaftar resmi BPOM TR183311871\n\nKonsultasi gratis & pemesanan langsung chat ke WhatsApp ya sist! 💌`,
+    tags: ['#ManjakaniSR12', '#HerbalKewanitaan', '#SR12Herbal', '#RahasiaWanita']
+  },
+  {
+    id: 'mk-4',
+    productName: 'Paket Diet Sehat (Salimah Slim + VCO)',
+    headline: 'Turun Berat Badan Tanpa Mules Tersiksa',
+    caption: `Mau turun 2-5 kg tanpa tersiksa lapar dan lemas? 🍋\n\nDuet maut Salimah Slim + VCO SR12 herbal siap bantu detoks lemak jahat dan lancarkan metabolisme tubuh secara alami!\n\n🌿 Kunyit & Jati Belanda meluruhkan lemak\n🌿 VCO menjaga energi & rasa kenyang\n🌿 Bebas bahan kimia berbahaya\n\nYuk mulai hidup sehat dan langsing ideal! Hubungi admin di [No HP Kamu] 📲`,
+    tags: ['#SalimahSlimSR12', '#DietHerbalAlami', '#VCOSR12', '#LangsingSehat']
+  }
+];
+
+// Ekspedisi & Metode Pengambilan / Pengiriman
+const SR12_SHIPPING_PROVIDERS = [
+  { id: 'jne', name: 'JNE Express (Reguler)', costPerKg: 12000, estDays: '2-3 hari', minKg: 1, type: 'courier' },
+  { id: 'jnt', name: 'J&T Express (Kilat)', costPerKg: 14000, estDays: '1-2 hari', minKg: 1, type: 'courier' },
+  { id: 'sicepat', name: 'SiCepat Halu / Reguler', costPerKg: 11000, estDays: '2-3 hari', minKg: 1, type: 'courier' },
+  { id: 'cod', name: '💵 COD (Bayar Tunai di Tempat saat Sampai)', costPerKg: 15000, estDays: '1-3 hari', minKg: 1, type: 'cod' },
+  { id: 'pickup', name: '🏪 Ambil Sendiri di Toko/Gudang (Bebas Ongkir - Rp 0)', costPerKg: 0, estDays: 'Bisa langsung diambil', minKg: 1, type: 'pickup' },
+  { id: 'instant', name: '⚡ Kurir Instan / Same Day (GoSend / GrabExpress)', costPerKg: 20000, estDays: '1-3 jam', minKg: 1, type: 'instant' },
+  { id: 'kargo', name: '🚛 J&T Cargo / Indah Kargo (Grosir Min. 10 kg)', costPerKg: 3500, estDays: '3-5 hari', minKg: 10, type: 'cargo' }
+];
+
 if (typeof window !== 'undefined') {
   window.DEFAULT_SR12_PRODUCTS = DEFAULT_SR12_PRODUCTS;
   window.getDailyRotatedProducts = getDailyRotatedProducts;
+  window.SR12_OFFICIAL_WHITELIST = SR12_OFFICIAL_WHITELIST;
+  window.DEFAULT_SR12_REWARDS = DEFAULT_SR12_REWARDS;
+  window.DEFAULT_MARKETING_KITS = DEFAULT_MARKETING_KITS;
+  window.SR12_SHIPPING_PROVIDERS = SR12_SHIPPING_PROVIDERS;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { DEFAULT_SR12_PRODUCTS, SR12_TIERS, SR12_SHIPPING_PROVIDERS, getDailyRotatedProducts };
+  module.exports = { 
+    DEFAULT_SR12_PRODUCTS, 
+    SR12_TIERS, 
+    SR12_SHIPPING_PROVIDERS, 
+    getDailyRotatedProducts,
+    SR12_OFFICIAL_WHITELIST,
+    DEFAULT_SR12_REWARDS,
+    DEFAULT_MARKETING_KITS
+  };
 }
+
