@@ -1647,56 +1647,59 @@ document.addEventListener('DOMContentLoaded', async () => {
     appState.devMetrics.totalGMV = 0;
   }
 
-  // SINKRONISASI RESMI DARI SUPABASE CLOUD SEBELUM PENENTUAN TOKO & RENDER DIREKTORI:
-  // Memastikan semua toko mitra resmi yang aktif (seperti Alzam Agency) langsung terdaftar di Direktori Central Hub sejak render awal!
-  if (typeof syncStoresFromSupabase === 'function') {
-    try {
-      const cloudStores = await syncStoresFromSupabase();
-      if (Array.isArray(cloudStores)) {
-        let deletedSlugs = getDeletedStoreSlugs();
-        const cloudSlugs = new Set(cloudStores.map(s => s.slug));
-
-        // Pulihkan toko yang aktif di Supabase Cloud dari blacklist deletedSlugs lokal
-        if (deletedSlugs.length > 0) {
-          const updatedDeleted = deletedSlugs.filter(d => !cloudSlugs.has(d));
-          if (updatedDeleted.length !== deletedSlugs.length) {
-            localStorage.setItem('sr12_deleted_store_slugs', JSON.stringify(updatedDeleted));
-            deletedSlugs = updatedDeleted;
-          }
-        }
-
-        // Lindungi toko lokal: Jangan hapus toko valid yang baru disetujui, melainkan cadangkan ke Supabase Cloud
-        appState.partnerStores = (appState.partnerStores || []).filter(localStore => {
-          if (!localStore || !localStore.slug) return false;
-          if (localStore.slug === 'sr12-central') return true;
-          if (deletedSlugs.includes(localStore.slug)) return false;
-          if (localStore.slug === 'toko-supa-distributor' || localStore.slug.startsWith('deleted_') || localStore.slug.includes('toko-supa')) return false;
-          if (!cloudSlugs.has(localStore.slug)) {
-            if (typeof saveStoreToSupabase === 'function') {
-              saveStoreToSupabase(localStore);
-            }
-          }
-          return true;
-        });
-
-        cloudStores.forEach(apiStore => {
-          if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central' || apiStore.slug === 'toko-supa-distributor' || apiStore.slug.startsWith('deleted_') || apiStore.slug.includes('toko-supa') || deletedSlugs.includes(apiStore.slug)) return;
-          const idx = appState.partnerStores.findIndex(s => s.slug === apiStore.slug);
-          if (idx >= 0) {
-            appState.partnerStores[idx] = Object.assign({}, appState.partnerStores[idx], apiStore);
-          } else {
-            appState.partnerStores.push(apiStore);
-          }
-        });
-        saveStoredPartnerStores(appState.partnerStores);
-      }
-    } catch(bootFetchErr) {
-      console.warn('Boot store fetch warning:', bootFetchErr);
-    }
-  }
-
+  // 1. RENDER INSTAN DARI DATA LOKAL (0 ms - Langsung Tampil Sempurna Tanpa Menunggu Jaringan Cloud)
   const initSlug = getInitialStoreSlug(appState.partnerStores);
   loadStoreBySlug(initSlug);
+
+  // 2. SINKRONISASI LATAR BELAKANG SUPABASE CLOUD (Asinkron Tanpa Memblokir Tampilan UI)
+  if (typeof syncStoresFromSupabase === 'function') {
+    (async () => {
+      try {
+        const cloudStores = await syncStoresFromSupabase();
+        if (Array.isArray(cloudStores)) {
+          let deletedSlugs = getDeletedStoreSlugs();
+          const cloudSlugs = new Set(cloudStores.map(s => s.slug));
+
+          // Pulihkan toko yang aktif di Supabase Cloud dari blacklist deletedSlugs lokal
+          if (deletedSlugs.length > 0) {
+            const updatedDeleted = deletedSlugs.filter(d => !cloudSlugs.has(d));
+            if (updatedDeleted.length !== deletedSlugs.length) {
+              localStorage.setItem('sr12_deleted_store_slugs', JSON.stringify(updatedDeleted));
+              deletedSlugs = updatedDeleted;
+            }
+          }
+
+          appState.partnerStores = (appState.partnerStores || []).filter(localStore => {
+            if (!localStore || !localStore.slug) return false;
+            if (localStore.slug === 'sr12-central') return true;
+            if (deletedSlugs.includes(localStore.slug)) return false;
+            if (localStore.slug === 'toko-supa-distributor' || localStore.slug.startsWith('deleted_') || localStore.slug.includes('toko-supa')) return false;
+            return true;
+          });
+
+          cloudStores.forEach(apiStore => {
+            if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central' || apiStore.slug === 'toko-supa-distributor' || apiStore.slug.startsWith('deleted_') || apiStore.slug.includes('toko-supa') || deletedSlugs.includes(apiStore.slug)) return;
+            const idx = appState.partnerStores.findIndex(s => s.slug === apiStore.slug);
+            if (idx >= 0) {
+              appState.partnerStores[idx] = Object.assign({}, appState.partnerStores[idx], apiStore);
+            } else {
+              appState.partnerStores.push(apiStore);
+            }
+          });
+          saveStoredPartnerStores(appState.partnerStores);
+
+          // Jika sedang di Official Central Hub, perbarui direktori secara halus
+          if (appState.currentStoreSlug === 'sr12-central') {
+            if (typeof renderOfficialDistributorDirectory === 'function') {
+              renderOfficialDistributorDirectory();
+            }
+          }
+        }
+      } catch(bootFetchErr) {
+        console.warn('Boot store fetch warning:', bootFetchErr);
+      }
+    })();
+  }
 
   // Pastikan URL di address bar browser selalu mencantumkan parameter toko (?store=...) tanpa menghapus parameter produk (?product=...)
   const bootParams = new URLSearchParams(window.location.search);

@@ -158,13 +158,13 @@
 
 
         <!-- Tombol Chat WhatsApp CS Toko Aktif -->
-        <a id="btnHeaderChatWa" href="https://wa.me/6281234567890" target="_blank" rel="noopener" class="btn-header-wa" title="Hubungi WhatsApp Toko">
+        <a id="btnHeaderChatWa" href="https://wa.me/6281234567890" target="_blank" rel="noopener" class="btn-header-wa" title="Hubungi WhatsApp Toko" style="display: none;">
           <svg width="15" height="15" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.353.101.173.45 1.742 1.637 2.798.544.484 1.002.634 1.175.72.173.087.275.073.376-.044.101-.116.433-.506.549-.679.116-.174.231-.145.39-.087s1.011.477 1.184.564c.173.087.289.13.332.203.043.072.043.419-.101.824z"/></svg>
           <span class="hide-on-mobile">WhatsApp</span>
         </a>
 
         <!-- Header Tier Selector (Tampilan Harga) -->
-        <div class="header-tier-box" style="margin: 0; padding: 4px 8px;">
+        <div class="header-tier-box" style="display: none; margin: 0; padding: 4px 8px;">
           <select id="globalTierSelect" class="tier-select" style="font-size: 0.74rem;">
             <option value="konsumen" selected>Konsumen (HET)</option>
             <option value="marketer">Marketer (15%)</option>
@@ -176,7 +176,7 @@
         </div>
 
         <!-- Tombol Keranjang Belanja -->
-        <button type="button" class="btn-header-cart" id="btnOpenCart" onclick="openCartDrawer()" title="Keranjang Belanja">
+        <button type="button" class="btn-header-cart" id="btnOpenCart" onclick="openCartDrawer()" title="Keranjang Belanja" style="display: none;">
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
           <span class="badge-cart-counter" id="cartCountBadge">0</span>
         </button>
@@ -1423,7 +1423,7 @@
   <main class="main-wrapper" id="publicStorefrontMain">
 
     <!-- 4.A MODE 1: SHOWCASE RESMI SR12-KU PRO (SR12 OFFICIAL CENTRAL HUB) -->
-    <section id="officialCentralHubHero" class="official-central-hub-hero" style="display: none;">
+    <section id="officialCentralHubHero" class="official-central-hub-hero">
       <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 24px;">
         <div style="flex: 1; min-width: 280px;">
           <span class="central-hub-header-badge">🌐 SR12-KU PRO &bull; SR12 OFFICIAL CENTRAL HUB</span>
@@ -1475,7 +1475,7 @@
     </section>
 
     <!-- 4.A.2 DIREKTORI RESMI TOKO DISTRIBUTOR & AGEN SE-INDONESIA (MODE OFFICIAL CENTRAL HUB) -->
-    <section id="officialDistributorDirectorySection" class="official-distributor-directory-section" style="display: none;">
+    <section id="officialDistributorDirectorySection" class="official-distributor-directory-section">
       <div class="directory-header-box">
         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
           <span class="directory-badge">🌐 JARINGAN RESMI SE-INDONESIA</span>
@@ -1654,7 +1654,7 @@
     </section>
 
     <!-- WRAPPER KHUSUS PRODUK & KONTEN TRANSAKSI (HANYA MUNCUL DI TOKO DISTRIBUTOR) -->
-    <div id="distributorCommerceWrapper">
+    <div id="distributorCommerceWrapper" style="display: none;">
       <!-- NAVIGATION TABS (KATALOG LANGSUNG AKTIF - TAB BONUS & BAHAN PROMOSI WA DIHAPUS SESUAI PERMINTAAN) -->
       <nav class="section-tabs-bar" style="display: none;">
         <button class="tab-btn active" data-tab="catalog">Katalog Produk</button>
