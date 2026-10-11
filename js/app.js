@@ -2088,6 +2088,32 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
   } catch(e) {}
+
+  if (typeof syncOrdersFromSupabase === 'function') {
+    syncOrdersFromSupabase(initStoreSlug).then(cloudOrders => {
+      if (Array.isArray(cloudOrders) && cloudOrders.length > 0) {
+        const local = appState.transactions || [];
+        const existingMap = new Map();
+        local.forEach(t => { if (t && t.id) existingMap.set(t.id, t); });
+        cloudOrders.forEach(co => {
+          if (co && co.id) {
+            existingMap.set(co.id, co);
+          }
+        });
+        appState.transactions = Array.from(existingMap.values());
+        if (typeof saveStoredTransactions === 'function') {
+          saveStoredTransactions(appState.transactions, initStoreSlug);
+        }
+        try {
+          localStorage.setItem('sr12_pos_transactions_v1', JSON.stringify(appState.transactions));
+        } catch(e) {}
+        updateAdminNotificationUI();
+        if (typeof renderPosTransactions === 'function') renderPosTransactions();
+        if (typeof renderAdminOrdersModal === 'function') renderAdminOrdersModal();
+      }
+    }).catch(() => {});
+  }
+
   updateAdminNotificationUI();
   updateDevPortalMetrics();
 
@@ -2190,6 +2216,32 @@ function loadStoreBySlug(slug) {
   // ISOLASI KETAT TRANSAKSI, KAS & MUTASI STOK: Muat data spesifik toko ini
   if (typeof getStoredTransactions === 'function') {
     appState.transactions = getStoredTransactions(found.slug);
+  }
+  // Sinkronkan pesanan masuk dari Supabase Cloud (agar order yang dibuat dari laptop/hp lain langsung masuk)
+  if (typeof syncOrdersFromSupabase === 'function') {
+    syncOrdersFromSupabase(found.slug).then(cloudOrders => {
+      if (Array.isArray(cloudOrders) && cloudOrders.length > 0) {
+        const local = (typeof getStoredTransactions === 'function') ? getStoredTransactions(found.slug) : [];
+        const existingMap = new Map();
+        local.forEach(t => { if (t && t.id) existingMap.set(t.id, t); });
+        cloudOrders.forEach(co => {
+          if (co && co.id) {
+            existingMap.set(co.id, co);
+          }
+        });
+        const merged = Array.from(existingMap.values());
+        appState.transactions = merged;
+        if (typeof saveStoredTransactions === 'function') {
+          saveStoredTransactions(appState.transactions, found.slug);
+        }
+        try {
+          localStorage.setItem('sr12_pos_transactions_v1', JSON.stringify(appState.transactions));
+        } catch(e) {}
+        if (typeof renderPosTransactions === 'function') renderPosTransactions();
+        if (typeof renderAdminOrdersModal === 'function') renderAdminOrdersModal();
+        updateAdminNotificationUI();
+      }
+    }).catch(e => console.warn('Sync orders background error:', e));
   }
   if (typeof getStoredCashflow === 'function') {
     appState.cashflow = getStoredCashflow(found.slug);
@@ -6689,7 +6741,9 @@ function checkoutViaWhatsApp() {
   }
 
   const buyerPhone = appState.buyerDetails.phone;
-  const nowIso = '2026-09-27';
+  const now = new Date();
+  const nowIso = now.toISOString().split('T')[0];
+  const currentMonthPeriod = nowIso.slice(0, 7);
 
   if (!appState.mitraList) {
     appState.mitraList = getStoredMitra();
@@ -6699,66 +6753,82 @@ function checkoutViaWhatsApp() {
   }
 
   const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
-  const foundMitra = findMitraByIdOrPhone(inputPartnerQuery || buyerPhone, currentStoreSlug);
+  let foundMitra = findMitraByIdOrPhone(inputPartnerQuery || buyerPhone, currentStoreSlug);
   let crmNoticeText = '';
 
-  if (foundMitra) {
-    if (foundMitra.tier === 'marketer') {
-      const comm = Math.round(subtotal * 0.15);
-      const newSale = {
-        orderId: 'ORD-MKT-' + Date.now().toString().slice(-4),
-        store_slug: currentStoreSlug,
-        marketerId: foundMitra.id,
-        date: nowIso,
-        monthPeriod: '2026-09',
-        customerName: appState.buyerDetails.name || 'Pelanggan Online',
-        customerPhone: buyerPhone || '-',
-        itemsDesc: appState.cart.map(i => {
-          const p = appState.products.find(pr => pr.id === i.productId);
-          return `${i.qty}x ${p ? p.name : 'Produk'}`;
-        }).join(', '),
-        omsetHet: subtotal,
-        commissionPct: 15,
-        commissionAmount: comm,
-        paidStatus: 'unpaid',
-        paidDate: null
-      };
-      appState.marketerSales.unshift(newSale);
-      saveStoredMarketerSales(appState.marketerSales);
+  // Deteksi pesanan mitra (berdasarkan ID mitra atau tier aktif yang dipilih saat belanja)
+  const isMarketerOrder = (foundMitra && foundMitra.tier === 'marketer') || appState.currentTier === 'marketer';
+  const isResellerOrder = (foundMitra && foundMitra.tier === 'reseller') || appState.currentTier === 'reseller';
 
-      foundMitra.accumulatedSpent90Days = (foundMitra.accumulatedSpent90Days || 0) + subtotal;
-      foundMitra.totalOrdersCount = (foundMitra.totalOrdersCount || 0) + 1;
-      foundMitra.lastOrderDate = nowIso;
-      saveStoredMitra(appState.mitraList);
-
-      crmNoticeText = `\n💼 *TIM MARKETER RESMI (PENJUALAN TANPA MODAL):*\n` +
-        `• Marketer Penjual : ${foundMitra.name} (${foundMitra.id})\n` +
-        `• No. Rekening     : ${foundMitra.bankName} - ${foundMitra.bankAccount} (a.n ${foundMitra.bankHolder || foundMitra.name})\n` +
-        `• Komisi Marketer  : ${formatRupiah(comm)} (15% otomatis tercatat di Rekap Gaji Bulanan Toko)\n`;
-      showToast(`💼 Pesanan berhasil dicatat untuk Tim Marketer: ${foundMitra.name}! Komisi 15% masuk rekap gaji.`);
-    } else {
-      foundMitra.accumulatedSpent90Days = (foundMitra.accumulatedSpent90Days || 0) + subtotal;
-      foundMitra.totalOrdersCount = (foundMitra.totalOrdersCount || 0) + 1;
-      foundMitra.lastOrderDate = nowIso;
-      if (foundMitra.tier === 'reseller' && foundMitra.accumulatedSpent90Days >= 500000) {
-        foundMitra.status = 'active';
-      }
-      saveStoredMitra(appState.mitraList);
-
-      crmNoticeText = `\n🔄 *STATUS KEMITRAAN TOKO:*\n` +
-        `• ID & Nama Mitra  : ${foundMitra.id} - ${foundMitra.name}\n` +
-        `• Tingkat Level    : ${SR12_TIERS[foundMitra.tier]?.name || 'Reseller'} (Diskon ${SR12_TIERS[foundMitra.tier]?.discountPct}%)\n` +
-        `• Akumulasi Belanja: ${formatRupiah(foundMitra.accumulatedSpent90Days)}\n`;
+  if (isMarketerOrder) {
+    const marketerCode = (foundMitra && foundMitra.id) ? foundMitra.id : ('MKT-' + (buyerPhone ? buyerPhone.slice(-4) : 'WEB'));
+    const marketerName = (foundMitra && foundMitra.name) ? foundMitra.name : (appState.buyerDetails.name || 'Mitra Marketer');
+    const comm = Math.round(subtotal * 0.15);
+    const newSale = {
+      orderId: 'ORD-MKT-' + Date.now().toString().slice(-4),
+      store_slug: currentStoreSlug,
+      marketerId: marketerCode,
+      date: nowIso,
+      monthPeriod: currentMonthPeriod,
+      customerName: appState.buyerDetails.name || 'Pelanggan Online',
+      customerPhone: buyerPhone || '-',
+      customerAddress: appState.buyerDetails.address || '-',
+      itemsDesc: appState.cart.map(i => {
+        const p = appState.products.find(pr => pr.id === i.productId);
+        return `${i.qty}x ${p ? p.name : 'Produk'}`;
+      }).join(', '),
+      omsetHet: subtotal,
+      commissionPct: 15,
+      commissionAmount: comm,
+      paidStatus: 'unpaid',
+      paidDate: null
+    };
+    appState.marketerSales.unshift(newSale);
+    saveStoredMarketerSales(appState.marketerSales);
+    if (typeof saveMarketerSaleToSupabase === 'function') {
+      saveMarketerSaleToSupabase(newSale, currentStoreSlug);
     }
+
+    if (foundMitra) {
+      foundMitra.accumulatedSpent90Days = (foundMitra.accumulatedSpent90Days || 0) + subtotal;
+      foundMitra.totalOrdersCount = (foundMitra.totalOrdersCount || 0) + 1;
+      foundMitra.lastOrderDate = nowIso;
+      saveStoredMitra(appState.mitraList);
+      if (typeof saveMitraToSupabase === 'function') {
+        saveMitraToSupabase(foundMitra, currentStoreSlug);
+      }
+    }
+
+    crmNoticeText = `\n💼 *TIM MARKETER RESMI (PENJUALAN TANPA MODAL):*\n` +
+      `• Marketer Penjual : ${marketerName} (${marketerCode})\n` +
+      `• No. Rekening     : ${(foundMitra && foundMitra.bankName) || 'BCA'} - ${(foundMitra && foundMitra.bankAccount) || '-'}\n` +
+      `• Komisi Marketer  : ${formatRupiah(comm)} (15% otomatis tercatat di Rekap Gaji Bulanan Toko)\n`;
+    showToast(`💼 Pesanan berhasil dicatat untuk Tim Marketer: ${marketerName}! Komisi 15% masuk rekap gaji.`);
+  } else if (foundMitra) {
+    foundMitra.accumulatedSpent90Days = (foundMitra.accumulatedSpent90Days || 0) + subtotal;
+    foundMitra.totalOrdersCount = (foundMitra.totalOrdersCount || 0) + 1;
+    foundMitra.lastOrderDate = nowIso;
+    if (foundMitra.tier === 'reseller' && foundMitra.accumulatedSpent90Days >= 500000) {
+      foundMitra.status = 'active';
+    }
+    saveStoredMitra(appState.mitraList);
+    if (typeof saveMitraToSupabase === 'function') {
+      saveMitraToSupabase(foundMitra, currentStoreSlug);
+    }
+
+    crmNoticeText = `\n🔄 *STATUS KEMITRAAN TOKO:*\n` +
+      `• ID & Nama Mitra  : ${foundMitra.id} - ${foundMitra.name}\n` +
+      `• Tingkat Level    : ${SR12_TIERS[foundMitra.tier]?.name || 'Reseller'} (Diskon ${SR12_TIERS[foundMitra.tier]?.discountPct}%)\n` +
+      `• Akumulasi Belanja: ${formatRupiah(foundMitra.accumulatedSpent90Days)}\n`;
   } else {
-    // Belum terdaftar, cek apakah memenuhi kualifikasi belanja 500rb
-    if (subtotal >= 500000) {
+    // Belum terdaftar, cek apakah memenuhi kualifikasi belanja 500rb atau level Reseller
+    if (subtotal >= 500000 || isResellerOrder) {
       const nextId = generateNextMitraId('reseller');
       const newReseller = {
         id: nextId,
         store_slug: currentStoreSlug,
         name: appState.buyerDetails.name || 'Mitra Reseller Baru',
-        phone: buyerPhone,
+        phone: buyerPhone || '-',
         city: appState.buyerDetails.address?.split(',')[0] || appState.storeSettings.storeCity,
         tier: 'reseller',
         bankName: 'BCA',
@@ -6778,10 +6848,10 @@ function checkoutViaWhatsApp() {
       }
 
       crmNoticeText = `\n🎉 *KUALIFIKASI RESELLER BARU TOKO:*\n` +
-        `• ID Diberikan     : ${nextId}\n` +
-        `• Syarat Terpenuhi : Belanja awal ${formatRupiah(subtotal)} (&ge; Rp 500.000)\n` +
-        `• Masa Aktif       : Diskon 20% otomatis aktif selama 90 hari ke depan!\n`;
-      showToast(`🎉 Selamat! Anda otomatis tercatat sebagai Reseller Resmi (ID: ${nextId})!`);
+        `• ID Mitra Baru    : ${nextId} (Otomatis dibuatkan oleh sistem)\n` +
+        `• Tingkat Level    : Reseller Resmi SR12\n` +
+        `• Total Belanja    : ${formatRupiah(subtotal)} (Lolos kualifikasi)\n`;
+      showToast(`🎉 Selamat! Anda telah lolos kualifikasi Reseller Resmi (${nextId})`);
     }
   }
 
@@ -6853,20 +6923,21 @@ function checkoutViaWhatsApp() {
   appState.devMetrics.totalGMV += grandTotal;
   updateDevPortalMetrics();
 
-  // Catat pesanan online ke riwayat Transaksi Toko Distributor
+  // Catat pesanan online ke riwayat Transaksi Toko Distributor & Cloud
   const orderTrxId = 'ORD-WEB-' + Date.now().toString().slice(-6);
-  const now = new Date();
   const dateFormatted = now.toLocaleDateString('id-ID', { year: 'numeric', month: '2-digit', day: '2-digit' }) + ' ' +
     now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
   const webOrder = {
     id: orderTrxId,
+    store_slug: currentStoreSlug,
+    marketerId: (foundMitra && foundMitra.id) ? foundMitra.id : (isMarketerOrder ? 'MKT-WEB' : (isResellerOrder ? 'RS-WEB' : null)),
     dateTime: dateFormatted,
-    customerName: (appState.buyerDetails.name || 'Pelanggan') + (foundMitra ? ` (${foundMitra.id})` : ''),
+    customerName: (appState.buyerDetails.name || 'Pelanggan') + (foundMitra ? ` (${foundMitra.id})` : (isMarketerOrder ? ' (Marketer)' : (isResellerOrder ? ' (Reseller)' : ''))),
     customerPhone: buyerPhone || appState.buyerDetails.phone || '-',
     customerAddress: appState.buyerDetails.address || '-',
     tier: appState.currentTier,
-    tierLabel: SR12_TIERS[appState.currentTier]?.name || 'Konsumen',
+    tierLabel: SR12_TIERS[appState.currentTier]?.name || 'Konsumen Retail',
     items: appState.cart.map(item => {
       const p = appState.products.find(pr => pr.id === item.productId);
       const prc = getProductTierPrice(p, appState.currentTier);
@@ -6886,20 +6957,25 @@ function checkoutViaWhatsApp() {
   };
 
   if (!appState.transactions) {
-    try {
-      const stored = localStorage.getItem('sr12_pos_transactions_v1');
-      appState.transactions = stored ? JSON.parse(stored) : [];
-    } catch(e) {
-      appState.transactions = [];
-    }
+    appState.transactions = (typeof getStoredTransactions === 'function') ? getStoredTransactions(currentStoreSlug) : [];
   }
   appState.transactions.unshift(webOrder);
-  localStorage.setItem('sr12_pos_transactions_v1', JSON.stringify(appState.transactions));
+  if (typeof saveStoredTransactions === 'function') {
+    saveStoredTransactions(appState.transactions, currentStoreSlug);
+  }
+  try {
+    localStorage.setItem('sr12_pos_transactions_v1', JSON.stringify(appState.transactions));
+  } catch(e) {}
   
   const trxBadge = document.getElementById('olseraTrxBadge');
   if (trxBadge) trxBadge.textContent = `${appState.transactions.length}`;
 
-  // Trigger notifikasi real-time ke Admin dan mainkan suara dering
+  // SINKRONKAN KE SUPABASE CLOUD SEKETIKA AGAR LANGSUNG MASUK KE HP DISTRIBUTOR!
+  if (typeof saveOrderToSupabase === 'function') {
+    saveOrderToSupabase(webOrder, currentStoreSlug);
+  }
+
+  // Trigger notifikasi lokal dan mainkan suara dering
   triggerAdminNewOrderNotification(webOrder);
 
   // Pengurangan Stok Otomatis saat Pesanan Masuk
@@ -9318,6 +9394,48 @@ function triggerAdminNewOrderNotification(order) {
   showToast(`🔔 PESANAN MASUK BARU! ${order.customerName} (${formatRupiah(order.grandTotal)})`);
 }
 
+/**
+ * Handler Realtime saat Supabase mendeteksi pesanan baru masuk dari laptop atau HP lain
+ */
+async function handleRealtimeCloudOrderUpdate(payload) {
+  const currentSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  if (!payload || !payload.new) return;
+  const newRow = payload.new;
+  if (newRow.store_slug && newRow.store_slug !== currentSlug && currentSlug !== 'sr12-central') {
+    return; // Pesanan ditujukan untuk toko mitra lain
+  }
+
+  if (typeof syncOrdersFromSupabase === 'function') {
+    try {
+      const cloudOrders = await syncOrdersFromSupabase(currentSlug);
+      if (Array.isArray(cloudOrders) && cloudOrders.length > 0) {
+        appState.transactions = cloudOrders;
+        if (typeof saveStoredTransactions === 'function') {
+          saveStoredTransactions(appState.transactions, currentSlug);
+        }
+        try {
+          localStorage.setItem('sr12_pos_transactions_v1', JSON.stringify(appState.transactions));
+        } catch(e) {}
+        
+        if (typeof renderPosTransactions === 'function') renderPosTransactions();
+        if (typeof renderAdminOrdersModal === 'function') renderAdminOrdersModal();
+        if (typeof renderMarketerPayroll === 'function') renderMarketerPayroll();
+        if (typeof renderResellers === 'function') renderResellers();
+        updateAdminNotificationUI();
+
+        // Cari pesanan terbaru dan mainkan suara dering di HP Distributor
+        const latest = cloudOrders[0];
+        if (latest && (payload.eventType === 'INSERT' || !payload.eventType)) {
+          triggerAdminNewOrderNotification(latest);
+        }
+      }
+    } catch(e) {
+      console.warn('Realtime cloud order handler exception:', e);
+    }
+  }
+}
+window.handleRealtimeCloudOrderUpdate = handleRealtimeCloudOrderUpdate;
+
 function chatCustomerWa(phone, customerName, orderId) {
   const cleanPhone = formatWaNumber(phone);
   if (!cleanPhone || cleanPhone.length < 8) {
@@ -9514,7 +9632,16 @@ function confirmOrderFromModal(trxId) {
   const ord = (appState.transactions || []).find(t => t.id === trxId);
   if (!ord) return;
   ord.status = 'Lunas / Selesai';
-  localStorage.setItem('sr12_pos_transactions_v1', JSON.stringify(appState.transactions));
+  const curSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  if (typeof saveStoredTransactions === 'function') {
+    saveStoredTransactions(appState.transactions, curSlug);
+  }
+  try {
+    localStorage.setItem('sr12_pos_transactions_v1', JSON.stringify(appState.transactions));
+  } catch(e) {}
+  if (typeof updateOrderStatusInSupabase === 'function') {
+    updateOrderStatusInSupabase(trxId, 'Selesai', curSlug);
+  }
   renderAdminOrdersModal();
   updateAdminNotificationUI();
   if (typeof renderPosTransactions === 'function') renderPosTransactions();
@@ -9523,8 +9650,14 @@ function confirmOrderFromModal(trxId) {
 
 function clearAllSimulationOrders() {
   if (confirm('Kosongkan seluruh daftar pesanan masuk?')) {
+    const curSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
     appState.transactions = [];
-    localStorage.removeItem('sr12_pos_transactions_v1');
+    if (typeof saveStoredTransactions === 'function') {
+      saveStoredTransactions([], curSlug);
+    }
+    try {
+      localStorage.removeItem('sr12_pos_transactions_v1');
+    } catch(e) {}
     renderAdminOrdersModal();
     updateAdminNotificationUI();
     if (typeof renderPosTransactions === 'function') renderPosTransactions();

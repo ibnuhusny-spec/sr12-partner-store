@@ -17,16 +17,28 @@ function getStoredTransactions(slug) {
   if (s) {
     try {
       const parsed = JSON.parse(s);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     } catch (e) {}
   }
+  // Fallback ke penyimpanan legacy/global v1 jika toko belum punya partisi v2
+  try {
+    const sLegacy = localStorage.getItem('sr12_pos_transactions_v1');
+    if (sLegacy) {
+      const pLegacy = JSON.parse(sLegacy);
+      if (Array.isArray(pLegacy)) return pLegacy;
+    }
+  } catch(e) {}
   return [];
 }
 
 function saveStoredTransactions(list, slug) {
   const curSlug = slug || (typeof appState !== 'undefined' && appState.currentStoreSlug) || 'sr12-central';
   const key = `sr12_pos_transactions_v2_${curSlug}`;
-  localStorage.setItem(key, JSON.stringify(list || []));
+  const data = JSON.stringify(list || []);
+  localStorage.setItem(key, data);
+  try {
+    localStorage.setItem('sr12_pos_transactions_v1', data);
+  } catch(e) {}
 }
 
 function getStoredCashflow(slug) {

@@ -392,6 +392,16 @@ function subscribeToStoreChanges(onStoreChanged) {
         console.log('⚡ [Realtime Cloud] Perubahan Mitra Terdeteksi:', payload.eventType);
         if (typeof onStoreChanged === 'function') onStoreChanged(payload);
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'marketer_sales' }, (payload) => {
+        console.log('⚡ [Realtime Cloud] Pesanan Masuk / Penjualan Terdeteksi:', payload.eventType);
+        if (typeof onStoreChanged === 'function') onStoreChanged(payload);
+        if (typeof handleRealtimeCloudOrderUpdate === 'function') handleRealtimeCloudOrderUpdate(payload);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+        console.log('⚡ [Realtime Cloud] Perubahan Orders Terdeteksi:', payload.eventType);
+        if (typeof onStoreChanged === 'function') onStoreChanged(payload);
+        if (typeof handleRealtimeCloudOrderUpdate === 'function') handleRealtimeCloudOrderUpdate(payload);
+      })
       .subscribe();
     return channel;
   } catch (e) {
@@ -937,6 +947,212 @@ async function updateStorePinInSupabase(slug, newPin) {
   }
 }
 
+/**
+ * Simpan Pesanan Masuk (Web Order) ke Supabase Cloud
+ * Bekerja secara otomatis sinkron antar Laptop, HP pembeli, dan HP Distributor
+ */
+async function saveOrderToSupabase(order, storeSlug = 'sr12-central') {
+  const client = initSupabaseClient();
+  if (!client || !order || !order.id) return false;
+  try {
+    const targetStore = storeSlug || order.store_slug || 'sr12-central';
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const dateOnly = nowIso.split('T')[0];
+    const monthPeriod = nowIso.slice(0, 7);
+
+    // 1. Coba simpan ke tabel orders jika ada
+    try {
+      const orderPayload = {
+        store_slug: targetStore,
+        order_id: order.id,
+        order_date: nowIso,
+        customer_name: order.customerName || 'Pelanggan',
+        customer_phone: order.customerPhone || '-',
+        customer_address: order.customerAddress || '-',
+        tier: order.tier || 'konsumen',
+        tier_label: order.tierLabel || 'Konsumen Retail',
+        items_json: order.items || [],
+        subtotal_het: Number(order.subtotalHet) || Number(order.grandTotal) || 0,
+        discount_amount: Number(order.discountAmount) || 0,
+        grand_total: Number(order.grandTotal) || 0,
+        payment_method: order.paymentMethod || 'Ekspedisi Pengiriman',
+        status: order.status || 'Menunggu Konfirmasi',
+        order_source: order.orderSource || 'Online Web Store'
+      };
+      const { error: ordErr } = await client.from('orders').upsert(orderPayload, { onConflict: 'order_id' });
+      if (!ordErr) {
+        console.log('☁️ [Supabase] Pesanan tersimpan di tabel orders:', order.id);
+      }
+    } catch(e) {}
+
+    // 2. Simpan juga ke marketer_sales sebagai cloud-backing universal
+    const salePayload = {
+      store_slug: targetStore,
+      order_id: order.id,
+      marketer_id: order.marketerId || (order.tier === 'marketer' ? 'MKT-WEB' : (order.tier === 'reseller' ? 'RS-WEB' : 'RETAIL')),
+      order_date: dateOnly,
+      month_period: monthPeriod,
+      customer_name: order.customerName || 'Pelanggan',
+      customer_phone: order.customerPhone || '-',
+      customer_address: order.customerAddress || '-',
+      fulfillment_type: (order.paymentMethod && order.paymentMethod.includes('Ambil')) ? 'pickup' : 'delivery',
+      items_desc: JSON.stringify(order), // Simpan full JSON pesanan lengkap
+      omset_het: Number(order.subtotalHet || order.grandTotal) || 0,
+      commission_pct: order.tier === 'marketer' ? 15 : 0,
+      commission_amount: order.tier === 'marketer' ? Math.round(Number(order.grandTotal || 0) * 0.15) : 0,
+      paid_status: (order.status === 'Selesai' || order.status === 'Lunas') ? 'paid' : 'unpaid',
+      paid_date: (order.status === 'Selesai') ? dateOnly : null
+    };
+
+    const { data: existing } = await client
+      .from('marketer_sales')
+      .select('id')
+      .eq('store_slug', targetStore)
+      .eq('order_id', order.id)
+      .maybeSingle();
+
+    if (existing && existing.id) {
+      await client.from('marketer_sales').update(salePayload).eq('id', existing.id);
+    } else {
+      await client.from('marketer_sales').insert(salePayload);
+    }
+
+    console.log('✅ Pesanan berhasil disinkronkan ke Cloud Supabase:', order.id, `[Toko: ${targetStore}]`);
+    return true;
+  } catch(err) {
+    console.warn('Gagal simpan pesanan ke Supabase:', err);
+    return false;
+  }
+}
+
+/**
+ * Sinkronisasi Pesanan Masuk dari Supabase Cloud ke HP / Laptop Distributor
+ */
+async function syncOrdersFromSupabase(storeSlug = 'sr12-central') {
+  const client = initSupabaseClient();
+  if (!client) return null;
+  try {
+    const targetStore = storeSlug || 'sr12-central';
+    let results = [];
+
+    // 1. Coba ambil dari tabel orders jika ada
+    try {
+      const { data: ordData, error: ordErr } = await client
+        .from('orders')
+        .select('*')
+        .eq('store_slug', targetStore)
+        .order('created_at', { ascending: false });
+
+      if (!ordErr && Array.isArray(ordData) && ordData.length > 0) {
+        results = ordData.map(r => ({
+          id: r.order_id,
+          dateTime: r.order_date || r.created_at,
+          customerName: r.customer_name,
+          customerPhone: r.customer_phone,
+          customerAddress: r.customer_address,
+          tier: r.tier || 'konsumen',
+          tierLabel: r.tier_label || 'Konsumen Retail',
+          items: r.items_json || [],
+          subtotalHet: Number(r.subtotal_het) || Number(r.grand_total) || 0,
+          discountAmount: Number(r.discount_amount) || 0,
+          grandTotal: Number(r.grand_total) || 0,
+          paymentMethod: r.payment_method || 'Ekspedisi Pengiriman',
+          status: r.status || 'Menunggu Konfirmasi',
+          orderSource: r.order_source || 'Online Web Store'
+        }));
+      }
+    } catch(e) {}
+
+    // 2. Ambil dari marketer_sales (tabel universal yang sudah aktif di Cloud)
+    try {
+      const { data: salesData, error: salesErr } = await client
+        .from('marketer_sales')
+        .select('*')
+        .eq('store_slug', targetStore)
+        .order('created_at', { ascending: false });
+
+      if (!salesErr && Array.isArray(salesData) && salesData.length > 0) {
+        salesData.forEach(r => {
+          if (results.some(x => x.id === r.order_id)) return;
+
+          let parsedOrder = null;
+          try {
+            if (r.items_desc && r.items_desc.startsWith('{')) {
+              parsedOrder = JSON.parse(r.items_desc);
+            }
+          } catch(e) {}
+
+          if (parsedOrder && parsedOrder.id) {
+            results.push(parsedOrder);
+          } else {
+            results.push({
+              id: r.order_id,
+              dateTime: r.order_date || (r.created_at ? r.created_at.slice(0, 16).replace('T', ' ') : 'Hari ini'),
+              customerName: r.customer_name,
+              customerPhone: r.customer_phone,
+              customerAddress: r.customer_address,
+              tier: r.marketer_id?.startsWith('RS') ? 'reseller' : (r.commission_pct > 0 ? 'marketer' : 'konsumen'),
+              tierLabel: r.marketer_id?.startsWith('RS') ? 'Reseller Resmi' : (r.commission_pct > 0 ? 'Mitra Marketer' : 'Konsumen Retail'),
+              items: [],
+              subtotalHet: Number(r.omset_het) || 0,
+              discountAmount: 0,
+              grandTotal: Number(r.omset_het) || 0,
+              paymentMethod: r.fulfillment_type === 'pickup' ? 'Ambil Sendiri di Toko' : 'Ekspedisi Pengiriman',
+              status: r.paid_status === 'paid' ? 'Selesai' : 'Menunggu Konfirmasi',
+              orderSource: 'Online Web Store'
+            });
+          }
+        });
+      }
+    } catch(e) {}
+
+    return results;
+  } catch(err) {
+    console.warn('Gagal sinkronisasi pesanan dari Supabase:', err);
+    return null;
+  }
+}
+
+/**
+ * Update Status Pesanan di Supabase Cloud (Konfirmasi Selesai / Batal dll)
+ */
+async function updateOrderStatusInSupabase(orderId, newStatus, storeSlug = 'sr12-central') {
+  const client = initSupabaseClient();
+  if (!client || !orderId) return false;
+  try {
+    const targetStore = storeSlug || 'sr12-central';
+    // 1. Coba update di tabel orders
+    try {
+      await client.from('orders').update({ status: newStatus }).eq('order_id', orderId).eq('store_slug', targetStore);
+    } catch(e) {}
+
+    // 2. Update di marketer_sales
+    try {
+      const isPaid = (newStatus === 'Selesai' || newStatus === 'Lunas');
+      const { data: row } = await client.from('marketer_sales').select('*').eq('order_id', orderId).eq('store_slug', targetStore).maybeSingle();
+      if (row) {
+        let orderObj = null;
+        try {
+          if (row.items_desc && row.items_desc.startsWith('{')) {
+            orderObj = JSON.parse(row.items_desc);
+            orderObj.status = newStatus;
+          }
+        } catch(e) {}
+        await client.from('marketer_sales').update({
+          paid_status: isPaid ? 'paid' : 'unpaid',
+          paid_date: isPaid ? new Date().toISOString().split('T')[0] : null,
+          items_desc: orderObj ? JSON.stringify(orderObj) : row.items_desc
+        }).eq('id', row.id);
+      }
+    } catch(e) {}
+
+    return true;
+  } catch(e) {
+    return false;
+  }
+}
+
 // Window global exports
 window.initSupabaseClient = initSupabaseClient;
 window.syncStoresFromSupabase = syncStoresFromSupabase;
@@ -957,5 +1173,8 @@ window.saveProductToSupabase = saveProductToSupabase;
 window.syncProductsFromSupabase = syncProductsFromSupabase;
 window.findMitraInSupabase = findMitraInSupabase;
 window.fetchSingleProductFromSupabase = fetchSingleProductFromSupabase;
+window.saveOrderToSupabase = saveOrderToSupabase;
+window.syncOrdersFromSupabase = syncOrdersFromSupabase;
+window.updateOrderStatusInSupabase = updateOrderStatusInSupabase;
 
 

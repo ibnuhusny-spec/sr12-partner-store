@@ -114,6 +114,27 @@ CREATE TABLE IF NOT EXISTS marketer_sales (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 3B. TABEL: ORDERS (RIWAYAT TRANSAKSI & PESANAN MASUK TOKO MULTI-TENANT)
+CREATE TABLE IF NOT EXISTS orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  store_slug VARCHAR(80) NOT NULL,
+  order_id VARCHAR(50) NOT NULL,
+  order_date TIMESTAMPTZ DEFAULT NOW(),
+  customer_name VARCHAR(120) NOT NULL,
+  customer_phone VARCHAR(30),
+  customer_address TEXT,
+  tier VARCHAR(30) DEFAULT 'konsumen',
+  tier_label VARCHAR(60),
+  items_json JSONB,
+  subtotal_het NUMERIC(12,2) DEFAULT 0.00,
+  discount_amount NUMERIC(12,2) DEFAULT 0.00,
+  grand_total NUMERIC(12,2) NOT NULL DEFAULT 0.00,
+  payment_method VARCHAR(80) DEFAULT 'Ekspedisi Pengiriman',
+  status VARCHAR(40) DEFAULT 'Menunggu Konfirmasi',
+  order_source VARCHAR(40) DEFAULT 'Online Web Store',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- 4. TABEL: PRODUCTS (KATALOG PRODUK & FOTO PRODUK PER DISTRIBUTOR)
 CREATE TABLE IF NOT EXISTS products (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -148,6 +169,7 @@ ALTER TABLE stores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pending_stores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mitra_downlines ENABLE ROW LEVEL SECURITY;
 ALTER TABLE marketer_sales ENABLE ROW LEVEL SECURITY;
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE platform_ledger ENABLE ROW LEVEL SECURITY;
 
@@ -166,6 +188,7 @@ CREATE POLICY "Public manage products" ON products FOR ALL USING (true);
 
 CREATE POLICY "Public manage mitra" ON mitra_downlines FOR ALL USING (true);
 CREATE POLICY "Public manage marketer_sales" ON marketer_sales FOR ALL USING (true);
+CREATE POLICY "Public manage orders" ON orders FOR ALL USING (true);
 CREATE POLICY "Public manage platform_ledger" ON platform_ledger FOR ALL USING (true);
 
 -- INDEX UNTUK KECEPATAN TINGGI
@@ -173,6 +196,7 @@ CREATE INDEX IF NOT EXISTS idx_stores_slug ON stores(slug);
 CREATE INDEX IF NOT EXISTS idx_pending_stores_slug ON pending_stores(slug);
 CREATE INDEX IF NOT EXISTS idx_mitra_store_slug ON mitra_downlines(store_slug);
 CREATE INDEX IF NOT EXISTS idx_marketer_sales_store_month ON marketer_sales(store_slug, month_period);
+CREATE INDEX IF NOT EXISTS idx_orders_store_slug ON orders(store_slug);
 CREATE INDEX IF NOT EXISTS idx_products_store_slug ON products(store_slug);
 
 -- ========================================================
