@@ -9956,7 +9956,7 @@ function confirmOrderFromModal(trxId) {
 }
 
 function clearAllSimulationOrders() {
-  if (confirm('Kosongkan seluruh daftar pesanan masuk?')) {
+  if (confirm('Kosongkan seluruh daftar pesanan masuk?\n\nSemua riwayat pesanan simulasi akan dibersihkan dari penyimpanan lokal dan Supabase Cloud.')) {
     const curSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
     appState.transactions = [];
     if (typeof saveStoredTransactions === 'function') {
@@ -9965,9 +9965,14 @@ function clearAllSimulationOrders() {
     try {
       localStorage.removeItem('sr12_pos_transactions_v1');
     } catch(e) {}
+    if (typeof clearOrdersFromSupabase === 'function') {
+      clearOrdersFromSupabase(curSlug);
+    }
     renderAdminOrdersModal();
     updateAdminNotificationUI();
     if (typeof renderPosTransactions === 'function') renderPosTransactions();
+    if (typeof renderResellers === 'function') renderResellers();
+    if (typeof renderMarketerPayroll === 'function') renderMarketerPayroll();
     showToast('🗑️ Daftar pesanan berhasil dikosongkan.');
   }
 }
@@ -10998,12 +11003,27 @@ function clearAllMarketerSales() {
   if (!confirm('⚠️ Anda yakin ingin mengosongkan seluruh Rekap Penjualan & Bonus Gaji Marketer?\n\nSeluruh catatan penjualan dan komisi marketer akan dikosongkan untuk simulasi bersih.')) {
     return;
   }
+  const curSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
   appState.marketerSales = [];
   saveStoredMarketerSales([]);
   if (typeof dbSaveAllMarketerSales === 'function') {
     dbSaveAllMarketerSales([]);
   }
+  if (typeof clearMarketerSalesFromSupabase === 'function') {
+    clearMarketerSalesFromSupabase(curSlug);
+  }
+  // Reset akumulasi belanja dan pesanan marketer di mitraList
+  if (Array.isArray(appState.mitraList)) {
+    appState.mitraList.forEach(m => {
+      if ((m.store_slug || 'sr12-central') === curSlug && m.tier === 'marketer') {
+        m.accumulatedSpent90Days = 0;
+        m.totalOrdersCount = 0;
+      }
+    });
+    saveStoredMitra(appState.mitraList);
+  }
   renderMarketerPayroll();
+  if (typeof renderResellers === 'function') renderResellers();
   showToast('🗑️ Rekap Gaji & Komisi Marketer berhasil dikosongkan!');
 }
 window.clearAllMarketerSales = clearAllMarketerSales;

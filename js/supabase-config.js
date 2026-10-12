@@ -1221,6 +1221,37 @@ async function updateOrderStatusInSupabase(orderId, newStatus, storeSlug = 'sr12
   }
 }
 
+/**
+ * Kosongkan Data Penjualan Marketer Toko di Cloud Supabase
+ */
+async function clearMarketerSalesFromSupabase(storeSlug = 'sr12-central') {
+  const client = initSupabaseClient();
+  if (!client || !storeSlug) return false;
+  try {
+    await client.from('marketer_sales').delete().eq('store_slug', storeSlug);
+    console.log('🗑️ Rekap penjualan marketer toko di Supabase berhasil dikosongkan:', storeSlug);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * Kosongkan Seluruh Riwayat Pesanan Masuk Toko di Cloud Supabase
+ */
+async function clearOrdersFromSupabase(storeSlug = 'sr12-central') {
+  const client = initSupabaseClient();
+  if (!client || !storeSlug) return false;
+  try {
+    try { await client.from('orders').delete().eq('store_slug', storeSlug); } catch(e) {}
+    try { await client.from('marketer_sales').delete().eq('store_slug', storeSlug); } catch(e) {}
+    console.log('🗑️ Riwayat pesanan toko di Supabase berhasil dikosongkan:', storeSlug);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 // Window global exports
 window.initSupabaseClient = initSupabaseClient;
 window.syncStoresFromSupabase = syncStoresFromSupabase;
@@ -1237,12 +1268,14 @@ window.saveMitraToSupabase = saveMitraToSupabase;
 window.deleteMitraFromSupabase = deleteMitraFromSupabase;
 window.syncMarketerSalesFromSupabase = syncMarketerSalesFromSupabase;
 window.saveMarketerSaleToSupabase = saveMarketerSaleToSupabase;
+window.clearMarketerSalesFromSupabase = clearMarketerSalesFromSupabase;
 window.saveProductToSupabase = saveProductToSupabase;
 window.syncProductsFromSupabase = syncProductsFromSupabase;
 window.findMitraInSupabase = findMitraInSupabase;
 window.fetchSingleProductFromSupabase = fetchSingleProductFromSupabase;
 window.saveOrderToSupabase = saveOrderToSupabase;
 window.syncOrdersFromSupabase = syncOrdersFromSupabase;
+window.clearOrdersFromSupabase = clearOrdersFromSupabase;
 window.updateOrderStatusInSupabase = updateOrderStatusInSupabase;
 window.updateStoreQuotaInSupabase = updateStoreQuotaInSupabase;
 
