@@ -7260,6 +7260,8 @@ body.olsera-portal-active {
 }
 
 body.olsera-portal-active .site-header,
+body.olsera-portal-active #siteHeaderStorefront,
+body.olsera-portal-active #adminActiveTopBar,
 body.olsera-portal-active .platform-topbar,
 body.olsera-portal-active .tier-quick-banner,
 body.olsera-portal-active .admin-mode-banner,

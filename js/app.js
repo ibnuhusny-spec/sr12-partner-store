@@ -8839,8 +8839,8 @@ function switchTab(tabId) {
   } catch(e) {}
 
   // Jika sedang berada di dalam antarmuka Olsera Suite Dashboard, arahkan ke tab Olsera terkait agar layar tidak putih
-  const olseraApp = document.getElementById('olseraDashboardApp');
-  const isOlseraActive = olseraApp && olseraApp.style.display !== 'none';
+  const portal = document.getElementById('distributorOlseraPortal');
+  const isOlseraActive = (document.body.classList.contains('olsera-portal-active') || (portal && portal.style.display !== 'none'));
   if (isOlseraActive && typeof switchOlseraTab === 'function') {
     if (tabId === 'marketers') {
       switchOlseraTab('marketer');
@@ -8848,6 +8848,15 @@ function switchTab(tabId) {
     }
     if (tabId === 'resellers') {
       switchOlseraTab('mitra');
+      return;
+    }
+  }
+
+  // Jika tombol Mitra atau Gaji Marketer ditekan saat mode admin distributor aktif, buka langsung di portal Olsera agar header toko tidak bocor
+  if ((tabId === 'marketers' || tabId === 'resellers') && typeof showDistributorPortalView === 'function') {
+    showDistributorPortalView(true);
+    if (typeof switchOlseraTab === 'function') {
+      switchOlseraTab(tabId === 'marketers' ? 'marketer' : 'mitra');
       return;
     }
   }
@@ -10587,7 +10596,7 @@ function renderResellers() {
         seenIds.add(t.id);
         mOrders.push({
           id: t.id,
-          amount: Number(t.grandTotal || t.subtotalHet) || 0,
+          amount: Number(t.subtotalHet || t.grandTotal) || 0,
           date: t.dateTime || t.date
         });
       }
@@ -10796,11 +10805,16 @@ function renderResellers() {
 }
 
 function goToMarketerPayroll(marketerId) {
-  const olseraApp = document.getElementById('olseraDashboardApp');
-  const isOlseraActive = olseraApp && olseraApp.style.display !== 'none';
+  const portal = document.getElementById('distributorOlseraPortal');
+  const isOlseraActive = (document.body.classList.contains('olsera-portal-active') || (portal && portal.style.display !== 'none'));
 
   if (isOlseraActive && typeof switchOlseraTab === 'function') {
     switchOlseraTab('marketer');
+  } else if (typeof showDistributorPortalView === 'function') {
+    showDistributorPortalView(true);
+    if (typeof switchOlseraTab === 'function') {
+      switchOlseraTab('marketer');
+    }
   } else if (typeof switchTab === 'function') {
     switchTab('marketers');
   }

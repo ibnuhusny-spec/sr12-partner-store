@@ -171,6 +171,10 @@ function showDistributorPortalView(showPortal) {
     document.body.classList.add('olsera-portal-active');
     if (storefront) storefront.style.display = 'none';
     if (siteHeader) siteHeader.style.display = 'none';
+    const siteH = document.getElementById('siteHeaderStorefront');
+    if (siteH) siteH.style.display = 'none';
+    const admTopBar = document.getElementById('adminActiveTopBar');
+    if (admTopBar) admTopBar.style.display = 'none';
     if (tierBanner) tierBanner.style.display = 'none';
     if (platformTopbar) platformTopbar.style.display = 'none';
     if (previewStrip) previewStrip.style.display = 'none';
