@@ -1650,15 +1650,18 @@ function getStoredMarketingKits() {
 }
 
 function getStoredRewards() {
-  const stored = localStorage.getItem('sr12_custom_rewards');
+  const currentStoreSlug = (typeof appState !== 'undefined' && appState.currentStoreSlug) ? appState.currentStoreSlug : 'sr12-central';
+  const deletedIds = JSON.parse(localStorage.getItem(`sr12_deleted_rewards_${currentStoreSlug}`) || localStorage.getItem('sr12_deleted_rewards') || '[]');
+  const stored = localStorage.getItem(`sr12_custom_rewards_${currentStoreSlug}`) || localStorage.getItem('sr12_custom_rewards');
+  let list = [...DEFAULT_SR12_REWARDS];
   if (stored) {
     try {
-      return [...DEFAULT_SR12_REWARDS, ...JSON.parse(stored)];
+      list = [...list, ...JSON.parse(stored)];
     } catch (e) {
       console.error(e);
     }
   }
-  return [...DEFAULT_SR12_REWARDS];
+  return list.filter(r => !deletedIds.includes(r.id));
 }
 
 function getStoredDevPin() {
@@ -8905,11 +8908,52 @@ function handleAddCustomPromoSubmit(e) {
   showToast(`✅ Promo insidental "${title}" berhasil dibuat!`);
 }
 
+function openAddPromoModal() {
+  const modal = document.getElementById('modalAddPromo');
+  if (modal) modal.classList.add('open');
+}
+window.openAddPromoModal = openAddPromoModal;
+
+function deleteReward(rewardId, rewardTitle) {
+  if (!confirm(`Apakah Anda yakin ingin menghapus promo/hadiah "${rewardTitle}" ini dari katalog toko?`)) {
+    return;
+  }
+
+  const currentStoreSlug = (typeof appState !== 'undefined' && appState.currentStoreSlug) ? appState.currentStoreSlug : 'sr12-central';
+
+  // 1. Simpan ke daftar deleted rewards per toko & global agar tidak muncul kembali
+  const storeDeletedKey = `sr12_deleted_rewards_${currentStoreSlug}`;
+  let deletedIds = JSON.parse(localStorage.getItem(storeDeletedKey) || '[]');
+  if (!deletedIds.includes(rewardId)) {
+    deletedIds.push(rewardId);
+    localStorage.setItem(storeDeletedKey, JSON.stringify(deletedIds));
+  }
+  let globalDeleted = JSON.parse(localStorage.getItem('sr12_deleted_rewards') || '[]');
+  if (!globalDeleted.includes(rewardId)) {
+    globalDeleted.push(rewardId);
+    localStorage.setItem('sr12_deleted_rewards', JSON.stringify(globalDeleted));
+  }
+
+  // 2. Hapus dari custom rewards jika ada
+  const storeCustomKey = `sr12_custom_rewards_${currentStoreSlug}`;
+  let customRewards = JSON.parse(localStorage.getItem(storeCustomKey) || localStorage.getItem('sr12_custom_rewards') || '[]');
+  customRewards = customRewards.filter(r => r.id !== rewardId);
+  localStorage.setItem(storeCustomKey, JSON.stringify(customRewards));
+  localStorage.setItem('sr12_custom_rewards', JSON.stringify(customRewards));
+
+  // 3. Update appState.rewards
+  appState.rewards = (appState.rewards || []).filter(r => r.id !== rewardId);
+
+  renderRewards();
+  showToast(`🗑️ Promo "${rewardTitle}" berhasil dihapus dari katalog toko!`);
+}
+window.deleteReward = deleteReward;
+
 function renderRewards() {
   const container = document.getElementById('rewardsGrid');
   if (!container) return;
 
-  const filtered = appState.rewards.filter(r => {
+  const filtered = (appState.rewards || []).filter(r => {
     if (appState.selectedRewardScope === 'all') return true;
     return r.scope === appState.selectedRewardScope;
   });
@@ -8918,6 +8962,7 @@ function renderRewards() {
     container.innerHTML = `
       <div style="grid-column: 1/-1; text-align: center; padding: 40px; background: #fff; border-radius: var(--radius-lg); border: 1px dashed var(--border-subtle);">
         <p style="font-weight: 700; color: var(--dark-700);">Belum Ada Promo dalam Kategori Ini</p>
+        <p style="font-size: 0.82rem; color: var(--dark-500); margin-top: 4px;">Anda dapat membuat promo toko baru kapan saja menggunakan tombol di atas.</p>
       </div>
     `;
     return;
@@ -8925,20 +8970,28 @@ function renderRewards() {
 
   container.innerHTML = filtered.map(r => {
     const isResmi = r.scope === 'resmi';
+    const escapedTitle = (r.title || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
     return `
       <div class="reward-card" style="${!isResmi ? 'border-color: #fbcfe8; background: #fffdfd;' : ''}">
         <div>
-          <span class="reward-badge-tag" style="${!isResmi ? 'background: #fdf2f8; color: #be185d;' : ''}">${r.badge}</span>
-          <h3>${r.title}</h3>
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px;">
+            <span class="reward-badge-tag" style="${!isResmi ? 'background: #fdf2f8; color: #be185d;' : ''}">${r.badge}</span>
+            <button type="button" class="btn-delete-reward-card" onclick="deleteReward('${r.id}', '${escapedTitle}')" style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #dc2626; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.74rem; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Hapus Promo / Hadiah Ini">
+              <span>🗑️</span> Hapus
+            </button>
+          </div>
+          <h3 style="margin-top: 4px;">${r.title}</h3>
           <div class="reward-points-required" style="${!isResmi ? 'color: #be185d;' : ''}">
             <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
-            ${r.requiredPoints.toLocaleString('id-ID')} Poin
+            ${(r.requiredPoints || 0).toLocaleString('id-ID')} Poin
           </div>
           <p class="reward-desc-text">${r.description}</p>
         </div>
-        <button class="btn-claim-reward" style="${!isResmi ? 'background: #be185d; color: #fff;' : ''}" onclick="claimReward('${r.id}', ${r.requiredPoints}, '${r.title}')">
-          Tukar / Klaim Reward
-        </button>
+        <div style="display: flex; gap: 8px; margin-top: 14px;">
+          <button class="btn-claim-reward" style="flex: 1; ${!isResmi ? 'background: #be185d; color: #fff;' : ''}" onclick="claimReward('${r.id}', ${r.requiredPoints || 0}, '${escapedTitle}')">
+            Tukar / Klaim Reward
+          </button>
+        </div>
       </div>
     `;
   }).join('');

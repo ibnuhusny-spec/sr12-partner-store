@@ -1779,10 +1779,9 @@
           <button class="chip-btn reward-scope-chip" data-scope="toko">🎁 Promo Toko Kami</button>
         </div>
 
-        <!-- Tombol Buat Promo Toko (Hanya muncul saat Admin Mode) -->
-        <button id="btnOpenAddPromo" style="display: none; background: var(--gold-600); color: #fff; border: none; padding: 9px 16px; border-radius: var(--radius-md); font-weight: 700; font-size: 0.85rem; cursor: pointer;">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
-          + Buat Promo Toko Baru
+        <!-- Tombol Buat Promo Toko Baru -->
+        <button id="btnOpenAddPromo" type="button" onclick="openAddPromoModal()" style="background: linear-gradient(135deg, #d97706, #b45309); color: #fff; border: none; padding: 9px 16px; border-radius: var(--radius-md); font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(217, 119, 6, 0.3);">
+          <span>➕</span> Buat Promo Toko Baru
         </button>
       </div>
 
