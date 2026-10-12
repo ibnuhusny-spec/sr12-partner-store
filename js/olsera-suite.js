@@ -2146,25 +2146,37 @@ function confirmWebOrder(trxId) {
   saveStoredTransactions(appState.transactions);
   renderPosTransactions();
 
-  // Catat arus kas masuk ke rekening bank begitu pesanan web diverifikasi & dikonfirmasi oleh pemilik/admin
+  // Catat/perbarui arus kas masuk begitu pesanan web dikonfirmasi lunas
   if (!appState.cashflow) appState.cashflow = [];
-  const now = new Date();
-  const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-  appState.cashflow.unshift({
-    id: 'CSH-' + Math.floor(1000 + Math.random() * 9000),
-    date: dateStr,
-    type: 'in',
-    account: 'TRANSFER',
-    category: `Penjualan Toko Online (${trx.tierLabel || 'Retail'})`,
-    notes: `${trx.id} - ${trx.customerName} (${trx.paymentMethod}) [Transfer Bank Terverifikasi]`,
-    amount: Number(trx.grandTotal) || 0
-  });
+  const exists = appState.cashflow.find(c => c.notes && c.notes.includes(trx.id));
+  const itemSubtotal = (trx.items && trx.items.length)
+    ? trx.items.reduce((acc, i) => acc + (Number(i.subtotal) || (Number(i.price) * (Number(i.qty) || 1))), 0)
+    : 0;
+  const productOmset = Number(trx.subtotal || itemSubtotal || trx.subtotalHet || trx.grandTotal) || 0;
+  const isCash = (trx.paymentMethod && (trx.paymentMethod === 'CASH' || trx.paymentMethod.includes('Ambil') || trx.paymentMethod.includes('COD')));
+
+  if (exists) {
+    exists.notes = `${trx.id} - ${trx.customerName} [Pesanan Lunas / Terverifikasi]`;
+    exists.amount = productOmset;
+  } else {
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    appState.cashflow.unshift({
+      id: 'CSH-' + Math.floor(1000 + Math.random() * 9000),
+      date: dateStr,
+      type: 'in',
+      account: isCash ? 'CASH' : 'TRANSFER',
+      category: `Penjualan Toko Online (${trx.tierLabel || 'Retail'})`,
+      notes: `${trx.id} - ${trx.customerName} (${trx.paymentMethod}) [${isCash ? 'Kas Tunai' : 'Transfer Bank'}]`,
+      amount: productOmset
+    });
+  }
   saveStoredCashflow(appState.cashflow);
   renderCashflowTable();
   if (typeof renderReportsView === 'function') renderReportsView();
 
   if (typeof showToast === 'function') {
-    showToast(`✅ Pesanan ${trxId} (${trx.customerName}) dikonfirmasi lunas! Saldo Bank bertambah Rp ${Number(trx.grandTotal).toLocaleString('id-ID')}`);
+    showToast(`✅ Pesanan ${trxId} (${trx.customerName}) dikonfirmasi lunas! Omset bertambah Rp ${productOmset.toLocaleString('id-ID')}`);
   }
 }
 window.confirmWebOrder = confirmWebOrder;

@@ -2009,8 +2009,7 @@ async function initReferralAffiliateBanner(mktCode) {
   let name = getMarketerNameById(cleanCode);
 
   if (topBanner) {
-    topBanner.style.display = 'flex';
-    if (topTitle) topTitle.textContent = `Anda terhubung dengan Marketer: ${name} (${cleanCode})`;
+    topBanner.style.display = 'none'; // Sembunyikan banner atas agar etalase toko tetap bersih
   }
   if (cartNotice) {
     cartNotice.style.display = 'block';
