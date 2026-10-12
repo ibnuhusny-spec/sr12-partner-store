@@ -1643,6 +1643,7 @@ function processPosCheckout(action = 'save') {
     dateTime: dateStr,
     customerName,
     customerPhone,
+    marketerId: (tier === 'marketer') ? (customerMitraId || 'MKT-001') : (customerMitraId || null),
     cashierName: activeCashier.name || 'Nurlinda Sari',
     shift: activeCashier.shift || 'Shift Pagi',
     tier,
@@ -1756,12 +1757,35 @@ function processPosCheckout(action = 'save') {
     updateStoreQuotaUI();
   }
 
+  const customerMitraId = (typeof appState !== 'undefined' && appState.posSelectedMitraId) ? appState.posSelectedMitraId : '';
+
+  // Update akumulasi belanja mitra jika terdaftar di Database Mitra
+  if (Array.isArray(appState.mitraList)) {
+    const targetM = appState.mitraList.find(m => 
+      (m.store_slug || 'sr12-central') === curPosStoreSlug && 
+      (m.id === customerMitraId || (m.phone && customerPhone && m.phone.replace(/[^0-9]/g, '') === customerPhone.replace(/[^0-9]/g, '')) || (m.name && m.name.toLowerCase() === customerName.toLowerCase()))
+    );
+    if (targetM) {
+      targetM.accumulatedSpent90Days = (Number(targetM.accumulatedSpent90Days) || 0) + subtotalHet;
+      targetM.totalOrdersCount = (Number(targetM.totalOrdersCount) || 0) + 1;
+      targetM.lastOrderDate = dateStr.split(' ')[0];
+      if (targetM.tier === 'reseller' && targetM.accumulatedSpent90Days >= 500000) {
+        targetM.status = 'active';
+      }
+      saveStoredMitra(appState.mitraList);
+      if (typeof saveMitraToSupabase === 'function') {
+        saveMitraToSupabase(targetM, curPosStoreSlug);
+      }
+    }
+  }
+
   // Jika Marketer: otomatis catat ke buku komisi 15% bulanan
   if (tier === 'marketer') {
     const marketerComm = Math.round(subtotalHet * 0.15);
     const mSale = {
-      orderId: 'ORD-MKT-' + Math.floor(100 + Math.random() * 900),
-      marketerId: 'MKT-001',
+      orderId: trxId,
+      store_slug: curPosStoreSlug,
+      marketerId: customerMitraId || 'MKT-001',
       date: dateStr.split(' ')[0],
       monthPeriod: `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`,
       customerName,
@@ -1770,12 +1794,15 @@ function processPosCheckout(action = 'save') {
       omsetHet: subtotalHet,
       commissionPct: 15,
       commissionAmount: marketerComm,
-      paidStatus: 'unpaid',
-      paidDate: null
+      paidStatus: 'paid',
+      paidDate: dateStr.split(' ')[0]
     };
     if (!appState.marketerSales) appState.marketerSales = [];
     appState.marketerSales.unshift(mSale);
     saveStoredMarketerSales(appState.marketerSales);
+    if (typeof saveMarketerSaleToSupabase === 'function') {
+      saveMarketerSaleToSupabase(mSale, curPosStoreSlug);
+    }
   }
 
   // Simpan objek untuk cetak nota

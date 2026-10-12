@@ -6788,14 +6788,14 @@ function checkoutViaWhatsApp() {
   }
 
   // Update atau Kualifikasi Mitra / Reseller / Marketer di Database Distributor
-  const inputPartnerQuery = document.getElementById('cartBuyerPhoneInput')?.value.trim();
+  const inputPartnerQuery = (document.getElementById('buyerMitraIdInput')?.value.trim() || document.getElementById('cartBuyerPhoneInput')?.value.trim() || '').trim();
   const inputBuyerName = document.getElementById('cartBuyerNameInput')?.value.trim();
   const inputBuyerPhone = document.getElementById('cartBuyerPhoneField')?.value.trim();
 
   if (inputBuyerName) appState.buyerDetails.name = inputBuyerName;
   if (inputBuyerPhone) appState.buyerDetails.phone = inputBuyerPhone;
 
-  if (inputPartnerQuery && !inputPartnerQuery.toUpperCase().startsWith('AG-') && !inputPartnerQuery.toUpperCase().startsWith('SUB-') && !inputPartnerQuery.toUpperCase().startsWith('RS-') && !inputPartnerQuery.toUpperCase().startsWith('MKT-')) {
+  if (inputPartnerQuery && !inputPartnerQuery.toUpperCase().startsWith('AG-') && !inputPartnerQuery.toUpperCase().startsWith('SUB-') && !inputPartnerQuery.toUpperCase().startsWith('RS-') && !inputPartnerQuery.toUpperCase().startsWith('MKT-') && /^[0-9+]+$/.test(inputPartnerQuery)) {
     appState.buyerDetails.phone = inputPartnerQuery;
   }
 
@@ -10569,11 +10569,58 @@ function renderResellers() {
   let countMarketer = 0;
 
   const evaluatedList = storeMitraList.map(m => {
-    const stat = getMitraStatus(m);
+    // Hitung dinamis akumulasi penjualan & pesanan dari data transaksi dan penjualan nyata
+    const mOrders = [];
+    const seenIds = new Set();
+
+    (appState.transactions || []).forEach(t => {
+      if (!t || !t.id) return;
+      const isM = (t.marketerId === m.id || t.marketerId === m.partner_code) ||
+                  ((t.customerPhone && m.phone && t.customerPhone.replace(/[^0-9]/g, '') === m.phone.replace(/[^0-9]/g, '')) ||
+                   (t.customerName && (t.customerName.includes(m.id) || t.customerName.toLowerCase().includes(m.name.toLowerCase()))));
+      if (isM && !seenIds.has(t.id)) {
+        seenIds.add(t.id);
+        mOrders.push({
+          id: t.id,
+          amount: Number(t.grandTotal || t.subtotalHet) || 0,
+          date: t.dateTime || t.date
+        });
+      }
+    });
+
+    (appState.marketerSales || []).forEach(s => {
+      if (!s) return;
+      const sid = s.orderId || s.order_id || s.id;
+      const isM = (s.marketerId === m.id || s.marketerId === m.partner_code ||
+                  (s.customerPhone && m.phone && s.customerPhone.replace(/[^0-9]/g, '') === m.phone.replace(/[^0-9]/g, '')) ||
+                  (s.customerName && (s.customerName.includes(m.id) || s.customerName.toLowerCase().includes(m.name.toLowerCase()))));
+      if (isM) {
+        if (!sid || !seenIds.has(sid)) {
+          if (sid) seenIds.add(sid);
+          mOrders.push({
+            id: sid || 'MKT-ORD',
+            amount: Number(s.omsetHet || s.omset_het) || 0,
+            date: s.date
+          });
+        }
+      }
+    });
+
+    const dynamicTotalAmount = mOrders.reduce((sum, o) => sum + o.amount, 0);
+    const dynamicOrdersCount = mOrders.length;
+
+    // Sinkronkan nilai terkini (gunakan yang tertinggi antara cache tersimpan dan kalkulasi dinamis)
+    const effectiveSpent = Math.max(Number(m.accumulatedSpent90Days) || 0, dynamicTotalAmount);
+    const effectiveCount = Math.max(Number(m.totalOrdersCount) || 0, dynamicOrdersCount);
+
+    m.accumulatedSpent90Days = effectiveSpent;
+    m.totalOrdersCount = effectiveCount;
+
+    const stat = getMitraStatus({ ...m, accumulatedSpent90Days: effectiveSpent });
     if (m.tier === 'agen' || m.tier === 'sub_agen') countAgenSub++;
     if (m.tier === 'reseller' && stat.state === 'active') countResellerActive++;
     if (m.tier === 'marketer') countMarketer++;
-    return { ...m, ...stat };
+    return { ...m, ...stat, spent: effectiveSpent, totalOrdersCount: effectiveCount };
   });
 
   if (totalEl) totalEl.textContent = `${storeMitraList.length}`;
@@ -11058,42 +11105,93 @@ function renderMarketerPayroll() {
   let grandBonus = 0;
 
   const payrollData = marketers.map(m => {
-    // 1. Ambil dari appState.marketerSales
+    // 1. Kumpulkan seluruh record penjualan marketer dari appState.marketerSales
     const salesFromRecords = (appState.marketerSales || []).filter(s => {
       const isStore = (!s.store_slug || s.store_slug === currentStoreSlug);
-      const isM = (s.marketerId === m.id || s.marketerId === m.partner_code);
+      const isM = (s.marketerId === m.id || s.marketerId === m.partner_code) ||
+                  (s.customerPhone && m.phone && s.customerPhone.replace(/[^0-9]/g, '') === m.phone.replace(/[^0-9]/g, '')) ||
+                  (s.customerName && (s.customerName.includes(m.id) || s.customerName.toLowerCase().includes(m.name.toLowerCase())));
       if (!isStore || !isM) return false;
       if (selectedMonth === 'all') return true;
       return (s.monthPeriod === selectedMonth || (s.date && s.date.startsWith(selectedMonth)));
     });
 
-    // 2. Ambil dari appState.transactions (agar order masuk dari web yang ber-tier marketer selalu terhitung komisi 15%)
-    const existingOrderIds = new Set(salesFromRecords.map(s => s.orderId).filter(Boolean));
+    // 2. Kumpulkan dari appState.transactions yang terkait dengan marketer ini
     const salesFromTrx = (appState.transactions || []).filter(t => {
-      if (!t || !t.id || existingOrderIds.has(t.id)) return false;
-      const isM = (t.marketerId === m.id || t.marketerId === m.partner_code) || (t.tier === 'marketer' && (t.customerPhone === m.phone || (t.customerName && t.customerName.includes(m.id))));
+      if (!t || !t.id) return false;
+      const isM = (t.marketerId === m.id || t.marketerId === m.partner_code) ||
+                  (t.tier === 'marketer' && (t.customerPhone === m.phone || (t.customerName && (t.customerName.includes(m.id) || t.customerName.toLowerCase().includes(m.name.toLowerCase())))));
       if (!isM) return false;
       if (selectedMonth === 'all') return true;
       const tDate = t.date || t.dateTime || '';
       return tDate.includes(selectedMonth) || (t.monthPeriod && t.monthPeriod === selectedMonth);
-    }).map(t => ({
-      orderId: t.id,
-      store_slug: currentStoreSlug,
-      marketerId: m.id,
-      date: t.dateTime || t.date,
-      monthPeriod: selectedMonth,
-      customerName: t.customerName,
-      customerPhone: t.customerPhone,
-      customerAddress: t.customerAddress,
-      omsetHet: Number(t.grandTotal || t.subtotalHet) || 0,
-      commissionPct: 15,
-      commissionAmount: Math.round((Number(t.grandTotal || t.subtotalHet) || 0) * 0.15),
-      paidStatus: (t.status === 'Lunas / Selesai' || t.status === 'Selesai') ? 'paid' : 'unpaid'
-    }));
+    });
 
-    const combinedSales = [...salesFromRecords, ...salesFromTrx];
+    // 3. KONSOLIDASI & DEDUPLIKASI KETAT (Pencegahan penghitungan ganda antara transaksi POS/Web dan catatan komisi)
+    const seenOrderKeys = new Set();
+    const uniqueSales = [];
 
-    // 3. Jika marketer tercatat memiliki pembelanjaan akumulasi di Database Mitra tapi catatan pesanan kosong di memori ini, sintesiskan agar tidak tampil 0
+    // Prioritaskan dari catatan appState.marketerSales
+    salesFromRecords.forEach(s => {
+      const oid = String(s.orderId || s.order_id || s.id || '').trim();
+      const omset = Number(s.omsetHet || s.omset_het) || 0;
+      const key = oid ? `ID:${oid}` : `FALLBACK:${s.date}:${omset}:${s.customerPhone}`;
+      if (!seenOrderKeys.has(key)) {
+        seenOrderKeys.add(key);
+        uniqueSales.push({
+          orderId: oid || 'ORD-MKT',
+          store_slug: s.store_slug || currentStoreSlug,
+          marketerId: m.id,
+          date: s.date || s.dateTime || '',
+          monthPeriod: s.monthPeriod || selectedMonth,
+          customerName: s.customerName || m.name,
+          customerPhone: s.customerPhone || m.phone,
+          customerAddress: s.customerAddress || '-',
+          omsetHet: omset,
+          commissionPct: Number(s.commissionPct) || 15,
+          commissionAmount: Number(s.commissionAmount) || Math.round(omset * 0.15),
+          paidStatus: (s.paidStatus === 'paid' || s.paid_status === 'paid') ? 'paid' : 'unpaid'
+        });
+      }
+    });
+
+    // Tambahkan transaksi toko HANYA jika belum tercatat di uniqueSales
+    salesFromTrx.forEach(t => {
+      const tid = String(t.id).trim();
+      const tomset = Number(t.grandTotal || t.subtotalHet) || 0;
+      const key = `ID:${tid}`;
+
+      // Periksa apakah ID ini sudah ada ATAU ada transaksi dengan nominal dan tanggal sama persis
+      const isAlreadyRecorded = seenOrderKeys.has(key) || uniqueSales.some(s => {
+        if (s.orderId === tid) return true;
+        const sameAmount = Math.abs(s.omsetHet - tomset) < 100;
+        const tDatePrefix = (t.dateTime || t.date || '').slice(0, 10);
+        const sDatePrefix = (s.date || '').slice(0, 10);
+        return sameAmount && tDatePrefix && sDatePrefix && (tDatePrefix === sDatePrefix || t.customerPhone === s.customerPhone);
+      });
+
+      if (!isAlreadyRecorded) {
+        seenOrderKeys.add(key);
+        uniqueSales.push({
+          orderId: tid,
+          store_slug: currentStoreSlug,
+          marketerId: m.id,
+          date: t.dateTime || t.date,
+          monthPeriod: selectedMonth,
+          customerName: t.customerName,
+          customerPhone: t.customerPhone,
+          customerAddress: t.customerAddress,
+          omsetHet: tomset,
+          commissionPct: 15,
+          commissionAmount: Math.round(tomset * 0.15),
+          paidStatus: (t.status === 'Lunas / Selesai' || t.status === 'Selesai') ? 'paid' : 'unpaid'
+        });
+      }
+    });
+
+    const combinedSales = uniqueSales;
+
+    // 4. Jika catatan pesanan kosong tapi tercatat pembelanjaan awal di Database Mitra, sintesiskan agar tidak tampil 0
     if (combinedSales.length === 0 && Number(m.accumulatedSpent90Days) > 0) {
       const spent = Number(m.accumulatedSpent90Days) || 0;
       combinedSales.push({
@@ -11116,6 +11214,10 @@ function renderMarketerPayroll() {
     const omset = combinedSales.reduce((acc, s) => acc + (Number(s.omsetHet) || 0), 0);
     const bonus = Math.round(omset * 0.15);
     const isAllPaid = countOrders > 0 && combinedSales.every(s => s.paidStatus === 'paid');
+
+    // Sinkronkan balik nilai akumulasi ke objek mitra agar Database Mitra dan Gaji Marketer 100% konsisten
+    m.accumulatedSpent90Days = omset;
+    m.totalOrdersCount = countOrders;
 
     grandOrders += countOrders;
     grandOmset += omset;
