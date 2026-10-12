@@ -86,6 +86,18 @@ async function syncStoresFromSupabase() {
       } catch (e) {}
     }
 
+    if (centralRow && centralRow.platform_fee_amount) {
+      const cloudFee = parseInt(centralRow.platform_fee_amount, 10);
+      if (!isNaN(cloudFee) && cloudFee >= 500) {
+        if (typeof appState !== 'undefined') {
+          appState.platformFee = cloudFee;
+        }
+        try {
+          localStorage.setItem('sr12_platform_fee_amount', String(cloudFee));
+        } catch (e) {}
+      }
+    }
+
     return (data || [])
       .filter(row => row && row.slug && row.slug !== 'sr12-central' && row.slug !== 'toko-supa-distributor' && !row.slug.startsWith('deleted_') && !row.slug.includes('toko-supa') && row.store_tagline !== '__deleted__')
       .map(row => ({
@@ -956,6 +968,43 @@ async function updateStorePinInSupabase(slug, newPin) {
 }
 
 /**
+ * Update Tarif Biaya Admin Sistem Global di Supabase Cloud
+ */
+async function updateStoreFeeInSupabase(slug, feeAmount) {
+  const client = initSupabaseClient();
+  if (!client || !slug || !feeAmount) return false;
+  try {
+    if (slug === 'sr12-central') {
+      const { error } = await client
+        .from('stores')
+        .upsert({
+          slug: 'sr12-central',
+          store_name: 'SR12-Ku Pro',
+          store_tagline: 'SR12 Official Central Hub',
+          platform_fee_amount: feeAmount
+        }, { onConflict: 'slug' });
+      if (error) console.warn('Supabase update platform fee error:', error);
+      else console.log('✅ Tarif Biaya Admin Global disinkronkan ke Supabase Cloud!');
+      return true;
+    }
+
+    const { error } = await client
+      .from('stores')
+      .update({ platform_fee_amount: feeAmount })
+      .eq('slug', slug);
+    if (error) {
+      console.warn('Supabase update fee error:', error);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.warn('Exception updating store fee in Supabase:', e);
+    return false;
+  }
+}
+window.updateStoreFeeInSupabase = updateStoreFeeInSupabase;
+
+/**
  * Update Kuota Pemesanan Toko di Supabase Cloud (agar tersimpan permanen & tidak ter-reset saat refresh)
  */
 async function updateStoreQuotaInSupabase(slug, newQuota) {
@@ -1278,5 +1327,6 @@ window.syncOrdersFromSupabase = syncOrdersFromSupabase;
 window.clearOrdersFromSupabase = clearOrdersFromSupabase;
 window.updateOrderStatusInSupabase = updateOrderStatusInSupabase;
 window.updateStoreQuotaInSupabase = updateStoreQuotaInSupabase;
+window.updateStoreFeeInSupabase = updateStoreFeeInSupabase;
 
 

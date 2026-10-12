@@ -1993,6 +1993,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     bootParams.set('store', initSlug);
     bootParamsChanged = true;
   }
+
+  // Deteksi jika link dibuka via tautan referral / afiliasi marketer pribadi (?mkt=... atau ?ref=...)
+  const refMktParam = bootParams.get('mkt') || bootParams.get('ref') || bootParams.get('marketer');
+  if (refMktParam && refMktParam.trim()) {
+    const cleanRef = refMktParam.trim();
+    try {
+      sessionStorage.setItem('sr12_active_referral_marketer', cleanRef);
+    } catch(e) {}
+    appState.activeReferralMarketer = cleanRef;
+    console.log('💼 Terdeteksi Link Belanja via Rekomendasi Marketer Resmi:', cleanRef);
+  }
+
   // CATATAN PENTING: JANGAN PERNAH menghapus parameter produk (?product=...) agar deep-link link promosi selalu terbuka sempurna!
   if (bootParamsChanged) {
     window.history.replaceState({ store: initSlug }, '', window.location.pathname + '?' + bootParams.toString());
@@ -6133,6 +6145,52 @@ async function handleSecurityPinChangeSubmit(e) {
 function changeDevMasterPin() {
   openChangeSecurityPinModal('dev');
 }
+window.changeDevMasterPin = changeDevMasterPin;
+
+// Simpan Tarif Biaya Admin Sistem Global oleh Developer
+async function saveDevGlobalPlatformFee() {
+  const inp = document.getElementById('inputDevGlobalFeeAmount');
+  if (!inp) return;
+  const val = parseInt(inp.value, 10);
+  if (isNaN(val) || val < 500) {
+    alert('⚠️ Masukkan nominal tarif biaya admin sistem yang valid (minimal Rp 500).');
+    return;
+  }
+
+  appState.platformFee = val;
+  try {
+    localStorage.setItem('sr12_platform_fee_amount', String(val));
+  } catch(e) {}
+
+  // Update Supabase jika terhubung (simpan ke tabel stores baris sr12-central sebagai acuan platform master)
+  if (typeof updateStoreFeeInSupabase === 'function') {
+    try {
+      await updateStoreFeeInSupabase('sr12-central', val);
+    } catch(err) {
+      console.warn('Gagal sync fee global ke Supabase via helper:', err);
+    }
+  } else if (typeof SUPABASE_CONFIG !== 'undefined' && SUPABASE_CONFIG.isConfigured()) {
+    try {
+      const url = `${SUPABASE_CONFIG.url}/rest/v1/stores?slug=eq.sr12-central`;
+      await fetch(url, {
+        method: 'PATCH',
+        headers: {
+          'apikey': SUPABASE_CONFIG.anonKey,
+          'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({ platform_fee_amount: val })
+      });
+    } catch(err) {
+      console.warn('Gagal PATCH platform_fee_amount ke Supabase:', err);
+    }
+  }
+
+  showToast(`✅ Tarif Biaya Admin Sistem Global berhasil diubah menjadi ${formatRupiah(val)} per transaksi!`);
+  updateDevPortalMetrics();
+}
+window.saveDevGlobalPlatformFee = saveDevGlobalPlatformFee;
 
 function updateAllowedTierOptions() {
   const storeTier = appState.storeSettings?.partnerTier || 'distributor';
@@ -6812,19 +6870,23 @@ function checkoutViaWhatsApp() {
   }
 
   const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
-  let foundMitra = findMitraByIdOrPhone(inputPartnerQuery || buyerPhone, currentStoreSlug);
+  let activeRefMkt = '';
+  try {
+    activeRefMkt = sessionStorage.getItem('sr12_active_referral_marketer') || (typeof appState !== 'undefined' ? appState.activeReferralMarketer : '') || '';
+  } catch(e) {}
+  let foundMitra = findMitraByIdOrPhone(inputPartnerQuery || activeRefMkt || buyerPhone, currentStoreSlug);
   let crmNoticeText = '';
 
-  // Deteksi pesanan mitra (berdasarkan ID mitra atau tier aktif yang dipilih saat belanja)
-  const isMarketerOrder = (foundMitra && foundMitra.tier === 'marketer') || appState.currentTier === 'marketer';
+  // Deteksi pesanan mitra (berdasarkan ID mitra, link referral marketer, atau tier aktif yang dipilih saat belanja)
+  const isMarketerOrder = (foundMitra && foundMitra.tier === 'marketer') || appState.currentTier === 'marketer' || !!activeRefMkt;
   const isResellerOrder = (foundMitra && foundMitra.tier === 'reseller') || appState.currentTier === 'reseller';
 
   // Alokasikan ID transaksi terpadu sejak awal agar pesanan di web & catatan gaji marketer 100% terhubung
   const orderTrxId = 'ORD-WEB-' + Date.now().toString().slice(-6);
 
   if (isMarketerOrder) {
-    const marketerCode = (foundMitra && foundMitra.id) ? foundMitra.id : ('MKT-' + (buyerPhone ? buyerPhone.slice(-4) : 'WEB'));
-    const marketerName = (foundMitra && foundMitra.name) ? foundMitra.name : (appState.buyerDetails.name || 'Mitra Marketer');
+    const marketerCode = (foundMitra && foundMitra.id) ? foundMitra.id : (activeRefMkt || ('MKT-' + (buyerPhone ? buyerPhone.slice(-4) : 'WEB')));
+    const marketerName = (foundMitra && foundMitra.name) ? foundMitra.name : (activeRefMkt ? `Marketer (${activeRefMkt})` : (appState.buyerDetails.name || 'Mitra Marketer'));
     const comm = Math.round(subtotal * 0.15);
 
     // Jika marketer belum terdata di buku mitra toko distributor, otomatis daftarkan agar muncul di daftar gaji
@@ -7018,7 +7080,7 @@ function checkoutViaWhatsApp() {
   const webOrder = {
     id: orderTrxId,
     store_slug: currentStoreSlug,
-    marketerId: (foundMitra && foundMitra.id) ? foundMitra.id : (isMarketerOrder ? 'MKT-WEB' : (isResellerOrder ? 'RS-WEB' : null)),
+    marketerId: (foundMitra && foundMitra.id) ? foundMitra.id : (isMarketerOrder ? (activeRefMkt || 'MKT-WEB') : (isResellerOrder ? 'RS-WEB' : null)),
     dateTime: dateFormatted,
     customerName: (appState.buyerDetails.name || 'Pelanggan') + (foundMitra ? ` (${foundMitra.id})` : (isMarketerOrder ? ' (Marketer)' : (isResellerOrder ? ' (Reseller)' : ''))),
     customerPhone: buyerPhone || appState.buyerDetails.phone || '-',
@@ -8951,6 +9013,12 @@ function updateDevPortalMetrics() {
   if (navFee) navFee.textContent = formatRupiah(totalFee);
   const storesCounter_ws = document.getElementById('devTotalStoresCounter_ws');
   if (storesCounter_ws) storesCounter_ws.textContent = `${totalStores} Toko Terdaftar`;
+
+  // Sinkronkan Input Tarif Biaya Admin Sistem Global Developer
+  const inputGlobalFee = document.getElementById('inputDevGlobalFeeAmount');
+  if (inputGlobalFee && !inputGlobalFee.matches(':focus')) {
+    inputGlobalFee.value = appState.platformFee || 1500;
+  }
 
   // Sync Strip Preview Topbar & Master PIN
   const stripName = document.getElementById('devStripStoreName');
@@ -12097,14 +12165,26 @@ function openProductPromoShareModal(productId) {
   const cleanSlug = curStore.slug || 'sr12-central';
   const tierPrice = getProductTierPrice(prod, appState.currentTier);
   const isPromo = prod.het > tierPrice;
+  // Baca kode marketer pribadi yang tersimpan (atau dari akun marketer aktif)
+  const savedMktCode = localStorage.getItem('sr12_marketer_my_referral_code') || 
+    (appState.activeMarketerId || (appState.currentTier === 'marketer' ? 'MKT-001' : ''));
+  const mktInp = document.getElementById('inputPromoMarketerCode');
+  if (mktInp) mktInp.value = savedMktCode || '';
+
   // Link langsung khusus produk di toko mitra bersangkutan (Universal untuk Localhost & Online Hosting / GitHub Pages)
-  const productUrl = `${window.location.origin}${window.location.pathname}?store=${encodeURIComponent(cleanSlug)}&product=${encodeURIComponent(prod.id)}`;
+  let productUrl = `${window.location.origin}${window.location.pathname}?store=${encodeURIComponent(cleanSlug)}&product=${encodeURIComponent(prod.id)}`;
+  if (savedMktCode) {
+    productUrl += `&mkt=${encodeURIComponent(savedMktCode)}`;
+  }
   const storeUrl = `${window.location.origin}${window.location.pathname}?store=${encodeURIComponent(cleanSlug)}`;
 
   currentPromoShareData = {
     prod,
+    cleanSlug,
     storeName,
     tierPrice,
+    isPromo,
+    mktCode: savedMktCode || '',
     productUrl,
     storeUrl
   };
@@ -12115,8 +12195,6 @@ function openProductPromoShareModal(productId) {
   const priceEl = document.getElementById('promoSharePrice');
   const hetEl = document.getElementById('promoShareHet');
   const descEl = document.getElementById('promoShareDesc');
-  const linkEl = document.getElementById('promoShareDirectLink');
-  const textEl = document.getElementById('promoShareCopywritingText');
 
   if (imgEl) imgEl.src = prod.image;
   if (catEl) catEl.textContent = prod.category;
@@ -12131,6 +12209,50 @@ function openProductPromoShareModal(productId) {
     }
   }
   if (descEl) descEl.textContent = prod.summary || (prod.benefits && prod.benefits[0]) || '';
+
+  refreshPromoShareUrlAndCopy(savedMktCode || '');
+
+  openModal('modalProductPromoShare');
+}
+window.openProductPromoShareModal = openProductPromoShareModal;
+
+function updatePromoShareMarketerCode() {
+  if (!currentPromoShareData) return;
+  const inp = document.getElementById('inputPromoMarketerCode');
+  const code = (inp ? inp.value.trim() : '');
+  if (code) {
+    localStorage.setItem('sr12_marketer_my_referral_code', code);
+  } else {
+    localStorage.removeItem('sr12_marketer_my_referral_code');
+  }
+  refreshPromoShareUrlAndCopy(code);
+}
+window.updatePromoShareMarketerCode = updatePromoShareMarketerCode;
+
+function clearPromoShareMarketerCode() {
+  const inp = document.getElementById('inputPromoMarketerCode');
+  if (inp) inp.value = '';
+  localStorage.removeItem('sr12_marketer_my_referral_code');
+  refreshPromoShareUrlAndCopy('');
+}
+window.clearPromoShareMarketerCode = clearPromoShareMarketerCode;
+
+function refreshPromoShareUrlAndCopy(mktCode) {
+  if (!currentPromoShareData || !currentPromoShareData.prod) return;
+  const prod = currentPromoShareData.prod;
+  const cleanSlug = currentPromoShareData.cleanSlug || 'alzam-agency';
+  const storeName = currentPromoShareData.storeName || 'SR12 Partner Store';
+  const tierPrice = currentPromoShareData.tierPrice || prod.het;
+  const isPromo = currentPromoShareData.isPromo;
+
+  let productUrl = `${window.location.origin}${window.location.pathname}?store=${encodeURIComponent(cleanSlug)}&product=${encodeURIComponent(prod.id)}`;
+  if (mktCode) {
+    productUrl += `&mkt=${encodeURIComponent(mktCode)}`;
+  }
+  currentPromoShareData.productUrl = productUrl;
+  currentPromoShareData.mktCode = mktCode;
+
+  const linkEl = document.getElementById('promoShareDirectLink');
   if (linkEl) {
     linkEl.textContent = productUrl;
     linkEl.title = productUrl;
@@ -12140,12 +12262,14 @@ function openProductPromoShareModal(productId) {
     ? prod.benefits.slice(0, 3).map(b => `✅ ${b}`).join('\n')
     : `✅ 100% Produk Herbal Terdaftar BPOM\n✅ Formulasi Lembut & Aman Digunakan Tiap Hari\n✅ Garansi Keaslian Resmi Pabrik SR12`;
 
+  const refBadge = mktCode ? `\n💼 *Rekomendasi Resmi Tim Marketer:* ${mktCode}` : '';
+
   const copyText = 
 `✨ *PROMO SPESIAL: ${prod.name.toUpperCase()}* ✨
 ${prod.summary || 'Produk perawatan herbal berkualitas resmi SR12 teruji klinis dan BPOM.'} 🌿
 
 ⭐ *Rating Pembeli:* 4.9 / 5.0 (Terbukti Berkhasiat)
-🛡️ *Izin Edar Resmi:* 100% Terverifikasi BPOM & Halal MUI
+🛡️ *Izin Edar Resmi:* 100% Terverifikasi BPOM & Halal MUI${refBadge}
 
 🔥 *Keunggulan Produk:*
 ${benefitsText}
@@ -12158,11 +12282,10 @@ ${productUrl}
 
 Silakan klik tautan di atas untuk melihat detail lengkap & pemesanan resmi via WhatsApp! 🌸`;
 
+  const textEl = document.getElementById('promoShareCopywritingText');
   if (textEl) textEl.value = copyText;
-
-  openModal('modalProductPromoShare');
 }
-window.openProductPromoShareModal = openProductPromoShareModal;
+window.refreshPromoShareUrlAndCopy = refreshPromoShareUrlAndCopy;
 
 function copyProductDirectLink() {
   if (!currentPromoShareData || !currentPromoShareData.productUrl) return;
