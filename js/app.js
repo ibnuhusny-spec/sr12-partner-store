@@ -4904,6 +4904,9 @@ function updateViewModeUI() {
   }
 
   updateStoreQuotaUI();
+  if (typeof renderRewards === 'function') {
+    renderRewards();
+  }
 }
 
 function initEventListeners() {
@@ -8909,12 +8912,23 @@ function handleAddCustomPromoSubmit(e) {
 }
 
 function openAddPromoModal() {
+  const isAuthorized = (typeof appState !== 'undefined') && !!(appState.isAdminMode || appState.isDistributorLoggedIn || appState.isDevMasterLoggedIn);
+  if (!isAuthorized) {
+    alert('Akses Ditolak: Anda harus login sebagai Pemilik Toko (Distributor) untuk membuat promo toko.');
+    return;
+  }
   const modal = document.getElementById('modalAddPromo');
   if (modal) modal.classList.add('open');
 }
 window.openAddPromoModal = openAddPromoModal;
 
 function deleteReward(rewardId, rewardTitle) {
+  const isAuthorized = (typeof appState !== 'undefined') && !!(appState.isAdminMode || appState.isDistributorLoggedIn || appState.isDevMasterLoggedIn);
+  if (!isAuthorized) {
+    alert('Akses Ditolak: Fitur pengelolaan reward/promo hanya dapat diakses oleh Pemilik Toko (Distributor Resmi).');
+    return;
+  }
+
   if (!confirm(`Apakah Anda yakin ingin menghapus promo/hadiah "${rewardTitle}" ini dari katalog toko?`)) {
     return;
   }
@@ -8953,6 +8967,8 @@ function renderRewards() {
   const container = document.getElementById('rewardsGrid');
   if (!container) return;
 
+  const isOwner = (typeof appState !== 'undefined') && !!(appState.isAdminMode || appState.isDistributorLoggedIn || appState.isDevMasterLoggedIn);
+
   const filtered = (appState.rewards || []).filter(r => {
     if (appState.selectedRewardScope === 'all') return true;
     return r.scope === appState.selectedRewardScope;
@@ -8962,7 +8978,7 @@ function renderRewards() {
     container.innerHTML = `
       <div style="grid-column: 1/-1; text-align: center; padding: 40px; background: #fff; border-radius: var(--radius-lg); border: 1px dashed var(--border-subtle);">
         <p style="font-weight: 700; color: var(--dark-700);">Belum Ada Promo dalam Kategori Ini</p>
-        <p style="font-size: 0.82rem; color: var(--dark-500); margin-top: 4px;">Anda dapat membuat promo toko baru kapan saja menggunakan tombol di atas.</p>
+        ${isOwner ? '<p style="font-size: 0.82rem; color: var(--dark-500); margin-top: 4px;">Anda dapat membuat promo toko baru kapan saja menggunakan tombol di atas.</p>' : ''}
       </div>
     `;
     return;
@@ -8976,9 +8992,11 @@ function renderRewards() {
         <div>
           <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px;">
             <span class="reward-badge-tag" style="${!isResmi ? 'background: #fdf2f8; color: #be185d;' : ''}">${r.badge}</span>
-            <button type="button" class="btn-delete-reward-card" onclick="deleteReward('${r.id}', '${escapedTitle}')" style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #dc2626; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.74rem; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Hapus Promo / Hadiah Ini">
-              <span>🗑️</span> Hapus
-            </button>
+            ${isOwner ? `
+              <button type="button" class="btn-delete-reward-card" onclick="deleteReward('${r.id}', '${escapedTitle}')" style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #dc2626; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.74rem; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Hapus Promo / Hadiah Ini">
+                <span>🗑️</span> Hapus
+              </button>
+            ` : ''}
           </div>
           <h3 style="margin-top: 4px;">${r.title}</h3>
           <div class="reward-points-required" style="${!isResmi ? 'color: #be185d;' : ''}">
@@ -8991,9 +9009,11 @@ function renderRewards() {
           <button type="button" class="btn-claim-reward" style="flex: 1; padding: 10px 14px; border-radius: var(--radius-md); font-weight: 700; font-size: 0.85rem; cursor: pointer; ${!isResmi ? 'background: #be185d; color: #fff;' : ''}" onclick="claimReward('${r.id}', ${r.requiredPoints || 0}, '${escapedTitle}')">
             🎁 Tukar / Klaim Reward
           </button>
-          <button type="button" class="btn-delete-reward-action" onclick="deleteReward('${r.id}', '${escapedTitle}')" style="background: #fef2f2; border: 1.5px solid #ef4444; color: #dc2626; padding: 10px 14px; border-radius: var(--radius-md); font-weight: 800; font-size: 0.82rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; box-shadow: 0 1px 3px rgba(239,68,68,0.15);" title="Hapus Promo/Hadiah Ini dari Toko">
-            <span style="font-size: 0.95rem;">🗑️</span> <span>Hapus</span>
-          </button>
+          ${isOwner ? `
+            <button type="button" class="btn-delete-reward-action" onclick="deleteReward('${r.id}', '${escapedTitle}')" style="background: #fef2f2; border: 1.5px solid #ef4444; color: #dc2626; padding: 10px 14px; border-radius: var(--radius-md); font-weight: 800; font-size: 0.82rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; box-shadow: 0 1px 3px rgba(239,68,68,0.15);" title="Hapus Promo/Hadiah Ini dari Toko">
+              <span style="font-size: 0.95rem;">🗑️</span> <span>Hapus</span>
+            </button>
+          ` : ''}
         </div>
       </div>
     `;
