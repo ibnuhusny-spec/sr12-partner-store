@@ -475,7 +475,6 @@ async function findMitraInSupabase(query, storeSlug = null) {
     const qAlphaNum = qClean.replace(/[^A-Z0-9]/g, '');
     const qDigits = qTrim.replace(/[^0-9]/g, '');
 
-    // 1. Cari berdasarkan partner_code persis / case-insensitive
     let codeQuery = client
       .from('mitra_downlines')
       .select('*')
@@ -483,7 +482,18 @@ async function findMitraInSupabase(query, storeSlug = null) {
     if (storeSlug && storeSlug !== 'all' && storeSlug !== 'global') {
       codeQuery = codeQuery.eq('store_slug', storeSlug);
     }
-    const { data: byCode } = await codeQuery.limit(5);
+    let { data: byCode } = await codeQuery.limit(5);
+
+    if ((!byCode || byCode.length === 0) && storeSlug && storeSlug !== 'all' && storeSlug !== 'global') {
+      const { data: globalCode } = await client
+        .from('mitra_downlines')
+        .select('*')
+        .or(`partner_code.ilike.${qClean},partner_code.ilike.${qAlphaNum}`)
+        .limit(5);
+      if (globalCode && globalCode.length > 0) {
+        byCode = globalCode;
+      }
+    }
 
     if (byCode && byCode.length > 0) {
       const row = byCode[0];
@@ -515,7 +525,18 @@ async function findMitraInSupabase(query, storeSlug = null) {
       if (storeSlug && storeSlug !== 'all' && storeSlug !== 'global') {
         phoneQuery = phoneQuery.eq('store_slug', storeSlug);
       }
-      const { data: byPhone } = await phoneQuery.limit(5);
+      let { data: byPhone } = await phoneQuery.limit(5);
+
+      if ((!byPhone || byPhone.length === 0) && storeSlug && storeSlug !== 'all' && storeSlug !== 'global') {
+        const { data: globalPhone } = await client
+          .from('mitra_downlines')
+          .select('*')
+          .ilike('phone', `%${tail}%`)
+          .limit(5);
+        if (globalPhone && globalPhone.length > 0) {
+          byPhone = globalPhone;
+        }
+      }
 
       if (byPhone && byPhone.length > 0) {
         const row = byPhone[0];

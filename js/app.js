@@ -1843,13 +1843,13 @@ var appState = {
   activeTab: 'catalog',
   isDropship: false,
   dropshipSender: {
-    name: 'Aisyah Herbal Shop (Mitra SR12)',
-    phone: '0812-3456-7890'
+    name: '',
+    phone: ''
   },
   buyerDetails: {
-    name: 'Ibu Ratna Dewi',
-    phone: '0857-9876-5432',
-    address: 'Jl. Melati No. 45, RT 02/05, Kebayoran Baru, Jakarta Selatan',
+    name: '',
+    phone: '',
+    address: '',
     courier: 'jne'
   },
   platformFee: parseInt(localStorage.getItem('sr12_platform_fee_amount'), 10) || 1500,
@@ -6885,8 +6885,8 @@ function checkoutViaWhatsApp() {
   const orderTrxId = 'ORD-WEB-' + Date.now().toString().slice(-6);
 
   if (isMarketerOrder) {
-    const marketerCode = (foundMitra && foundMitra.id) ? foundMitra.id : (activeRefMkt || ('MKT-' + (buyerPhone ? buyerPhone.slice(-4) : 'WEB')));
-    const marketerName = (foundMitra && foundMitra.name) ? foundMitra.name : (activeRefMkt ? `Marketer (${activeRefMkt})` : (appState.buyerDetails.name || 'Mitra Marketer'));
+    const marketerCode = (foundMitra && foundMitra.id) ? foundMitra.id : (activeRefMkt || (inputPartnerQuery && inputPartnerQuery.toUpperCase().startsWith('MKT-') ? inputPartnerQuery.toUpperCase() : ('MKT-' + (buyerPhone ? buyerPhone.slice(-4) : 'WEB'))));
+    const marketerName = (foundMitra && foundMitra.name) ? foundMitra.name : (activeRefMkt ? `Marketer (${activeRefMkt})` : (inputPartnerQuery && inputPartnerQuery.toUpperCase().startsWith('MKT-') ? `Marketer (${inputPartnerQuery.toUpperCase()})` : 'Mitra Marketer'));
     const comm = Math.round(subtotal * 0.15);
 
     // Jika marketer belum terdata di buku mitra toko distributor, otomatis daftarkan agar muncul di daftar gaji
@@ -10528,10 +10528,7 @@ function findMitraByIdOrPhone(query, targetStoreSlug = null) {
   const qPhoneTail = qPhone.length >= 8 ? qPhone.slice(-8) : '';
   const allList = appState.mitraList || appState.resellers || [];
 
-  // ISOLASI TOKO KETAT: Hanya cari mitra yang terdaftar pada toko aktif yang sedang dituju
-  const list = allList.filter(m => (m.store_slug || 'sr12-central') === currentSlug);
-
-  return list.find(m => {
+  const matcher = m => {
     // 1. Cocokkan ID persis atau tanpa tanda hubung (AG-001 vs AG001 vs ag-001)
     const mIdClean = (m.id || '').toUpperCase();
     const mIdAlphaNum = mIdClean.replace(/[^A-Z0-9]/g, '');
@@ -10546,7 +10543,15 @@ function findMitraByIdOrPhone(query, targetStoreSlug = null) {
     const nameMatch = m.name && m.name.trim().toLowerCase() === qTrim.toLowerCase();
 
     return idMatch || phoneMatch || nameMatch;
-  });
+  };
+
+  // 1. Utamakan cari mitra yang terdaftar pada toko aktif yang sedang dituju
+  const list = allList.filter(m => (m.store_slug || 'sr12-central') === currentSlug);
+  const inStore = list.find(matcher);
+  if (inStore) return inStore;
+
+  // 2. Fallback: Cari di seluruh database mitra sistem jika belum terdaftar khusus di toko ini
+  return allList.find(matcher) || null;
 }
 
 function generateNextMitraId(tier) {
@@ -12262,7 +12267,58 @@ function refreshPromoShareUrlAndCopy(mktCode) {
     ? prod.benefits.slice(0, 3).map(b => `✅ ${b}`).join('\n')
     : `✅ 100% Produk Herbal Terdaftar BPOM\n✅ Formulasi Lembut & Aman Digunakan Tiap Hari\n✅ Garansi Keaslian Resmi Pabrik SR12`;
 
-  const refBadge = mktCode ? `\n💼 *Rekomendasi Resmi Tim Marketer:* ${mktCode}` : '';
+  let mktFound = null;
+  if (mktCode) {
+    mktFound = findMitraByIdOrPhone(mktCode, cleanSlug);
+  }
+
+  const badgeEl = document.getElementById('promoShareMarketerBadge');
+  if (badgeEl) {
+    if (mktFound && mktFound.name) {
+      badgeEl.style.display = 'block';
+      badgeEl.style.color = '#15803d';
+      badgeEl.innerHTML = `✅ <b>Marketer Terverifikasi:</b> ${escapeHtml(mktFound.name)} (${escapeHtml(mktFound.id || mktCode)})`;
+    } else if (mktCode) {
+      badgeEl.style.display = 'block';
+      badgeEl.style.color = '#0284c7';
+      badgeEl.innerHTML = `⏳ <i>Mengecek identitas "${escapeHtml(mktCode)}"...</i>`;
+      if (typeof findMitraInSupabase === 'function') {
+        findMitraInSupabase(mktCode, cleanSlug).then(cloudM => {
+          if (cloudM && cloudM.name) {
+            if (!appState.mitraList) appState.mitraList = [];
+            const existIdx = appState.mitraList.findIndex(m => (m.id || '').toUpperCase() === (cloudM.id || '').toUpperCase());
+            if (existIdx < 0) appState.mitraList.unshift(cloudM);
+            else appState.mitraList[existIdx] = Object.assign({}, appState.mitraList[existIdx], cloudM);
+            const b = document.getElementById('promoShareMarketerBadge');
+            if (b) {
+              b.style.display = 'block';
+              b.style.color = '#15803d';
+              b.innerHTML = `✅ <b>Marketer Terverifikasi:</b> ${escapeHtml(cloudM.name)} (${escapeHtml(cloudM.id || mktCode)})`;
+            }
+            // Perbarui teks copywriting dengan nama marketer resmi dari cloud
+            const mktNameBadge = `\n💼 *Rekomendasi Resmi Tim Marketer:* ${cloudM.name} (${mktCode})`;
+            const curCopy = document.getElementById('promoShareCopywritingText');
+            if (curCopy && curCopy.value) {
+              curCopy.value = curCopy.value.replace(/\n💼 \*Rekomendasi Resmi Tim Marketer:\* [^\n]+/, mktNameBadge);
+            }
+          } else {
+            const b = document.getElementById('promoShareMarketerBadge');
+            if (b) {
+              b.style.display = 'block';
+              b.style.color = '#15803d';
+              b.innerHTML = `💼 Link rujukan aktif dengan kode: <b>${escapeHtml(mktCode)}</b>`;
+            }
+          }
+        }).catch(() => {});
+      }
+    } else {
+      badgeEl.style.display = 'none';
+      badgeEl.innerHTML = '';
+    }
+  }
+
+  const mktDisplayName = (mktFound && mktFound.name) ? `${mktFound.name} (${mktCode})` : mktCode;
+  const refBadge = mktCode ? `\n💼 *Rekomendasi Resmi Tim Marketer:* ${mktDisplayName}` : '';
 
   const copyText = 
 `✨ *PROMO SPESIAL: ${prod.name.toUpperCase()}* ✨
