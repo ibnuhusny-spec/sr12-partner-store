@@ -1530,7 +1530,25 @@ function renderPosCart() {
   }).join('');
 
   const discountAmount = Math.round(subtotalHet * (discountPct / 100));
-  const grandTotal = Math.max(0, subtotalHet - discountAmount);
+  const baseTotal = Math.max(0, subtotalHet - discountAmount);
+
+  // Biaya Admin Sistem POS (Fleksibel - Default Rp 0 / Ditanggung Toko)
+  const chkAdminFee = document.getElementById('chkPosApplyAdminFee');
+  const feeAmount = parseInt((typeof appState !== 'undefined' && appState.platformFee) || 1500, 10);
+  const isFeeChecked = chkAdminFee && chkAdminFee.checked;
+  const adminFeeVal = isFeeChecked ? feeAmount : 0;
+  const grandTotal = baseTotal + adminFeeVal;
+
+  const adminFeeDisp = document.getElementById('posAdminFeeDisplay');
+  if (adminFeeDisp) {
+    if (adminFeeVal > 0) {
+      adminFeeDisp.textContent = `+ Rp ${adminFeeVal.toLocaleString('id-ID')}`;
+      adminFeeDisp.style.color = '#0284c7';
+    } else {
+      adminFeeDisp.textContent = 'Rp 0 (Ditanggung Toko)';
+      adminFeeDisp.style.color = '#10b981';
+    }
+  }
 
   if (subtotalHetEl) subtotalHetEl.textContent = `Rp ${subtotalHet.toLocaleString('id-ID')}`;
   if (discountLabelEl) {
@@ -1570,6 +1588,11 @@ function renderPosCart() {
     }
   }
 }
+
+function togglePosAdminFee() {
+  renderPosCart();
+}
+window.togglePosAdminFee = togglePosAdminFee;
 
 function togglePosCashInput(isCash) {
   if (typeof appState !== 'undefined') {
@@ -1625,7 +1648,10 @@ function processPosCheckout(action = 'save') {
   const discountValEl = document.getElementById('posDiscountVal');
   const grandTotal = parseInt(grandTotalEl.textContent.replace(/[^0-9]/g, ''), 10) || 0;
   const subtotalHet = parseInt(subtotalHetEl.textContent.replace(/[^0-9]/g, ''), 10) || 0;
-  const discountAmount = Math.max(0, subtotalHet - grandTotal);
+  const discountAmount = Math.max(0, subtotalHet - (grandTotal - (document.getElementById('chkPosApplyAdminFee')?.checked ? parseInt((typeof appState !== 'undefined' && appState.platformFee) || 1500, 10) : 0)));
+
+  const chkAdminFee = document.getElementById('chkPosApplyAdminFee');
+  const posAdminFeeAmount = (chkAdminFee && chkAdminFee.checked) ? (parseInt((typeof appState !== 'undefined' && appState.platformFee) || 1500, 10)) : 0;
 
   const customerName = (document.getElementById('posCustomerName')?.value.trim()) || 'Pembeli Langsung (Kasir)';
   const customerPhone = (document.getElementById('posCustomerPhone')?.value.trim()) || '';
@@ -1660,6 +1686,7 @@ function processPosCheckout(action = 'save') {
     })),
     subtotalHet,
     discountAmount,
+    adminFee: posAdminFeeAmount,
     grandTotal,
     paymentMethod: isCash ? 'CASH' : 'TRANSFER',
     cashTendered,
@@ -1885,6 +1912,17 @@ function openPosReceiptModal(trx) {
     const cashVal = typeof trx.cashTendered === 'number' ? trx.cashTendered : grandTotalVal;
     const changeVal = typeof trx.changeAmount === 'number' ? trx.changeAmount : 0;
 
+    const adminFeeVal = Number(trx.adminFee) || 0;
+    const rcptAdminFeeRow = document.getElementById('rcptAdminFeeRow');
+    if (rcptAdminFeeRow) {
+      if (adminFeeVal > 0) {
+        rcptAdminFeeRow.style.display = 'flex';
+        setEl('rcptAdminFee', `+ Rp ${adminFeeVal.toLocaleString('id-ID')}`);
+      } else {
+        rcptAdminFeeRow.style.display = 'none';
+      }
+    }
+
     setEl('rcptSubtotal', `Rp ${subtotalVal.toLocaleString('id-ID')}`);
     setEl('rcptDiscount', discountVal > 0 ? `- Rp ${discountVal.toLocaleString('id-ID')}` : 'Rp 0');
     setEl('rcptGrandTotal', `Rp ${grandTotalVal.toLocaleString('id-ID')}`);
@@ -1967,12 +2005,16 @@ function sendPosReceiptViaWhatsApp() {
 
   const subtotalVal = Number(trx.subtotalHet) || Number(trx.grandTotal) || 0;
   const discountVal = Number(trx.discountAmount) || 0;
+  const adminFeeVal = Number(trx.adminFee) || 0;
   const grandTotalVal = Number(trx.grandTotal) || 0;
 
   msg += `----------------------------------------\n`;
   msg += `Subtotal HET: Rp ${subtotalVal.toLocaleString('id-ID')}\n`;
   if (discountVal > 0) {
     msg += `Diskon Kemitraan: -Rp ${discountVal.toLocaleString('id-ID')}\n`;
+  }
+  if (adminFeeVal > 0) {
+    msg += `Biaya Admin Sistem: +Rp ${adminFeeVal.toLocaleString('id-ID')}\n`;
   }
   msg += `*TOTAL BAYAR: Rp ${grandTotalVal.toLocaleString('id-ID')}*\n`;
   msg += `Metode: ${trx.paymentMethod || 'TRANSFER / ONLINE'} (LUNAS)\n`;

@@ -617,6 +617,13 @@
                 <span id="posDiscountLabel">Diskon Kemitraan:</span>
                 <span id="posDiscountVal" style="font-weight: 700;">- Rp 0</span>
               </div>
+              <div class="pos-summary-row" id="posAdminFeeRow" style="display: flex; align-items: center; justify-content: space-between; font-size: 0.78rem; color: #64748b; padding: 3px 0; width: 100%; box-sizing: border-box;">
+                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; user-select: none;" title="Pilihan fleksibel jika sewaktu-waktu ingin membebankan biaya sistem ke pembeli">
+                  <input type="checkbox" id="chkPosApplyAdminFee" onchange="togglePosAdminFee()" style="cursor: pointer;">
+                  <span>Biaya Admin Sistem:</span>
+                </label>
+                <span id="posAdminFeeDisplay" style="font-weight: 700; color: #10b981;">Rp 0 (Ditanggung Toko)</span>
+              </div>
               <div class="pos-summary-total" style="width: 100%; box-sizing: border-box;">
                 <span>Total Bayar:</span>
                 <span id="posGrandTotal" style="color: #0284c7;">Rp 0</span>
@@ -4283,6 +4290,10 @@
           <div style="display: flex; justify-content: space-between; color: #059669;">
             <span>Diskon Kemitraan:</span>
             <span id="rcptDiscount">- Rp 50.000</span>
+          </div>
+          <div id="rcptAdminFeeRow" style="display: none; justify-content: space-between; color: #0284c7;">
+            <span>Biaya Admin Sistem:</span>
+            <span id="rcptAdminFee">+ Rp 1.500</span>
           </div>
           <div style="display: flex; justify-content: space-between; font-weight: 800; font-size: 0.95rem; border-top: 1px solid #000; padding-top: 4px; margin-top: 4px;">
             <span>TOTAL BAYAR:</span>
