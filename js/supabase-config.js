@@ -693,15 +693,23 @@ async function saveMarketerSaleToSupabase(sale, storeSlug = 'sr12-central') {
       paid_date: sale.paidDate || null
     };
 
-    const { data: existing } = await client
+    const { data: existingRows } = await client
       .from('marketer_sales')
-      .select('id')
+      .select('id, items_desc')
       .eq('store_slug', storeSlug)
-      .eq('order_id', sale.orderId)
-      .maybeSingle();
+      .eq('order_id', sale.orderId);
 
-    if (existing && existing.id) {
-      await client.from('marketer_sales').update(payload).eq('id', existing.id);
+    if (Array.isArray(existingRows) && existingRows.length > 0) {
+      // Pertahankan items_desc JSON jika sudah ada agar tidak tertimpa tanda strip '-'
+      const keeper = existingRows[0];
+      if (keeper.items_desc && keeper.items_desc.startsWith('{') && payload.items_desc === '-') {
+        delete payload.items_desc;
+      }
+      await client.from('marketer_sales').update(payload).eq('id', keeper.id);
+      // Hapus duplikasi baris jika ada lebih dari 1 baris untuk order_id yang sama
+      for (let i = 1; i < existingRows.length; i++) {
+        await client.from('marketer_sales').delete().eq('id', existingRows[i].id);
+      }
     } else {
       await client.from('marketer_sales').insert(payload);
     }
@@ -1033,15 +1041,17 @@ async function saveOrderToSupabase(order, storeSlug = 'sr12-central') {
       paid_date: (order.status === 'Selesai') ? dateOnly : null
     };
 
-    const { data: existing } = await client
+    const { data: existingRows } = await client
       .from('marketer_sales')
       .select('id')
       .eq('store_slug', targetStore)
-      .eq('order_id', order.id)
-      .maybeSingle();
+      .eq('order_id', order.id);
 
-    if (existing && existing.id) {
-      await client.from('marketer_sales').update(salePayload).eq('id', existing.id);
+    if (Array.isArray(existingRows) && existingRows.length > 0) {
+      await client.from('marketer_sales').update(salePayload).eq('id', existingRows[0].id);
+      for (let i = 1; i < existingRows.length; i++) {
+        await client.from('marketer_sales').delete().eq('id', existingRows[i].id);
+      }
     } else {
       await client.from('marketer_sales').insert(salePayload);
     }
@@ -1086,7 +1096,7 @@ async function syncOrdersFromSupabase(storeSlug = 'sr12-central') {
           discountAmount: Number(r.discount_amount) || 0,
           grandTotal: Number(r.grand_total) || 0,
           paymentMethod: r.payment_method || 'Ekspedisi Pengiriman',
-          status: r.status || 'Menunggu Konfirmasi',
+          status: (r.status === 'Selesai' || r.status === 'Lunas') ? 'Lunas / Selesai' : (r.status || 'Menunggu Konfirmasi'),
           orderSource: r.order_source || 'Online Web Store'
         }));
       }
@@ -1101,37 +1111,52 @@ async function syncOrdersFromSupabase(storeSlug = 'sr12-central') {
         .order('created_at', { ascending: false });
 
       if (!salesErr && Array.isArray(salesData) && salesData.length > 0) {
+        // Kelompokkan baris berdasarkan order_id untuk konsolidasi data dan status
+        const orderGroups = new Map();
         salesData.forEach(r => {
-          if (results.some(x => x.id === r.order_id)) return;
+          if (!r || !r.order_id) return;
+          if (!orderGroups.has(r.order_id)) orderGroups.set(r.order_id, []);
+          orderGroups.get(r.order_id).push(r);
+        });
 
+        for (const [orderId, rows] of orderGroups.entries()) {
+          if (results.some(x => x.id === orderId)) continue;
+
+          const isPaid = rows.some(r => r.paid_status === 'paid');
+          const jsonRow = rows.find(r => r.items_desc && r.items_desc.startsWith('{'));
           let parsedOrder = null;
-          try {
-            if (r.items_desc && r.items_desc.startsWith('{')) {
-              parsedOrder = JSON.parse(r.items_desc);
-            }
-          } catch(e) {}
+
+          if (jsonRow) {
+            try {
+              parsedOrder = JSON.parse(jsonRow.items_desc);
+            } catch(e) {}
+          }
 
           if (parsedOrder && parsedOrder.id) {
+            if (isPaid || parsedOrder.status === 'Selesai' || parsedOrder.status === 'Lunas') {
+              parsedOrder.status = 'Lunas / Selesai';
+            }
             results.push(parsedOrder);
           } else {
+            const topRow = rows[0];
             results.push({
-              id: r.order_id,
-              dateTime: r.order_date || (r.created_at ? r.created_at.slice(0, 16).replace('T', ' ') : 'Hari ini'),
-              customerName: r.customer_name,
-              customerPhone: r.customer_phone,
-              customerAddress: r.customer_address,
-              tier: r.marketer_id?.startsWith('RS') ? 'reseller' : (r.commission_pct > 0 ? 'marketer' : 'konsumen'),
-              tierLabel: r.marketer_id?.startsWith('RS') ? 'Reseller Resmi' : (r.commission_pct > 0 ? 'Mitra Marketer' : 'Konsumen Retail'),
+              id: orderId,
+              dateTime: topRow.order_date || (topRow.created_at ? topRow.created_at.slice(0, 16).replace('T', ' ') : 'Hari ini'),
+              customerName: topRow.customer_name,
+              customerPhone: topRow.customer_phone,
+              customerAddress: topRow.customer_address,
+              tier: topRow.marketer_id?.startsWith('RS') ? 'reseller' : (topRow.commission_pct > 0 ? 'marketer' : 'konsumen'),
+              tierLabel: topRow.marketer_id?.startsWith('RS') ? 'Reseller Resmi' : (topRow.commission_pct > 0 ? 'Mitra Marketer' : 'Konsumen Retail'),
               items: [],
-              subtotalHet: Number(r.omset_het) || 0,
+              subtotalHet: Number(topRow.omset_het) || 0,
               discountAmount: 0,
-              grandTotal: Number(r.omset_het) || 0,
-              paymentMethod: r.fulfillment_type === 'pickup' ? 'Ambil Sendiri di Toko' : 'Ekspedisi Pengiriman',
-              status: r.paid_status === 'paid' ? 'Selesai' : 'Menunggu Konfirmasi',
+              grandTotal: Number(topRow.omset_het) || 0,
+              paymentMethod: topRow.fulfillment_type === 'pickup' ? 'Ambil Sendiri di Toko' : 'Ekspedisi Pengiriman',
+              status: isPaid ? 'Lunas / Selesai' : 'Menunggu Konfirmasi',
               orderSource: 'Online Web Store'
             });
           }
-        });
+        }
       }
     } catch(e) {}
 
@@ -1150,28 +1175,43 @@ async function updateOrderStatusInSupabase(orderId, newStatus, storeSlug = 'sr12
   if (!client || !orderId) return false;
   try {
     const targetStore = storeSlug || 'sr12-central';
+    const isPaid = (newStatus === 'Selesai' || newStatus === 'Lunas' || newStatus === 'Lunas / Selesai');
+    const canonicalStatus = isPaid ? 'Lunas / Selesai' : newStatus;
+
     // 1. Coba update di tabel orders
     try {
-      await client.from('orders').update({ status: newStatus }).eq('order_id', orderId).eq('store_slug', targetStore);
+      await client.from('orders').update({ status: canonicalStatus }).eq('order_id', orderId).eq('store_slug', targetStore);
     } catch(e) {}
 
     // 2. Update di marketer_sales
     try {
-      const isPaid = (newStatus === 'Selesai' || newStatus === 'Lunas');
-      const { data: row } = await client.from('marketer_sales').select('*').eq('order_id', orderId).eq('store_slug', targetStore).maybeSingle();
-      if (row) {
+      const { data: rows } = await client
+        .from('marketer_sales')
+        .select('*')
+        .eq('order_id', orderId)
+        .eq('store_slug', targetStore);
+
+      if (Array.isArray(rows) && rows.length > 0) {
+        const keeper = rows[0];
         let orderObj = null;
-        try {
-          if (row.items_desc && row.items_desc.startsWith('{')) {
-            orderObj = JSON.parse(row.items_desc);
-            orderObj.status = newStatus;
-          }
-        } catch(e) {}
+        const jsonRow = rows.find(r => r.items_desc && r.items_desc.startsWith('{'));
+        if (jsonRow) {
+          try {
+            orderObj = JSON.parse(jsonRow.items_desc);
+            orderObj.status = canonicalStatus;
+          } catch(e) {}
+        }
+
         await client.from('marketer_sales').update({
           paid_status: isPaid ? 'paid' : 'unpaid',
           paid_date: isPaid ? new Date().toISOString().split('T')[0] : null,
-          items_desc: orderObj ? JSON.stringify(orderObj) : row.items_desc
-        }).eq('id', row.id);
+          items_desc: orderObj ? JSON.stringify(orderObj) : keeper.items_desc
+        }).eq('id', keeper.id);
+
+        // Hapus duplikasi baris tambahan jika ada
+        for (let i = 1; i < rows.length; i++) {
+          await client.from('marketer_sales').delete().eq('id', rows[i].id);
+        }
       }
     } catch(e) {}
 

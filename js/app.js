@@ -2112,6 +2112,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         local.forEach(t => { if (t && t.id) existingMap.set(t.id, t); });
         cloudOrders.forEach(co => {
           if (co && co.id) {
+            const loc = existingMap.get(co.id);
+            if (loc && (loc.status === 'Lunas / Selesai' || loc.status === 'Selesai')) {
+              co.status = 'Lunas / Selesai';
+            }
             existingMap.set(co.id, co);
             appState.notifiedOrderIds.add(co.id);
           }
@@ -2257,6 +2261,10 @@ function loadStoreBySlug(slug) {
         local.forEach(t => { if (t && t.id) existingMap.set(t.id, t); });
         cloudOrders.forEach(co => {
           if (co && co.id) {
+            const loc = existingMap.get(co.id);
+            if (loc && (loc.status === 'Lunas / Selesai' || loc.status === 'Selesai')) {
+              co.status = 'Lunas / Selesai';
+            }
             existingMap.set(co.id, co);
             if (appState.notifiedOrderIds) appState.notifiedOrderIds.add(co.id);
           }
@@ -9559,7 +9567,20 @@ async function handleRealtimeCloudOrderUpdate(payload) {
     try {
       const cloudOrders = await syncOrdersFromSupabase(currentSlug);
       if (Array.isArray(cloudOrders) && cloudOrders.length > 0) {
-        appState.transactions = cloudOrders;
+        const local = (typeof getStoredTransactions === 'function') ? getStoredTransactions(currentSlug) : (appState.transactions || []);
+        const existingMap = new Map();
+        local.forEach(t => { if (t && t.id) existingMap.set(t.id, t); });
+        cloudOrders.forEach(co => {
+          if (co && co.id) {
+            const loc = existingMap.get(co.id);
+            if (loc && (loc.status === 'Lunas / Selesai' || loc.status === 'Selesai')) {
+              co.status = 'Lunas / Selesai';
+            }
+            existingMap.set(co.id, co);
+          }
+        });
+
+        appState.transactions = Array.from(existingMap.values());
         if (typeof saveStoredTransactions === 'function') {
           saveStoredTransactions(appState.transactions, currentSlug);
         }
@@ -9574,10 +9595,12 @@ async function handleRealtimeCloudOrderUpdate(payload) {
 
         // Cari pesanan baru khusus event INSERT untuk membunyikan bel dan notifikasi sekali saja
         if (payload.eventType === 'INSERT' && newRow) {
-          const targetOrderId = newRow.order_id || newRow.id;
-          const targetOrder = cloudOrders.find(o => o.id === targetOrderId) || cloudOrders[0];
-          if (targetOrder && targetOrder.status !== 'Lunas / Selesai') {
-            triggerAdminNewOrderNotification(targetOrder);
+          const targetOrderId = newRow.order_id;
+          if (targetOrderId) {
+            const targetOrder = appState.transactions.find(o => o.id === targetOrderId);
+            if (targetOrder && (targetOrder.status === 'Menunggu Konfirmasi' || targetOrder.status === 'Siap Diambil di Toko')) {
+              triggerAdminNewOrderNotification(targetOrder);
+            }
           }
         }
       }
