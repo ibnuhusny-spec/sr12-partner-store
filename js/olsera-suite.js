@@ -1907,9 +1907,12 @@ function openPosReceiptModal(trx) {
       }).join('');
     }
 
-    const subtotalVal = Number(trx.subtotalHet) || Number(trx.grandTotal) || 0;
+    const itemSubtotal = (trx.items && trx.items.length)
+      ? trx.items.reduce((acc, i) => acc + (Number(i.subtotal) || (Number(i.price) * (Number(i.qty) || 1))), 0)
+      : 0;
+    const subtotalVal = Number(trx.subtotal || itemSubtotal || trx.subtotalHet || trx.grandTotal) || 0;
     const discountVal = Number(trx.discountAmount) || 0;
-    const grandTotalVal = Number(trx.grandTotal) || 0;
+    const grandTotalVal = Number(trx.grandTotal) || subtotalVal;
     const cashVal = typeof trx.cashTendered === 'number' ? trx.cashTendered : grandTotalVal;
     const changeVal = typeof trx.changeAmount === 'number' ? trx.changeAmount : 0;
 
@@ -2044,7 +2047,11 @@ function renderPosTransactions(filter = 'all') {
   let todayCount = 0;
 
   list.forEach(t => {
-    totalOmset += Number(t.grandTotal) || 0;
+    const itemSubtotal = (t.items && t.items.length)
+      ? t.items.reduce((acc, i) => acc + (Number(i.subtotal) || (Number(i.price) * (Number(i.qty) || 1))), 0)
+      : 0;
+    const omsetVal = Number(t.subtotal || itemSubtotal || t.subtotalHet || t.grandTotal) || 0;
+    totalOmset += omsetVal;
     if (t.dateTime && t.dateTime.startsWith(nowStr)) {
       todayCount += 1;
     }
@@ -2074,6 +2081,13 @@ function renderPosTransactions(filter = 'all') {
   }
 
   tbody.innerHTML = filtered.map(t => {
+    const itemSubtotal = (t.items && t.items.length)
+      ? t.items.reduce((acc, i) => acc + (Number(i.subtotal) || (Number(i.price) * (Number(i.qty) || 1))), 0)
+      : 0;
+    const productOmset = Number(t.subtotal || itemSubtotal || t.subtotalHet || t.grandTotal) || 0;
+    const grandTotalPay = Number(t.grandTotal || productOmset) || 0;
+    const hasExtra = grandTotalPay > productOmset;
+
     return `
       <tr>
         <td data-label="No. Transaksi"><b>${t.id}</b></td>
@@ -2090,7 +2104,10 @@ function renderPosTransactions(filter = 'all') {
           ` : ''}
         </td>
         <td data-label="Tingkat"><span class="badge-crm" style="background: #e0f2fe; color: #0369a1;">${t.tierLabel}</span></td>
-        <td data-label="Total Bayar" style="font-weight: 800; color: #0f172a;">Rp ${Number(t.grandTotal).toLocaleString('id-ID')}</td>
+        <td data-label="Total Bayar" style="font-weight: 800; color: #0f172a;">
+          Rp ${productOmset.toLocaleString('id-ID')}
+          ${hasExtra ? `<div style="font-size: 0.72rem; color: #64748b; font-weight: 600; margin-top: 2px;">(Transfer: Rp ${grandTotalPay.toLocaleString('id-ID')}${t.shippingCost ? ' inkl. Ongkir' : ''})</div>` : ''}
+        </td>
         <td data-label="Metode"><span style="font-size: 0.76rem; font-weight: 700; color: #475569;">${t.paymentMethod}</span></td>
         <td data-label="Status">
           ${t.status === 'Menunggu Konfirmasi'
@@ -2443,7 +2460,11 @@ function renderCashflowTable() {
     let hasNewTrx = false;
     appState.transactions.forEach(t => {
       const exists = (appState.cashflow || []).some(c => c.notes && c.notes.includes(t.id));
-      if (!exists && Number(t.grandTotal) > 0) {
+      const itemSubtotal = (t.items && t.items.length)
+        ? t.items.reduce((acc, i) => acc + (Number(i.subtotal) || (Number(i.price) * (Number(i.qty) || 1))), 0)
+        : 0;
+      const productOmset = Number(t.subtotal || itemSubtotal || t.subtotalHet || t.grandTotal) || 0;
+      if (!exists && productOmset > 0) {
         const isCash = (t.paymentMethod && (t.paymentMethod === 'CASH' || t.paymentMethod.includes('Ambil') || t.paymentMethod.includes('COD')));
         appState.cashflow.push({
           id: 'CSH-' + (t.id ? t.id.replace(/[^0-9]/g, '') : Date.now()),
@@ -2453,11 +2474,29 @@ function renderCashflowTable() {
           account: isCash ? 'CASH' : 'TRANSFER',
           category: `Pesanan Selesai (${t.tierLabel || 'Retail'})`,
           notes: `${t.id} - ${t.customerName || 'Pelanggan'} [${t.paymentMethod || 'Lunas'}]`,
-          amount: Number(t.grandTotal) || 0
+          amount: productOmset
         });
         hasNewTrx = true;
       }
     });
+
+    // Harmonisasi catatan kas lama agar omset produk (misal Rp 215.000) sinkron dengan Gaji Marketer & Database Mitra
+    appState.cashflow.forEach(c => {
+      if (c.notes) {
+        const matchTrx = appState.transactions.find(t => t.id && c.notes.includes(t.id));
+        if (matchTrx) {
+          const itemSubtotal = (matchTrx.items && matchTrx.items.length)
+            ? matchTrx.items.reduce((acc, i) => acc + (Number(i.subtotal) || (Number(i.price) * (Number(i.qty) || 1))), 0)
+            : 0;
+          const targetOmset = Number(matchTrx.subtotal || itemSubtotal || matchTrx.subtotalHet) || 0;
+          if (targetOmset > 0 && c.amount > targetOmset) {
+            c.amount = targetOmset;
+            hasNewTrx = true;
+          }
+        }
+      }
+    });
+
     if (hasNewTrx && typeof saveStoredCashflow === 'function') {
       saveStoredCashflow(appState.cashflow, curSlug);
     }

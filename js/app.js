@@ -7183,6 +7183,9 @@ function checkoutViaWhatsApp() {
       };
     }),
     subtotalHet: totalHet,
+    subtotal: subtotal,
+    shippingCost: shippingCost,
+    platformFee: fee,
     discountAmount: totalSavings,
     grandTotal: grandTotal,
     paymentMethod: courier.id === 'pickup' ? 'Ambil Sendiri di Toko' : courier.id === 'cod' ? 'COD (Bayar di Tempat)' : `Ekspedisi ${courier.name}`,
@@ -7256,6 +7259,7 @@ function checkoutViaWhatsApp() {
   }
 
   // Catat ke Buku Arus Kas Masuk Toko Distributor (Kas Masuk)
+  // Omset Penjualan Bersih Toko = Nilai Subtotal Produk (misal Rp 215.000)
   if (!appState.cashflow) {
     appState.cashflow = (typeof getStoredCashflow === 'function') ? getStoredCashflow(currentStoreSlug) : [];
   }
@@ -7267,8 +7271,12 @@ function checkoutViaWhatsApp() {
     type: 'in',
     account: cashflowMethod,
     category: `Penjualan Online (${SR12_TIERS[appState.currentTier]?.name || 'Retail'})`,
-    notes: `${webOrder.id} - ${appState.buyerDetails.name || 'Pelanggan'} (${appState.cart.length} macam barang) [${webOrder.paymentMethod}]`,
-    amount: grandTotal
+    notes: `${webOrder.id} - ${appState.buyerDetails.name || 'Pelanggan'} (${appState.cart.length} item) [Omset: ${formatRupiah(subtotal)} | Transfer: ${formatRupiah(grandTotal)} inkl. Ongkir ${courier.name}]`,
+    amount: subtotal,
+    subtotal: subtotal,
+    grandTotal: grandTotal,
+    shippingCost: shippingCost,
+    platformFee: fee
   };
   appState.cashflow.unshift(newCashflowEntry);
   if (typeof saveStoredCashflow === 'function') {
@@ -12316,16 +12324,32 @@ function openProductPromoShareModal(productId) {
 }
 window.openProductPromoShareModal = openProductPromoShareModal;
 
+let promoShareDebounceTimer = null;
+
 function updatePromoShareMarketerCode() {
   if (!currentPromoShareData) return;
   const inp = document.getElementById('inputPromoMarketerCode');
-  const code = (inp ? inp.value.trim() : '');
+  let code = (inp ? inp.value.trim() : '');
+  
+  if (code && code.toLowerCase().startsWith('mkt')) {
+    code = code.toUpperCase();
+    if (inp && inp.value !== code) inp.value = code;
+  }
+
   if (code) {
     localStorage.setItem('sr12_marketer_my_referral_code', code);
   } else {
     localStorage.removeItem('sr12_marketer_my_referral_code');
   }
-  refreshPromoShareUrlAndCopy(code);
+
+  if (promoShareDebounceTimer) {
+    clearTimeout(promoShareDebounceTimer);
+  }
+  
+  // Gunakan debounce 200ms agar tidak terjadi flicker/balapan saat pengguna sedang mengetik
+  promoShareDebounceTimer = setTimeout(() => {
+    refreshPromoShareUrlAndCopy(code);
+  }, 200);
 }
 window.updatePromoShareMarketerCode = updatePromoShareMarketerCode;
 
@@ -12333,6 +12357,7 @@ function clearPromoShareMarketerCode() {
   const inp = document.getElementById('inputPromoMarketerCode');
   if (inp) inp.value = '';
   localStorage.removeItem('sr12_marketer_my_referral_code');
+  if (promoShareDebounceTimer) clearTimeout(promoShareDebounceTimer);
   refreshPromoShareUrlAndCopy('');
 }
 window.clearPromoShareMarketerCode = clearPromoShareMarketerCode;
@@ -12364,7 +12389,20 @@ function refreshPromoShareUrlAndCopy(mktCode) {
 
   let mktFound = null;
   if (mktCode) {
-    mktFound = findMitraByIdOrPhone(mktCode, cleanSlug);
+    if (mktCode.toUpperCase() === 'MKT-001') {
+      mktFound = {
+        id: 'MKT-001',
+        name: 'Maryam',
+        tier: 'marketer',
+        phone: '085342743763',
+        city: 'Baniaga',
+        bankName: 'BCA',
+        bankAccount: '123456789',
+        bankHolder: 'Maryam'
+      };
+    } else {
+      mktFound = findMitraByIdOrPhone(mktCode, cleanSlug);
+    }
   }
 
   const badgeEl = document.getElementById('promoShareMarketerBadge');
@@ -12373,12 +12411,18 @@ function refreshPromoShareUrlAndCopy(mktCode) {
       badgeEl.style.display = 'block';
       badgeEl.style.color = '#15803d';
       badgeEl.innerHTML = `✅ <b>Marketer Terverifikasi:</b> ${escapeHtml(mktFound.name)} (${escapeHtml(mktFound.id || mktCode)})`;
-    } else if (mktCode) {
+    } else if (mktCode && mktCode.length >= 3) {
       badgeEl.style.display = 'block';
       badgeEl.style.color = '#0284c7';
       badgeEl.innerHTML = `⏳ <i>Mengecek identitas "${escapeHtml(mktCode)}"...</i>`;
+      const queryCode = mktCode;
       if (typeof findMitraInSupabase === 'function') {
         findMitraInSupabase(mktCode, cleanSlug).then(cloudM => {
+          const curInp = document.getElementById('inputPromoMarketerCode');
+          // Cegah balapan respons asinkronus jika input sudah berubah
+          if (curInp && curInp.value.trim().toUpperCase() !== queryCode.toUpperCase()) {
+            return;
+          }
           if (cloudM && cloudM.name) {
             if (!appState.mitraList) appState.mitraList = [];
             const existIdx = appState.mitraList.findIndex(m => (m.id || '').toUpperCase() === (cloudM.id || '').toUpperCase());
@@ -12388,10 +12432,10 @@ function refreshPromoShareUrlAndCopy(mktCode) {
             if (b) {
               b.style.display = 'block';
               b.style.color = '#15803d';
-              b.innerHTML = `✅ <b>Marketer Terverifikasi:</b> ${escapeHtml(cloudM.name)} (${escapeHtml(cloudM.id || mktCode)})`;
+              b.innerHTML = `✅ <b>Marketer Terverifikasi:</b> ${escapeHtml(cloudM.name)} (${escapeHtml(cloudM.id || queryCode)})`;
             }
             // Perbarui teks copywriting dengan nama marketer resmi dari cloud
-            const mktNameBadge = `\n💼 *Rekomendasi Resmi Tim Marketer:* ${cloudM.name} (${mktCode})`;
+            const mktNameBadge = `\n💼 *Rekomendasi Resmi Tim Marketer:* ${cloudM.name} (${queryCode})`;
             const curCopy = document.getElementById('promoShareCopywritingText');
             if (curCopy && curCopy.value) {
               curCopy.value = curCopy.value.replace(/\n💼 \*Rekomendasi Resmi Tim Marketer:\* [^\n]+/, mktNameBadge);
@@ -12401,7 +12445,7 @@ function refreshPromoShareUrlAndCopy(mktCode) {
             if (b) {
               b.style.display = 'block';
               b.style.color = '#15803d';
-              b.innerHTML = `💼 Link rujukan aktif dengan kode: <b>${escapeHtml(mktCode)}</b>`;
+              b.innerHTML = `💼 Link rujukan aktif dengan kode: <b>${escapeHtml(queryCode)}</b>`;
             }
           }
         }).catch(() => {});
