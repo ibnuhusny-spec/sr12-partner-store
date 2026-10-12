@@ -11443,9 +11443,257 @@ function sendResellerReminderWA(phone, name, daysLeft, deficit) {
 // ==========================================
 // DISTRIBUTOR MARKETER PAYROLL (15% KOMISI)
 // ==========================================
+
+// Helper ekstraksi periode bulan dari tanggal (Format standar 'YYYY-MM')
+function extractMonthPeriod(dateStr, explicitMonthPeriod) {
+  if (explicitMonthPeriod && /^\d{4}-\d{2}$/.test(String(explicitMonthPeriod).trim())) {
+    return String(explicitMonthPeriod).trim();
+  }
+  if (!dateStr) return '';
+  const s = String(dateStr).trim();
+  // Format YYYY-MM-DD atau ISO
+  if (/^\d{4}-\d{2}/.test(s)) {
+    return s.slice(0, 7);
+  }
+  // Format lokal Indonesia DD/MM/YYYY atau DD-MM-YYYY
+  const slashMatch = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (slashMatch) {
+    const month = slashMatch[2].padStart(2, '0');
+    const year = slashMatch[3];
+    return `${year}-${month}`;
+  }
+  // Fallback Date object parsing
+  try {
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }
+  } catch (e) {}
+  return '';
+}
+
+// Helper nama bulan resmi Indonesia
+function formatMonthPeriodTitle(period) {
+  if (!period || period === 'all') return 'Semua Periode (Akumulasi)';
+  const monthNames = {
+    '01': 'Januari',
+    '02': 'Februari',
+    '03': 'Maret',
+    '04': 'April',
+    '05': 'Mei',
+    '06': 'Juni',
+    '07': 'Juli',
+    '08': 'Agustus',
+    '09': 'September',
+    '10': 'Oktober',
+    '11': 'November',
+    '12': 'Desember'
+  };
+  const parts = String(period).split('-');
+  if (parts.length === 2 && monthNames[parts[1]]) {
+    return `${monthNames[parts[1]]} ${parts[0]}`;
+  }
+  return period;
+}
+
+// Populasi dinamis opsi pilihan bulan pada filter rekap gaji marketer
+function populatePayrollMonthSelect() {
+  const select = document.getElementById('payrollMonthSelect');
+  if (!select) return;
+
+  const currentVal = select.value || appState.selectedPayrollMonth || 'all';
+
+  const monthNamesIndo = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+  ];
+
+  const periodSet = new Set();
+  const now = new Date();
+
+  // Tambahkan 12 bulan terakhir
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    periodSet.add(key);
+  }
+
+  // Tambahkan juga jika ada riwayat transaksi masa lalu di data lokal
+  (appState.marketerSales || []).forEach(s => {
+    const m = extractMonthPeriod(s.date || s.dateTime || s.created_at, s.monthPeriod || s.month_period);
+    if (m) periodSet.add(m);
+  });
+  (appState.transactions || []).forEach(t => {
+    const m = extractMonthPeriod(t.dateTime || t.date || t.created_at, t.monthPeriod);
+    if (m) periodSet.add(m);
+  });
+
+  const sortedPeriods = Array.from(periodSet).sort().reverse();
+
+  let html = `<option value="all" ${currentVal === 'all' ? 'selected' : ''}>Semua Periode (Akumulasi)</option>`;
+  sortedPeriods.forEach(p => {
+    const parts = p.split('-');
+    const y = parts[0];
+    const mIdx = parseInt(parts[1], 10) - 1;
+    const label = `${monthNamesIndo[mIdx] || parts[1]} ${y}`;
+    html += `<option value="${p}" ${currentVal === p ? 'selected' : ''}>${label}</option>`;
+  });
+
+  select.innerHTML = html;
+  select.value = currentVal;
+}
+
+// Konsolidasi & deduplikasi pesanan marketer terpadu terisolasi per periode
+function getMarketerConsolidatedSales(m, selectedMonth, currentStoreSlug) {
+  if (!m) return [];
+
+  const mNameLower = (m.name || '').toLowerCase();
+  const mPhoneDigits = (m.phone || '').replace(/[^0-9]/g, '');
+
+  const isMatchingMarketer = (mId, mCode, phone, custName) => {
+    if (mId && (mId === m.id || mId === m.partner_code)) return true;
+    if (mCode && (mCode === m.id || mCode === m.partner_code)) return true;
+    if (phone && mPhoneDigits && phone.replace(/[^0-9]/g, '') === mPhoneDigits) return true;
+    if (custName) {
+      const cn = custName.toLowerCase();
+      if (cn.includes((m.id || '').toLowerCase())) return true;
+      if (mNameLower && cn.includes(mNameLower)) return true;
+    }
+    return false;
+  };
+
+  const isMatchingPeriod = (dateVal, explicitPeriod) => {
+    if (!selectedMonth || selectedMonth === 'all') return true;
+    const extracted = extractMonthPeriod(dateVal, explicitPeriod);
+    return extracted === selectedMonth;
+  };
+
+  // 1. Ambil dari catatan penjualan marketer (appState.marketerSales)
+  const salesFromRecords = (appState.marketerSales || []).filter(s => {
+    if (!s) return false;
+    const isStore = (!s.store_slug || s.store_slug === currentStoreSlug);
+    if (!isStore) return false;
+
+    const isM = isMatchingMarketer(s.marketerId, s.partner_code, s.customerPhone, s.customerName);
+    if (!isM) return false;
+
+    return isMatchingPeriod(s.date || s.dateTime || s.created_at, s.monthPeriod || s.month_period);
+  });
+
+  // 2. Ambil dari transaksi toko online / POS (appState.transactions)
+  const salesFromTrx = (appState.transactions || []).filter(t => {
+    if (!t || !t.id) return false;
+    const isStore = (!t.store_slug || t.store_slug === currentStoreSlug);
+    if (!isStore) return false;
+
+    const isM = isMatchingMarketer(t.marketerId, null, t.customerPhone, t.customerName) ||
+                (t.tier === 'marketer' && isMatchingMarketer(null, null, t.customerPhone, t.customerName));
+    if (!isM) return false;
+
+    return isMatchingPeriod(t.dateTime || t.date || t.created_at, t.monthPeriod);
+  });
+
+  // 3. Konsolidasi & Deduplikasi ID unik
+  const seenOrderKeys = new Set();
+  const uniqueSales = [];
+
+  salesFromRecords.forEach(s => {
+    const oid = String(s.orderId || s.order_id || s.id || '').trim();
+    const omset = Number(s.omsetHet || s.omset_het) || 0;
+    const key = oid ? `ID:${oid}` : `FALLBACK:${s.date}:${omset}:${s.customerPhone}`;
+    if (!seenOrderKeys.has(key)) {
+      seenOrderKeys.add(key);
+      const saleDate = s.date || s.dateTime || s.created_at || '';
+      const salePeriod = s.monthPeriod || s.month_period || extractMonthPeriod(saleDate) || selectedMonth;
+      uniqueSales.push({
+        orderId: oid || 'ORD-MKT',
+        store_slug: s.store_slug || currentStoreSlug,
+        marketerId: m.id,
+        date: saleDate,
+        monthPeriod: salePeriod,
+        customerName: s.customerName || m.name,
+        customerPhone: s.customerPhone || m.phone,
+        customerAddress: s.customerAddress || '-',
+        fulfillmentType: s.fulfillmentType || 'pickup',
+        itemsDesc: s.itemsDesc || 'Produk Herbal SR12',
+        omsetHet: omset,
+        commissionPct: Number(s.commissionPct) || 15,
+        commissionAmount: Number(s.commissionAmount) || Math.round(omset * 0.15),
+        paidStatus: (s.paidStatus === 'paid' || s.paid_status === 'paid') ? 'paid' : 'unpaid'
+      });
+    }
+  });
+
+  salesFromTrx.forEach(t => {
+    const tid = String(t.id).trim();
+    const tomset = Number(t.grandTotal || t.subtotalHet) || 0;
+    const key = `ID:${tid}`;
+
+    const isAlreadyRecorded = seenOrderKeys.has(key) || uniqueSales.some(s => {
+      if (s.orderId === tid) return true;
+      const sameAmount = Math.abs(s.omsetHet - tomset) < 100;
+      const tDatePrefix = (t.dateTime || t.date || '').slice(0, 10);
+      const sDatePrefix = (s.date || '').slice(0, 10);
+      return sameAmount && tDatePrefix && sDatePrefix && (tDatePrefix === sDatePrefix || t.customerPhone === s.customerPhone);
+    });
+
+    if (!isAlreadyRecorded) {
+      seenOrderKeys.add(key);
+      const tDate = t.dateTime || t.date || t.created_at || '';
+      const tPeriod = t.monthPeriod || extractMonthPeriod(tDate) || selectedMonth;
+      uniqueSales.push({
+        orderId: tid,
+        store_slug: currentStoreSlug,
+        marketerId: m.id,
+        date: tDate,
+        monthPeriod: tPeriod,
+        customerName: t.customerName || m.name,
+        customerPhone: t.customerPhone || m.phone,
+        customerAddress: t.customerAddress || '-',
+        fulfillmentType: t.shippingType ? 'dropship' : 'pickup',
+        itemsDesc: Array.isArray(t.items) ? t.items.map(i => `${i.qty}x ${i.name}`).join(', ') : 'Pesanan Web SR12',
+        omsetHet: tomset,
+        commissionPct: 15,
+        commissionAmount: Math.round(tomset * 0.15),
+        paidStatus: (t.status === 'Lunas / Selesai' || t.status === 'Selesai') ? 'paid' : 'unpaid'
+      });
+    }
+  });
+
+  // 4. Fallback akumulasi awal HANYA untuk "Semua Periode (Akumulasi)" JIKA belum ada catatan pesanan di sistem
+  if (selectedMonth === 'all' && uniqueSales.length === 0 && Number(m.accumulatedSpent90Days) > 0) {
+    const spent = Number(m.accumulatedSpent90Days) || 0;
+    uniqueSales.push({
+      orderId: 'ORD-' + (m.id || m.partner_code || 'MKT') + '-AKUMULASI',
+      store_slug: currentStoreSlug,
+      marketerId: m.id,
+      date: m.lastOrderDate || new Date().toISOString().split('T')[0],
+      monthPeriod: extractMonthPeriod(m.lastOrderDate) || 'all',
+      customerName: m.name,
+      customerPhone: m.phone,
+      customerAddress: m.city || 'Indonesia',
+      fulfillmentType: 'pickup',
+      itemsDesc: 'Akumulasi Belanja Pendaftaran Awal Marketer',
+      omsetHet: spent,
+      commissionPct: 15,
+      commissionAmount: Math.round(spent * 0.15),
+      paidStatus: (m.totalOrdersCount > 0) ? 'paid' : 'unpaid'
+    });
+  }
+
+  return uniqueSales;
+}
+
 function renderMarketerPayroll() {
   const tbody = document.getElementById('payrollTableBody');
   const monthSelect = document.getElementById('payrollMonthSelect');
+
+  // Pastikan daftar pilihan bulan terisi lengkap
+  if (monthSelect && !monthSelect.getAttribute('data-dynamic-loaded')) {
+    populatePayrollMonthSelect();
+    monthSelect.setAttribute('data-dynamic-loaded', 'true');
+  }
+
   const selectedMonth = monthSelect ? monthSelect.value : (appState.selectedPayrollMonth || 'all');
   appState.selectedPayrollMonth = selectedMonth;
 
@@ -11464,7 +11712,7 @@ function renderMarketerPayroll() {
   const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
   const storeMitra = (appState.mitraList || []).filter(m => (m.store_slug || 'sr12-central') === currentStoreSlug);
 
-  // Kumpulkan seluruh data marketer: dari daftar mitra resmi + catatan penjualan marketer + pesanan transaksi toko
+  // Kumpulkan seluruh data marketer yang terdaftar di toko ini
   const marketersMap = new Map();
   storeMitra.filter(m => m.tier === 'marketer').forEach(m => {
     if ((m.id === 'MKT-001' || m.partner_code === 'MKT-001') && (!m.name || m.name.includes('Marketer MKT-001'))) {
@@ -11478,7 +11726,7 @@ function renderMarketerPayroll() {
     marketersMap.set(m.id, m);
   });
 
-  // Tambahkan marketer dari riwayat penjualan marketer di toko ini
+  // Tambahkan marketer dari riwayat penjualan marketer di toko ini jika belum ada di map
   (appState.marketerSales || []).forEach(s => {
     if ((!s.store_slug || s.store_slug === currentStoreSlug) && s.marketerId && !marketersMap.has(s.marketerId)) {
       const resolvedName = (typeof getMarketerNameById === 'function' ? getMarketerNameById(s.marketerId) : '') || s.marketerName || (s.marketerId === 'MKT-001' ? 'Maryam' : `Marketer ${s.marketerId}`);
@@ -11494,9 +11742,9 @@ function renderMarketerPayroll() {
     }
   });
 
-  // Tambahkan marketer dari transaksi online yang memiliki marketerId
+  // Tambahkan marketer dari transaksi online toko
   (appState.transactions || []).forEach(t => {
-    if (t.marketerId && !marketersMap.has(t.marketerId)) {
+    if ((!t.store_slug || t.store_slug === currentStoreSlug) && t.marketerId && !marketersMap.has(t.marketerId)) {
       const resolvedName = (typeof getMarketerNameById === 'function' ? getMarketerNameById(t.marketerId) : '') || t.marketerName || (t.marketerId === 'MKT-001' ? 'Maryam' : `Marketer ${t.marketerId}`);
       marketersMap.set(t.marketerId, {
         id: t.marketerId,
@@ -11517,123 +11765,11 @@ function renderMarketerPayroll() {
   let grandBonus = 0;
 
   const payrollData = marketers.map(m => {
-    // 1. Kumpulkan seluruh record penjualan marketer dari appState.marketerSales
-    const salesFromRecords = (appState.marketerSales || []).filter(s => {
-      const isStore = (!s.store_slug || s.store_slug === currentStoreSlug);
-      const mNameLower = (m.name || '').toLowerCase();
-      const custNameLower = (s.customerName || '').toLowerCase();
-      const isM = (s.marketerId === m.id || s.marketerId === m.partner_code) ||
-                  (s.customerPhone && m.phone && s.customerPhone.replace(/[^0-9]/g, '') === m.phone.replace(/[^0-9]/g, '')) ||
-                  (s.customerName && (s.customerName.includes(m.id) || (mNameLower && custNameLower.includes(mNameLower))));
-      if (!isStore || !isM) return false;
-      if (selectedMonth === 'all') return true;
-      return (s.monthPeriod === selectedMonth || (s.date && s.date.startsWith(selectedMonth)));
-    });
-
-    // 2. Kumpulkan dari appState.transactions yang terkait dengan marketer ini
-    const salesFromTrx = (appState.transactions || []).filter(t => {
-      if (!t || !t.id) return false;
-      const mNameLower = (m.name || '').toLowerCase();
-      const tCustLower = (t.customerName || '').toLowerCase();
-      const isM = (t.marketerId === m.id || t.marketerId === m.partner_code) ||
-                  (t.tier === 'marketer' && (t.customerPhone === m.phone || (t.customerName && (t.customerName.includes(m.id) || (mNameLower && tCustLower.includes(mNameLower))))));
-      if (!isM) return false;
-      if (selectedMonth === 'all') return true;
-      const tDate = t.date || t.dateTime || '';
-      return tDate.includes(selectedMonth) || (t.monthPeriod && t.monthPeriod === selectedMonth);
-    });
-
-    // 3. KONSOLIDASI & DEDUPLIKASI KETAT (Pencegahan penghitungan ganda antara transaksi POS/Web dan catatan komisi)
-    const seenOrderKeys = new Set();
-    const uniqueSales = [];
-
-    // Prioritaskan dari catatan appState.marketerSales
-    salesFromRecords.forEach(s => {
-      const oid = String(s.orderId || s.order_id || s.id || '').trim();
-      const omset = Number(s.omsetHet || s.omset_het) || 0;
-      const key = oid ? `ID:${oid}` : `FALLBACK:${s.date}:${omset}:${s.customerPhone}`;
-      if (!seenOrderKeys.has(key)) {
-        seenOrderKeys.add(key);
-        uniqueSales.push({
-          orderId: oid || 'ORD-MKT',
-          store_slug: s.store_slug || currentStoreSlug,
-          marketerId: m.id,
-          date: s.date || s.dateTime || '',
-          monthPeriod: s.monthPeriod || selectedMonth,
-          customerName: s.customerName || m.name,
-          customerPhone: s.customerPhone || m.phone,
-          customerAddress: s.customerAddress || '-',
-          omsetHet: omset,
-          commissionPct: Number(s.commissionPct) || 15,
-          commissionAmount: Number(s.commissionAmount) || Math.round(omset * 0.15),
-          paidStatus: (s.paidStatus === 'paid' || s.paid_status === 'paid') ? 'paid' : 'unpaid'
-        });
-      }
-    });
-
-    // Tambahkan transaksi toko HANYA jika belum tercatat di uniqueSales
-    salesFromTrx.forEach(t => {
-      const tid = String(t.id).trim();
-      const tomset = Number(t.grandTotal || t.subtotalHet) || 0;
-      const key = `ID:${tid}`;
-
-      // Periksa apakah ID ini sudah ada ATAU ada transaksi dengan nominal dan tanggal sama persis
-      const isAlreadyRecorded = seenOrderKeys.has(key) || uniqueSales.some(s => {
-        if (s.orderId === tid) return true;
-        const sameAmount = Math.abs(s.omsetHet - tomset) < 100;
-        const tDatePrefix = (t.dateTime || t.date || '').slice(0, 10);
-        const sDatePrefix = (s.date || '').slice(0, 10);
-        return sameAmount && tDatePrefix && sDatePrefix && (tDatePrefix === sDatePrefix || t.customerPhone === s.customerPhone);
-      });
-
-      if (!isAlreadyRecorded) {
-        seenOrderKeys.add(key);
-        uniqueSales.push({
-          orderId: tid,
-          store_slug: currentStoreSlug,
-          marketerId: m.id,
-          date: t.dateTime || t.date,
-          monthPeriod: selectedMonth,
-          customerName: t.customerName,
-          customerPhone: t.customerPhone,
-          customerAddress: t.customerAddress,
-          omsetHet: tomset,
-          commissionPct: 15,
-          commissionAmount: Math.round(tomset * 0.15),
-          paidStatus: (t.status === 'Lunas / Selesai' || t.status === 'Selesai') ? 'paid' : 'unpaid'
-        });
-      }
-    });
-
-    const combinedSales = uniqueSales;
-
-    // 4. Jika catatan pesanan kosong tapi tercatat pembelanjaan awal di Database Mitra, sintesiskan agar tidak tampil 0
-    if (combinedSales.length === 0 && Number(m.accumulatedSpent90Days) > 0) {
-      const spent = Number(m.accumulatedSpent90Days) || 0;
-      combinedSales.push({
-        orderId: 'ORD-' + (m.id || m.partner_code || 'MKT') + '-AKUMULASI',
-        store_slug: currentStoreSlug,
-        marketerId: m.id,
-        date: m.lastOrderDate || new Date().toISOString().split('T')[0],
-        monthPeriod: selectedMonth,
-        customerName: m.name,
-        customerPhone: m.phone,
-        customerAddress: m.city || 'Indonesia',
-        omsetHet: spent,
-        commissionPct: 15,
-        commissionAmount: Math.round(spent * 0.15),
-        paidStatus: (m.totalOrdersCount > 0) ? 'paid' : 'unpaid'
-      });
-    }
-
+    const combinedSales = getMarketerConsolidatedSales(m, selectedMonth, currentStoreSlug);
     const countOrders = combinedSales.length;
     const omset = combinedSales.reduce((acc, s) => acc + (Number(s.omsetHet) || 0), 0);
     const bonus = Math.round(omset * 0.15);
     const isAllPaid = countOrders > 0 && combinedSales.every(s => s.paidStatus === 'paid');
-
-    // Sinkronkan balik nilai akumulasi ke objek mitra agar Database Mitra dan Gaji Marketer 100% konsisten
-    m.accumulatedSpent90Days = omset;
-    m.totalOrdersCount = countOrders;
 
     grandOrders += countOrders;
     grandOmset += omset;
@@ -11649,7 +11785,15 @@ function renderMarketerPayroll() {
     };
   });
 
-  if (totalMarketersEl) totalMarketersEl.textContent = `${marketers.length} Orang`;
+  const activeMarketersCount = payrollData.filter(i => i.countOrders > 0).length;
+
+  if (totalMarketersEl) {
+    if (selectedMonth === 'all') {
+      totalMarketersEl.textContent = `${marketers.length} Orang`;
+    } else {
+      totalMarketersEl.textContent = `${activeMarketersCount} / ${marketers.length} Orang`;
+    }
+  }
   if (totalOrdersEl) totalOrdersEl.textContent = `${grandOrders} Pesanan`;
   if (totalOmsetEl) totalOmsetEl.textContent = formatRupiah(grandOmset);
   if (totalBonusEl) totalBonusEl.textContent = formatRupiah(grandBonus);
@@ -11666,8 +11810,6 @@ function renderMarketerPayroll() {
     `;
     return;
   }
-
-  const monthLabel = monthSelect ? monthSelect.options[monthSelect.selectedIndex]?.text : selectedMonth;
 
   tbody.innerHTML = payrollData.map(item => {
     const m = item.marketer;
@@ -11779,6 +11921,17 @@ function openAddMarketerSaleModal(preferredMarketerId) {
   const omsetInput = document.getElementById('saleOmsetHet');
   if (omsetInput) omsetInput.value = '';
   updateSaleCommissionPreview(0);
+
+  const dateInput = document.getElementById('saleOrderDate');
+  if (dateInput) {
+    const activeMonth = appState.selectedPayrollMonth;
+    const nowIso = new Date().toISOString().split('T')[0];
+    if (activeMonth && activeMonth !== 'all' && !nowIso.startsWith(activeMonth)) {
+      dateInput.value = `${activeMonth}-01`;
+    } else {
+      dateInput.value = nowIso;
+    }
+  }
 
   if (modal) modal.classList.add('open');
 }
@@ -11932,7 +12085,8 @@ function handleAddMarketerSaleSubmit(e) {
   if (e) e.preventDefault();
   const marketerId = document.getElementById('saleMarketerSelect')?.value;
   const customerName = document.getElementById('saleCustomerName')?.value.trim();
-  const orderDate = document.getElementById('saleOrderDate')?.value || '2026-09-27';
+  const nowIso = new Date().toISOString().split('T')[0];
+  const orderDate = document.getElementById('saleOrderDate')?.value || nowIso;
   const itemsDesc = document.getElementById('saleItemsDesc')?.value.trim();
   const omsetHet = Number(document.getElementById('saleOmsetHet')?.value) || 0;
   const fulfillmentType = document.getElementById('saleFulfillmentType')?.value || 'pickup';
@@ -11943,7 +12097,7 @@ function handleAddMarketerSaleSubmit(e) {
     return;
   }
 
-  const monthPeriod = orderDate.slice(0, 7); // '2026-09'
+  const monthPeriod = extractMonthPeriod(orderDate) || orderDate.slice(0, 7);
   const commission = Math.round(omsetHet * 0.15);
 
   const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
@@ -11988,7 +12142,8 @@ function handleAddMarketerSaleSubmit(e) {
 function toggleMarketerPayrollStatus(marketerId, monthPeriod) {
   if (!appState.marketerSales) appState.marketerSales = getStoredMarketerSales();
   const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
-  const sales = appState.marketerSales.filter(s => s.marketerId === marketerId && (monthPeriod === 'all' || s.monthPeriod === monthPeriod));
+  const marketer = (appState.mitraList || []).find(m => m.id === marketerId);
+  const sales = getMarketerConsolidatedSales(marketer, monthPeriod, currentStoreSlug);
   if (sales.length === 0) return;
 
   const allPaid = sales.every(s => s.paidStatus === 'paid');
@@ -11996,10 +12151,20 @@ function toggleMarketerPayrollStatus(marketerId, monthPeriod) {
   const nowIso = new Date().toISOString().split('T')[0];
 
   sales.forEach(s => {
-    s.paidStatus = newStatus;
-    s.paidDate = newStatus === 'paid' ? nowIso : null;
-    if (typeof saveMarketerSaleToSupabase === 'function') {
-      saveMarketerSaleToSupabase(s, currentStoreSlug);
+    const found = appState.marketerSales.find(ms => (ms.orderId && ms.orderId === s.orderId) || (ms.id && ms.id === s.id));
+    if (found) {
+      found.paidStatus = newStatus;
+      found.paidDate = newStatus === 'paid' ? nowIso : null;
+      if (typeof saveMarketerSaleToSupabase === 'function') {
+        saveMarketerSaleToSupabase(found, currentStoreSlug);
+      }
+    } else {
+      s.paidStatus = newStatus;
+      s.paidDate = newStatus === 'paid' ? nowIso : null;
+      appState.marketerSales.unshift(s);
+      if (typeof saveMarketerSaleToSupabase === 'function') {
+        saveMarketerSaleToSupabase(s, currentStoreSlug);
+      }
     }
   });
 
@@ -12017,7 +12182,9 @@ function openMarketerDetailOrdersModal(marketerId, monthPeriod) {
   const marketer = (appState.mitraList || []).find(m => m.id === marketerId);
   if (!marketer) return;
 
-  const sales = (appState.marketerSales || []).filter(s => s.marketerId === marketerId && s.monthPeriod === monthPeriod);
+  const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  const sales = getMarketerConsolidatedSales(marketer, monthPeriod, currentStoreSlug);
+  const periodTitle = formatMonthPeriodTitle(monthPeriod);
 
   if (title) title.textContent = `📋 Rincian Pesanan: ${marketer.name} (${marketer.id})`;
 
@@ -12028,8 +12195,8 @@ function openMarketerDetailOrdersModal(marketerId, monthPeriod) {
     headerBox.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
         <div>
-          <b>Rekening Tujuan:</b> ${marketer.bankName} - ${marketer.bankAccount} (a.n ${marketer.bankHolder || marketer.name})<br>
-          <span style="font-size: 0.75rem; color: #64748b;">No. WhatsApp: ${marketer.phone} &middot; Periode: ${monthPeriod}</span>
+          <b>Rekening Tujuan:</b> ${marketer.bankName || 'BCA'} - ${marketer.bankAccount || '-'} (a.n ${marketer.bankHolder || marketer.name})<br>
+          <span style="font-size: 0.75rem; color: #64748b;">No. WhatsApp: ${marketer.phone} &middot; Periode: <b>${periodTitle}</b></span>
         </div>
         <div style="text-align: right;">
           <span style="font-size: 0.72rem; color: #64748b;">Total Bonus (15%):</span><br>
@@ -12041,7 +12208,7 @@ function openMarketerDetailOrdersModal(marketerId, monthPeriod) {
 
   if (tbody) {
     if (sales.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: #64748b;">Belum ada transaksi di bulan ini.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: #64748b;">Belum ada transaksi di periode ${periodTitle}.</td></tr>`;
     } else {
       tbody.innerHTML = sales.map(s => `
         <tr>
@@ -12056,7 +12223,7 @@ function openMarketerDetailOrdersModal(marketerId, monthPeriod) {
               ${s.fulfillmentType === 'dropship' ? 
                 `<span style="background: #e0f2fe; color: #0284c7; padding: 1px 6px; border-radius: 4px; font-size: 0.68rem; font-weight: 700;">📦 Dropship Distributor</span>` : 
                 `<span style="background: #f1f5f9; color: #475569; padding: 1px 6px; border-radius: 4px; font-size: 0.68rem; font-weight: 700;">🏠 Ambil ke Gudang</span>`}
-              ${s.customerAddress ? `<span style="font-size: 0.68rem; color: #64748b;">${s.customerAddress}</span>` : ''}
+              ${s.customerAddress && s.customerAddress !== '-' ? `<span style="font-size: 0.68rem; color: #64748b;">${s.customerAddress}</span>` : ''}
             </div>
           </td>
           <td><b>${formatRupiah(s.omsetHet)}</b></td>
@@ -12079,7 +12246,8 @@ function sendMarketerSalarySlipWA(marketerId, monthPeriod) {
   const marketer = (appState.mitraList || []).find(m => m.id === marketerId);
   if (!marketer) return;
 
-  const sales = (appState.marketerSales || []).filter(s => s.marketerId === marketerId && s.monthPeriod === monthPeriod);
+  const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  const sales = getMarketerConsolidatedSales(marketer, monthPeriod, currentStoreSlug);
   const totalOmset = sales.reduce((a, s) => a + (s.omsetHet || 0), 0);
   const totalBonus = Math.round(totalOmset * 0.15);
   const allPaid = sales.length > 0 && sales.every(s => s.paidStatus === 'paid');
@@ -12087,12 +12255,12 @@ function sendMarketerSalarySlipWA(marketerId, monthPeriod) {
   const cleanPhone = marketer.phone.replace(/[^0-9]/g, '');
   const targetWa = cleanPhone.startsWith('0') ? '62' + cleanPhone.slice(1) : cleanPhone;
 
-  const monthNames = {
-    '2026-09': 'September 2026',
-    '2026-08': 'Agustus 2026',
-    '2026-07': 'Juli 2026'
-  };
-  const monthTitle = monthNames[monthPeriod] || monthPeriod;
+  const monthTitle = formatMonthPeriodTitle(monthPeriod);
+
+  if (sales.length === 0) {
+    alert(`Belum ada catatan transaksi pesanan untuk ${marketer.name} pada periode ${monthTitle}!`);
+    return;
+  }
 
   const text = `📄 *SLIP BONUS & KOMISI BULANAN MARKETER SR12*\n` +
     `Toko : *${storeName}*\n` +
@@ -12102,7 +12270,7 @@ function sendMarketerSalarySlipWA(marketerId, monthPeriod) {
     `• ID Marketer   : *${marketer.id}*\n` +
     `• Nama Lengkap  : ${marketer.name}\n` +
     `• No. WhatsApp  : ${marketer.phone}\n` +
-    `• Rekening Bank : ${marketer.bankName} - ${marketer.bankAccount}\n` +
+    `• Rekening Bank : ${marketer.bankName || 'BCA'} - ${marketer.bankAccount || '-'}\n` +
     `• Atas Nama     : ${marketer.bankHolder || marketer.name}\n` +
     `------------------------------------------\n` +
     `📊 *REKAPITULASI PENJUALAN:*\n` +

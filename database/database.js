@@ -229,7 +229,7 @@ function addMarketerSaleForStore(slug, saleData) {
 
 function toggleMarketerPayrollStatus(slug, marketerId, monthPeriod) {
   const db = readDb();
-  const sales = (db.marketer_sales || []).filter(s => s.store_slug === slug && s.marketerId === marketerId && s.monthPeriod === monthPeriod);
+  const sales = (db.marketer_sales || []).filter(s => s.store_slug === slug && s.marketerId === marketerId && (monthPeriod === 'all' || s.monthPeriod === monthPeriod));
   if (sales.length === 0) return null;
 
   const allPaid = sales.every(s => s.paidStatus === 'paid');
