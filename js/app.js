@@ -548,6 +548,10 @@ async function syncStoresWithServer() {
     updateDevPortalMetrics();
   }
 
+  if (typeof updateDevPaymentUI === 'function') {
+    updateDevPaymentUI();
+  }
+
   // Selalu pastikan direktori di Official Central Hub ter-refresh sesuai database terbaru
   if (appState.storeSettings?.slug === 'sr12-central' || appState.currentStoreSlug === 'sr12-central') {
     renderOfficialDistributorDirectory();
@@ -2139,6 +2143,9 @@ window.initReferralAffiliateBanner = initReferralAffiliateBanner;
   handleDirectProductDeepLink();
   renderRewards();
   renderMarketingKits();
+  if (typeof updateDevPaymentUI === 'function') {
+    updateDevPaymentUI();
+  }
   // Memuat data tersimpan Mitra & Marketer (LocalStorage + IndexedDB permanen)
   appState.mitraList = getStoredMitra();
   const initStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
@@ -5578,6 +5585,10 @@ function switchDevPortalTab(tabName) {
       }
     }
   });
+
+  if (tabName === 'payment' && typeof updateDevPaymentUI === 'function') {
+    updateDevPaymentUI();
+  }
 }
 
 // Verify PIN Entered (Super Admin Gate) - Terhubung Realtime ke Supabase Cloud
@@ -5728,6 +5739,9 @@ function showDeveloperWorkspaceView(showWorkspace) {
     if (consolePin) consolePin.textContent = appState.masterDevPin || '8899';
 
     updateDevPortalMetrics();
+    if (typeof updateDevPaymentUI === 'function') {
+      updateDevPaymentUI();
+    }
     if (typeof syncPendingStoresWithServer === 'function') {
       syncPendingStoresWithServer();
     }
@@ -10271,10 +10285,16 @@ const DEFAULT_DEV_PAYMENT_SETTINGS = {
 };
 
 function getStoredDevPaymentSettings() {
+  if (typeof appState !== 'undefined' && appState.devPaymentSettings && (appState.devPaymentSettings.bankAccount || appState.devPaymentSettings.ewalletNumber)) {
+    return Object.assign({}, DEFAULT_DEV_PAYMENT_SETTINGS, appState.devPaymentSettings);
+  }
   const stored = localStorage.getItem('sr12_dev_payment_settings_v1');
   if (stored) {
     try {
       const parsed = JSON.parse(stored);
+      if (typeof appState !== 'undefined') {
+        appState.devPaymentSettings = parsed;
+      }
       return Object.assign({}, DEFAULT_DEV_PAYMENT_SETTINGS, parsed);
     } catch (e) {}
   }
@@ -10282,7 +10302,17 @@ function getStoredDevPaymentSettings() {
 }
 
 function saveStoredDevPaymentSettings(settings) {
-  localStorage.setItem('sr12_dev_payment_settings_v1', JSON.stringify(settings));
+  if (typeof appState !== 'undefined') {
+    appState.devPaymentSettings = settings;
+  }
+  try {
+    localStorage.setItem('sr12_dev_payment_settings_v1', JSON.stringify(settings));
+  } catch (e) {}
+
+  // Sinkronkan ke Supabase Cloud (tabel stores, row sr12-central)
+  if (typeof updateDevPaymentSettingsInSupabase === 'function') {
+    updateDevPaymentSettingsInSupabase(settings);
+  }
 }
 
 function switchTopupMethod(method) {
@@ -10361,23 +10391,56 @@ function updateDevPaymentUI() {
 
 function handleSaveDevPaymentSettings(e) {
   if (e) e.preventDefault();
-  const bankName = document.getElementById('devSettingBankName_ws')?.value.trim() || document.getElementById('devSettingBankName')?.value.trim() || 'BCA';
-  const bankAccount = document.getElementById('devSettingBankAccount_ws')?.value.trim() || document.getElementById('devSettingBankAccount')?.value.trim() || '';
-  const bankHolder = document.getElementById('devSettingBankHolder_ws')?.value.trim() || document.getElementById('devSettingBankHolder')?.value.trim() || '';
-  const ewalletNumber = document.getElementById('devSettingEwalletNumber_ws')?.value.trim() || document.getElementById('devSettingEwalletNumber')?.value.trim() || '';
+
+  let bankName = '';
+  let bankAccount = '';
+  let bankHolder = '';
+  let ewalletNumber = '';
+
+  const wsName = document.getElementById('devSettingBankName_ws')?.value.trim();
+  const wsAcc = document.getElementById('devSettingBankAccount_ws')?.value.trim();
+  const wsHolder = document.getElementById('devSettingBankHolder_ws')?.value.trim();
+  const wsEwallet = document.getElementById('devSettingEwalletNumber_ws')?.value.trim();
+
+  const modalName = document.getElementById('devSettingBankName')?.value.trim();
+  const modalAcc = document.getElementById('devSettingBankAccount')?.value.trim();
+  const modalHolder = document.getElementById('devSettingBankHolder')?.value.trim();
+  const modalEwallet = document.getElementById('devSettingEwalletNumber')?.value.trim();
+
+  if (wsAcc || wsEwallet) {
+    bankName = wsName || 'BCA';
+    bankAccount = wsAcc || '';
+    bankHolder = wsHolder || '';
+    ewalletNumber = wsEwallet || '';
+  } else if (modalAcc || modalEwallet) {
+    bankName = modalName || 'BCA';
+    bankAccount = modalAcc || '';
+    bankHolder = modalHolder || '';
+    ewalletNumber = modalEwallet || '';
+  } else {
+    bankName = wsName || modalName || 'BCA';
+    bankAccount = wsAcc || modalAcc || '';
+    bankHolder = wsHolder || modalHolder || '';
+    ewalletNumber = wsEwallet || modalEwallet || '';
+  }
+
+  if (!bankAccount && !ewalletNumber) {
+    alert('Mohon masukkan Nomor Rekening Bank atau Nomor E-Wallet Developer.');
+    return;
+  }
 
   const settings = {
-    bankName,
-    bankAccount,
-    bankHolder,
+    bankName: bankName || 'BCA',
+    bankAccount: bankAccount || '',
+    bankHolder: bankHolder || '',
     ewalletName: 'DANA',
-    ewalletNumber,
-    developerWa: appState.storeSettings.storeWaNumber || ''
+    ewalletNumber: ewalletNumber || '',
+    developerWa: (appState.storeSettings && appState.storeSettings.storeWaNumber) || ''
   };
 
   saveStoredDevPaymentSettings(settings);
   updateDevPaymentUI();
-  showToast('✅ Rekening Developer berhasil disimpan dan diperbarui!');
+  showToast('✅ Rekening Developer berhasil disimpan dan disinkronkan ke Cloud!');
 }
 
 

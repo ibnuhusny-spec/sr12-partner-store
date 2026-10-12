@@ -98,6 +98,24 @@ async function syncStoresFromSupabase() {
       }
     }
 
+    // Baca dan sinkronkan Rekening Developer dari Cloud (hero_subtitle di sr12-central)
+    if (centralRow && centralRow.hero_subtitle) {
+      try {
+        const cloudPayment = typeof centralRow.hero_subtitle === 'string' ? JSON.parse(centralRow.hero_subtitle) : centralRow.hero_subtitle;
+        if (cloudPayment && (cloudPayment.bankAccount || cloudPayment.ewalletNumber)) {
+          if (typeof appState !== 'undefined') {
+            appState.devPaymentSettings = cloudPayment;
+          }
+          try {
+            localStorage.setItem('sr12_dev_payment_settings_v1', JSON.stringify(cloudPayment));
+          } catch(eLs) {}
+          if (typeof updateDevPaymentUI === 'function') {
+            updateDevPaymentUI();
+          }
+        }
+      } catch (eJson) {}
+    }
+
     return (data || [])
       .filter(row => row && row.slug && row.slug !== 'sr12-central' && row.slug !== 'toko-supa-distributor' && !row.slug.startsWith('deleted_') && !row.slug.includes('toko-supa') && row.store_tagline !== '__deleted__')
       .map(row => ({
@@ -1322,12 +1340,36 @@ async function clearOrdersFromSupabase(storeSlug = 'sr12-central') {
   }
 }
 
+// Update Pengaturan Rekening Developer ke Supabase Cloud (disimpan pada row sr12-central)
+async function updateDevPaymentSettingsInSupabase(settings) {
+  const client = initSupabaseClient();
+  if (!client) return false;
+  try {
+    const payload = JSON.stringify(settings);
+    const { error } = await client
+      .from('stores')
+      .update({ hero_subtitle: payload })
+      .eq('slug', 'sr12-central');
+
+    if (error) {
+      console.warn('Supabase update developer payment settings error:', error);
+      return false;
+    }
+    console.log('✅ Rekening Developer berhasil tersinkronisasi ke Supabase Cloud!');
+    return true;
+  } catch (e) {
+    console.warn('Exception updating dev payment settings in Supabase:', e);
+    return false;
+  }
+}
+
 // Window global exports
 window.initSupabaseClient = initSupabaseClient;
 window.syncStoresFromSupabase = syncStoresFromSupabase;
 window.saveStoreToSupabase = saveStoreToSupabase;
 window.deleteStoreFromSupabase = deleteStoreFromSupabase;
 window.updateStorePinInSupabase = updateStorePinInSupabase;
+window.updateDevPaymentSettingsInSupabase = updateDevPaymentSettingsInSupabase;
 window.syncPendingStoresFromSupabase = syncPendingStoresFromSupabase;
 window.savePendingStoreToSupabase = savePendingStoreToSupabase;
 window.deletePendingStoreFromSupabase = deletePendingStoreFromSupabase;
@@ -1349,5 +1391,6 @@ window.clearOrdersFromSupabase = clearOrdersFromSupabase;
 window.updateOrderStatusInSupabase = updateOrderStatusInSupabase;
 window.updateStoreQuotaInSupabase = updateStoreQuotaInSupabase;
 window.updateStoreFeeInSupabase = updateStoreFeeInSupabase;
+
 
 
