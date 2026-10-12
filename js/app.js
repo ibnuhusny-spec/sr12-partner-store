@@ -8987,9 +8987,12 @@ function renderRewards() {
           </div>
           <p class="reward-desc-text">${r.description}</p>
         </div>
-        <div style="display: flex; gap: 8px; margin-top: 14px;">
-          <button class="btn-claim-reward" style="flex: 1; ${!isResmi ? 'background: #be185d; color: #fff;' : ''}" onclick="claimReward('${r.id}', ${r.requiredPoints || 0}, '${escapedTitle}')">
-            Tukar / Klaim Reward
+        <div style="display: flex; gap: 8px; margin-top: 14px; align-items: stretch;">
+          <button type="button" class="btn-claim-reward" style="flex: 1; padding: 10px 14px; border-radius: var(--radius-md); font-weight: 700; font-size: 0.85rem; cursor: pointer; ${!isResmi ? 'background: #be185d; color: #fff;' : ''}" onclick="claimReward('${r.id}', ${r.requiredPoints || 0}, '${escapedTitle}')">
+            🎁 Tukar / Klaim Reward
+          </button>
+          <button type="button" class="btn-delete-reward-action" onclick="deleteReward('${r.id}', '${escapedTitle}')" style="background: #fef2f2; border: 1.5px solid #ef4444; color: #dc2626; padding: 10px 14px; border-radius: var(--radius-md); font-weight: 800; font-size: 0.82rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; box-shadow: 0 1px 3px rgba(239,68,68,0.15);" title="Hapus Promo/Hadiah Ini dari Toko">
+            <span style="font-size: 0.95rem;">🗑️</span> <span>Hapus</span>
           </button>
         </div>
       </div>

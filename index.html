@@ -17,8 +17,7 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="SR12 Partner Hub - Toko Resmi Herbal Skin Care">
   <meta name="twitter:description" content="Toko resmi kemitraan SR12 Herbal Skin Care terverifikasi BPOM. Dapatkan harga terbaik dan pengiriman cepat.">
-  <meta name="twitter:image" content="https://sr12-partner-store.vercel.app/assets/sr12-logo.png">
-  <link rel="stylesheet" href="css/style.css?v=5.7">
+  <link rel="stylesheet" href="css/style.css?v=6.0">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
 </head>
 <body>
@@ -1704,12 +1703,12 @@
     <!-- WRAPPER KHUSUS PRODUK & KONTEN TRANSAKSI (HANYA MUNCUL DI TOKO DISTRIBUTOR) -->
     <div id="distributorCommerceWrapper" style="display: none;">
       <!-- NAVIGATION TABS ETALASE TOKO -->
-      <nav class="section-tabs-bar" id="storefrontSectionTabsBar" style="display: flex; gap: 8px; margin: 12px 0 20px 0; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; overflow-x: auto;">
+      <nav class="section-tabs-bar" id="storefrontSectionTabsBar">
         <button type="button" class="tab-btn active" data-tab="catalog" onclick="switchTab('catalog')">
           <span>🛍️</span> <span>Katalog Produk</span>
         </button>
         <button type="button" class="tab-btn" data-tab="rewards" onclick="switchTab('rewards')">
-          <span>🎁</span> <span>Katalog Hadiah &amp; Rewards SR12</span>
+          <span>🎁</span> <span>Katalog Hadiah</span>
         </button>
       </nav>
 
@@ -1772,16 +1771,16 @@
 
     <!-- SECTION 2: BONUS & REWARD MITRA -->
     <section id="rewardsSection" style="display: none;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
-        <div style="display: flex; gap: 8px;">
-          <button class="chip-btn reward-scope-chip active" data-scope="all">Semua Program</button>
-          <button class="chip-btn reward-scope-chip" data-scope="resmi">🏛️ Program Resmi Nasional</button>
-          <button class="chip-btn reward-scope-chip" data-scope="toko">🎁 Promo Toko Kami</button>
+      <div class="reward-filter-bar">
+        <div class="reward-scope-chips-wrap">
+          <button type="button" class="chip-btn reward-scope-chip active" data-scope="all">🌟 Semua</button>
+          <button type="button" class="chip-btn reward-scope-chip" data-scope="resmi">🏛️ Resmi Pusat</button>
+          <button type="button" class="chip-btn reward-scope-chip" data-scope="toko">🎁 Promo Toko</button>
         </div>
 
         <!-- Tombol Buat Promo Toko Baru -->
-        <button id="btnOpenAddPromo" type="button" onclick="openAddPromoModal()" style="background: linear-gradient(135deg, #d97706, #b45309); color: #fff; border: none; padding: 9px 16px; border-radius: var(--radius-md); font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(217, 119, 6, 0.3);">
-          <span>➕</span> Buat Promo Toko Baru
+        <button id="btnOpenAddPromo" type="button" class="btn-create-promo-header" onclick="openAddPromoModal()">
+          <span>➕</span> <span>Buat Promo Toko Baru</span>
         </button>
       </div>
 
@@ -4661,9 +4660,9 @@
 
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=5.7"></script>
-  <script src="js/data.js?v=5.7"></script>
-  <script src="js/app.js?v=5.7"></script>
-  <script src="js/olsera-suite.js?v=5.7"></script>
+  <script src="js/supabase-config.js?v=6.0"></script>
+  <script src="js/data.js?v=6.0"></script>
+  <script src="js/app.js?v=6.0"></script>
+  <script src="js/olsera-suite.js?v=6.0"></script>
 </body>
 </html>
