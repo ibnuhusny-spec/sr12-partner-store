@@ -2779,15 +2779,19 @@ function renderReportsView() {
   };
 
   trxs.forEach(t => {
-    totalHet += Number(t.subtotalHet) || 0;
+    const itemSubtotal = (t.items && t.items.length)
+      ? t.items.reduce((acc, i) => acc + (Number(i.subtotal) || (Number(i.price) * (Number(i.qty) || 1))), 0)
+      : 0;
+    const prodOmset = Number(t.subtotal || itemSubtotal || t.subtotalHet || t.grandTotal) || 0;
+    totalHet += Number(t.subtotalHet || prodOmset) || 0;
     totalDiscount += Number(t.discountAmount) || 0;
-    totalNet += Number(t.grandTotal) || 0;
+    totalNet += prodOmset;
 
     const tier = t.tier || 'konsumen';
     if (typeof channelOmsetMap[tier] !== 'undefined') {
-      channelOmsetMap[tier] += Number(t.grandTotal) || 0;
+      channelOmsetMap[tier] += prodOmset;
     } else {
-      channelOmsetMap.konsumen += Number(t.grandTotal) || 0;
+      channelOmsetMap.konsumen += prodOmset;
     }
 
     (t.items || []).forEach(item => {
@@ -2944,7 +2948,7 @@ function mountMitraInOlsera() {
     if (!mount.contains(src)) {
       mount.appendChild(src);
     }
-    if (typeof renderResellersTable === 'function') renderResellersTable();
+    if (typeof renderResellers === 'function') renderResellers();
   }
 }
 

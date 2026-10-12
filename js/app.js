@@ -7284,6 +7284,12 @@ function checkoutViaWhatsApp() {
   if (typeof renderCashflowTable === 'function') {
     renderCashflowTable();
   }
+  if (typeof renderResellers === 'function') {
+    renderResellers();
+  }
+  if (typeof renderMarketerPayroll === 'function') {
+    renderMarketerPayroll();
+  }
 
   // Kosongkan keranjang pembeli agar siap untuk pesanan berikutnya (tidak tertinggal di browser)
   appState.cart = [];
@@ -10970,33 +10976,44 @@ function renderResellers() {
 }
 
 function goToMarketerPayroll(marketerId) {
-  const portal = document.getElementById('distributorOlseraPortal');
-  const isOlseraActive = (document.body.classList.contains('olsera-portal-active') || (portal && portal.style.display !== 'none'));
+  try {
+    const portal = document.getElementById('distributorOlseraPortal');
+    const isOlseraActive = (document.body.classList.contains('olsera-portal-active') || (portal && portal.style.display !== 'none'));
 
-  if (isOlseraActive && typeof switchOlseraTab === 'function') {
-    switchOlseraTab('marketer');
-  } else if (typeof showDistributorPortalView === 'function') {
-    showDistributorPortalView(true);
-    if (typeof switchOlseraTab === 'function') {
+    if (isOlseraActive && typeof switchOlseraTab === 'function') {
       switchOlseraTab('marketer');
-    }
-  } else if (typeof switchTab === 'function') {
-    switchTab('marketers');
-  }
-
-  if (typeof renderMarketerPayroll === 'function') {
-    renderMarketerPayroll();
-  }
-
-  if (marketerId) {
-    setTimeout(() => {
-      const row = document.querySelector(`[data-marketer-id="${marketerId}"]`);
-      if (row) {
-        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        row.style.outline = '2.5px solid #0284c7';
-        setTimeout(() => { row.style.outline = ''; }, 2500);
+    } else if (typeof showDistributorPortalView === 'function') {
+      showDistributorPortalView(true);
+      if (typeof switchOlseraTab === 'function') {
+        switchOlseraTab('marketer');
       }
-    }, 200);
+    } else if (typeof switchTab === 'function') {
+      switchTab('marketers');
+    }
+
+    // Pastikan section marketer ditampilkan dan dirender
+    const mrkSec = document.getElementById('marketersSection');
+    if (mrkSec) mrkSec.style.display = 'block';
+
+    if (typeof renderMarketerPayroll === 'function') {
+      renderMarketerPayroll();
+    }
+
+    if (marketerId) {
+      setTimeout(() => {
+        const row = document.querySelector(`[data-marketer-id="${marketerId}"]`);
+        if (row) {
+          row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          row.style.outline = '2.5px solid #0284c7';
+          setTimeout(() => { row.style.outline = ''; }, 2500);
+        }
+      }, 300);
+    }
+  } catch (err) {
+    console.error('Error navigating to marketer payroll:', err);
+    if (typeof switchTab === 'function') {
+      switchTab('marketers');
+    }
   }
 }
 window.goToMarketerPayroll = goToMarketerPayroll;
@@ -11317,9 +11334,11 @@ function renderMarketerPayroll() {
     // 1. Kumpulkan seluruh record penjualan marketer dari appState.marketerSales
     const salesFromRecords = (appState.marketerSales || []).filter(s => {
       const isStore = (!s.store_slug || s.store_slug === currentStoreSlug);
+      const mNameLower = (m.name || '').toLowerCase();
+      const custNameLower = (s.customerName || '').toLowerCase();
       const isM = (s.marketerId === m.id || s.marketerId === m.partner_code) ||
                   (s.customerPhone && m.phone && s.customerPhone.replace(/[^0-9]/g, '') === m.phone.replace(/[^0-9]/g, '')) ||
-                  (s.customerName && (s.customerName.includes(m.id) || s.customerName.toLowerCase().includes(m.name.toLowerCase())));
+                  (s.customerName && (s.customerName.includes(m.id) || (mNameLower && custNameLower.includes(mNameLower))));
       if (!isStore || !isM) return false;
       if (selectedMonth === 'all') return true;
       return (s.monthPeriod === selectedMonth || (s.date && s.date.startsWith(selectedMonth)));
@@ -11328,8 +11347,10 @@ function renderMarketerPayroll() {
     // 2. Kumpulkan dari appState.transactions yang terkait dengan marketer ini
     const salesFromTrx = (appState.transactions || []).filter(t => {
       if (!t || !t.id) return false;
+      const mNameLower = (m.name || '').toLowerCase();
+      const tCustLower = (t.customerName || '').toLowerCase();
       const isM = (t.marketerId === m.id || t.marketerId === m.partner_code) ||
-                  (t.tier === 'marketer' && (t.customerPhone === m.phone || (t.customerName && (t.customerName.includes(m.id) || t.customerName.toLowerCase().includes(m.name.toLowerCase())))));
+                  (t.tier === 'marketer' && (t.customerPhone === m.phone || (t.customerName && (t.customerName.includes(m.id) || (mNameLower && tCustLower.includes(mNameLower))))));
       if (!isM) return false;
       if (selectedMonth === 'all') return true;
       const tDate = t.date || t.dateTime || '';
