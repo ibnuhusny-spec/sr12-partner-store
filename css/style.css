@@ -3277,7 +3277,8 @@ body.modal-open {
   z-index: 100070 !important;
 }
 
-.modal-dialog {
+.modal-dialog,
+.modal-container {
   background: #ffffff;
   border-radius: var(--radius-lg);
   max-width: 620px;
@@ -3294,6 +3295,27 @@ body.modal-open {
   will-change: transform, opacity;
   user-select: auto;
   -webkit-user-select: auto;
+}
+
+#modalSwitchStore .modal-container {
+  max-width: 740px !important;
+  width: 95% !important;
+  background: #ffffff !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4) !important;
+  z-index: 100000 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  max-height: 88vh !important;
+}
+
+@media (min-width: 769px) {
+  #modalSwitchStore .modal-container {
+    max-width: 740px !important;
+    width: 90% !important;
+    margin: auto !important;
+  }
 }
 
 /* Responsif Mobile & Layar Pendek: Mencegah modal tertutup keyboard HP */

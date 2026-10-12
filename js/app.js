@@ -27,7 +27,7 @@ const DEFAULT_PARTNER_STORES = [
   }
 ];
 
-const LEGACY_DELETED_SLUGS = ['toko-supa-distributor'];
+const LEGACY_DELETED_SLUGS = ['toko-supa-distributor', 'agung', 'adini', 'iyoutique'];
 
 function getDeletedStoreSlugs() {
   try {
@@ -1201,7 +1201,7 @@ window.syncMitraWithIndexedDB = syncMitraWithIndexedDB;
 function getStoreProductOverrides(storeSlug) {
   if (!storeSlug) storeSlug = 'sr12-central';
   try {
-    const raw = localStorage.getItem(`sr12_store_product_overrides_${storeSlug}`);
+    const raw = localStorage.getItem(`sr12_store_product_overrides_${storeSlug}`) || localStorage.getItem(`sr12_store_products_${storeSlug}`);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object') return parsed;
@@ -1226,6 +1226,7 @@ function saveStoreProductOverride(storeSlug, prod) {
       customEdited: true
     };
     localStorage.setItem(`sr12_store_product_overrides_${storeSlug}`, JSON.stringify(overrides));
+    localStorage.setItem(`sr12_store_products_${storeSlug}`, JSON.stringify(overrides));
   } catch(e) {
     console.warn('Gagal simpan override produk lokal:', e);
   }
@@ -1986,6 +1987,59 @@ document.addEventListener('DOMContentLoaded', async () => {
     })();
   }
 
+function getMarketerNameById(id) {
+  if (!id) return '';
+  const q = String(id).toUpperCase().trim();
+  const allList = (typeof appState !== 'undefined' && appState.mitraList) ? appState.mitraList : [];
+  const found = allList.find(m => (m.id || '').toUpperCase() === q || (m.partner_code || '').toUpperCase() === q);
+  if (found && found.name) return found.name;
+  if (q === 'MKT-001') return 'Maryam';
+  return id;
+}
+window.getMarketerNameById = getMarketerNameById;
+
+async function initReferralAffiliateBanner(mktCode) {
+  if (!mktCode) return;
+  const cleanCode = mktCode.trim().toUpperCase();
+  const topBanner = document.getElementById('affiliateReferralTopBanner');
+  const topTitle = document.getElementById('affiliateReferralMarketerTitle');
+  const cartNotice = document.getElementById('cartAffiliateReferralNotice');
+  const cartNameText = document.getElementById('cartAffiliateMarketerNameText');
+
+  let name = getMarketerNameById(cleanCode);
+
+  if (topBanner) {
+    topBanner.style.display = 'flex';
+    if (topTitle) topTitle.textContent = `Anda terhubung dengan Marketer: ${name} (${cleanCode})`;
+  }
+  if (cartNotice) {
+    cartNotice.style.display = 'block';
+    if (cartNameText) cartNameText.textContent = `${name} (${cleanCode})`;
+  }
+
+  // Jika nama masih berupa ID kode, cari langsung ke Supabase Cloud
+  if (name === cleanCode && typeof findMitraInSupabase === 'function') {
+    try {
+      const curSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+      const cloudM = await findMitraInSupabase(cleanCode, curSlug);
+      if (cloudM && cloudM.name) {
+        name = cloudM.name;
+        if (!appState.mitraList) appState.mitraList = [];
+        const existIdx = appState.mitraList.findIndex(m => (m.id || '').toUpperCase() === cleanCode);
+        if (existIdx < 0) appState.mitraList.unshift(cloudM);
+        else appState.mitraList[existIdx] = Object.assign({}, appState.mitraList[existIdx], cloudM);
+        saveStoredMitra(appState.mitraList, false);
+
+        if (topTitle) topTitle.textContent = `Anda terhubung dengan Marketer: ${name} (${cleanCode})`;
+        if (cartNameText) cartNameText.textContent = `${name} (${cleanCode})`;
+      }
+    } catch(e) {
+      console.warn('initReferralAffiliateBanner cloud lookup error:', e);
+    }
+  }
+}
+window.initReferralAffiliateBanner = initReferralAffiliateBanner;
+
   // Pastikan URL di address bar browser selalu mencantumkan parameter toko (?store=...) tanpa menghapus parameter produk (?product=...)
   const bootParams = new URLSearchParams(window.location.search);
   let bootParamsChanged = false;
@@ -1995,14 +2049,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Deteksi jika link dibuka via tautan referral / afiliasi marketer pribadi (?mkt=... atau ?ref=...)
-  const refMktParam = bootParams.get('mkt') || bootParams.get('ref') || bootParams.get('marketer');
+  const refMktParam = bootParams.get('mkt') || bootParams.get('ref') || bootParams.get('marketer') || 
+                      sessionStorage.getItem('sr12_active_referral_marketer') || localStorage.getItem('sr12_active_referral_marketer');
   if (refMktParam && refMktParam.trim()) {
-    const cleanRef = refMktParam.trim();
+    const cleanRef = refMktParam.trim().toUpperCase();
     try {
       sessionStorage.setItem('sr12_active_referral_marketer', cleanRef);
+      localStorage.setItem('sr12_active_referral_marketer', cleanRef);
     } catch(e) {}
     appState.activeReferralMarketer = cleanRef;
     console.log('💼 Terdeteksi Link Belanja via Rekomendasi Marketer Resmi:', cleanRef);
+    setTimeout(() => {
+      initReferralAffiliateBanner(cleanRef);
+    }, 200);
   }
 
   // CATATAN PENTING: JANGAN PERNAH menghapus parameter produk (?product=...) agar deep-link link promosi selalu terbuka sempurna!
@@ -4926,6 +4985,16 @@ function initEventListeners() {
     if (phoneIn && !phoneIn.value && appState.buyerDetails?.phone) {
       phoneIn.value = appState.buyerDetails.phone;
     }
+    const activeRef = appState.activeReferralMarketer || sessionStorage.getItem('sr12_active_referral_marketer') || localStorage.getItem('sr12_active_referral_marketer');
+    const cartNotice = document.getElementById('cartAffiliateReferralNotice');
+    const cartNameText = document.getElementById('cartAffiliateMarketerNameText');
+    if (activeRef) {
+      const mName = (typeof getMarketerNameById === 'function') ? getMarketerNameById(activeRef) : activeRef;
+      if (cartNotice) cartNotice.style.display = 'block';
+      if (cartNameText) cartNameText.textContent = `${mName} (${activeRef})`;
+    } else {
+      if (cartNotice) cartNotice.style.display = 'none';
+    }
     if (typeof updateCartUI === 'function') updateCartUI();
     if (typeof syncMitraWithIndexedDB === 'function') syncMitraWithIndexedDB();
   };
@@ -6872,9 +6941,19 @@ function checkoutViaWhatsApp() {
   const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
   let activeRefMkt = '';
   try {
-    activeRefMkt = sessionStorage.getItem('sr12_active_referral_marketer') || (typeof appState !== 'undefined' ? appState.activeReferralMarketer : '') || '';
+    activeRefMkt = sessionStorage.getItem('sr12_active_referral_marketer') || localStorage.getItem('sr12_active_referral_marketer') || (typeof appState !== 'undefined' ? appState.activeReferralMarketer : '') || '';
   } catch(e) {}
-  let foundMitra = findMitraByIdOrPhone(inputPartnerQuery || activeRefMkt || buyerPhone, currentStoreSlug);
+
+  let foundMitra = null;
+  if (activeRefMkt) {
+    foundMitra = findMitraByIdOrPhone(activeRefMkt, currentStoreSlug);
+  }
+  if (!foundMitra && inputPartnerQuery) {
+    foundMitra = findMitraByIdOrPhone(inputPartnerQuery, currentStoreSlug);
+  }
+  if (!foundMitra && buyerPhone) {
+    foundMitra = findMitraByIdOrPhone(buyerPhone, currentStoreSlug);
+  }
   let crmNoticeText = '';
 
   // Deteksi pesanan mitra (berdasarkan ID mitra, link referral marketer, atau tier aktif yang dipilih saat belanja)
@@ -6884,9 +6963,13 @@ function checkoutViaWhatsApp() {
   // Alokasikan ID transaksi terpadu sejak awal agar pesanan di web & catatan gaji marketer 100% terhubung
   const orderTrxId = 'ORD-WEB-' + Date.now().toString().slice(-6);
 
+  let marketerCode = null;
+  let marketerName = null;
+
   if (isMarketerOrder) {
-    const marketerCode = (foundMitra && foundMitra.id) ? foundMitra.id : (activeRefMkt || (inputPartnerQuery && inputPartnerQuery.toUpperCase().startsWith('MKT-') ? inputPartnerQuery.toUpperCase() : ('MKT-' + (buyerPhone ? buyerPhone.slice(-4) : 'WEB'))));
-    const marketerName = (foundMitra && foundMitra.name) ? foundMitra.name : (activeRefMkt ? `Marketer (${activeRefMkt})` : (inputPartnerQuery && inputPartnerQuery.toUpperCase().startsWith('MKT-') ? `Marketer (${inputPartnerQuery.toUpperCase()})` : 'Mitra Marketer'));
+    marketerCode = (foundMitra && foundMitra.id) ? foundMitra.id : (activeRefMkt || (inputPartnerQuery && inputPartnerQuery.toUpperCase().startsWith('MKT-') ? inputPartnerQuery.toUpperCase() : ('MKT-' + (buyerPhone ? buyerPhone.slice(-4) : 'WEB'))));
+    const resolvedName = (foundMitra && foundMitra.name) || (typeof getMarketerNameById === 'function' ? getMarketerNameById(marketerCode) : '') || '';
+    marketerName = (resolvedName && resolvedName !== marketerCode) ? resolvedName : (marketerCode === 'MKT-001' ? 'Maryam' : (activeRefMkt ? `Marketer (${activeRefMkt})` : 'Mitra Marketer'));
     const comm = Math.round(subtotal * 0.15);
 
     // Jika marketer belum terdata di buku mitra toko distributor, otomatis daftarkan agar muncul di daftar gaji
@@ -6895,11 +6978,11 @@ function checkoutViaWhatsApp() {
         id: marketerCode,
         store_slug: currentStoreSlug,
         name: marketerName,
-        phone: buyerPhone || '-',
-        city: appState.buyerDetails.address?.split(',')[0] || appState.storeSettings.storeCity,
+        phone: (marketerCode === 'MKT-001' ? '085342743763' : (buyerPhone || '-')),
+        city: (marketerCode === 'MKT-001' ? 'Baniaga' : (appState.buyerDetails.address?.split(',')[0] || appState.storeSettings.storeCity)),
         tier: 'marketer',
         bankName: 'BCA',
-        bankAccount: '-',
+        bankAccount: (marketerCode === 'MKT-001' ? '123456789' : '-'),
         bankHolder: marketerName,
         qualificationDate: nowIso,
         lastOrderDate: nowIso,
@@ -6918,10 +7001,11 @@ function checkoutViaWhatsApp() {
       orderId: orderTrxId,
       store_slug: currentStoreSlug,
       marketerId: marketerCode,
+      marketerName: marketerName,
       date: nowIso,
       monthPeriod: currentMonthPeriod,
-      customerName: appState.buyerDetails.name || 'Pelanggan Online',
-      customerPhone: buyerPhone || '-',
+      customerName: inputBuyerName || appState.buyerDetails.name || 'Pelanggan Online',
+      customerPhone: buyerPhone || inputBuyerPhone || '-',
       customerAddress: appState.buyerDetails.address || '-',
       itemsDesc: appState.cart.map(i => {
         const p = appState.products.find(pr => pr.id === i.productId);
@@ -7080,9 +7164,10 @@ function checkoutViaWhatsApp() {
   const webOrder = {
     id: orderTrxId,
     store_slug: currentStoreSlug,
-    marketerId: (foundMitra && foundMitra.id) ? foundMitra.id : (isMarketerOrder ? (activeRefMkt || 'MKT-WEB') : (isResellerOrder ? 'RS-WEB' : null)),
+    marketerId: isMarketerOrder ? marketerCode : (foundMitra ? foundMitra.id : (isResellerOrder ? 'RS-WEB' : null)),
+    marketerName: isMarketerOrder ? marketerName : (foundMitra ? foundMitra.name : null),
     dateTime: dateFormatted,
-    customerName: (appState.buyerDetails.name || 'Pelanggan') + (foundMitra ? ` (${foundMitra.id})` : (isMarketerOrder ? ' (Marketer)' : (isResellerOrder ? ' (Reseller)' : ''))),
+    customerName: (inputBuyerName || appState.buyerDetails.name || 'Pelanggan'),
     customerPhone: buyerPhone || appState.buyerDetails.phone || '-',
     customerAddress: appState.buyerDetails.address || '-',
     tier: appState.currentTier,
@@ -11172,20 +11257,29 @@ function renderMarketerPayroll() {
   // Kumpulkan seluruh data marketer: dari daftar mitra resmi + catatan penjualan marketer + pesanan transaksi toko
   const marketersMap = new Map();
   storeMitra.filter(m => m.tier === 'marketer').forEach(m => {
+    if ((m.id === 'MKT-001' || m.partner_code === 'MKT-001') && (!m.name || m.name.includes('Marketer MKT-001'))) {
+      m.name = 'Maryam';
+      m.phone = m.phone || '085342743763';
+      m.city = m.city || 'Baniaga';
+      m.bankName = m.bankName || 'BCA';
+      m.bankAccount = m.bankAccount || '123456789';
+      m.bankHolder = m.bankHolder || 'Maryam';
+    }
     marketersMap.set(m.id, m);
   });
 
   // Tambahkan marketer dari riwayat penjualan marketer di toko ini
   (appState.marketerSales || []).forEach(s => {
     if ((!s.store_slug || s.store_slug === currentStoreSlug) && s.marketerId && !marketersMap.has(s.marketerId)) {
+      const resolvedName = (typeof getMarketerNameById === 'function' ? getMarketerNameById(s.marketerId) : '') || s.marketerName || (s.marketerId === 'MKT-001' ? 'Maryam' : `Marketer ${s.marketerId}`);
       marketersMap.set(s.marketerId, {
         id: s.marketerId,
-        name: s.customerName?.includes('Marketer') ? s.customerName : (`Marketer ${s.marketerId}`),
-        phone: s.customerPhone || '-',
-        city: 'Indonesia',
+        name: resolvedName,
+        phone: (s.marketerId === 'MKT-001' ? '085342743763' : (s.customerPhone || '-')),
+        city: (s.marketerId === 'MKT-001' ? 'Baniaga' : 'Indonesia'),
         bankName: 'BCA',
-        bankAccount: '-',
-        bankHolder: s.customerName || '-'
+        bankAccount: (s.marketerId === 'MKT-001' ? '123456789' : '-'),
+        bankHolder: resolvedName
       });
     }
   });
@@ -11193,14 +11287,15 @@ function renderMarketerPayroll() {
   // Tambahkan marketer dari transaksi online yang memiliki marketerId
   (appState.transactions || []).forEach(t => {
     if (t.marketerId && !marketersMap.has(t.marketerId)) {
+      const resolvedName = (typeof getMarketerNameById === 'function' ? getMarketerNameById(t.marketerId) : '') || t.marketerName || (t.marketerId === 'MKT-001' ? 'Maryam' : `Marketer ${t.marketerId}`);
       marketersMap.set(t.marketerId, {
         id: t.marketerId,
-        name: t.customerName || (`Marketer ${t.marketerId}`),
-        phone: t.customerPhone || '-',
-        city: 'Indonesia',
+        name: resolvedName,
+        phone: (t.marketerId === 'MKT-001' ? '085342743763' : (t.customerPhone || '-')),
+        city: (t.marketerId === 'MKT-001' ? 'Baniaga' : 'Indonesia'),
         bankName: 'BCA',
-        bankAccount: '-',
-        bankHolder: t.customerName || '-'
+        bankAccount: (t.marketerId === 'MKT-001' ? '123456789' : '-'),
+        bankHolder: resolvedName
       });
     }
   });

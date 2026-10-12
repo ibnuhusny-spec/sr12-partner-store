@@ -1886,7 +1886,8 @@ function openPosReceiptModal(trx) {
     setEl('rcptTrxId', trx.id || '-');
     setEl('rcptDateTime', trx.dateTime || '-');
     setEl('rcptCashier', trx.cashierName || (typeof appState !== 'undefined' && appState.activeCashier ? appState.activeCashier.name : 'Nurlinda Sari'));
-    setEl('rcptCustomer', trx.customerName || '-');
+    const mktNote = trx.marketerId ? ` [Afiliasi: ${(trx.marketerName || (typeof getMarketerNameById === 'function' ? getMarketerNameById(trx.marketerId) : trx.marketerId))} (${trx.marketerId})]` : '';
+    setEl('rcptCustomer', (trx.customerName || '-') + mktNote);
     setEl('rcptTier', trx.tierLabel || 'Retail');
 
     const items = trx.items || [];
@@ -2080,6 +2081,13 @@ function renderPosTransactions(filter = 'all') {
         <td data-label="Pembeli">
           <b>${t.customerName}</b>
           ${t.customerPhone ? `<div style="font-size: 0.72rem; color: #0284c7;">${t.customerPhone}</div>` : ''}
+          ${t.marketerId ? `
+            <div style="margin-top: 4px;">
+              <span style="background: #dcfce7; color: #166534; border: 1.5px solid #86efac; font-size: 0.72rem; font-weight: 800; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">
+                💼 Afiliasi: ${(t.marketerName || (typeof getMarketerNameById === 'function' ? getMarketerNameById(t.marketerId) : t.marketerId))} (${t.marketerId})
+              </span>
+            </div>
+          ` : ''}
         </td>
         <td data-label="Tingkat"><span class="badge-crm" style="background: #e0f2fe; color: #0369a1;">${t.tierLabel}</span></td>
         <td data-label="Total Bayar" style="font-weight: 800; color: #0f172a;">Rp ${Number(t.grandTotal).toLocaleString('id-ID')}</td>

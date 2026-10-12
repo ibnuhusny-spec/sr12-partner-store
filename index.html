@@ -1456,6 +1456,20 @@
   <!-- 4. MAIN CONTAINER (TOKO ONLINE PEMBELI RETAIL & MITRA) -->
   <main class="main-wrapper" id="publicStorefrontMain">
 
+    <!-- BANNER RUJUKAN AFILIASI MARKETER AKTIF -->
+    <div id="affiliateReferralTopBanner" style="display: none; background: linear-gradient(135deg, #064e3b, #047857); color: #ffffff; padding: 12px 18px; border-radius: 12px; margin: 12px auto; max-width: 1200px; box-shadow: 0 4px 15px rgba(5,150,105,0.25); border: 1.5px solid #34d399; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span style="font-size: 1.6rem; background: rgba(255,255,255,0.2); width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">💼</span>
+        <div>
+          <div style="font-size: 0.72rem; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px; color: #a7f3d0;">Link Rekomendasi Resmi Marketer</div>
+          <div style="font-size: 0.95rem; font-weight: 800; color: #ffffff;" id="affiliateReferralMarketerTitle">Anda terhubung dengan Marketer: Maryam (MKT-001)</div>
+        </div>
+      </div>
+      <div style="background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); padding: 5px 12px; border-radius: 999px; font-size: 0.74rem; font-weight: 800; color: #fde68a; display: flex; align-items: center; gap: 6px;">
+        <span>✓</span> Marketer Terverifikasi Resmi
+      </div>
+    </div>
+
     <!-- 4.A MODE 1: SHOWCASE RESMI SR12-KU PRO (SR12 OFFICIAL CENTRAL HUB) -->
     <section id="officialCentralHubHero" class="official-central-hub-hero">
       <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 24px;">
@@ -2063,6 +2077,19 @@
     <div class="cart-drawer-body" id="cartDrawerBody">
       <!-- FORM IDENTITAS PEMESAN & CEK KEMITRAAN (AG-001 DLL) -->
       <div style="margin: 14px 16px 8px 16px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; flex-shrink: 0 !important;">
+        <!-- KOTAK STATUS AFILIASI MARKETER DI KERANJANG -->
+        <div id="cartAffiliateReferralNotice" style="display: none; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 8px; padding: 10px 12px; margin-bottom: 10px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+            <div style="font-size: 0.78rem; font-weight: 800; color: #166534; display: flex; align-items: center; gap: 5px;">
+              <span>💼</span> Link Afiliasi: <span id="cartAffiliateMarketerNameText">Maryam (MKT-001)</span>
+            </div>
+            <span style="font-size: 0.65rem; background: #dcfce7; color: #15803d; font-weight: 800; padding: 2px 6px; border-radius: 4px;">✓ Aktif</span>
+          </div>
+          <div style="font-size: 0.7rem; color: #166534; margin-top: 2px;">
+            Pesanan ini otomatis mendukung Tim Marketer Resmi &amp; komisi 15% dialokasikan ke rekening beliau.
+          </div>
+        </div>
+
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
           <label style="font-size: 0.82rem; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 6px;">
             <span>👤</span> Identitas Pemesan / Mitra SR12:
