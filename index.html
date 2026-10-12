@@ -1703,9 +1703,14 @@
 
     <!-- WRAPPER KHUSUS PRODUK & KONTEN TRANSAKSI (HANYA MUNCUL DI TOKO DISTRIBUTOR) -->
     <div id="distributorCommerceWrapper" style="display: none;">
-      <!-- NAVIGATION TABS (KATALOG LANGSUNG AKTIF - TAB BONUS & BAHAN PROMOSI WA DIHAPUS SESUAI PERMINTAAN) -->
-      <nav class="section-tabs-bar" style="display: none;">
-        <button class="tab-btn active" data-tab="catalog">Katalog Produk</button>
+      <!-- NAVIGATION TABS ETALASE TOKO -->
+      <nav class="section-tabs-bar" id="storefrontSectionTabsBar" style="display: flex; gap: 8px; margin: 12px 0 20px 0; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; overflow-x: auto;">
+        <button type="button" class="tab-btn active" data-tab="catalog" onclick="switchTab('catalog')">
+          <span>🛍️</span> <span>Katalog Produk</span>
+        </button>
+        <button type="button" class="tab-btn" data-tab="rewards" onclick="switchTab('rewards')">
+          <span>🎁</span> <span>Katalog Hadiah &amp; Rewards SR12</span>
+        </button>
       </nav>
 
     <!-- SECTION 1: KATALOG PRODUK SR12 -->

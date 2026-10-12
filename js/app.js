@@ -9042,6 +9042,7 @@ function switchTab(tabId) {
   } else if (tabId === 'rewards') {
     const rSec = document.getElementById('rewardsSection');
     if (rSec) rSec.style.display = 'block';
+    if (typeof renderRewards === 'function') renderRewards();
   } else if (tabId === 'marketing') {
     const mSec = document.getElementById('marketingKitSection');
     if (mSec) mSec.style.display = 'block';
@@ -10340,12 +10341,64 @@ function sendTopupProofToDeveloperWA() {
   window.open(`https://api.whatsapp.com/send?phone=${targetWa}&text=${encodeURIComponent(msg)}`, '_blank');
 }
 
+function updateTopupPackageCardsUI() {
+  const fee = Number(appState.platformFee) || 1500;
+  
+  // Paket 1: 20 Kuota Order (@ fee)
+  const pkg1Amount = 20 * fee;
+  const pkg1Card = document.getElementById('pkgCard20k');
+  if (pkg1Card) {
+    pkg1Card.setAttribute('onclick', `selectTopupPackage(${pkg1Amount}, 20)`);
+    pkg1Card.innerHTML = `
+      <div class="topup-quota-num">20</div>
+      <div style="font-size: 0.72rem; color: var(--dark-500);">Kuota Order</div>
+      <div class="topup-price-num">${formatRupiah(pkg1Amount)}</div>
+      <div style="font-size: 0.65rem; color: var(--dark-400); margin-top: 2px;">@ ${formatRupiah(fee)} / order</div>
+    `;
+  }
+
+  // Paket 2: 50 Kuota (+5 Bonus = 55 Order)
+  const pkg2Raw = 50 * fee;
+  const pkg2Discount = fee >= 1500 ? 5000 : 2000;
+  const pkg2Amount = pkg2Raw - pkg2Discount;
+  const pkg2Card = document.getElementById('pkgCard50k');
+  if (pkg2Card) {
+    pkg2Card.setAttribute('onclick', `selectTopupPackage(${pkg2Amount}, 55)`);
+    pkg2Card.innerHTML = `
+      <span class="topup-pkg-badge">POPULER</span>
+      <div class="topup-quota-num" style="color: var(--gold-600);">55</div>
+      <div style="font-size: 0.72rem; color: var(--dark-500);">Kuota (+5 Bonus)</div>
+      <div class="topup-price-num" style="color: var(--gold-700);">${formatRupiah(pkg2Amount)}</div>
+      <div style="font-size: 0.65rem; color: var(--gold-600); font-weight: 600; margin-top: 2px;">Hemat ${formatRupiah(pkg2Discount + (5 * fee))}</div>
+    `;
+  }
+
+  // Paket 3: 100 Kuota (+20 Bonus = 120 Order)
+  const pkg3Raw = 100 * fee;
+  const pkg3Discount = fee >= 1500 ? 15000 : 5000;
+  const pkg3Amount = pkg3Raw - pkg3Discount;
+  const pkg3Card = document.getElementById('pkgCard100k');
+  if (pkg3Card) {
+    pkg3Card.setAttribute('onclick', `selectTopupPackage(${pkg3Amount}, 120)`);
+    pkg3Card.innerHTML = `
+      <span class="topup-pkg-badge" style="background: #0284c7;">BEST VALUE</span>
+      <div class="topup-quota-num" style="color: #0369a1;">120</div>
+      <div style="font-size: 0.72rem; color: var(--dark-500);">Kuota (+20 Bonus)</div>
+      <div class="topup-price-num">${formatRupiah(pkg3Amount)}</div>
+      <div style="font-size: 0.65rem; color: #0284c7; font-weight: 600; margin-top: 2px;">Hemat ${formatRupiah(pkg3Discount + (20 * fee))}</div>
+    `;
+  }
+
+  return { pkg1Amount, pkg2Amount, pkg3Amount };
+}
+
 function openTopupQuotaModal() {
   const modal = document.getElementById('modalTopupQuota');
   updateStoreQuotaUI();
   updateDevPaymentUI();
   switchTopupMethod('qris');
-  selectTopupPackage(50000, 55); // Default pilihan paket populer
+  const pkgs = updateTopupPackageCardsUI();
+  selectTopupPackage(pkgs.pkg2Amount, 55); // Default pilihan paket populer
   if (modal) modal.classList.add('open');
 }
 
@@ -10353,22 +10406,16 @@ function selectTopupPackage(amount, quota) {
   currentSelectedTopupAmount = amount;
   currentSelectedTopupQuota = quota;
 
-  const pkgMap = {
-    20000: 'pkgCard20k',
-    50000: 'pkgCard50k',
-    100000: 'pkgCard100k'
-  };
+  const cards = document.querySelectorAll('.topup-pkg-card');
+  cards.forEach(c => c.classList.remove('active'));
 
-  Object.keys(pkgMap).forEach(amt => {
-    const el = document.getElementById(pkgMap[amt]);
-    if (el) {
-      if (Number(amt) === amount) {
-        el.classList.add('active');
-      } else {
-        el.classList.remove('active');
-      }
-    }
-  });
+  if (quota === 20) {
+    document.getElementById('pkgCard20k')?.classList.add('active');
+  } else if (quota === 55) {
+    document.getElementById('pkgCard50k')?.classList.add('active');
+  } else if (quota === 120) {
+    document.getElementById('pkgCard100k')?.classList.add('active');
+  }
 
   const qrisAmountTag = document.getElementById('qrisTagAmount');
   if (qrisAmountTag) {
