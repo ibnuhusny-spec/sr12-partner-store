@@ -10272,15 +10272,47 @@ let currentSelectedTopupAmount = 50000;
 let currentSelectedTopupQuota = 55;
 
 function updateStoreQuotaUI() {
-  const currentQuota = typeof appState.storeSettings.orderQuota === 'number' ? appState.storeSettings.orderQuota : 10;
-  const adminDisp = document.getElementById('adminStoreQuotaDisplay');
+  const store = (typeof appState !== 'undefined' && Array.isArray(appState.partnerStores))
+    ? (appState.partnerStores.find(s => s && s.slug === appState.currentStoreSlug) || appState.storeSettings)
+    : (appState.storeSettings || {});
+
+  const currentQuota = typeof store?.orderQuota === 'number'
+    ? store.orderQuota
+    : (typeof appState?.storeSettings?.orderQuota === 'number' ? appState.storeSettings.orderQuota : 10);
+
+  if (appState && appState.storeSettings) {
+    appState.storeSettings.orderQuota = currentQuota;
+  }
+
+  // 1. Modal Top Up
   const topupDisp = document.getElementById('topupCurrentQuotaDisplay');
   const topupTitle = document.getElementById('topupStoreNameTitle');
-  const badge = document.getElementById('adminQuotaBadge');
-
-  if (adminDisp) adminDisp.textContent = `${currentQuota} Order`;
   if (topupDisp) topupDisp.textContent = `${currentQuota} Order`;
-  if (topupTitle) topupTitle.textContent = appState.storeSettings.storeName || 'Toko Anda';
+  if (topupTitle) topupTitle.textContent = store?.storeName || appState.storeSettings?.storeName || 'Toko Anda';
+
+  // 2. Olsera Drawer Menu Badge ("Sisa Kuota Order")
+  const drawerBadge = document.getElementById('olseraDrawerQuotaBadge');
+  if (drawerBadge) {
+    drawerBadge.textContent = `${currentQuota}`;
+    if (currentQuota <= 2) {
+      drawerBadge.style.background = '#fee2e2';
+      drawerBadge.style.color = '#dc2626';
+    } else {
+      drawerBadge.style.background = '#fef9c3';
+      drawerBadge.style.color = '#854d0e';
+    }
+  }
+
+  // 3. Olsera Topbar Quota Display & Static Topbar Display
+  const topbarQuota = document.getElementById('olseraTopbarQuotaDisplay');
+  if (topbarQuota) topbarQuota.textContent = `${currentQuota}`;
+  const staticQuota = document.getElementById('olseraStaticQuotaDisplay');
+  if (staticQuota) staticQuota.textContent = `${currentQuota}`;
+
+  // 4. Admin Store Quota Display (Header Dashboard Toko)
+  const adminDisp = document.getElementById('adminStoreQuotaDisplay');
+  const badge = document.getElementById('adminQuotaBadge');
+  if (adminDisp) adminDisp.textContent = `${currentQuota} Order`;
 
   if (badge) {
     if (currentQuota <= 2) {
@@ -10295,6 +10327,10 @@ function updateStoreQuotaUI() {
       if (adminDisp) adminDisp.style.color = '#34d399';
     }
   }
+
+  // 5. Developer Strip Quota Display
+  const stripQuota = document.getElementById('devStripOrderQuota');
+  if (stripQuota) stripQuota.textContent = currentQuota;
 }
 
 const DEFAULT_DEV_PAYMENT_SETTINGS = {
@@ -10400,8 +10436,20 @@ function updateDevPaymentUI() {
   if (bankNameEl) bankNameEl.textContent = settings.bankName || 'BCA';
   if (bankAccEl) bankAccEl.textContent = settings.bankAccount || '(Belum diatur)';
   if (bankHolderEl) bankHolderEl.textContent = settings.bankHolder || 'Developer Platform SR12';
-  if (ewalletNameEl) ewalletNameEl.textContent = settings.ewalletName || 'DANA';
-  if (ewalletNumEl) ewalletNumEl.textContent = settings.ewalletNumber || '(Belum diatur)';
+  
+  // Tampilkan atau sembunyikan kotak e-wallet jika dikosongkan
+  const ewalletBox = document.getElementById('topupDevEwalletContainer');
+  if (ewalletBox) {
+    if (settings.ewalletNumber && settings.ewalletNumber.trim()) {
+      ewalletBox.style.display = 'flex';
+      if (ewalletNameEl) ewalletNameEl.textContent = settings.ewalletName || 'DANA';
+      if (ewalletNumEl) ewalletNumEl.textContent = settings.ewalletNumber.trim();
+    } else {
+      ewalletBox.style.display = 'none';
+      if (ewalletNumEl) ewalletNumEl.textContent = '';
+    }
+  }
+
   if (qrisReceiverEl) qrisReceiverEl.textContent = settings.bankHolder ? `${settings.bankHolder} (Developer SR12)` : 'Platform Developer SR12 Ecosystem';
 
   // Bank elements di tampilan QRIS
@@ -10453,16 +10501,15 @@ function updateDevPaymentUI() {
   if (inputBankHolder_ws) inputBankHolder_ws.value = settings.bankHolder || '';
   if (inputEwallet_ws) inputEwallet_ws.value = settings.ewalletNumber || '';
   if (inputWa_ws) inputWa_ws.value = settings.developerWa || '';
+
+  // Render tabel token aktivasi developer jika tersedia
+  if (typeof renderDevTokenTable === 'function') {
+    renderDevTokenTable();
+  }
 }
 
 function handleSaveDevPaymentSettings(e) {
   if (e) e.preventDefault();
-
-  let bankName = '';
-  let bankAccount = '';
-  let bankHolder = '';
-  let ewalletNumber = '';
-  let developerWa = '';
 
   const wsName = document.getElementById('devSettingBankName_ws')?.value.trim();
   const wsAcc = document.getElementById('devSettingBankAccount_ws')?.value.trim();
@@ -10476,28 +10523,22 @@ function handleSaveDevPaymentSettings(e) {
   const modalEwallet = document.getElementById('devSettingEwalletNumber')?.value.trim();
   const modalWa = document.getElementById('devSettingWaNumber')?.value.trim();
 
-  if (wsAcc || wsEwallet || wsWa) {
-    bankName = wsName || 'BCA';
-    bankAccount = wsAcc || '';
-    bankHolder = wsHolder || '';
+  let bankName = wsName || modalName || 'BCA';
+  let bankAccount = (wsAcc !== undefined && wsAcc !== '') ? wsAcc : (modalAcc || '');
+  let bankHolder = (wsHolder !== undefined && wsHolder !== '') ? wsHolder : (modalHolder || '');
+
+  // KUNCI: Dukung pengosongan e-wallet secara sah jika input dikosongkan user
+  let ewalletNumber = '';
+  if (document.getElementById('devSettingEwalletNumber_ws')) {
     ewalletNumber = wsEwallet || '';
-    developerWa = wsWa || '';
-  } else if (modalAcc || modalEwallet || modalWa) {
-    bankName = modalName || 'BCA';
-    bankAccount = modalAcc || '';
-    bankHolder = modalHolder || '';
+  } else if (document.getElementById('devSettingEwalletNumber')) {
     ewalletNumber = modalEwallet || '';
-    developerWa = modalWa || '';
-  } else {
-    bankName = wsName || modalName || 'BCA';
-    bankAccount = wsAcc || modalAcc || '';
-    bankHolder = wsHolder || modalHolder || '';
-    ewalletNumber = wsEwallet || modalEwallet || '';
-    developerWa = wsWa || modalWa || '';
   }
 
+  let developerWa = (wsWa !== undefined && wsWa !== '') ? wsWa : (modalWa || '');
+
   if (!bankAccount && !ewalletNumber && !developerWa) {
-    alert('Mohon masukkan Nomor Rekening Bank atau Nomor E-Wallet / WhatsApp Developer.');
+    alert('Mohon masukkan Nomor Rekening Bank atau Nomor WhatsApp Developer.');
     return;
   }
 
@@ -10508,8 +10549,9 @@ function handleSaveDevPaymentSettings(e) {
     bankAccount: bankAccount || existing.bankAccount || '',
     bankHolder: bankHolder || existing.bankHolder || '',
     ewalletName: 'DANA',
-    ewalletNumber: ewalletNumber || existing.ewalletNumber || '',
-    developerWa: developerWa || existing.developerWa || ''
+    ewalletNumber: ewalletNumber, // Disimpan persis sesuai input (kosong jika user mengosongkan)
+    developerWa: developerWa || existing.developerWa || '',
+    activeTokens: existing.activeTokens || []
   };
 
   saveStoredDevPaymentSettings(settings);
@@ -10528,7 +10570,8 @@ function copyDevBankAccount() {
 
 function copyDevEwallet() {
   const settings = getStoredDevPaymentSettings();
-  navigator.clipboard.writeText(settings.ewalletNumber || '0812-3456-7890').then(() => {
+  if (!settings.ewalletNumber) return;
+  navigator.clipboard.writeText(settings.ewalletNumber).then(() => {
     showToast(`📋 Nomor DANA (${settings.ewalletNumber}) berhasil disalin!`);
   }).catch(() => {
     alert(`Nomor DANA: ${settings.ewalletNumber}`);
@@ -10556,7 +10599,7 @@ function sendTopupProofToDeveloperWA() {
     ? `${settings.bankName} - ${settings.bankAccount} (a.n ${settings.bankHolder})`
     : `DANA - ${settings.ewalletNumber || 'QRIS Developer'}`;
 
-  const msg = `*KONFIRMASI TOP-UP KUOTA TRANSAKSI TOKO*\n` +
+  const msg = `*PERMINTAAN TOP-UP KUOTA TRANSAKSI TOKO*\n` +
     `-----------------------------------------\n` +
     `Nama Toko   : *${store.storeName}*\n` +
     `Pemilik     : ${store.storeOwner || 'Pemilik Toko'}\n` +
@@ -10564,7 +10607,8 @@ function sendTopupProofToDeveloperWA() {
     `Nominal     : *${formatRupiah(currentSelectedTopupAmount)}*\n` +
     `Tujuan Transfer: ${bankInfo}\n` +
     `-----------------------------------------\n` +
-    `Halo Developer, saya telah mentransfer pembayaran Top-Up kuota toko di atas. Mohon bantuannya untuk verifikasi dan aktivasi kuota. Terima kasih! 🙏`;
+    `Halo Developer, saya telah mentransfer pembayaran Top-Up kuota toko di atas.\n` +
+    `Mohon bantuannya untuk verifikasi bukti transfer dan kirimkan Kode Token Aktivasi Kuota untuk toko kami. Terima kasih! 🙏`;
 
   window.open(`https://api.whatsapp.com/send?phone=${targetWa}&text=${encodeURIComponent(msg)}`, '_blank');
 }
@@ -10627,6 +10671,19 @@ function openTopupQuotaModal() {
   switchTopupMethod('qris');
   const pkgs = updateTopupPackageCardsUI();
   selectTopupPackage(pkgs.pkg2Amount, 55); // Default pilihan paket populer
+
+  // Reset input token aktivasi
+  const inputToken = document.getElementById('inputTopupActivationToken');
+  if (inputToken) inputToken.value = '';
+  const tokenMsg = document.getElementById('topupTokenStatusMsg');
+  if (tokenMsg) tokenMsg.style.display = 'none';
+
+  // Tampilkan akses cepat bypass persetujuan HANYA jika Developer Master sedang login
+  const devQuickWrap = document.getElementById('devQuickApproveTopupWrap');
+  if (devQuickWrap) {
+    devQuickWrap.style.display = appState.isDevMasterLoggedIn ? 'block' : 'none';
+  }
+
   if (modal) modal.classList.add('open');
 }
 
@@ -10656,6 +10713,356 @@ function selectTopupPackage(amount, quota) {
   }
 }
 
+// -------------------------------------------------------------------------
+// SISTEM TOKEN AKTIVASI KUOTA (VALIDASI PEMBAYARAN OLEH DEVELOPER)
+// -------------------------------------------------------------------------
+
+async function activateTopupWithToken() {
+  const inputEl = document.getElementById('inputTopupActivationToken');
+  const msgEl = document.getElementById('topupTokenStatusMsg');
+  const btnEl = document.getElementById('btnActivateWithToken');
+
+  if (!inputEl) return;
+  const tokenCode = inputEl.value.trim().toUpperCase();
+
+  if (!tokenCode) {
+    if (msgEl) {
+      msgEl.style.display = 'block';
+      msgEl.style.background = '#fee2e2';
+      msgEl.style.color = '#dc2626';
+      msgEl.style.border = '1px solid #fca5a5';
+      msgEl.textContent = '⚠️ Masukkan 6 digit Kode Token yang Anda terima dari Developer.';
+    }
+    inputEl.focus();
+    return;
+  }
+
+  // State loading saat validasi
+  if (btnEl) {
+    btnEl.disabled = true;
+    btnEl.innerHTML = '<span>⏳</span> Memverifikasi...';
+  }
+
+  // Sinkronkan token live dari Cloud untuk memastikan token terbaru Developer terbaca
+  try {
+    const client = (typeof initSupabaseClient === 'function') ? initSupabaseClient() : null;
+    if (client) {
+      const { data: centralRow } = await client
+        .from('stores')
+        .select('hero_subtitle')
+        .eq('slug', 'sr12-central')
+        .maybeSingle();
+
+      if (centralRow && centralRow.hero_subtitle) {
+        try {
+          const parsed = typeof centralRow.hero_subtitle === 'string' ? JSON.parse(centralRow.hero_subtitle) : centralRow.hero_subtitle;
+          if (parsed && Array.isArray(parsed.activeTokens)) {
+            const cur = getStoredDevPaymentSettings();
+            cur.activeTokens = parsed.activeTokens;
+            appState.devPaymentSettings = cur;
+            localStorage.setItem('sr12_dev_payment_settings_v1', JSON.stringify(cur));
+          }
+        } catch (e) {}
+      }
+    }
+  } catch (err) {
+    console.warn('Live token sync warning:', err);
+  }
+
+  const devSettings = getStoredDevPaymentSettings();
+  const tokens = Array.isArray(devSettings.activeTokens) ? devSettings.activeTokens : [];
+  const currentSlug = appState.currentStoreSlug || 'sr12-central';
+  const store = appState.partnerStores.find(s => s.slug === currentSlug) || appState.storeSettings;
+
+  // Cari kecocokan token
+  const matchedIdx = tokens.findIndex(t => {
+    if (!t || !t.token) return false;
+    const isCodeMatch = t.token.trim().toUpperCase() === tokenCode;
+    const isStatusActive = (t.status === 'active' || !t.status);
+    const isStoreMatch = (!t.storeSlug || t.storeSlug === 'all' || t.storeSlug === currentSlug);
+    return isCodeMatch && isStatusActive && isStoreMatch;
+  });
+
+  if (matchedIdx === -1) {
+    if (btnEl) {
+      btnEl.disabled = false;
+      btnEl.innerHTML = '<span>⚡</span> Aktifkan Kuota';
+    }
+    if (msgEl) {
+      msgEl.style.display = 'block';
+      msgEl.style.background = '#fee2e2';
+      msgEl.style.color = '#dc2626';
+      msgEl.style.border = '1px solid #fca5a5';
+      msgEl.innerHTML = `❌ Kode Token <b>"${tokenCode}"</b> tidak valid, salah, atau sudah pernah digunakan.<br><span style="font-size:0.68rem; color:#64748b;">Pastikan Anda meminta token resmi dari Developer via WhatsApp setelah transfer.</span>`;
+    }
+    return;
+  }
+
+  const matched = tokens[matchedIdx];
+  const quotaToAdd = Number(matched.quota) || 55;
+  const amountPaid = Number(matched.amount) || 50000;
+
+  // Ubah status token menjadi 'used' (terpakai)
+  matched.status = 'used';
+  matched.usedAt = new Date().toISOString();
+  matched.usedBySlug = currentSlug;
+  matched.usedByStore = store.storeName || 'Toko Mitra';
+
+  tokens[matchedIdx] = matched;
+  devSettings.activeTokens = tokens;
+  saveStoredDevPaymentSettings(devSettings);
+
+  // Tambahkan kuota ke toko
+  const currentQuota = typeof store.orderQuota === 'number' ? store.orderQuota : 10;
+  const currentBalance = typeof store.walletBalance === 'number' ? store.walletBalance : 10000;
+  const currentTopupPaid = typeof store.totalTopupPaid === 'number' ? store.totalTopupPaid : 0;
+
+  store.orderQuota = currentQuota + quotaToAdd;
+  store.walletBalance = currentBalance + amountPaid;
+  store.totalTopupPaid = currentTopupPaid + amountPaid;
+
+  appState.storeSettings.orderQuota = store.orderQuota;
+  appState.storeSettings.walletBalance = store.walletBalance;
+  appState.storeSettings.totalTopupPaid = store.totalTopupPaid;
+
+  // Sinkronkan ke daftar partnerStores di memory dan localStorage
+  const storeIdx = appState.partnerStores.findIndex(s => s.slug === currentSlug);
+  if (storeIdx >= 0) {
+    appState.partnerStores[storeIdx] = Object.assign({}, appState.partnerStores[storeIdx], store);
+  }
+  saveStoredPartnerStores(appState.partnerStores);
+
+  // SINKRONISASI KE SUPABASE CLOUD (PERMANEN)
+  if (typeof updateStoreQuotaInSupabase === 'function') {
+    updateStoreQuotaInSupabase(store.slug, store.orderQuota);
+  }
+
+  // Update seluruh tampilan UI kuota secara serentak
+  updateStoreQuotaUI();
+  updateDevPortalMetrics();
+  renderDevTokenTable();
+
+  if (btnEl) {
+    btnEl.disabled = false;
+    btnEl.innerHTML = '<span>⚡</span> Aktifkan Kuota';
+  }
+
+  closeModal('modalTopupQuota');
+
+  showToast(`🎉 Token Valid! +${quotaToAdd} Kuota Order Berhasil Diaktifkan.`);
+  alert(
+    `🎉 ALHAMDULILLAH! TOKEN AKTIVASI RESMI VALID!\n\n` +
+    `🏪 Toko: ${store.storeName}\n` +
+    `🔑 Token: ${tokenCode}\n` +
+    `⚡ Paket Kuota Ditambahkan: +${quotaToAdd} Order WhatsApp\n` +
+    `📊 Total Sisa Kuota Sekarang: ${store.orderQuota} Order\n\n` +
+    `Kuota telah aktif seketika di sistem Anda dan Cloud. Anda dapat kembali menerima pesanan pelanggan via WhatsApp!`
+  );
+}
+
+function generateDevTopupToken(source) {
+  const storeSelectId = source === 'ws' ? 'devTokenTargetStore_ws' : 'devTokenTargetStore';
+  const pkgSelectId = source === 'ws' ? 'devTokenQuotaPackage_ws' : 'devTokenQuotaPackage';
+  const resultBoxId = source === 'ws' ? 'devTokenResultBox_ws' : 'devTokenResultBox';
+  const codeId = source === 'ws' ? 'devGeneratedTokenCode_ws' : 'devGeneratedTokenCode';
+  const metaId = source === 'ws' ? 'devGeneratedTokenMeta_ws' : 'devGeneratedTokenMeta';
+
+  const targetSlug = document.getElementById(storeSelectId)?.value || 'all';
+  const pkgVal = document.getElementById(pkgSelectId)?.value || '55:50000';
+  const [quotaStr, amountStr] = pkgVal.split(':');
+  const quota = parseInt(quotaStr, 10) || 55;
+  const amount = parseInt(amountStr, 10) || 50000;
+
+  let targetStoreName = 'Semua Toko (Bebas)';
+  if (targetSlug !== 'all') {
+    const s = appState.partnerStores.find(st => st.slug === targetSlug);
+    if (s) targetStoreName = s.storeName;
+  }
+
+  // Generate 6 digit angka acak unik
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+
+  const devSettings = getStoredDevPaymentSettings();
+  devSettings.activeTokens = devSettings.activeTokens || [];
+
+  const newToken = {
+    token: code,
+    quota: quota,
+    amount: amount,
+    storeSlug: targetSlug,
+    storeName: targetStoreName,
+    createdAt: new Date().toISOString(),
+    status: 'active'
+  };
+
+  devSettings.activeTokens.unshift(newToken);
+  saveStoredDevPaymentSettings(devSettings);
+
+  // Tampilkan box hasil token baru
+  const resBox = document.getElementById(resultBoxId);
+  const codeEl = document.getElementById(codeId);
+  const metaEl = document.getElementById(metaId);
+
+  if (resBox) resBox.style.display = 'block';
+  if (codeEl) codeEl.textContent = code;
+  if (metaEl) metaEl.textContent = `(+${quota} Order • ${formatRupiah(amount)} • ${targetStoreName})`;
+
+  renderDevTokenTable();
+  showToast(`🎲 Token Aktivasi "${code}" (+${quota} Order) berhasil dibuat!`);
+}
+
+function copyDevGeneratedToken(source) {
+  const codeId = source === 'ws' ? 'devGeneratedTokenCode_ws' : 'devGeneratedTokenCode';
+  const code = document.getElementById(codeId)?.textContent?.trim();
+  if (!code || code === '------') return;
+  navigator.clipboard.writeText(code).then(() => {
+    showToast(`📋 Token "${code}" berhasil disalin ke clipboard!`);
+  }).catch(() => {
+    prompt('Salin Token Aktivasi di bawah ini:', code);
+  });
+}
+
+function sendDevGeneratedTokenWA(source) {
+  const codeId = source === 'ws' ? 'devGeneratedTokenCode_ws' : 'devGeneratedTokenCode';
+  const code = document.getElementById(codeId)?.textContent?.trim();
+  if (!code || code === '------') return;
+
+  const devSettings = getStoredDevPaymentSettings();
+  const tokenObj = (devSettings.activeTokens || []).find(t => t.token === code);
+  const quota = tokenObj ? tokenObj.quota : 55;
+  const storeName = tokenObj ? tokenObj.storeName : 'Mitra SR12';
+
+  let targetWa = '';
+  if (tokenObj && tokenObj.storeSlug && tokenObj.storeSlug !== 'all') {
+    const s = appState.partnerStores.find(st => st.slug === tokenObj.storeSlug);
+    if (s && s.storeWaNumber) targetWa = s.storeWaNumber.replace(/[^0-9]/g, '');
+  }
+
+  const msg =
+    `Halo *${storeName}*,\n\n` +
+    `Pembayaran Top-Up kuota order WhatsApp toko Anda telah kami terima dan verifikasi. Terima kasih! 🙏\n\n` +
+    `Berikut Kode Token Aktivasi Kuota Anda:\n` +
+    `👉 *${code}* (+${quota} Kuota Order)\n\n` +
+    `Silakan masukkan kode token di atas pada menu *Top Up Kuota Order* di aplikasi toko Anda untuk mengaktifkan kuota transaksi secara langsung.\n\n` +
+    `Semoga berkah dan laris manis penjualannya! ✨`;
+
+  if (targetWa) {
+    if (targetWa.startsWith('0')) targetWa = '62' + targetWa.slice(1);
+    window.open(`https://api.whatsapp.com/send?phone=${targetWa}&text=${encodeURIComponent(msg)}`, '_blank');
+  } else {
+    const inputWa = prompt(`Kirim Token Aktivasi "${code}" via WhatsApp ke Nomor Toko (contoh: 081234567890):`, '');
+    if (inputWa) {
+      let clean = inputWa.replace(/[^0-9]/g, '');
+      if (clean.startsWith('0')) clean = '62' + clean.slice(1);
+      window.open(`https://api.whatsapp.com/send?phone=${clean}&text=${encodeURIComponent(msg)}`, '_blank');
+    }
+  }
+}
+
+function renderDevTokenTable() {
+  const devSettings = getStoredDevPaymentSettings();
+  const tokens = Array.isArray(devSettings.activeTokens) ? devSettings.activeTokens : [];
+
+  const tbodyWs = document.getElementById('devTokenTableBody_ws');
+  const tbodyModal = document.getElementById('devTokenTableBody');
+
+  const populateBody = (tbody) => {
+    if (!tbody) return;
+    if (tokens.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #64748b; padding: 12px;">Belum ada token kuota yang dibuat. Klik tombol "Generate Token Baru" di atas.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = tokens.map((t) => {
+      const isActive = (t.status === 'active' || !t.status);
+      const statusBadge = isActive
+        ? `<span style="background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid #16a34a; padding: 2px 6px; border-radius: 4px; font-weight: 700; font-size: 0.68rem;">🟢 Aktif</span>`
+        : `<span style="background: rgba(148, 163, 184, 0.2); color: #94a3b8; border: 1px solid #475569; padding: 2px 6px; border-radius: 4px; font-weight: 700; font-size: 0.68rem;">⚪ Terpakai</span>`;
+
+      return `
+        <tr style="border-bottom: 1px solid #334155;">
+          <td style="padding: 6px 8px; font-family: monospace; font-weight: 800; color: #38bdf8;">${t.token}</td>
+          <td style="padding: 6px 8px; color: #cbd5e1;">${escapeHtml(t.storeName || 'Semua Toko')}</td>
+          <td style="padding: 6px 8px; font-weight: 700; color: #4ade80;">+${t.quota}</td>
+          <td style="padding: 6px 8px;">${statusBadge}</td>
+          <td style="padding: 6px 8px; text-align: center;">
+            <div style="display: inline-flex; gap: 4px;">
+              ${isActive ? `<button type="button" onclick="sendSpecificTokenWA('${t.token}')" title="Kirim via WA" style="background: #25d366; color: #fff; border: none; padding: 3px 6px; border-radius: 3px; font-size: 0.68rem; cursor: pointer;">📲</button>` : ''}
+              <button type="button" onclick="deleteDevToken('${t.token}')" title="Hapus Token" style="background: #ef4444; color: #fff; border: none; padding: 3px 6px; border-radius: 3px; font-size: 0.68rem; cursor: pointer;">🗑</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  };
+
+  populateBody(tbodyWs);
+  populateBody(tbodyModal);
+
+  // Populate dropdown toko target
+  const selectWs = document.getElementById('devTokenTargetStore_ws');
+  const selectModal = document.getElementById('devTokenTargetStore');
+  const stores = (appState.partnerStores || []).filter(s => s && s.slug && s.slug !== 'sr12-central');
+
+  const populateSelect = (sel) => {
+    if (!sel) return;
+    const cur = sel.value;
+    let html = `<option value="all">🌟 Semua Toko (Bisa Dipakai Toko Mana Saja)</option>`;
+    stores.forEach(s => {
+      html += `<option value="${s.slug}" ${cur === s.slug ? 'selected' : ''}>${escapeHtml(s.storeName)} (${s.storeCity || '-'})</option>`;
+    });
+    sel.innerHTML = html;
+  };
+
+  populateSelect(selectWs);
+  populateSelect(selectModal);
+}
+
+function deleteDevToken(tokenCode) {
+  if (!confirm(`Hapus token "${tokenCode}"?`)) return;
+  const devSettings = getStoredDevPaymentSettings();
+  devSettings.activeTokens = (devSettings.activeTokens || []).filter(t => t.token !== tokenCode);
+  saveStoredDevPaymentSettings(devSettings);
+  renderDevTokenTable();
+  showToast(`🗑️ Token "${tokenCode}" berhasil dihapus.`);
+}
+
+function sendSpecificTokenWA(tokenCode) {
+  const devSettings = getStoredDevPaymentSettings();
+  const tokenObj = (devSettings.activeTokens || []).find(t => t.token === tokenCode);
+  if (!tokenObj) return;
+
+  const quota = tokenObj.quota || 55;
+  const storeName = tokenObj.storeName || 'Mitra SR12';
+
+  let targetWa = '';
+  if (tokenObj.storeSlug && tokenObj.storeSlug !== 'all') {
+    const s = appState.partnerStores.find(st => st.slug === tokenObj.storeSlug);
+    if (s && s.storeWaNumber) targetWa = s.storeWaNumber.replace(/[^0-9]/g, '');
+  }
+
+  const msg =
+    `Halo *${storeName}*,\n\n` +
+    `Pembayaran Top-Up kuota order WhatsApp toko Anda telah kami terima dan verifikasi. Terima kasih! 🙏\n\n` +
+    `Berikut Kode Token Aktivasi Kuota Anda:\n` +
+    `👉 *${tokenCode}* (+${quota} Kuota Order)\n\n` +
+    `Silakan masukkan kode token di atas pada menu *Top Up Kuota Order* di aplikasi toko Anda untuk mengaktifkan kuota transaksi toko secara instan.\n\n` +
+    `Semoga berkah dan laris manis penjualannya! ✨`;
+
+  if (targetWa) {
+    if (targetWa.startsWith('0')) targetWa = '62' + targetWa.slice(1);
+    window.open(`https://api.whatsapp.com/send?phone=${targetWa}&text=${encodeURIComponent(msg)}`, '_blank');
+  } else {
+    const inputWa = prompt(`Kirim Token Aktivasi "${tokenCode}" via WhatsApp ke Nomor Toko (contoh: 081234567890):`, '');
+    if (inputWa) {
+      let clean = inputWa.replace(/[^0-9]/g, '');
+      if (clean.startsWith('0')) clean = '62' + clean.slice(1);
+      window.open(`https://api.whatsapp.com/send?phone=${clean}&text=${encodeURIComponent(msg)}`, '_blank');
+    }
+  }
+}
+
+// Fungsi bypass persetujuan cepat (khusus Developer Master)
 function confirmSimulatedTopupPayment() {
   const store = appState.partnerStores.find(s => s.slug === appState.currentStoreSlug) || appState.storeSettings;
   const currentQuota = typeof store.orderQuota === 'number' ? store.orderQuota : 10;
@@ -10668,15 +11075,14 @@ function confirmSimulatedTopupPayment() {
     : `DANA / QRIS Developer`;
 
   const proceed = confirm(
-    `KONFIRMASI AKTIVASI KUOTA ORDER WHATSAPP\n` +
+    `PERSETUJUAN TOP-UP DEVELOPER MASTER\n` +
     `-----------------------------------------\n` +
-    `Apakah Anda telah menyelesaikan pembayaran transfer sebesar ${formatRupiah(currentSelectedTopupAmount)} ke rekening Developer:\n` +
-    `👉 ${bankDestination}\n\n` +
-    `Rincian Aktivasi:\n` +
+    `Apakah Anda ingin langsung menyetujui dan mengaktifkan kuota untuk:\n` +
     `• Toko Penerima : ${store.storeName}\n` +
     `• Paket Kuota   : +${currentSelectedTopupQuota} Order WhatsApp\n` +
+    `• Nominal Kas   : ${formatRupiah(currentSelectedTopupAmount)}\n` +
     `• Kuota Baru    : ${currentQuota + currentSelectedTopupQuota} Order\n\n` +
-    `Klik [OK] jika sudah transfer untuk langsung mengaktifkan kuota toko Anda sekarang.`
+    `Klik [OK] untuk langsung mengaktifkan kuota toko ini ke Supabase Cloud.`
   );
   if (!proceed) return;
 
@@ -10693,17 +11099,22 @@ function confirmSimulatedTopupPayment() {
   appState.devMetrics.totalGMV += currentSelectedTopupAmount;
   saveStoredPartnerStores(appState.partnerStores);
 
+  // SINKRONISASI KE SUPABASE CLOUD (PERMANEN)
+  if (typeof updateStoreQuotaInSupabase === 'function') {
+    updateStoreQuotaInSupabase(store.slug, store.orderQuota);
+  }
+
   updateStoreQuotaUI();
   updateDevPortalMetrics();
   closeModal('modalTopupQuota');
 
-  showToast(`⚡ Top Up Berhasil! +${currentSelectedTopupQuota} Kuota Order Ditambahkan.`);
-  alert(`✅ ALHAMDULILLAH! PEMBAYARAN DIKONFIRMASI & KUOTA AKTIF!\n\n` +
+  showToast(`⚡ Top Up Disetujui! +${currentSelectedTopupQuota} Kuota Order Ditambahkan.`);
+  alert(`✅ PERSETUJUAN BERHASIL & KUOTA AKTIF!\n\n` +
     `🏪 Toko: ${store.storeName}\n` +
     `📦 Paket Top Up: +${currentSelectedTopupQuota} Kuota Order WhatsApp\n` +
     `💰 Nominal: ${formatRupiah(currentSelectedTopupAmount)}\n` +
     `⚡ Total Kuota Toko Sekarang: ${store.orderQuota} Order\n\n` +
-    `Kuota transaksi telah otomatis aktif. Pelanggan toko Anda dapat langsung kembali berbelanja & checkout via WhatsApp!`);
+    `Kuota transaksi telah tersimpan di Supabase Cloud.`);
 }
 
 // ==========================================
@@ -12690,6 +13101,13 @@ window.handleSaveDevPaymentSettings = handleSaveDevPaymentSettings;
 window.copyDevBankAccount = copyDevBankAccount;
 window.copyDevEwallet = copyDevEwallet;
 window.sendTopupProofToDeveloperWA = sendTopupProofToDeveloperWA;
+window.activateTopupWithToken = activateTopupWithToken;
+window.generateDevTopupToken = generateDevTopupToken;
+window.copyDevGeneratedToken = copyDevGeneratedToken;
+window.sendDevGeneratedTokenWA = sendDevGeneratedTokenWA;
+window.renderDevTokenTable = renderDevTokenTable;
+window.deleteDevToken = deleteDevToken;
+window.sendSpecificTokenWA = sendSpecificTokenWA;
 window.updateDevPaymentUI = updateDevPaymentUI;
 window.openDistributorLoginModal = openDistributorLoginModal;
 window.autoFillDemoLogin = autoFillDemoLogin;
