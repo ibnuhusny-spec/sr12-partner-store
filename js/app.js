@@ -502,7 +502,29 @@ async function syncStoresWithServer() {
           }
         }
 
-        // B. Update atau tambahkan toko yang ada di Cloud ke memori lokal
+        // B. Sinkronkan rekening & kontak Developer dari row sr12-central di Supabase Cloud
+        const centralRow = supaStores.find(s => s && s.slug === 'sr12-central');
+        if (centralRow) {
+          const cIdx = appState.partnerStores.findIndex(s => s.slug === 'sr12-central');
+          if (cIdx >= 0) {
+            appState.partnerStores[cIdx] = Object.assign({}, appState.partnerStores[cIdx], centralRow);
+          }
+          const rawSubtitle = centralRow.hero_subtitle || centralRow.heroSubtitle;
+          if (rawSubtitle) {
+            try {
+              const parsed = typeof rawSubtitle === 'string' ? JSON.parse(rawSubtitle) : rawSubtitle;
+              if (parsed && (parsed.bankAccount || parsed.ewalletNumber || parsed.developerWa)) {
+                appState.devPaymentSettings = Object.assign({}, DEFAULT_DEV_PAYMENT_SETTINGS, parsed);
+                localStorage.setItem('sr12_dev_payment_settings_v1', JSON.stringify(appState.devPaymentSettings));
+                if (typeof updateDevPaymentUI === 'function') {
+                  updateDevPaymentUI();
+                }
+              }
+            } catch (e) {}
+          }
+        }
+
+        // C. Update atau tambahkan toko yang ada di Cloud ke memori lokal
         supaStores.forEach(apiStore => {
           if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central' || apiStore.slug === 'toko-supa-distributor' || apiStore.slug.startsWith('deleted_') || apiStore.slug.includes('toko-supa') || deletedSlugs.includes(apiStore.slug) || LEGACY_DELETED_SLUGS.includes(apiStore.slug)) return;
           const idx = appState.partnerStores.findIndex(s => s.slug === apiStore.slug);
@@ -10298,6 +10320,20 @@ function getStoredDevPaymentSettings() {
       return Object.assign({}, DEFAULT_DEV_PAYMENT_SETTINGS, parsed);
     } catch (e) {}
   }
+  // Fallback: baca dari central row di appState.partnerStores jika tersedia
+  if (typeof appState !== 'undefined' && Array.isArray(appState.partnerStores)) {
+    const central = appState.partnerStores.find(s => s && s.slug === 'sr12-central');
+    if (central && (central.heroSubtitle || central.hero_subtitle)) {
+      try {
+        const raw = central.heroSubtitle || central.hero_subtitle;
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (parsed && (parsed.bankAccount || parsed.ewalletNumber || parsed.developerWa)) {
+          appState.devPaymentSettings = parsed;
+          return Object.assign({}, DEFAULT_DEV_PAYMENT_SETTINGS, parsed);
+        }
+      } catch (e) {}
+    }
+  }
   return Object.assign({}, DEFAULT_DEV_PAYMENT_SETTINGS);
 }
 
@@ -10353,6 +10389,7 @@ function switchTopupMethod(method) {
 function updateDevPaymentUI() {
   const settings = getStoredDevPaymentSettings();
 
+  // Bank & E-Wallet Elements di Modal Top-Up
   const bankNameEl = document.getElementById('topupDevBankName');
   const bankAccEl = document.getElementById('topupDevBankAccount');
   const bankHolderEl = document.getElementById('topupDevBankHolder');
@@ -10365,28 +10402,57 @@ function updateDevPaymentUI() {
   if (bankHolderEl) bankHolderEl.textContent = settings.bankHolder || 'Developer Platform SR12';
   if (ewalletNameEl) ewalletNameEl.textContent = settings.ewalletName || 'DANA';
   if (ewalletNumEl) ewalletNumEl.textContent = settings.ewalletNumber || '(Belum diatur)';
-  if (qrisReceiverEl) qrisReceiverEl.textContent = settings.bankHolder || 'Platform Developer SR12 Ecosystem';
+  if (qrisReceiverEl) qrisReceiverEl.textContent = settings.bankHolder ? `${settings.bankHolder} (Developer SR12)` : 'Platform Developer SR12 Ecosystem';
 
+  // Bank elements di tampilan QRIS
+  const bankNameQrisEl = document.getElementById('topupDevBankName_qris');
+  const bankAccQrisEl = document.getElementById('topupDevBankAccount_qris');
+  const bankHolderQrisEl = document.getElementById('topupDevBankHolder_qris');
+  if (bankNameQrisEl) bankNameQrisEl.textContent = settings.bankName || 'BCA';
+  if (bankAccQrisEl) bankAccQrisEl.textContent = settings.bankAccount || '(Belum diatur)';
+  if (bankHolderQrisEl) bankHolderQrisEl.textContent = settings.bankHolder || 'Developer Platform SR12';
+
+  // Label Tombol Kirim Bukti WhatsApp
+  const waLabel = settings.developerWa ? ` (${settings.developerWa})` : '';
+  const waBtnQris = document.getElementById('topupDevWaBtnText_qris');
+  const waBtnBank = document.getElementById('topupDevWaBtnText_bank');
+  if (waBtnQris) waBtnQris.textContent = `Kirim Bukti Transfer ke WhatsApp Developer${waLabel}`;
+  if (waBtnBank) waBtnBank.textContent = `Kirim Bukti Transfer ke WhatsApp Developer${waLabel}`;
+
+  // Overview Banner di Developer Workspace & Modal
+  const devBankText_ws = document.getElementById('devBankTargetText_ws');
+  const devBankText = document.getElementById('devBankTargetText');
+  const bankDesc = settings.bankAccount
+    ? `${settings.bankName || 'BCA'} ${settings.bankAccount} a/n ${settings.bankHolder || 'Developer'}`
+    : 'BCA 7820-xxxx-xxxx a/n Developer SR12 Platform';
+  if (devBankText_ws) devBankText_ws.textContent = bankDesc;
+  if (devBankText) devBankText.textContent = bankDesc;
+
+  // Form Inputs (Modal Developer)
   const inputBankName = document.getElementById('devSettingBankName');
   const inputBankAcc = document.getElementById('devSettingBankAccount');
   const inputBankHolder = document.getElementById('devSettingBankHolder');
   const inputEwallet = document.getElementById('devSettingEwalletNumber');
+  const inputWa = document.getElementById('devSettingWaNumber');
 
   if (inputBankName) inputBankName.value = settings.bankName || '';
   if (inputBankAcc) inputBankAcc.value = settings.bankAccount || '';
   if (inputBankHolder) inputBankHolder.value = settings.bankHolder || '';
   if (inputEwallet) inputEwallet.value = settings.ewalletNumber || '';
+  if (inputWa) inputWa.value = settings.developerWa || '';
 
-  // Workspace Inputs (Dedicated Console)
+  // Workspace Inputs (Dedicated Developer Console)
   const inputBankName_ws = document.getElementById('devSettingBankName_ws');
   const inputBankAcc_ws = document.getElementById('devSettingBankAccount_ws');
   const inputBankHolder_ws = document.getElementById('devSettingBankHolder_ws');
   const inputEwallet_ws = document.getElementById('devSettingEwalletNumber_ws');
+  const inputWa_ws = document.getElementById('devSettingWaNumber_ws');
 
   if (inputBankName_ws) inputBankName_ws.value = settings.bankName || '';
   if (inputBankAcc_ws) inputBankAcc_ws.value = settings.bankAccount || '';
   if (inputBankHolder_ws) inputBankHolder_ws.value = settings.bankHolder || '';
   if (inputEwallet_ws) inputEwallet_ws.value = settings.ewalletNumber || '';
+  if (inputWa_ws) inputWa_ws.value = settings.developerWa || '';
 }
 
 function handleSaveDevPaymentSettings(e) {
@@ -10396,53 +10462,60 @@ function handleSaveDevPaymentSettings(e) {
   let bankAccount = '';
   let bankHolder = '';
   let ewalletNumber = '';
+  let developerWa = '';
 
   const wsName = document.getElementById('devSettingBankName_ws')?.value.trim();
   const wsAcc = document.getElementById('devSettingBankAccount_ws')?.value.trim();
   const wsHolder = document.getElementById('devSettingBankHolder_ws')?.value.trim();
   const wsEwallet = document.getElementById('devSettingEwalletNumber_ws')?.value.trim();
+  const wsWa = document.getElementById('devSettingWaNumber_ws')?.value.trim();
 
   const modalName = document.getElementById('devSettingBankName')?.value.trim();
   const modalAcc = document.getElementById('devSettingBankAccount')?.value.trim();
   const modalHolder = document.getElementById('devSettingBankHolder')?.value.trim();
   const modalEwallet = document.getElementById('devSettingEwalletNumber')?.value.trim();
+  const modalWa = document.getElementById('devSettingWaNumber')?.value.trim();
 
-  if (wsAcc || wsEwallet) {
+  if (wsAcc || wsEwallet || wsWa) {
     bankName = wsName || 'BCA';
     bankAccount = wsAcc || '';
     bankHolder = wsHolder || '';
     ewalletNumber = wsEwallet || '';
-  } else if (modalAcc || modalEwallet) {
+    developerWa = wsWa || '';
+  } else if (modalAcc || modalEwallet || modalWa) {
     bankName = modalName || 'BCA';
     bankAccount = modalAcc || '';
     bankHolder = modalHolder || '';
     ewalletNumber = modalEwallet || '';
+    developerWa = modalWa || '';
   } else {
     bankName = wsName || modalName || 'BCA';
     bankAccount = wsAcc || modalAcc || '';
     bankHolder = wsHolder || modalHolder || '';
     ewalletNumber = wsEwallet || modalEwallet || '';
+    developerWa = wsWa || modalWa || '';
   }
 
-  if (!bankAccount && !ewalletNumber) {
-    alert('Mohon masukkan Nomor Rekening Bank atau Nomor E-Wallet Developer.');
+  if (!bankAccount && !ewalletNumber && !developerWa) {
+    alert('Mohon masukkan Nomor Rekening Bank atau Nomor E-Wallet / WhatsApp Developer.');
     return;
   }
 
+  const existing = getStoredDevPaymentSettings();
+
   const settings = {
-    bankName: bankName || 'BCA',
-    bankAccount: bankAccount || '',
-    bankHolder: bankHolder || '',
+    bankName: bankName || existing.bankName || 'BCA',
+    bankAccount: bankAccount || existing.bankAccount || '',
+    bankHolder: bankHolder || existing.bankHolder || '',
     ewalletName: 'DANA',
-    ewalletNumber: ewalletNumber || '',
-    developerWa: (appState.storeSettings && appState.storeSettings.storeWaNumber) || ''
+    ewalletNumber: ewalletNumber || existing.ewalletNumber || '',
+    developerWa: developerWa || existing.developerWa || ''
   };
 
   saveStoredDevPaymentSettings(settings);
   updateDevPaymentUI();
-  showToast('✅ Rekening Developer berhasil disimpan dan disinkronkan ke Cloud!');
+  showToast('✅ Rekening & WhatsApp Developer berhasil disimpan dan disinkronkan ke Cloud!');
 }
-
 
 function copyDevBankAccount() {
   const settings = getStoredDevPaymentSettings();
@@ -10465,7 +10538,23 @@ function copyDevEwallet() {
 function sendTopupProofToDeveloperWA() {
   const settings = getStoredDevPaymentSettings();
   const store = appState.partnerStores.find(s => s.slug === appState.currentStoreSlug) || appState.storeSettings;
-  const targetWa = (settings.developerWa || appState.storeSettings.storeWaNumber || '6281234567890').replace(/[^0-9]/g, '');
+  
+  let targetWa = (settings.developerWa || '').replace(/[^0-9]/g, '');
+  if (!targetWa) {
+    const inputPrompt = prompt('Nomor WhatsApp Resmi Developer belum disetel di Dashboard Developer.\nSilakan masukkan nomor WhatsApp Developer untuk menerima bukti transfer:', '081234567890');
+    if (!inputPrompt) return;
+    targetWa = inputPrompt.replace(/[^0-9]/g, '');
+    settings.developerWa = targetWa;
+    saveStoredDevPaymentSettings(settings);
+  }
+
+  if (targetWa.startsWith('0')) {
+    targetWa = '62' + targetWa.slice(1);
+  }
+
+  const bankInfo = settings.bankAccount
+    ? `${settings.bankName} - ${settings.bankAccount} (a.n ${settings.bankHolder})`
+    : `DANA - ${settings.ewalletNumber || 'QRIS Developer'}`;
 
   const msg = `*KONFIRMASI TOP-UP KUOTA TRANSAKSI TOKO*\n` +
     `-----------------------------------------\n` +
@@ -10473,7 +10562,7 @@ function sendTopupProofToDeveloperWA() {
     `Pemilik     : ${store.storeOwner || 'Pemilik Toko'}\n` +
     `Paket Kuota : +${currentSelectedTopupQuota} Order WhatsApp\n` +
     `Nominal     : *${formatRupiah(currentSelectedTopupAmount)}*\n` +
-    `Tujuan Transfer: ${settings.bankName} - ${settings.bankAccount} (a.n ${settings.bankHolder})\n` +
+    `Tujuan Transfer: ${bankInfo}\n` +
     `-----------------------------------------\n` +
     `Halo Developer, saya telah mentransfer pembayaran Top-Up kuota toko di atas. Mohon bantuannya untuk verifikasi dan aktivasi kuota. Terima kasih! 🙏`;
 
@@ -10572,6 +10661,24 @@ function confirmSimulatedTopupPayment() {
   const currentQuota = typeof store.orderQuota === 'number' ? store.orderQuota : 10;
   const currentBalance = typeof store.walletBalance === 'number' ? store.walletBalance : 10000;
   const currentTopupPaid = typeof store.totalTopupPaid === 'number' ? store.totalTopupPaid : 0;
+  const devSettings = getStoredDevPaymentSettings();
+
+  const bankDestination = devSettings.bankAccount
+    ? `${devSettings.bankName} ${devSettings.bankAccount} (a.n ${devSettings.bankHolder})`
+    : `DANA / QRIS Developer`;
+
+  const proceed = confirm(
+    `KONFIRMASI AKTIVASI KUOTA ORDER WHATSAPP\n` +
+    `-----------------------------------------\n` +
+    `Apakah Anda telah menyelesaikan pembayaran transfer sebesar ${formatRupiah(currentSelectedTopupAmount)} ke rekening Developer:\n` +
+    `👉 ${bankDestination}\n\n` +
+    `Rincian Aktivasi:\n` +
+    `• Toko Penerima : ${store.storeName}\n` +
+    `• Paket Kuota   : +${currentSelectedTopupQuota} Order WhatsApp\n` +
+    `• Kuota Baru    : ${currentQuota + currentSelectedTopupQuota} Order\n\n` +
+    `Klik [OK] jika sudah transfer untuk langsung mengaktifkan kuota toko Anda sekarang.`
+  );
+  if (!proceed) return;
 
   // Tambah kuota dan saldo toko
   store.orderQuota = currentQuota + currentSelectedTopupQuota;
@@ -10591,13 +10698,12 @@ function confirmSimulatedTopupPayment() {
   closeModal('modalTopupQuota');
 
   showToast(`⚡ Top Up Berhasil! +${currentSelectedTopupQuota} Kuota Order Ditambahkan.`);
-  alert(`✅ ALHAMDULILLAH! PEMBAYARAN QRIS BERHASIL DITERIMA!\n\n` +
+  alert(`✅ ALHAMDULILLAH! PEMBAYARAN DIKONFIRMASI & KUOTA AKTIF!\n\n` +
     `🏪 Toko: ${store.storeName}\n` +
     `📦 Paket Top Up: +${currentSelectedTopupQuota} Kuota Order WhatsApp\n` +
-    `💰 Nominal Terbayar: ${formatRupiah(currentSelectedTopupAmount)}\n` +
+    `💰 Nominal: ${formatRupiah(currentSelectedTopupAmount)}\n` +
     `⚡ Total Kuota Toko Sekarang: ${store.orderQuota} Order\n\n` +
-    `Dana Rp ${formatRupiah(currentSelectedTopupAmount)} telah masuk ke rekening Developer (Cash in Advance)!\n` +
-    `Pelanggan toko Anda dapat kembali bertransaksi lancar via WhatsApp.`);
+    `Kuota transaksi telah otomatis aktif. Pelanggan toko Anda dapat langsung kembali berbelanja & checkout via WhatsApp!`);
 }
 
 // ==========================================
@@ -11511,14 +11617,14 @@ function populatePayrollMonthSelect() {
   const periodSet = new Set();
   const now = new Date();
 
-  // Tambahkan 12 bulan terakhir
-  for (let i = 0; i < 12; i++) {
+  // Tambahkan rentang dinamis 12 bulan ke depan (masa depan) hingga 12 bulan ke belakang (masa lalu)
+  for (let i = -12; i <= 12; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     periodSet.add(key);
   }
 
-  // Tambahkan juga jika ada riwayat transaksi masa lalu di data lokal
+  // Tambahkan juga jika ada riwayat transaksi masa lalu atau rencana masa depan di data lokal
   (appState.marketerSales || []).forEach(s => {
     const m = extractMonthPeriod(s.date || s.dateTime || s.created_at, s.monthPeriod || s.month_period);
     if (m) periodSet.add(m);
@@ -11529,13 +11635,15 @@ function populatePayrollMonthSelect() {
   });
 
   const sortedPeriods = Array.from(periodSet).sort().reverse();
+  const curKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
   let html = `<option value="all" ${currentVal === 'all' ? 'selected' : ''}>Semua Periode (Akumulasi)</option>`;
   sortedPeriods.forEach(p => {
     const parts = p.split('-');
     const y = parts[0];
     const mIdx = parseInt(parts[1], 10) - 1;
-    const label = `${monthNamesIndo[mIdx] || parts[1]} ${y}`;
+    const isCurrent = (p === curKey);
+    const label = `${monthNamesIndo[mIdx] || parts[1]} ${y}${isCurrent ? ' (Bulan Ini)' : ''}`;
     html += `<option value="${p}" ${currentVal === p ? 'selected' : ''}>${label}</option>`;
   });
 

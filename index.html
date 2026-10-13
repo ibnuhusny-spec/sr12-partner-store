@@ -1441,8 +1441,13 @@
             <label style="font-size: 0.76rem; color: #94a3b8; display: block; margin-bottom: 4px;">No. E-Wallet (DANA / GoPay):</label>
             <input type="text" id="devSettingEwalletNumber_ws" placeholder="Contoh: 081234567890" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #fff; font-size: 0.85rem;">
           </div>
+          <div style="grid-column: span 2;">
+            <label style="font-size: 0.76rem; color: #38bdf8; font-weight: 700; display: block; margin-bottom: 4px;">📲 No. WhatsApp Resmi Developer (Penerima Bukti Top-Up):</label>
+            <input type="text" id="devSettingWaNumber_ws" placeholder="Contoh: 081234567890 atau 6281234567890" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1.5px solid #0284c7; background: #0f172a; color: #fff; font-size: 0.85rem; font-weight: 600;">
+            <span style="font-size: 0.7rem; color: #94a3b8; display: block; margin-top: 3px;">*Nomor WA ini yang otomatis dibuka saat distributor menekan tombol 'Kirim Bukti Transfer ke WhatsApp Developer'.</span>
+          </div>
           <div style="grid-column: span 2; display: flex; justify-content: space-between; align-items: center; margin-top: 6px; flex-wrap: wrap; gap: 8px;">
-            <span style="font-size: 0.72rem; color: #94a3b8;">*Nomor rekening ini akan tampil otomatis kepada distributor saat mereka top-up kuota.</span>
+            <span style="font-size: 0.72rem; color: #94a3b8;">*Nomor rekening &amp; WhatsApp ini akan tampil otomatis kepada distributor saat mereka top-up kuota.</span>
             <button type="submit" style="background: #0284c7; color: #fff; border: 1px solid #38bdf8; padding: 7px 16px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3);">
               💾 Simpan Rekening Developer
             </button>
@@ -3290,10 +3295,31 @@
             <span style="font-size: 0.58rem; font-weight: 800; color: #dc2626; letter-spacing: 0.5px;">QRIS NASIONAL</span>
           </div>
 
-          <p style="font-size: 0.72rem; color: #64748b; margin: 0;">
+          <p style="font-size: 0.72rem; color: #64748b; margin: 0 0 10px 0;">
             Scan menggunakan BCA, Mandiri, BRI, GoPay, OVO, Dana, ShopeePay.<br>
             Penerima: <b id="topupDevQrisReceiverName">Platform Developer SR12 Ecosystem</b>
           </p>
+
+          <!-- Rincian Rekening Langsung Terhubung Developer di Bawah QRIS -->
+          <div style="background: #ffffff; border: 1.5px dashed #cbd5e1; border-radius: 8px; padding: 10px 12px; margin-top: 8px; text-align: left;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <span style="font-size: 0.72rem; font-weight: 700; color: #475569;">Atau Transfer Rekening Developer:</span>
+              <button type="button" onclick="copyDevBankAccount()" style="background: #f1f5f9; color: #0284c7; border: 1px solid #cbd5e1; padding: 2px 7px; border-radius: 4px; font-size: 0.68rem; font-weight: 700; cursor: pointer;">
+                📋 Salin Rek
+              </button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span id="topupDevBankName_qris" style="background: #0284c7; color: #fff; padding: 2px 6px; border-radius: 4px; font-weight: 800; font-size: 0.7rem;">BCA</span>
+              <span id="topupDevBankAccount_qris" style="font-family: monospace; font-size: 0.95rem; font-weight: 800; color: #0f172a;">1234567890</span>
+            </div>
+            <div style="font-size: 0.72rem; color: #64748b; margin-top: 2px;">
+              Atas Nama: <b id="topupDevBankHolder_qris" style="color: #334155;">Developer Platform SR12</b>
+            </div>
+          </div>
+
+          <button type="button" onclick="sendTopupProofToDeveloperWA()" style="width: 100%; margin-top: 10px; background: #25d366; color: #fff; border: none; padding: 10px; border-radius: var(--radius-sm); font-weight: 700; font-size: 0.82rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 6px rgba(37, 211, 102, 0.3);">
+            <span>📲</span> <span id="topupDevWaBtnText_qris">Kirim Bukti Transfer ke WhatsApp Developer</span>
+          </button>
         </div>
 
         <!-- Box Pembayaran Transfer Bank / E-Wallet Developer Manual -->
@@ -3307,7 +3333,7 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
               <div>
                 <span id="topupDevBankName" style="background: #0284c7; color: #fff; padding: 2px 7px; border-radius: 4px; font-weight: 800; font-size: 0.72rem;">BCA</span>
-                <span id="topupDevBankAccount" style="font-family: monospace; font-size: 1rem; font-weight: 800; color: #0f172a; margin-left: 6px;">7820-1234-5678</span>
+                <span id="topupDevBankAccount" style="font-family: monospace; font-size: 1rem; font-weight: 800; color: #0f172a; margin-left: 6px;">1234567890</span>
               </div>
               <button type="button" onclick="copyDevBankAccount()" style="background: #f1f5f9; color: #0284c7; border: 1px solid #cbd5e1; padding: 4px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; cursor: pointer;">
                 📋 Salin Rek
@@ -3321,21 +3347,27 @@
           <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
             <div>
               <span id="topupDevEwalletName" style="background: #059669; color: #fff; padding: 2px 6px; border-radius: 4px; font-weight: 800; font-size: 0.7rem;">DANA</span>
-              <span id="topupDevEwalletNumber" style="font-family: monospace; font-size: 0.88rem; font-weight: 800; color: #0f172a; margin-left: 6px;">0812-3456-7890</span>
+              <span id="topupDevEwalletNumber" style="font-family: monospace; font-size: 0.88rem; font-weight: 800; color: #0f172a; margin-left: 6px;">081234567890</span>
             </div>
             <button type="button" onclick="copyDevEwallet()" style="background: #f1f5f9; color: #059669; border: 1px solid #cbd5e1; padding: 4px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; cursor: pointer;">
               📋 Salin DANA
             </button>
           </div>
 
-          <button type="button" onclick="sendTopupProofToDeveloperWA()" style="width: 100%; background: #25d366; color: #fff; border: none; padding: 10px; border-radius: var(--radius-sm); font-weight: 700; font-size: 0.82rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
-            <span>📲</span> Kirim Bukti Transfer ke WhatsApp Developer
+          <button type="button" onclick="sendTopupProofToDeveloperWA()" style="width: 100%; background: #25d366; color: #fff; border: none; padding: 10px; border-radius: var(--radius-sm); font-weight: 700; font-size: 0.82rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 6px rgba(37, 211, 102, 0.3);">
+            <span>📲</span> <span id="topupDevWaBtnText_bank">Kirim Bukti Transfer ke WhatsApp Developer</span>
           </button>
         </div>
 
         <button onclick="confirmSimulatedTopupPayment()" style="width: 100%; background: linear-gradient(135deg, #059669, #10b981); color: #fff; border: none; padding: 12px; border-radius: var(--radius-md); font-weight: 800; font-size: 0.95rem; cursor: pointer; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);">
           ✅ Konfirmasi Pembayaran Selesai (Aktifkan Kuota)
         </button>
+
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; margin-top: 10px; text-align: center;">
+          <p style="font-size: 0.73rem; color: #475569; margin: 0; line-height: 1.45;">
+            💡 <b>Fungsi Tombol Konfirmasi:</b> Digunakan setelah Anda mentransfer dana untuk mengaktifkan kuota transaksi toko secara instan ke sistem Anda.
+          </p>
+        </div>
       </div>
     </div>
   </div>
@@ -3966,8 +3998,13 @@
                 <label style="font-size: 0.72rem; color: #94a3b8; display: block; margin-bottom: 2px;">No. E-Wallet (DANA / GoPay):</label>
                 <input type="text" id="devSettingEwalletNumber" placeholder="Contoh: 081234567890" style="width: 100%; padding: 6px 10px; border-radius: 4px; border: 1px solid #475569; background: #0f172a; color: #fff; font-size: 0.8rem;">
               </div>
+              <div style="grid-column: span 2;">
+                <label style="font-size: 0.72rem; color: #38bdf8; font-weight: 700; display: block; margin-bottom: 2px;">📲 No. WhatsApp Resmi Developer (Penerima Bukti Top-Up):</label>
+                <input type="text" id="devSettingWaNumber" placeholder="Contoh: 081234567890 atau 6281234567890" style="width: 100%; padding: 6px 10px; border-radius: 4px; border: 1.5px solid #0284c7; background: #0f172a; color: #fff; font-size: 0.8rem; font-weight: 600;">
+                <span style="font-size: 0.68rem; color: #94a3b8; display: block; margin-top: 2px;">*Nomor WA ini yang otomatis dibuka saat distributor menekan tombol 'Kirim Bukti Transfer ke WhatsApp Developer'.</span>
+              </div>
               <div style="grid-column: span 2; display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
-                <span style="font-size: 0.7rem; color: #94a3b8;">*Nomor rekening ini akan tampil otomatis kepada distributor saat mereka top-up kuota.</span>
+                <span style="font-size: 0.7rem; color: #94a3b8;">*Nomor rekening &amp; WhatsApp ini akan tampil otomatis kepada distributor saat mereka top-up kuota.</span>
                 <button type="submit" style="background: #0284c7; color: #fff; border: none; padding: 7px 14px; border-radius: 4px; font-weight: 700; font-size: 0.8rem; cursor: pointer;">
                   💾 Simpan Rekening Developer
                 </button>
