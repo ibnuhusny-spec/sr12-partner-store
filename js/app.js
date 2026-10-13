@@ -6508,7 +6508,7 @@ function openChangeSecurityPinModal(type = 'dev') {
       modalTitle.style.color = '#fff';
     }
     if (modalDesc) {
-      modalDesc.innerHTML = `Perbarui PIN pengelola untuk toko <b>${escapeHtml(store.storeName)}</b> (${escapeHtml(store.storeOwner)}). Jika toko baru dibuat dan belum pernah ganti PIN, masukkan PIN awal toko Anda (bawaan: <code>1234</code>).`;
+      modalDesc.innerHTML = `Perbarui PIN pengelola untuk toko <b>${escapeHtml(store.storeName)}</b> (${escapeHtml(store.storeOwner)}). Masukkan PIN lama untuk otentikasi perubahan.`;
     }
     if (submitBtn) {
       submitBtn.style.background = '#059669';
@@ -9638,8 +9638,8 @@ function updateDevPortalMetrics() {
   if (dStores) dStores.textContent = `${totalStores} Toko`;
   if (dGmv) dGmv.textContent = formatRupiah(m.totalGMV || 0);
   if (dTopup) dTopup.textContent = formatRupiah(totalTopupKas);
-  const devPinFormatted = isMasterPinVisible ? `${appState.masterDevPin} (Aktif)` : '•••• (Aktif)';
-  if (pinDisp) pinDisp.textContent = devPinFormatted;
+  const devEmailText = appState.developerEmail || localStorage.getItem('sr12_dev_email') || 'developer@sr12.co.id';
+  if (pinDisp) pinDisp.textContent = devEmailText;
   if (storesCounter) storesCounter.textContent = `${totalStores} Toko Terdaftar`;
 
   // Sync Workspace Console Numbers
@@ -9648,7 +9648,7 @@ function updateDevPortalMetrics() {
   if (wsStores) wsStores.textContent = `${totalStores} Toko`;
   if (wsTopup) wsTopup.textContent = formatRupiah(totalTopupKas);
   if (wsGmv) wsGmv.textContent = formatRupiah(m.totalGMV || 0);
-  if (wsPin) wsPin.textContent = devPinFormatted;
+  if (wsPin) wsPin.textContent = devEmailText;
   if (navStores) navStores.textContent = `${totalStores} Toko`;
   if (navFee) navFee.textContent = formatRupiah(totalFee);
   const storesCounter_ws = document.getElementById('devTotalStoresCounter_ws');
