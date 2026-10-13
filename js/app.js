@@ -2168,6 +2168,9 @@ window.initReferralAffiliateBanner = initReferralAffiliateBanner;
   if (typeof updateDevPaymentUI === 'function') {
     updateDevPaymentUI();
   }
+  if (typeof updateTopupPackageCardsUI === 'function') {
+    updateTopupPackageCardsUI();
+  }
   // Memuat data tersimpan Mitra & Marketer (LocalStorage + IndexedDB permanen)
   appState.mitraList = getStoredMitra();
   const initStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
@@ -6299,6 +6302,9 @@ async function saveDevGlobalPlatformFee() {
 
   showToast(`✅ Tarif Biaya Admin Sistem Global berhasil diubah menjadi ${formatRupiah(val)} per transaksi!`);
   updateDevPortalMetrics();
+  if (typeof updateTopupPackageCardsUI === 'function') {
+    updateTopupPackageCardsUI();
+  }
 }
 window.saveDevGlobalPlatformFee = saveDevGlobalPlatformFee;
 
@@ -9230,6 +9236,9 @@ function updateDevPortalMetrics() {
   if (inputGlobalFee && !inputGlobalFee.matches(':focus')) {
     inputGlobalFee.value = appState.platformFee || 1500;
   }
+  if (typeof updateTopupPackageCardsUI === 'function') {
+    updateTopupPackageCardsUI();
+  }
 
   // Sync Strip Preview Topbar & Master PIN
   const stripName = document.getElementById('devStripStoreName');
@@ -9264,14 +9273,9 @@ function updateDevPortalMetrics() {
           <td style="padding: 6px 8px;"><span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">${tierObj.name}</span></td>
           <td style="padding: 6px 8px; font-family: monospace;">${s.storeWaNumber}</td>
           <td style="padding: 6px 8px; text-align: center;">
-            <div style="display: flex; flex-direction: column; align-items: center; gap: 3px;">
-              <span style="background: ${quotaVal <= 2 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}; color: ${quotaVal <= 2 ? '#f87171' : '#34d399'}; padding: 2px 8px; border-radius: 9999px; font-weight: 800; font-size: 0.72rem;">
-                ${quotaVal} Order
-              </span>
-              <button type="button" onclick="promptAddStoreQuota('${s.slug}')" style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #34d399; padding: 1px 6px; border-radius: 4px; font-size: 0.66rem; font-weight: 700; cursor: pointer;" title="Tambah Kuota Manual">
-                + Kuota
-              </button>
-            </div>
+            <span style="background: ${quotaVal <= 2 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}; color: ${quotaVal <= 2 ? '#f87171' : '#34d399'}; padding: 3px 8px; border-radius: 9999px; font-weight: 800; font-size: 0.72rem; display: inline-block;">
+              ${quotaVal} Order
+            </span>
           </td>
           <td style="padding: 6px 8px; text-align: center;">
             <div style="display: inline-flex; gap: 4px; justify-content: center; align-items: center; flex-wrap: wrap;">
@@ -9318,14 +9322,9 @@ function updateDevPortalMetrics() {
           <td data-label="Level" style="padding: 10px 12px;"><span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;">${tierObj.name}</span></td>
           <td data-label="WhatsApp" style="padding: 10px 12px; font-family: monospace; color: #cbd5e1;">+${s.storeWaNumber}</td>
           <td data-label="Sisa Kuota" style="padding: 10px 12px; text-align: center;">
-            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
-              <span style="background: ${quotaVal <= 2 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}; color: ${quotaVal <= 2 ? '#f87171' : '#34d399'}; padding: 3px 10px; border-radius: 9999px; font-weight: 800; font-size: 0.75rem;">
-                ${quotaVal} Order
-              </span>
-              <button type="button" onclick="promptAddStoreQuota('${s.slug}')" style="background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #34d399; padding: 2px 8px; border-radius: 4px; font-size: 0.68rem; font-weight: 700; cursor: pointer;" title="Tambah Kuota Order Manual">
-                ⚡ + Kuota
-              </button>
-            </div>
+            <span style="background: ${quotaVal <= 2 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}; color: ${quotaVal <= 2 ? '#f87171' : '#34d399'}; padding: 4px 12px; border-radius: 9999px; font-weight: 800; font-size: 0.75rem; display: inline-block;">
+              ${quotaVal} Order
+            </span>
           </td>
           <td data-label="Aksi" style="padding: 10px 12px; text-align: center; white-space: nowrap;">
             <div style="display: inline-flex; gap: 6px; align-items: center; width: 100%; justify-content: flex-end; flex-wrap: wrap;">
@@ -10614,7 +10613,7 @@ function sendTopupProofToDeveloperWA() {
 }
 
 function updateTopupPackageCardsUI() {
-  const fee = Number(appState.platformFee) || 1500;
+  const fee = parseInt(appState.platformFee || localStorage.getItem('sr12_platform_fee_amount') || 1500, 10);
   
   // Paket 1: 20 Kuota Order (@ fee)
   const pkg1Amount = 20 * fee;
@@ -10631,7 +10630,7 @@ function updateTopupPackageCardsUI() {
 
   // Paket 2: 50 Kuota (+5 Bonus = 55 Order)
   const pkg2Raw = 50 * fee;
-  const pkg2Discount = fee >= 1500 ? 5000 : 2000;
+  const pkg2Discount = fee >= 1500 ? 5000 : (fee >= 1000 ? 2000 : 0);
   const pkg2Amount = pkg2Raw - pkg2Discount;
   const pkg2Card = document.getElementById('pkgCard50k');
   if (pkg2Card) {
@@ -10647,7 +10646,7 @@ function updateTopupPackageCardsUI() {
 
   // Paket 3: 100 Kuota (+20 Bonus = 120 Order)
   const pkg3Raw = 100 * fee;
-  const pkg3Discount = fee >= 1500 ? 15000 : 5000;
+  const pkg3Discount = fee >= 1500 ? 15000 : (fee >= 1000 ? 5000 : 0);
   const pkg3Amount = pkg3Raw - pkg3Discount;
   const pkg3Card = document.getElementById('pkgCard100k');
   if (pkg3Card) {
@@ -10659,6 +10658,31 @@ function updateTopupPackageCardsUI() {
       <div class="topup-price-num">${formatRupiah(pkg3Amount)}</div>
       <div style="font-size: 0.65rem; color: #0284c7; font-weight: 600; margin-top: 2px;">Hemat ${formatRupiah(pkg3Discount + (20 * fee))}</div>
     `;
+  }
+
+  // SINKRONKAN PILIHAN PAKET TOKEN DI DEVELOPER WORKSPACE & MODAL
+  const selWs = document.getElementById('devTokenQuotaPackage_ws');
+  const selModal = document.getElementById('devTokenQuotaPackage');
+  const tokenOpts = `
+    <option value="20:${pkg1Amount}">+20 Kuota Order (${formatRupiah(pkg1Amount)})</option>
+    <option value="55:${pkg2Amount}" selected>+55 Kuota Order (${formatRupiah(pkg2Amount)} - Populer)</option>
+    <option value="120:${pkg3Amount}">+120 Kuota Order (${formatRupiah(pkg3Amount)} - Best Value)</option>
+  `;
+  if (selWs) {
+    const curVal = selWs.value;
+    const curQuota = curVal ? curVal.split(':')[0] : '55';
+    selWs.innerHTML = tokenOpts;
+    if (curQuota === '20') selWs.value = `20:${pkg1Amount}`;
+    else if (curQuota === '120') selWs.value = `120:${pkg3Amount}`;
+    else selWs.value = `55:${pkg2Amount}`;
+  }
+  if (selModal) {
+    const curVal = selModal.value;
+    const curQuota = curVal ? curVal.split(':')[0] : '55';
+    selModal.innerHTML = tokenOpts;
+    if (curQuota === '20') selModal.value = `20:${pkg1Amount}`;
+    else if (curQuota === '120') selModal.value = `120:${pkg3Amount}`;
+    else selModal.value = `55:${pkg2Amount}`;
   }
 
   return { pkg1Amount, pkg2Amount, pkg3Amount };
@@ -10868,10 +10892,12 @@ function generateDevTopupToken(source) {
   const metaId = source === 'ws' ? 'devGeneratedTokenMeta_ws' : 'devGeneratedTokenMeta';
 
   const targetSlug = document.getElementById(storeSelectId)?.value || 'all';
-  const pkgVal = document.getElementById(pkgSelectId)?.value || '55:50000';
+  const currentFee = parseInt(appState.platformFee || localStorage.getItem('sr12_platform_fee_amount') || 1500, 10);
+  const pkgVal = document.getElementById(pkgSelectId)?.value || `55:${50 * currentFee - 5000}`;
   const [quotaStr, amountStr] = pkgVal.split(':');
   const quota = parseInt(quotaStr, 10) || 55;
-  const amount = parseInt(amountStr, 10) || 50000;
+  const fallbackAmount = quota === 20 ? 20 * currentFee : (quota === 120 ? 100 * currentFee - 15000 : 50 * currentFee - 5000);
+  const amount = parseInt(amountStr, 10) || fallbackAmount;
 
   let targetStoreName = 'Semua Toko (Bebas)';
   if (targetSlug !== 'all') {
@@ -13109,6 +13135,7 @@ window.renderDevTokenTable = renderDevTokenTable;
 window.deleteDevToken = deleteDevToken;
 window.sendSpecificTokenWA = sendSpecificTokenWA;
 window.updateDevPaymentUI = updateDevPaymentUI;
+window.updateTopupPackageCardsUI = updateTopupPackageCardsUI;
 window.openDistributorLoginModal = openDistributorLoginModal;
 window.autoFillDemoLogin = autoFillDemoLogin;
 window.handleDistributorLoginSubmit = handleDistributorLoginSubmit;

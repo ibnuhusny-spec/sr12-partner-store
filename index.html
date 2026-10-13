@@ -1479,9 +1479,9 @@
           <div>
             <label style="font-size: 0.74rem; color: #94a3b8; display: block; margin-bottom: 4px;">Paket Kuota Order:</label>
             <select id="devTokenQuotaPackage_ws" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #fff; font-size: 0.85rem;">
-              <option value="20:20000">+20 Kuota Order (Rp 20.000)</option>
-              <option value="55:50000" selected>+55 Kuota Order (Rp 50.000 - Populer)</option>
-              <option value="120:100000">+120 Kuota Order (Rp 100.000 - Best Value)</option>
+              <option value="20:30000">+20 Kuota Order (Rp 30.000)</option>
+              <option value="55:70000" selected>+55 Kuota Order (Rp 70.000 - Populer)</option>
+              <option value="120:135000">+120 Kuota Order (Rp 135.000 - Best Value)</option>
             </select>
           </div>
         </div>
@@ -3323,27 +3323,27 @@
 
         <!-- Pilihan Paket Kuota -->
         <div class="topup-grid">
-          <div class="topup-pkg-card" id="pkgCard20k" onclick="selectTopupPackage(20000, 20)">
+          <div class="topup-pkg-card" id="pkgCard20k" onclick="selectTopupPackage(30000, 20)">
             <div class="topup-quota-num">20</div>
             <div style="font-size: 0.72rem; color: var(--dark-500);">Kuota Order</div>
-            <div class="topup-price-num">Rp 20.000</div>
-            <div style="font-size: 0.65rem; color: var(--dark-400); margin-top: 2px;">@ Rp 1.000 / order</div>
+            <div class="topup-price-num">Rp 30.000</div>
+            <div style="font-size: 0.65rem; color: var(--dark-400); margin-top: 2px;">@ Rp 1.500 / order</div>
           </div>
 
-          <div class="topup-pkg-card active" id="pkgCard50k" onclick="selectTopupPackage(50000, 55)">
+          <div class="topup-pkg-card active" id="pkgCard50k" onclick="selectTopupPackage(70000, 55)">
             <span class="topup-pkg-badge">POPULER</span>
             <div class="topup-quota-num" style="color: var(--gold-600);">55</div>
             <div style="font-size: 0.72rem; color: var(--dark-500);">Kuota (+5 Bonus)</div>
-            <div class="topup-price-num" style="color: var(--gold-700);">Rp 50.000</div>
-            <div style="font-size: 0.65rem; color: var(--gold-600); font-weight: 600; margin-top: 2px;">Hemat Rp 5.000</div>
+            <div class="topup-price-num" style="color: var(--gold-700);">Rp 70.000</div>
+            <div style="font-size: 0.65rem; color: var(--gold-600); font-weight: 600; margin-top: 2px;">Hemat Rp 12.500</div>
           </div>
 
-          <div class="topup-pkg-card" id="pkgCard100k" onclick="selectTopupPackage(100000, 120)">
+          <div class="topup-pkg-card" id="pkgCard100k" onclick="selectTopupPackage(135000, 120)">
             <span class="topup-pkg-badge" style="background: #0284c7;">BEST VALUE</span>
             <div class="topup-quota-num" style="color: #0369a1;">120</div>
             <div style="font-size: 0.72rem; color: var(--dark-500);">Kuota (+20 Bonus)</div>
-            <div class="topup-price-num">Rp 100.000</div>
-            <div style="font-size: 0.65rem; color: #0284c7; font-weight: 600; margin-top: 2px;">Hemat Rp 20.000</div>
+            <div class="topup-price-num">Rp 135.000</div>
+            <div style="font-size: 0.65rem; color: #0284c7; font-weight: 600; margin-top: 2px;">Hemat Rp 45.000</div>
           </div>
         </div>
 
@@ -3361,7 +3361,7 @@
         <div class="qris-pay-box" id="topupQrisContainer">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <span style="font-size: 0.75rem; font-weight: 700; color: #475569;">QRIS Pembayaran Resmi Developer:</span>
-            <span id="qrisTagAmount" style="font-size: 0.95rem; font-weight: 800; color: var(--primary-800); font-family: monospace;">Rp 50.000</span>
+            <span id="qrisTagAmount" style="font-size: 0.95rem; font-weight: 800; color: var(--primary-800); font-family: monospace;">Rp 70.000</span>
           </div>
 
           <div style="width: 140px; height: 140px; margin: 0 auto 10px; background: #fff; border: 2px solid #0f172a; border-radius: 8px; padding: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
@@ -3404,7 +3404,7 @@
         <div id="topupBankContainer" style="display: none; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: var(--radius-sm); padding: 14px; margin-bottom: 16px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <span style="font-size: 0.78rem; font-weight: 700; color: #334155;">Transfer ke Rekening Developer:</span>
-            <span id="bankTagAmount" style="font-size: 1rem; font-weight: 800; color: #047857; font-family: monospace;">Rp 50.000</span>
+            <span id="bankTagAmount" style="font-size: 1rem; font-weight: 800; color: #047857; font-family: monospace;">Rp 70.000</span>
           </div>
 
           <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 10px;">
@@ -4124,9 +4124,9 @@
               <div>
                 <label style="font-size: 0.7rem; color: #94a3b8; display: block; margin-bottom: 2px;">Paket Kuota Order:</label>
                 <select id="devTokenQuotaPackage" style="width: 100%; padding: 6px 8px; border-radius: 4px; border: 1px solid #475569; background: #0f172a; color: #fff; font-size: 0.78rem;">
-                  <option value="20:20000">+20 Order (Rp 20.000)</option>
-                  <option value="55:50000" selected>+55 Order (Rp 50.000)</option>
-                  <option value="120:100000">+120 Order (Rp 100.000)</option>
+                  <option value="20:30000">+20 Order (Rp 30.000)</option>
+                  <option value="55:70000" selected>+55 Order (Rp 70.000)</option>
+                  <option value="120:135000">+120 Order (Rp 135.000)</option>
                 </select>
               </div>
             </div>
