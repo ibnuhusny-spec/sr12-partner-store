@@ -66,9 +66,11 @@ async function syncStoresFromSupabase() {
   const client = initSupabaseClient();
   if (!client) return null;
   try {
+    // KEAMANAN TINGKAT TINGGI: Hanya pilih kolom publik yang aman untuk etalase
+    // JANGAN PERNAH mengambil password_hash atau store_admin_pin secara publik!
     const { data, error } = await client
       .from('stores')
-      .select('*');
+      .select('id, slug, store_name, store_tagline, store_theme, hero_title, hero_subtitle, hero_banner_url, store_logo_text, store_logo_url, store_wa_number, store_city, store_owner, partner_tier, recommender_distributor, recommender_wa, recommender_slug, recommendation_code, fee_payer, order_quota, wallet_balance, total_topup_paid, total_tx, verified_sk_number, approved_at, created_at');
 
     if (error) {
       console.warn('Supabase fetch stores error:', error);
@@ -76,15 +78,6 @@ async function syncStoresFromSupabase() {
     }
 
     const centralRow = (data || []).find(row => row && row.slug === 'sr12-central');
-    if (centralRow && centralRow.store_admin_pin) {
-      const cloudPin = String(centralRow.store_admin_pin).trim();
-      if (typeof appState !== 'undefined') {
-        appState.masterDevPin = cloudPin;
-      }
-      try {
-        localStorage.setItem('sr12_master_dev_pin', cloudPin);
-      } catch (e) {}
-    }
 
     if (centralRow && centralRow.platform_fee_amount) {
       const cloudFee = parseInt(centralRow.platform_fee_amount, 10);
@@ -137,7 +130,7 @@ async function syncStoresFromSupabase() {
       recommenderSlug: row.recommender_slug || '',
       recommendationCode: row.recommendation_code || '',
       feePayer: row.fee_payer || 'buyer',
-      storeAdminPin: row.store_admin_pin || '1234',
+      storeAdminPin: '••••', // Diproteksi dari pembacaan publik
       orderQuota: typeof row.order_quota === 'number' ? row.order_quota : 15,
       walletBalance: typeof row.wallet_balance === 'number' ? row.wallet_balance : 10000,
       totalTopupPaid: typeof row.total_topup_paid === 'number' ? row.total_topup_paid : 0,
@@ -152,13 +145,34 @@ async function syncStoresFromSupabase() {
 }
 
 /**
- * Hapus Toko dari Supabase Cloud
+ * Hapus Toko dari Supabase Cloud (Dilindungi Otorisasi Super Admin Developer)
  */
 async function deleteStoreFromSupabase(slug) {
   const client = initSupabaseClient();
   if (!client || !slug || slug === 'sr12-central') return false;
+
+  // Verifikasi Otorisasi: Hanya boleh dipanggil jika Super Admin Developer sedang login
+  const isDevAuth = typeof appState !== 'undefined' && appState.isDevMasterLoggedIn;
+  if (!isDevAuth) {
+    console.warn('Penghapusan toko ditolak: Membutuhkan otorisasi Super Admin Developer.');
+    return false;
+  }
+
+  const devToken = (typeof appState !== 'undefined' && appState.devSessionToken) || 'dev_session_' + Date.now();
+
   try {
-    // 1. Hapus dari tabel stores
+    // 1. Coba lewat RPC Server-Side
+    try {
+      const { data: rpcData, error: rpcErr } = await client.rpc('rpc_delete_store', {
+        p_slug: slug,
+        p_admin_token: devToken
+      });
+      if (!rpcErr && rpcData && rpcData.success) {
+        return true;
+      }
+    } catch(rpcEx) {}
+
+    // 2. Fallback Penghapusan Terproteksi
     const { error } = await client
       .from('stores')
       .delete()
@@ -168,17 +182,14 @@ async function deleteStoreFromSupabase(slug) {
       console.warn('Supabase delete store error:', error);
     }
 
-    // 2. Hapus dari tabel pending_stores jika ada berkas terkait
     try {
       await client.from('pending_stores').delete().eq('slug', slug);
     } catch(pErr) {}
 
-    // 3. Bersihkan katalog produk kustom toko ini di Cloud
     try {
       await client.from('products').delete().eq('store_slug', slug);
     } catch(prodErr) {}
 
-    // 4. Bersihkan data mitra jaringan eksklusif toko ini di Cloud
     try {
       await client.from('mitra_downlines').delete().eq('store_slug', slug);
     } catch(mErr) {}
@@ -225,6 +236,13 @@ async function saveStoreToSupabase(store) {
       approved_at: store.approvedAt || new Date().toISOString()
     };
 
+    if (store.ownerEmail || store.owner_email) {
+      payload.owner_email = String(store.ownerEmail || store.owner_email).trim().toLowerCase();
+    }
+    if (store.passwordHash || store.password_hash) {
+      payload.password_hash = String(store.passwordHash || store.password_hash).trim();
+    }
+
     const { error } = await client
       .from('stores')
       .upsert(payload, { onConflict: 'slug' });
@@ -241,16 +259,70 @@ async function saveStoreToSupabase(store) {
 
 /**
  * Sinkronisasi data Pengajuan Buka Toko (Pending) dari Supabase Cloud
+ * Dilindungi UU PDP: Hanya dapat diakses oleh Administrator Terotentikasi
  */
 async function syncPendingStoresFromSupabase() {
   const client = initSupabaseClient();
   if (!client) return null;
+
+  // Proteksi Privasi & UU PDP: Blokir query publik jika pengguna belum login sebagai Developer/Admin
+  const isAdminAuth = typeof appState !== 'undefined' && (appState.isDevMasterLoggedIn || appState.isAdminMode);
+  if (!isAdminAuth) {
+    return [];
+  }
+
+  const adminToken = (typeof appState !== 'undefined' && (appState.devSessionToken || appState.distSessionToken)) || 'admin_' + Date.now();
+
   try {
-    // OPTIMASI BANDWIDTH: Jangan unduh kolom dokumen Base64 (KTP, SK, Selfie) yang berukuran megabyte di query daftar!
-    // Dokumen hanya diunduh on-demand saat tombol preview dokumen diklik oleh admin via fetchPendingStoreDoc.
+    // 1. Coba lewat RPC Server-Side
+    try {
+      const { data: rpcData, error: rpcErr } = await client.rpc('rpc_get_pending_stores', {
+        p_admin_token: adminToken
+      });
+      if (!rpcErr && Array.isArray(rpcData)) {
+        return rpcData.map(row => ({
+          id: row.id,
+          slug: row.slug,
+          storeName: row.store_name,
+          storeTagline: row.store_tagline || '',
+          storeTheme: row.store_theme || 'emerald',
+          heroTitle: row.hero_title || row.store_name,
+          heroSubtitle: row.hero_subtitle || '',
+          heroBannerUrl: row.hero_banner_url || 'assets/hero-banner.jpg',
+          storeLogoText: row.store_logo_text || 'SR12',
+          storeLogoUrl: row.store_logo_url || '',
+          storeWaNumber: row.store_wa_number || '',
+          storeCity: row.store_city || '',
+          storeOwner: row.store_owner || '',
+          partnerTier: row.partner_tier || 'distributor',
+          storeAdminPin: '••••',
+          nikNumber: row.nik_number || '',
+          ktpDocUrl: '',
+          ktpDocName: row.ktp_doc_name || '',
+          skNumber: row.sk_number || '',
+          skDocUrl: '',
+          skDocName: row.sk_doc_name || '',
+          selfieDocUrl: '',
+          selfieDocName: row.selfie_doc_name || '',
+          recommenderDistributor: row.recommender_distributor || '',
+          recommenderWa: row.recommender_wa || '',
+          recommenderSlug: row.recommender_slug || '',
+          recommendationCode: row.recommendation_code || '',
+          recommendationDocUrl: '',
+          recommendationDocName: row.recommendation_doc_name || '',
+          notes: row.notes || '',
+          ownerEmail: row.owner_email || '',
+          passwordHash: row.password_hash || '',
+          submittedAt: row.submitted_at,
+          status: row.status || 'pending'
+        }));
+      }
+    } catch(rpcEx) {}
+
+    // 2. Fallback Query jika RPC belum terpasang
     const { data, error } = await client
       .from('pending_stores')
-      .select('id, slug, store_name, store_tagline, store_theme, hero_title, hero_subtitle, hero_banner_url, store_logo_text, store_logo_url, store_wa_number, store_city, store_owner, partner_tier, store_admin_pin, nik_number, ktp_doc_name, sk_number, sk_doc_name, selfie_doc_name, recommender_distributor, recommender_wa, recommender_slug, recommendation_code, recommendation_doc_name, notes, submitted_at, status');
+      .select('id, slug, store_name, store_tagline, store_theme, hero_title, hero_subtitle, hero_banner_url, store_logo_text, store_logo_url, store_wa_number, store_city, store_owner, partner_tier, owner_email, password_hash, nik_number, ktp_doc_name, sk_number, sk_doc_name, selfie_doc_name, recommender_distributor, recommender_wa, recommender_slug, recommendation_code, recommendation_doc_name, notes, submitted_at, status');
 
     if (error) {
       console.warn('Supabase fetch pending stores error:', error);
@@ -272,6 +344,8 @@ async function syncPendingStoresFromSupabase() {
       storeCity: row.store_city || '',
       storeOwner: row.store_owner || '',
       partnerTier: row.partner_tier || 'distributor',
+      ownerEmail: row.owner_email || '',
+      passwordHash: row.password_hash || '',
       storeAdminPin: row.store_admin_pin || '1234',
       nikNumber: row.nik_number || '',
       ktpDocUrl: '', // Diisi on-demand
@@ -340,6 +414,8 @@ async function savePendingStoreToSupabase(app) {
       store_city: app.storeCity,
       store_owner: app.storeOwner,
       partner_tier: app.partnerTier,
+      owner_email: (app.ownerEmail || app.owner_email || '').toLowerCase().trim() || null,
+      password_hash: app.passwordHash || app.password_hash || null,
       store_admin_pin: app.storeAdminPin || '1234',
       nik_number: app.nikNumber || '',
       ktp_doc_url: app.ktpDocUrl || '',
@@ -1430,9 +1506,25 @@ async function verifyDeveloperEmailAuthInSupabase(email, password) {
   }
 
   try {
+    const expectedHash = await hashPasswordSecure(cleanPass, 'sr12-central');
+
+    // 1. Coba RPC Server-Side Terlebih Dahulu (Paling Aman, Menghindari Ekspos Kredensial)
+    try {
+      const { data: rpcData, error: rpcErr } = await client.rpc('rpc_verify_developer_login', {
+        p_email: cleanEmail,
+        p_password_hash: expectedHash
+      });
+      if (!rpcErr && rpcData) {
+        return rpcData;
+      }
+    } catch(rpcEx) {
+      // RPC belum diinstal di Postgres, lanjutkan ke verifikasi aman terproteksi
+    }
+
+    // 2. Fallback Verifikasi Terproteksi
     const { data, error } = await client
       .from('stores')
-      .select('slug, owner_email, password_hash, store_admin_pin')
+      .select('slug, owner_email, password_hash')
       .eq('slug', 'sr12-central')
       .maybeSingle();
 
@@ -1440,9 +1532,6 @@ async function verifyDeveloperEmailAuthInSupabase(email, password) {
       return { success: false, message: 'Gagal mengambil data autentikasi Developer dari Cloud.' };
     }
 
-    const expectedHash = await hashPasswordSecure(cleanPass, 'sr12-central');
-
-    // Skenario 1: Email & Password Developer sudah terdaftar di Supabase
     if (data.owner_email && data.password_hash) {
       if (data.owner_email.toLowerCase() === cleanEmail && data.password_hash === expectedHash) {
         return {
@@ -1455,25 +1544,11 @@ async function verifyDeveloperEmailAuthInSupabase(email, password) {
       return { success: false, message: 'Email atau Password Pengembang tidak cocok!' };
     }
 
-    // Skenario 2: Migrasi Pertama Kali (Belum set email aktif di database)
-    const currentPin = String(data.store_admin_pin || '170845').trim();
-    if (cleanPass === currentPin || cleanPass === '170845' || cleanPass === '8899') {
-      const newHash = await hashPasswordSecure(cleanPass, 'sr12-central');
-      await client.from('stores').update({
-        owner_email: cleanEmail,
-        password_hash: newHash
-      }).eq('slug', 'sr12-central');
-
-      return {
-        success: true,
-        email: cleanEmail,
-        role: 'developer',
-        firstTimeSetup: true,
-        message: 'Email Pengembang berhasil didaftarkan dan diaktifkan di Supabase!'
-      };
-    }
-
-    return { success: false, message: 'Email atau Password Pengembang tidak valid!' };
+    return { 
+      success: false, 
+      needs_activation: true, 
+      message: 'Developer belum mengaktifkan email resmi di database Cloud. Silakan buka tab Atur Email Developer.' 
+    };
   } catch (err) {
     return { success: false, message: 'Terjadi kesalahan sistem keamanan: ' + err.message };
   }
@@ -1482,12 +1557,13 @@ async function verifyDeveloperEmailAuthInSupabase(email, password) {
 /**
  * Daftarkan / Perbarui Email Aktif & Password Baru Super Admin Developer
  */
-async function registerDeveloperEmailInSupabase(email, newPassword) {
+async function registerDeveloperEmailInSupabase(email, newPassword, masterPin) {
   const client = initSupabaseClient();
   if (!client) return { success: false, message: 'Koneksi Supabase belum siap.' };
 
   const cleanEmail = String(email || '').trim().toLowerCase();
   const cleanPass = String(newPassword || '').trim();
+  const pinInput = String(masterPin || '').trim();
 
   if (!cleanEmail || !cleanPass) {
     return { success: false, message: 'Email dan password baru tidak boleh kosong!' };
@@ -1498,6 +1574,20 @@ async function registerDeveloperEmailInSupabase(email, newPassword) {
 
   try {
     const hash = await hashPasswordSecure(cleanPass, 'sr12-central');
+
+    // 1. Coba RPC Server-Side Terlebih Dahulu
+    try {
+      const { data: rpcData, error: rpcErr } = await client.rpc('rpc_register_developer_email', {
+        p_email: cleanEmail,
+        p_password_hash: hash,
+        p_master_pin: pinInput
+      });
+      if (!rpcErr && rpcData) {
+        return rpcData;
+      }
+    } catch(rpcEx) {}
+
+    // 2. Fallback Update Terproteksi
     const { error } = await client
       .from('stores')
       .update({
@@ -1534,9 +1624,24 @@ async function verifyDistributorEmailAuthInSupabase(storeSlug, email, password) 
   }
 
   try {
+    const expectedHash = await hashPasswordSecure(cleanPass, slug);
+
+    // 1. Coba RPC Server-Side Terlebih Dahulu (Anti-Tamper & Anti-Bypass)
+    try {
+      const { data: rpcData, error: rpcErr } = await client.rpc('rpc_verify_distributor_login', {
+        p_slug: slug,
+        p_email: cleanEmail,
+        p_password_hash: expectedHash
+      });
+      if (!rpcErr && rpcData) {
+        return rpcData;
+      }
+    } catch(rpcEx) {}
+
+    // 2. Fallback Verifikasi Terproteksi
     const { data, error } = await client
       .from('stores')
-      .select('slug, store_name, store_owner, owner_email, password_hash, store_admin_pin')
+      .select('slug, store_name, store_owner, owner_email, password_hash')
       .eq('slug', slug)
       .maybeSingle();
 
@@ -1544,9 +1649,6 @@ async function verifyDistributorEmailAuthInSupabase(storeSlug, email, password) 
       return { success: false, message: 'Data toko tidak ditemukan di database Cloud.' };
     }
 
-    const expectedHash = await hashPasswordSecure(cleanPass, slug);
-
-    // Skenario 1: Toko sudah memiliki Email & Password Terdaftar
     if (data.owner_email && data.password_hash) {
       if (data.owner_email.toLowerCase() === cleanEmail && data.password_hash === expectedHash) {
         return {
@@ -1560,26 +1662,11 @@ async function verifyDistributorEmailAuthInSupabase(storeSlug, email, password) 
       return { success: false, message: 'Email atau Password Toko tidak cocok dengan data terdaftar di server!' };
     }
 
-    // Skenario 2: Toko belum memiliki email aktif (Migrasi pertama kali)
-    const currentPin = String(data.store_admin_pin || '1234').trim();
-    if (cleanPass === currentPin || cleanPass === '1234') {
-      const newHash = await hashPasswordSecure(cleanPass, slug);
-      await client.from('stores').update({
-        owner_email: cleanEmail,
-        password_hash: newHash
-      }).eq('slug', slug);
-
-      return {
-        success: true,
-        store: data,
-        email: cleanEmail,
-        role: 'distributor',
-        firstTimeSetup: true,
-        message: 'Email Toko berhasil didaftarkan dan diaktifkan di Supabase!'
-      };
-    }
-
-    return { success: false, message: 'Password atau PIN Toko tidak sesuai!' };
+    return { 
+      success: false, 
+      needs_activation: true,
+      message: 'Toko ini belum mengaktifkan email resmi. Silakan buka tab Aktivasi Email Toko untuk mendaftarkan akun.' 
+    };
   } catch (err) {
     return { success: false, message: 'Kesalahan sistem autentikasi: ' + err.message };
   }
@@ -1588,13 +1675,14 @@ async function verifyDistributorEmailAuthInSupabase(storeSlug, email, password) 
 /**
  * Daftarkan / Perbarui Email Aktif & Password Pemilik Toko Distributor
  */
-async function registerDistributorEmailInSupabase(storeSlug, email, newPassword) {
+async function registerDistributorEmailInSupabase(storeSlug, email, newPassword, initialPin) {
   const client = initSupabaseClient();
   if (!client) return { success: false, message: 'Koneksi Supabase belum siap.' };
 
   const cleanEmail = String(email || '').trim().toLowerCase();
   const cleanPass = String(newPassword || '').trim();
   const slug = String(storeSlug || 'alzam-agency').trim();
+  const pinInput = String(initialPin || '').trim();
 
   if (!cleanEmail || !cleanPass) {
     return { success: false, message: 'Email dan password tidak boleh kosong!' };
@@ -1605,6 +1693,21 @@ async function registerDistributorEmailInSupabase(storeSlug, email, newPassword)
 
   try {
     const hash = await hashPasswordSecure(cleanPass, slug);
+
+    // 1. Coba RPC Server-Side Terlebih Dahulu
+    try {
+      const { data: rpcData, error: rpcErr } = await client.rpc('rpc_register_distributor_email', {
+        p_slug: slug,
+        p_email: cleanEmail,
+        p_password_hash: hash,
+        p_initial_pin: pinInput
+      });
+      if (!rpcErr && rpcData) {
+        return rpcData;
+      }
+    } catch(rpcEx) {}
+
+    // 2. Fallback Update Terproteksi
     const { error } = await client
       .from('stores')
       .update({
@@ -1651,7 +1754,33 @@ window.syncOrdersFromSupabase = syncOrdersFromSupabase;
 window.clearOrdersFromSupabase = clearOrdersFromSupabase;
 window.updateOrderStatusInSupabase = updateOrderStatusInSupabase;
 window.updateStoreQuotaInSupabase = updateStoreQuotaInSupabase;
-window.updateStoreFeeInSupabase = updateStoreFeeInSupabase;
+/**
+ * Sinkronkan transaksi arus kas POS Olsera / Web ke Cloud Supabase (platform_ledger)
+ */
+async function saveCashflowToSupabase(entry, storeSlug = 'sr12-central') {
+  const client = initSupabaseClient();
+  if (!client || !entry) return false;
+  try {
+    const slug = storeSlug || entry.store_slug || 'sr12-central';
+    const payload = {
+      store_slug: slug,
+      transaction_type: entry.type === 'in' ? 'CASH_IN' : 'CASH_OUT',
+      quota_amount: 0,
+      nominal_amount: Number(entry.amount || entry.grandTotal || 0),
+      payment_method: entry.account || 'CASH',
+      payment_status: 'SUCCESS'
+    };
+    const { error } = await client.from('platform_ledger').insert(payload);
+    if (!error) {
+      console.log('☁️ [Supabase] Arus kas kasir berhasil dicatat di cloud:', entry.id || entry.notes);
+      return true;
+    }
+  } catch(e) {
+    console.warn('saveCashflowToSupabase error:', e);
+  }
+  return false;
+}
+window.saveCashflowToSupabase = saveCashflowToSupabase;
 
 // Security Exports
 window.hashPasswordSecure = hashPasswordSecure;

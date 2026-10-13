@@ -118,15 +118,15 @@ function loginDistributor(emailOrPhone, password) {
     const isPhoneMatch = cleanPhone.length > 5 && (storeWa.endsWith(cleanPhone) || cleanPhone.endsWith(storeWa));
 
     return isEmailMatch || isSlugMatch || isOwnerEmailPrefix || isPhoneMatch;
-  }) || (password === '1234' || password === '8899' || password === 'sr12jaya' ? db.stores[0] : null);
+  });
 
   if (!store) {
     // Check developer master override
-    if ((cleanInput === 'developer' || cleanInput === 'admin') && password === db.developer.masterPin) {
+    if ((cleanInput === 'developer' || cleanInput === 'admin') && password && db.developer && password === db.developer.masterPin) {
       const devSession = {
-        token: 'dev-token-' + Date.now(),
+        token: 'dev-token-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
         role: 'developer',
-        slug: db.stores[0].slug,
+        slug: db.stores[0] ? db.stores[0].slug : 'sr12-central',
         owner: 'Developer Master',
         createdAt: new Date().toISOString()
       };
@@ -137,7 +137,7 @@ function loginDistributor(emailOrPhone, password) {
     return { success: false, message: 'Email atau Nomor WhatsApp tidak ditemukan di database distributor!' };
   }
 
-  const isPasswordValid = password === store.ownerPassword || password === '1234' || password === db.developer.masterPin;
+  const isPasswordValid = password && (password === store.ownerPassword || (db.developer && password === db.developer.masterPin));
   if (!isPasswordValid) {
     return { success: false, message: 'Password / PIN akun distributor salah!' };
   }
@@ -350,6 +350,12 @@ function syncStores(storesArray) {
   return getAllStores();
 }
 
+function verifySessionToken(token) {
+  if (!token) return null;
+  const db = readDb();
+  return (db.sessions || []).find(s => s.token === token) || null;
+}
+
 module.exports = {
   ensureDbExists,
   getAllStores,
@@ -371,5 +377,7 @@ module.exports = {
   getPendingStores,
   addPendingStore,
   removePendingStore,
-  clearAllData
+  clearAllData,
+  verifySessionToken
 };
+

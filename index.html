@@ -989,7 +989,7 @@
                   Upload file logo toko Anda (PNG, JPG, WebP). Logo akan otomatis tampil di Olsera POS, banner toko online pembeli, dan cetak nota.
                 </p>
                 <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-                  <input type="file" id="olseraLogoFileInput" accept="image/png,image/jpeg,image/webp,image/svg+xml" style="display: none;" onchange="handleOlseraLogoUpload(event)">
+                  <input type="file" id="olseraLogoFileInput" accept="image/jpeg,image/png" style="display: none;" onchange="handleOlseraLogoUpload(event)">
                   <button type="button" onclick="document.getElementById('olseraLogoFileInput').click()" style="background: #0284c7; color: #ffffff; border: none; padding: 7px 14px; border-radius: 6px; font-weight: 700; font-size: 0.8rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(2, 132, 199, 0.3);">
                     <span>📁</span> Upload File Logo
                   </button>
@@ -1021,7 +1021,7 @@
                 Upload foto sampul toko Anda sendiri atau pilih dari template resmi SR12. Banner otomatis tampil pada etalase utama toko pembeli.
               </p>
               <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-                <input type="file" id="olseraBannerFileInput" accept="image/png,image/jpeg,image/webp" style="display: none;" onchange="handleOlseraBannerUpload(event)">
+                <input type="file" id="olseraBannerFileInput" accept="image/jpeg,image/png" style="display: none;" onchange="handleOlseraBannerUpload(event)">
                 <button type="button" onclick="document.getElementById('olseraBannerFileInput').click()" style="background: #059669; color: #ffffff; border: none; padding: 7px 14px; border-radius: 6px; font-weight: 700; font-size: 0.8rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(5, 150, 105, 0.3);">
                   <span>📁</span> Upload File Banner
                 </button>
@@ -2368,7 +2368,7 @@
             <div>
               <label style="font-size: 0.75rem; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Pilih File Foto Latar Belakang (JPG / PNG):</label>
               <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                <input type="file" id="settingBannerFileInput" accept="image/*" style="font-size: 0.75rem; flex: 1; min-width: 200px; padding: 6px; background: #ffffff; border: 1px dashed #94a3b8; border-radius: 6px;">
+                <input type="file" id="settingBannerFileInput" accept="image/jpeg,image/png" style="font-size: 0.75rem; flex: 1; min-width: 200px; padding: 6px; background: #ffffff; border: 1px dashed #94a3b8; border-radius: 6px;">
                 <button type="button" onclick="resetStoreBannerToDefault()" style="background: #ffffff; color: #dc2626; border: 1px solid #fca5a5; padding: 6px 12px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; white-space: nowrap;" title="Kosongkan banner latar belakang">
                   🗑️ Kosongkan Banner (Gunakan Gradien Tema)
                 </button>
@@ -2396,8 +2396,8 @@
                 <input type="text" id="settingLogoText" maxlength="6" placeholder="SR12" style="width: 100%; padding: 7px 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-weight: 700;">
               </div>
               <div>
-                <label style="font-size: 0.75rem; font-weight: 700; color: #334155; display: block; margin-bottom: 3px;">Upload File Foto Logo / Profil:</label>
-                <input type="file" id="settingLogoFileInput" accept="image/*" style="font-size: 0.75rem; width: 100%; padding: 6px; background: #ffffff; border: 1px dashed #94a3b8; border-radius: 6px;">
+                <label style="font-size: 0.75rem; font-weight: 700; color: #334155; display: block; margin-bottom: 3px;">Upload File Foto Logo / Profil (JPG / PNG):</label>
+                <input type="file" id="settingLogoFileInput" accept="image/jpeg,image/png" style="font-size: 0.75rem; width: 100%; padding: 6px; background: #ffffff; border: 1px dashed #94a3b8; border-radius: 6px;">
               </div>
             </div>
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #e2e8f0;">
@@ -2512,8 +2512,8 @@
           </div>
 
           <div style="margin-bottom: 8px;">
-            <label style="font-size: 0.75rem; color: var(--dark-700); font-weight: 600; display: block; margin-bottom: 3px;">Upload Foto Langsung Dari Komputer/HP:</label>
-            <input type="file" id="editProdFileInput" accept="image/*" style="font-size: 0.8rem; width: 100%;">
+            <label style="font-size: 0.75rem; color: var(--dark-700); font-weight: 600; display: block; margin-bottom: 3px;">Upload Foto Langsung Dari Komputer/HP (JPG / PNG):</label>
+            <input type="file" id="editProdFileInput" accept="image/jpeg,image/png" style="font-size: 0.8rem; width: 100%;">
           </div>
 
           <div>
@@ -3090,8 +3090,8 @@
                 <input type="text" id="regRecommendationCode" placeholder="Contoh: REK-DIST-2026-001" style="width: 100%; padding: 7px 10px; border: 1px solid #93c5fd; border-radius: 4px; font-size: 0.78rem; font-family: monospace;">
               </div>
               <div>
-                <label style="font-size: 0.72rem; color: #1e40af; display: block; margin-bottom: 2px; font-weight: 700;">Upload Surat Rekomendasi (Opsional):</label>
-                <input type="file" id="regRecommendationFileInput" accept="image/*,application/pdf" style="width: 100%; font-size: 0.72rem;">
+                <label style="font-size: 0.72rem; color: #1e40af; display: block; margin-bottom: 2px; font-weight: 700;">Upload Surat Rekomendasi (JPG / PNG Opsional):</label>
+                <input type="file" id="regRecommendationFileInput" accept="image/jpeg,image/png" style="width: 100%; font-size: 0.72rem;">
               </div>
             </div>
             <div id="regRecommendationPreviewBox" style="display: none; align-items: center; gap: 8px; margin-top: 6px; padding: 4px 8px; background: #fff; border-radius: 4px; border: 1px solid #93c5fd;">
@@ -3101,17 +3101,17 @@
             </div>
           </div>
 
-          <!-- Input Logo Toko (Gambar atau Teks Badge) -->
+          <!-- Input Logo Toko (Gambar JPG/PNG atau Teks Badge) -->
           <div style="background: var(--dark-50); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 14px;">
-            <label style="font-size: 0.8rem; font-weight: 700; color: var(--dark-800); display: block; margin-bottom: 6px;">Logo Toko (Upload Gambar / Teks Badge):</label>
+            <label style="font-size: 0.8rem; font-weight: 700; color: var(--dark-800); display: block; margin-bottom: 6px;">Logo Toko (Upload Gambar JPG/PNG / Teks Badge):</label>
             <div class="grid-2col-resp" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
               <div>
                 <label style="font-size: 0.72rem; color: var(--dark-600); display: block; margin-bottom: 3px;">Teks Singkat Badge:</label>
                 <input type="text" id="regLogoText" maxlength="6" placeholder="SR12" style="width: 100%; padding: 7px 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-weight: 700; text-transform: uppercase;">
               </div>
               <div>
-                <label style="font-size: 0.72rem; color: var(--dark-600); display: block; margin-bottom: 3px;">Atau Upload File Gambar Logo:</label>
-                <input type="file" id="regLogoFileInput" accept="image/*" style="font-size: 0.72rem; width: 100%;">
+                <label style="font-size: 0.72rem; color: var(--dark-600); display: block; margin-bottom: 3px;">Atau Upload File Gambar Logo (JPG / PNG):</label>
+                <input type="file" id="regLogoFileInput" accept="image/jpeg,image/png" style="font-size: 0.72rem; width: 100%;">
               </div>
             </div>
             <div id="regLogoPreviewBox" style="display: none; align-items: center; gap: 8px; margin-top: 6px;">
@@ -3120,16 +3120,16 @@
             </div>
           </div>
 
-          <!-- SATU BAGIAN UNIFIKASI: DOKUMEN BERKAS SK & LEGALITAS KEMITRAAN (1 FILE PDF GABUNGAN) -->
+          <!-- SATU BAGIAN UNIFIKASI: DOKUMEN BERKAS SK & LEGALITAS KEMITRAAN (FOTO BERKAS RESMI JPG / PNG) -->
           <div style="background: #f0fdf4; border: 1.5px solid #059669; border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(5,150,105,0.06);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
               <label style="font-size: 0.85rem; font-weight: 800; color: #065f46; display: flex; align-items: center; gap: 6px; margin: 0;">
                 <span>📜</span> Berkas Dokumen SK Resmi &amp; Legalitas Kemitraan:
               </label>
-              <span style="font-size: 0.68rem; background: #059669; color: #fff; padding: 2px 8px; border-radius: 999px; font-weight: 800;">1 FILE PDF</span>
+              <span style="font-size: 0.68rem; background: #059669; color: #fff; padding: 2px 8px; border-radius: 999px; font-weight: 800;">FOTO DOKUMEN (JPG / PNG)</span>
             </div>
             <p style="font-size: 0.74rem; color: #047857; margin: 0 0 10px 0; line-height: 1.4;">
-              Calon pembuka toko cukup mengunggah <b>1 file dokumen PDF</b> (atau foto berkas gabungan) yang memuat berkas scan SK Resmi SR12, KTP pemilik, serta surat rekomendasi kemitraan.
+              Calon pembuka toko cukup mengunggah <b>foto scan dokumen (JPG / PNG)</b> yang memuat berkas scan SK Resmi SR12, KTP pemilik, atau surat rekomendasi kemitraan.
             </p>
 
             <div class="grid-2col-resp" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
@@ -3144,8 +3144,8 @@
             </div>
 
             <div>
-              <label style="font-size: 0.74rem; color: #334155; display: block; margin-bottom: 4px; font-weight: 700;">Upload File PDF Berkas Gabungan (Maks 10MB):</label>
-              <input type="file" id="regSkFileInput" accept="application/pdf,image/*" style="width: 100%; padding: 8px; background: #fff; border: 1.5px dashed #059669; border-radius: 6px; font-size: 0.78rem;">
+              <label style="font-size: 0.74rem; color: #334155; display: block; margin-bottom: 4px; font-weight: 700;">Upload Foto Dokumen SK / KTP (Format JPG / PNG, Maks 5MB):</label>
+              <input type="file" id="regSkFileInput" accept="image/jpeg,image/png" style="width: 100%; padding: 8px; background: #fff; border: 1.5px dashed #059669; border-radius: 6px; font-size: 0.78rem;">
             </div>
 
             <div id="regSkPreviewBox" style="display: none; align-items: center; gap: 8px; margin-top: 8px; padding: 6px 10px; background: #fff; border-radius: 6px; border: 1px solid #a7f3d0;">
@@ -3155,9 +3155,38 @@
             </div>
           </div>
 
+          <!-- AKUN LOGIN UTAMA TOKO (EMAIL & PASSWORD AKTIF) -->
+          <div style="background: #f8fafc; border: 1.5px solid #0284c7; border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(2,132,199,0.08);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label style="font-size: 0.85rem; font-weight: 800; color: #0369a1; display: flex; align-items: center; gap: 6px; margin: 0;">
+                <span>🔐</span> Akun Login Pemilik Toko (Email &amp; Password):
+              </label>
+              <span style="font-size: 0.68rem; background: #0284c7; color: #fff; padding: 2px 8px; border-radius: 999px; font-weight: 800;">LANGSUNG AKTIF</span>
+            </div>
+            <p style="font-size: 0.74rem; color: #0369a1; margin: 0 0 10px 0; line-height: 1.4;">
+              Begitu pengajuan toko disetujui Admin Pusat, Anda dapat langsung login mengelola toko menggunakan email dan kata sandi ini tanpa repot aktivasi ulang.
+            </p>
+
+            <div style="margin-bottom: 10px;">
+              <label style="font-size: 0.74rem; color: #334155; display: block; margin-bottom: 3px; font-weight: 700;">Email Aktif Pemilik Toko:</label>
+              <input type="email" id="regStoreEmail" placeholder="contoh: pemilik.toko@gmail.com" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.82rem; font-family: var(--font-main);">
+            </div>
+
+            <div class="grid-2col-resp" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div>
+                <label style="font-size: 0.74rem; color: #334155; display: block; margin-bottom: 3px; font-weight: 700;">Password Toko (Min. 6 Karakter):</label>
+                <input type="password" id="regStorePassword" minlength="6" placeholder="Minimal 6 karakter" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.82rem;">
+              </div>
+              <div>
+                <label style="font-size: 0.74rem; color: #334155; display: block; margin-bottom: 3px; font-weight: 700;">Konfirmasi Ulang Password:</label>
+                <input type="password" id="regStorePasswordConfirm" minlength="6" placeholder="Ketik ulang password" required style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.82rem;">
+              </div>
+            </div>
+          </div>
+
           <div style="margin-bottom: 14px;">
             <label style="font-size: 0.78rem; font-weight: 700; color: var(--dark-800); display: block; margin-bottom: 4px;">Catatan Tambahan untuk Verifikator (Opsional):</label>
-            <input type="text" id="regStoreNotes" placeholder="Contoh: Sudah tanda tangan kontrak kemitraan resmi wilayah Jawa Tengah" style="width: 100%; padding: 7px 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 0.78rem; font-family: var(--font-main);">
+            <input type="text" id="regStoreNotes" placeholder="Contoh: Sudah tanda tangan kontrak kemitraan resmi wilayah Jawa Barat" style="width: 100%; padding: 7px 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 0.78rem; font-family: var(--font-main);">
           </div>
 
           <div class="grid-2col-resp" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
@@ -3180,6 +3209,14 @@
               <small style="font-size: 0.68rem; color: var(--dark-500); display: block; margin-top: 3px;">PIN awal bawaan: <b>1234</b>. Dapat diganti kapan saja setelah toko aktif.</small>
             </div>
           </div>
+
+          <!-- HONEYPOT TRAP UNTUK BOT SPAMMER -->
+          <div style="display:none; visibility:hidden; position:absolute; left:-9999px;" aria-hidden="true">
+            <input type="text" id="regSecurityHoneypot" name="reg_security_honeypot_field" tabindex="-1" autocomplete="off">
+          </div>
+
+          <!-- CLOUDFLARE TURNSTILE ANTI-BOT WIDGET -->
+          <div id="cfTurnstileRegWidget" style="margin-bottom: 12px; display: flex; justify-content: center;"></div>
 
           <button type="submit" id="btnSubmitRegisterStore" style="width: 100%; background: linear-gradient(135deg, var(--primary-700), var(--primary-600)); color: #fff; border: none; padding: 12px; border-radius: var(--radius-md); font-weight: 800; font-size: 0.95rem; cursor: pointer; box-shadow: 0 4px 12px rgba(5,150,105,0.3); transition: all 0.2s ease;">
             🛡️ Kirim Pengajuan Buka Toko (Verifikasi SK Admin Pusat)
@@ -4985,6 +5022,7 @@
   </div>
 
   <!-- SCRIPTS -->
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/supabase-config.js?v=6.1"></script>
   <script src="js/data.js?v=6.1"></script>

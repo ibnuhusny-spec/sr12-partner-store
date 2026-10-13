@@ -1062,10 +1062,10 @@ function unlockOlseraScreen() {
   const input = document.getElementById('olseraUnlockPinInput')?.value.trim();
   const err = document.getElementById('olseraUnlockPinError');
   const modal = document.getElementById('modalOlseraLock');
-  const correctPin = (appState.storeSettings && appState.storeSettings.storeAdminPin) || '1234';
-  const masterPin = appState.masterDevPin || '8899';
+  const correctPin = (appState.storeSettings && appState.storeSettings.storeAdminPin) || '';
+  const masterPin = appState.masterDevPin || '';
 
-  if (input === correctPin || input === masterPin) {
+  if (input && ((correctPin && input === correctPin) || (masterPin && input === masterPin))) {
     if (modal) modal.classList.remove('open');
     showToast('🔓 Layar POS Berhasil Dibuka Kembali!');
   } else {
@@ -1699,6 +1699,14 @@ function processPosCheckout(action = 'save') {
   appState.transactions.unshift(newTrx);
   saveStoredTransactions(appState.transactions);
 
+  const curPosStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+
+  // SINKRONISASI OTOMATIS KE SUPABASE CLOUD TABEL ORDERS & MARKETER_SALES
+  newTrx.orderSource = 'Olsera POS Kasir';
+  if (typeof saveOrderToSupabase === 'function') {
+    saveOrderToSupabase(newTrx, curPosStoreSlug);
+  }
+
   // Update akumulasi penjualan sesi shift kasir aktif
   if (appState.activeCashier) {
     appState.activeCashier.trxCount = (appState.activeCashier.trxCount || 0) + 1;
@@ -1712,11 +1720,9 @@ function processPosCheckout(action = 'save') {
     updateCashierBadgeUI();
   }
 
-  const curPosStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
-
   // Catat arus kas masuk terpisah akun (Kas Tunai Laci vs Transfer Bank)
   if (!appState.cashflow) appState.cashflow = (typeof getStoredCashflow === 'function') ? getStoredCashflow(curPosStoreSlug) : [];
-  appState.cashflow.unshift({
+  const posCashflowEntry = {
     id: 'CSH-' + Math.floor(1000 + Math.random() * 9000),
     store_slug: curPosStoreSlug,
     date: dateStr.split(' ')[0],
@@ -1725,9 +1731,14 @@ function processPosCheckout(action = 'save') {
     category: `Penjualan Kasir POS (${getTierLabelName(tier)})`,
     notes: `${trxId} - ${customerName} (${cart.length} macam barang) [${isCash ? 'Kas Tunai Laci' : 'Transfer Bank'}]`,
     amount: grandTotal
-  });
+  };
+  appState.cashflow.unshift(posCashflowEntry);
   if (typeof saveStoredCashflow === 'function') {
     saveStoredCashflow(appState.cashflow, curPosStoreSlug);
+  }
+  // SINKRONISASI OTOMATIS ARUS KAS KE SUPABASE CLOUD
+  if (typeof saveCashflowToSupabase === 'function') {
+    saveCashflowToSupabase(posCashflowEntry, curPosStoreSlug);
   }
 
   // PENGURANGAN STOK FISIK GUDANG & PENCATATAN MUTASI STOK OTOMATIS
@@ -3112,6 +3123,14 @@ async function handleOlseraLogoUpload(e) {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
 
+  const validMimes = ['image/jpeg', 'image/png'];
+  const validExt = /\.(jpe?g|png)$/i;
+  if (!validMimes.includes(file.type) && !validExt.test(file.name)) {
+    alert('Format file tidak didukung! Demi keamanan sistem, hanya diperbolehkan mengupload gambar format JPG atau PNG.');
+    e.target.value = '';
+    return;
+  }
+
   const statusEl = document.getElementById('olseraLogoUploadStatus');
   const fileNameDisplay = document.getElementById('olseraLogoFileNameDisplay');
 
@@ -3231,6 +3250,15 @@ function resetOlseraLogoToDefault() {
 function handleOlseraBannerUpload(event) {
   const file = event.target.files && event.target.files[0];
   if (!file) return;
+
+  const validMimes = ['image/jpeg', 'image/png'];
+  const validExt = /\.(jpe?g|png)$/i;
+  if (!validMimes.includes(file.type) && !validExt.test(file.name)) {
+    alert('Format file tidak didukung! Demi keamanan sistem, hanya diperbolehkan mengupload gambar format JPG atau PNG.');
+    event.target.value = '';
+    return;
+  }
+
   const fileNameEl = document.getElementById('olseraBannerFileNameDisplay');
   const statusEl = document.getElementById('olseraBannerUploadStatus');
   if (fileNameEl) fileNameEl.textContent = `📁 ${file.name}`;

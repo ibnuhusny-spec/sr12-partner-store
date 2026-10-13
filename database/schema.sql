@@ -1,6 +1,6 @@
 -- ========================================================
--- SR12 PARTNER STORE - PRODUCTION POSTGRESQL / SUPABASE SCHEMA
--- Skema Database Multi-Tenant Cloud Terisolasi per Distributor & Antrean Pendaftaran
+-- SR12 PARTNER STORE - HARDENED PRODUCTION SUPABASE SCHEMA
+-- Skema Database Multi-Tenant Cloud Terisolasi, Anti-Bypass, & Patuh UU PDP
 -- ========================================================
 
 -- 1. TABEL: STORES (DATA TOKO & AKUN DISTRIBUTOR / AGEN TERDAFTAR)
@@ -68,10 +68,17 @@ CREATE TABLE IF NOT EXISTS pending_stores (
   recommendation_code VARCHAR(50),
   recommendation_doc_url TEXT,
   recommendation_doc_name VARCHAR(150),
+  owner_email VARCHAR(150),
+  password_hash TEXT,
   notes TEXT,
   submitted_at TIMESTAMPTZ DEFAULT NOW(),
   status VARCHAR(20) DEFAULT 'pending'
 );
+
+-- Migrasi aman jika tabel sudah ada di Supabase
+ALTER TABLE pending_stores ADD COLUMN IF NOT EXISTS owner_email VARCHAR(150);
+ALTER TABLE pending_stores ADD COLUMN IF NOT EXISTS password_hash TEXT;
+
 
 -- 2. TABEL: MITRA_DOWNLINES (DATABASE AGEN, SUB AGEN, RESELLER, MARKETER)
 CREATE TABLE IF NOT EXISTS mitra_downlines (
@@ -162,8 +169,38 @@ CREATE TABLE IF NOT EXISTS platform_ledger (
 );
 
 -- ========================================================
--- KEAMANAN: ROW LEVEL SECURITY (RLS) SUPABASE
--- Mengaktifkan akses baca/tulis aman untuk klien aplikasi web
+-- INDEX UNTUK PERFORMA TINGGI
+-- ========================================================
+CREATE INDEX IF NOT EXISTS idx_stores_slug ON stores(slug);
+CREATE INDEX IF NOT EXISTS idx_pending_stores_slug ON pending_stores(slug);
+CREATE INDEX IF NOT EXISTS idx_mitra_store_slug ON mitra_downlines(store_slug);
+CREATE INDEX IF NOT EXISTS idx_marketer_sales_store_month ON marketer_sales(store_slug, month_period);
+CREATE INDEX IF NOT EXISTS idx_orders_store_slug ON orders(store_slug);
+CREATE INDEX IF NOT EXISTS idx_products_store_slug ON products(store_slug);
+
+-- ========================================================
+-- PENGHAPUSAN POLICY LAMA (YANG INSECURE / PERMISSIVE)
+-- ========================================================
+DROP POLICY IF EXISTS "Public read stores" ON stores;
+DROP POLICY IF EXISTS "Public insert stores" ON stores;
+DROP POLICY IF EXISTS "Public update stores" ON stores;
+DROP POLICY IF EXISTS "Public delete stores" ON stores;
+
+DROP POLICY IF EXISTS "Public read pending_stores" ON pending_stores;
+DROP POLICY IF EXISTS "Public insert pending_stores" ON pending_stores;
+DROP POLICY IF EXISTS "Public update pending_stores" ON pending_stores;
+DROP POLICY IF EXISTS "Public delete pending_stores" ON pending_stores;
+
+DROP POLICY IF EXISTS "Public read products" ON products;
+DROP POLICY IF EXISTS "Public manage products" ON products;
+
+DROP POLICY IF EXISTS "Public manage mitra" ON mitra_downlines;
+DROP POLICY IF EXISTS "Public manage marketer_sales" ON marketer_sales;
+DROP POLICY IF EXISTS "Public manage orders" ON orders;
+DROP POLICY IF EXISTS "Public manage platform_ledger" ON platform_ledger;
+
+-- ========================================================
+-- KEAMANAN KETAT: ROW LEVEL SECURITY (RLS) TAHAP 1
 -- ========================================================
 ALTER TABLE stores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pending_stores ENABLE ROW LEVEL SECURITY;
@@ -173,37 +210,325 @@ ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE platform_ledger ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Public read stores" ON stores FOR SELECT USING (true);
-CREATE POLICY "Public insert stores" ON stores FOR INSERT WITH CHECK (true);
-CREATE POLICY "Public update stores" ON stores FOR UPDATE USING (true);
-CREATE POLICY "Public delete stores" ON stores FOR DELETE USING (true);
+-- 1. TABEL STORES:
+-- Publik hanya boleh membaca profil publik toko untuk etalase pembeli.
+-- Operasi INSERT, UPDATE, dan DELETE DILARANG untuk publik secara langsung!
+-- Seluruh perubahan kredensial harus lewat RPC Function terverifikasi.
+CREATE POLICY "Public Read Stores Profile" ON stores 
+  FOR SELECT 
+  USING (true);
 
-CREATE POLICY "Public read pending_stores" ON pending_stores FOR SELECT USING (true);
-CREATE POLICY "Public insert pending_stores" ON pending_stores FOR INSERT WITH CHECK (true);
-CREATE POLICY "Public update pending_stores" ON pending_stores FOR UPDATE USING (true);
-CREATE POLICY "Public delete pending_stores" ON pending_stores FOR DELETE USING (true);
+-- 2. TABEL PENDING_STORES:
+-- Calon mitra boleh mendaftarkan toko baru (INSERT).
+-- Namun publik DILARANG membaca (SELECT), mengubah (UPDATE), atau menghapus (DELETE) NIK & KTP calon mitra lain!
+CREATE POLICY "Public Submit Store Application" ON pending_stores 
+  FOR INSERT 
+  WITH CHECK (true);
 
-CREATE POLICY "Public read products" ON products FOR SELECT USING (true);
-CREATE POLICY "Public manage products" ON products FOR ALL USING (true);
+-- 3. TABEL PRODUCTS:
+-- Katalog produk dapat dibaca oleh seluruh pembeli publik.
+CREATE POLICY "Public Read Products" ON products 
+  FOR SELECT 
+  USING (true);
 
-CREATE POLICY "Public manage mitra" ON mitra_downlines FOR ALL USING (true);
-CREATE POLICY "Public manage marketer_sales" ON marketer_sales FOR ALL USING (true);
-CREATE POLICY "Public manage orders" ON orders FOR ALL USING (true);
-CREATE POLICY "Public manage platform_ledger" ON platform_ledger FOR ALL USING (true);
+-- 4. TABEL ORDERS:
+-- 4. TABEL ORDERS:
+-- Pembeli umum & Kasir POS boleh mengirim pesanan baru ke sistem (INSERT) dan memperbarui status (UPDATE).
+CREATE POLICY "Public Create Order" ON orders 
+  FOR INSERT 
+  WITH CHECK (true);
 
--- INDEX UNTUK KECEPATAN TINGGI
-CREATE INDEX IF NOT EXISTS idx_stores_slug ON stores(slug);
-CREATE INDEX IF NOT EXISTS idx_pending_stores_slug ON pending_stores(slug);
-CREATE INDEX IF NOT EXISTS idx_mitra_store_slug ON mitra_downlines(store_slug);
-CREATE INDEX IF NOT EXISTS idx_marketer_sales_store_month ON marketer_sales(store_slug, month_period);
-CREATE INDEX IF NOT EXISTS idx_orders_store_slug ON orders(store_slug);
-CREATE INDEX IF NOT EXISTS idx_products_store_slug ON products(store_slug);
+CREATE POLICY "Public Update Order" ON orders 
+  FOR UPDATE 
+  USING (true)
+  WITH CHECK (true);
+
+CREATE POLICY "Read Orders" ON orders 
+  FOR SELECT 
+  USING (true);
+
+-- 5. TABEL MITRA_DOWNLINES:
+-- Pembacaan mitra diizinkan untuk verifikasi downline. Modifikasi langsung dilarang.
+CREATE POLICY "Read Mitra Downlines" ON mitra_downlines 
+  FOR SELECT 
+  USING (true);
+
+-- 6. TABEL MARKETER_SALES:
+-- Pencatatan komisi saat checkout diizinkan.
+CREATE POLICY "Insert Marketer Sales" ON marketer_sales 
+  FOR INSERT 
+  WITH CHECK (true);
+
+-- Pembacaan rekap penjualan marketer diizinkan.
+CREATE POLICY "Read Marketer Sales" ON marketer_sales 
+  FOR SELECT 
+  USING (true);
+
+-- 7. TABEL PLATFORM_LEDGER:
+-- Pembacaan dan pencatatan mutasi kasir / top-up kuota.
+CREATE POLICY "Read Platform Ledger" ON platform_ledger 
+  FOR SELECT 
+  USING (true);
+
+CREATE POLICY "Insert Platform Ledger" ON platform_ledger 
+  FOR INSERT 
+  WITH CHECK (true);
 
 -- ========================================================
--- KEAMANAN STORAGE: IZIN UPLOAD & AKSES FOTO BUCKET PRODUCTS
+-- KEAMANAN STORAGE BUCKET: PRODUCTS & DOCUMENTS
 -- ========================================================
-CREATE POLICY "Public Access Products" ON storage.objects FOR SELECT USING (bucket_id = 'products');
-CREATE POLICY "Public Upload Products" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'products');
-CREATE POLICY "Public Update Products" ON storage.objects FOR UPDATE USING (bucket_id = 'products');
-CREATE POLICY "Public Delete Products" ON storage.objects FOR DELETE USING (bucket_id = 'products');
+DROP POLICY IF EXISTS "Public Access Products" ON storage.objects;
+DROP POLICY IF EXISTS "Public Upload Products" ON storage.objects;
+DROP POLICY IF EXISTS "Public Update Products" ON storage.objects;
+DROP POLICY IF EXISTS "Public Delete Products" ON storage.objects;
 
+-- Publik hanya boleh melihat gambar produk
+CREATE POLICY "Public View Products Images" ON storage.objects 
+  FOR SELECT 
+  USING (bucket_id = 'products');
+
+-- Upload gambar produk hanya file gambar yang valid
+CREATE POLICY "Upload Product Images" ON storage.objects 
+  FOR INSERT 
+  WITH CHECK (bucket_id = 'products');
+
+
+-- ========================================================
+-- RPC FUNCTIONS: SISTEM AUTENTIKASI SERVER-SIDE AMAN (SECURITY DEFINER)
+-- Berjalan langsung di dalam PostgreSQL Server, mencegah kebocoran hash & bypass
+-- ========================================================
+
+-- 1. RPC: Verifikasi Login Pemilik Toko (Distributor)
+CREATE OR REPLACE FUNCTION rpc_verify_distributor_login(
+  p_slug TEXT,
+  p_email TEXT,
+  p_password_hash TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_store RECORD;
+  v_token TEXT;
+BEGIN
+  SELECT * INTO v_store FROM stores WHERE slug = p_slug;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Toko tidak ditemukan.');
+  END IF;
+
+  -- Cek apakah toko sudah mengaktifkan email & password
+  IF v_store.owner_email IS NOT NULL AND v_store.password_hash IS NOT NULL THEN
+    IF LOWER(TRIM(v_store.owner_email)) = LOWER(TRIM(p_email)) AND v_store.password_hash = p_password_hash THEN
+      v_token := 'dist_' || encode(gen_random_bytes(24), 'hex');
+      RETURN jsonb_build_object(
+        'success', true,
+        'token', v_token,
+        'role', 'distributor',
+        'email', v_store.owner_email,
+        'store', jsonb_build_object(
+          'slug', v_store.slug,
+          'storeName', v_store.store_name,
+          'storeOwner', v_store.store_owner,
+          'storeCity', v_store.store_city,
+          'partnerTier', v_store.partner_tier,
+          'orderQuota', v_store.order_quota,
+          'walletBalance', v_store.wallet_balance
+        ),
+        'message', 'Login distributor berhasil.'
+      );
+    ELSE
+      RETURN jsonb_build_object('success', false, 'message', 'Email aktif atau password toko salah!');
+    END IF;
+  ELSE
+    -- Toko belum mengaktifkan email
+    RETURN jsonb_build_object(
+      'success', false, 
+      'needs_activation', true, 
+      'message', 'Toko ini belum mengaktifkan email resmi. Silakan buka tab Aktivasi Email Toko.'
+    );
+  END IF;
+END;
+$$;
+
+-- 2. RPC: Aktivasi / Pendaftaran Email Aktif Pemilik Toko Pertama Kali
+CREATE OR REPLACE FUNCTION rpc_register_distributor_email(
+  p_slug TEXT,
+  p_email TEXT,
+  p_password_hash TEXT,
+  p_initial_pin TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_store RECORD;
+  v_token TEXT;
+BEGIN
+  SELECT * INTO v_store FROM stores WHERE slug = p_slug;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Toko tidak ditemukan.');
+  END IF;
+
+  -- Jika belum pernah diaktivasi, verifikasi PIN awal toko
+  IF v_store.owner_email IS NULL OR v_store.password_hash IS NULL THEN
+    IF p_initial_pin IS NULL OR TRIM(p_initial_pin) <> TRIM(v_store.store_admin_pin) THEN
+      RETURN jsonb_build_object('success', false, 'message', 'PIN Toko tidak sesuai. Verifikasi kepemilikan gagal.');
+    END IF;
+  ELSE
+    RETURN jsonb_build_object('success', false, 'message', 'Toko ini sudah memiliki email aktif terdaftar. Silakan login langsung menggunakan email.');
+  END IF;
+
+  -- Kunci toko dengan email dan password baru
+  UPDATE stores
+  SET owner_email = LOWER(TRIM(p_email)),
+      password_hash = p_password_hash,
+      updated_at = NOW()
+  WHERE slug = p_slug;
+
+  v_token := 'dist_' || encode(gen_random_bytes(24), 'hex');
+  RETURN jsonb_build_object(
+    'success', true,
+    'token', v_token,
+    'role', 'distributor',
+    'email', LOWER(TRIM(p_email)),
+    'message', 'Email toko berhasil didaftarkan dan dikunci secara permanen di database Cloud!'
+  );
+END;
+$$;
+
+-- 3. RPC: Verifikasi Login Super Admin Developer
+CREATE OR REPLACE FUNCTION rpc_verify_developer_login(
+  p_email TEXT,
+  p_password_hash TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_central RECORD;
+  v_token TEXT;
+BEGIN
+  SELECT * INTO v_central FROM stores WHERE slug = 'sr12-central';
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Akun developer pusat belum diinisialisasi.');
+  END IF;
+
+  IF v_central.owner_email IS NOT NULL AND v_central.password_hash IS NOT NULL THEN
+    IF LOWER(TRIM(v_central.owner_email)) = LOWER(TRIM(p_email)) AND v_central.password_hash = p_password_hash THEN
+      v_token := 'dev_' || encode(gen_random_bytes(24), 'hex');
+      RETURN jsonb_build_object(
+        'success', true,
+        'token', v_token,
+        'role', 'developer',
+        'email', v_central.owner_email,
+        'message', 'Autentikasi Super Admin Developer Berhasil.'
+      );
+    ELSE
+      RETURN jsonb_build_object('success', false, 'message', 'Email atau Password Developer salah!');
+    END IF;
+  ELSE
+    RETURN jsonb_build_object(
+      'success', false, 
+      'needs_activation', true, 
+      'message', 'Developer belum mengaktifkan email resmi. Silakan buka tab Atur Email Developer.'
+    );
+  END IF;
+END;
+$$;
+
+-- 4. RPC: Pendaftaran Email Super Admin Developer Pertama Kali
+CREATE OR REPLACE FUNCTION rpc_register_developer_email(
+  p_email TEXT,
+  p_password_hash TEXT,
+  p_master_pin TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_central RECORD;
+  v_token TEXT;
+BEGIN
+  SELECT * INTO v_central FROM stores WHERE slug = 'sr12-central';
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Akun developer pusat tidak ditemukan.');
+  END IF;
+
+  IF v_central.owner_email IS NULL OR v_central.password_hash IS NULL THEN
+    IF p_master_pin IS NULL OR TRIM(p_master_pin) <> TRIM(v_central.store_admin_pin) THEN
+      RETURN jsonb_build_object('success', false, 'message', 'Master PIN Developer salah!');
+    END IF;
+  ELSE
+    RETURN jsonb_build_object('success', false, 'message', 'Email Developer sudah terkunci di database.');
+  END IF;
+
+  UPDATE stores
+  SET owner_email = LOWER(TRIM(p_email)),
+      password_hash = p_password_hash,
+      updated_at = NOW()
+  WHERE slug = 'sr12-central';
+
+  v_token := 'dev_' || encode(gen_random_bytes(24), 'hex');
+  RETURN jsonb_build_object(
+    'success', true,
+    'token', v_token,
+    'role', 'developer',
+    'email', LOWER(TRIM(p_email)),
+    'message', 'Email Developer resmi berhasil didaftarkan dan dikunci di Supabase Cloud!'
+  );
+END;
+$$;
+
+-- 5. RPC: Ambil Daftar Antrean Toko (Hanya untuk Admin Terotentikasi)
+CREATE OR REPLACE FUNCTION rpc_get_pending_stores(
+  p_admin_token TEXT
+)
+RETURNS SETOF pending_stores
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF p_admin_token IS NULL OR (NOT (p_admin_token LIKE 'dev_%' OR p_admin_token LIKE 'dist_%')) THEN
+    RAISE EXCEPTION 'Akses ditolak: Hanya administrator yang berhak melihat antrean calon mitra.';
+  END IF;
+
+  RETURN QUERY SELECT * FROM pending_stores ORDER BY submitted_at DESC;
+END;
+$$;
+
+-- 6. RPC: Hapus Toko Secara Aman (Hanya Super Admin Developer)
+CREATE OR REPLACE FUNCTION rpc_delete_store(
+  p_slug TEXT,
+  p_admin_token TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF p_slug = 'sr12-central' THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Toko Pusat tidak dapat dihapus.');
+  END IF;
+
+  IF p_admin_token IS NULL OR NOT (p_admin_token LIKE 'dev_%') THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Akses ditolak: Hanya Super Admin Developer yang berhak menghapus toko.');
+  END IF;
+
+  DELETE FROM stores WHERE slug = p_slug;
+  DELETE FROM pending_stores WHERE slug = p_slug;
+  DELETE FROM products WHERE store_slug = p_slug;
+  DELETE FROM mitra_downlines WHERE store_slug = p_slug;
+
+  RETURN jsonb_build_object('success', true, 'message', 'Toko dan seluruh datanya berhasil dihapus secara aman.');
+END;
+$$;

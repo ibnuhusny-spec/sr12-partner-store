@@ -2728,6 +2728,28 @@ function openRegisterStoreModal() {
   const recPreviewBox = document.getElementById('regRecommendationPreviewBox');
   if (recPreviewBox) recPreviewBox.style.display = 'none';
 
+  // Email, Password & Security reset
+  const regEmailInput = document.getElementById('regStoreEmail');
+  if (regEmailInput) regEmailInput.value = '';
+  const regPassInput = document.getElementById('regStorePassword');
+  if (regPassInput) regPassInput.value = '';
+  const regPassConfInput = document.getElementById('regStorePasswordConfirm');
+  if (regPassConfInput) regPassConfInput.value = '';
+  const honeypotInput = document.getElementById('regSecurityHoneypot');
+  if (honeypotInput) honeypotInput.value = '';
+
+  // Render Cloudflare Turnstile anti-bot widget jika tersedia
+  try {
+    const turnstileContainer = document.getElementById('cfTurnstileRegWidget');
+    if (turnstileContainer && window.turnstile && typeof window.turnstile.render === 'function') {
+      turnstileContainer.innerHTML = '';
+      window.cfTurnstileWidgetId = window.turnstile.render(turnstileContainer, {
+        sitekey: '1x00000000000000000000AA',
+        theme: 'light'
+      });
+    }
+  } catch(eTurn) {}
+
   const tierSelect = document.getElementById('regStoreTier');
   if (tierSelect) {
     tierSelect.value = 'distributor';
@@ -2753,16 +2775,26 @@ window.openRegisterStoreModal = openRegisterStoreModal;
 
 let isSubmittingStoreApp = false;
 
-function handleRegisterStoreSubmit(e) {
+async function handleRegisterStoreSubmit(e) {
   if (e) e.preventDefault();
   if (isSubmittingStoreApp) {
     console.log('Pengajuan buka toko sedang diproses, mencegah duplikasi klik...');
     return;
   }
 
+  // 1. Proteksi Anti-Bot: Honeypot Trap
+  const honeypot = document.getElementById('regSecurityHoneypot')?.value.trim();
+  if (honeypot) {
+    console.warn('⛔ Pengajuan ditolak: Terdeteksi aktivitas bot otomatis.');
+    return;
+  }
+
   const name = document.getElementById('regStoreName')?.value.trim();
   let slug = document.getElementById('regStoreSlug')?.value.trim().toLowerCase();
   const owner = document.getElementById('regStoreOwner')?.value.trim();
+  const email = document.getElementById('regStoreEmail')?.value.trim().toLowerCase();
+  const password = document.getElementById('regStorePassword')?.value.trim();
+  const confirmPassword = document.getElementById('regStorePasswordConfirm')?.value.trim();
   const tier = document.getElementById('regStoreTier')?.value || 'reseller';
   const wa = document.getElementById('regStoreWa')?.value.trim();
   const city = document.getElementById('regStoreCity')?.value.trim();
@@ -2776,6 +2808,28 @@ function handleRegisterStoreSubmit(e) {
 
   if (!name || !owner || !wa || !city) {
     alert('Mohon lengkapi semua data pendaftaran toko!');
+    return;
+  }
+
+  // 2. Validasi Akun Login Pemilik Toko
+  if (!email || !email.includes('@') || !email.includes('.')) {
+    alert('Mohon masukkan Email Aktif yang valid untuk akun login pemilik toko!');
+    const emailEl = document.getElementById('regStoreEmail');
+    if (emailEl) emailEl.focus();
+    return;
+  }
+
+  if (!password || password.length < 6) {
+    alert('Password toko wajib diisi minimal 6 karakter demi keamanan akun!');
+    const passEl = document.getElementById('regStorePassword');
+    if (passEl) passEl.focus();
+    return;
+  }
+
+  if (password !== confirmPassword) {
+    alert('Konfirmasi password tidak cocok dengan kata sandi yang dimasukkan!');
+    const passConfEl = document.getElementById('regStorePasswordConfirm');
+    if (passConfEl) passConfEl.focus();
     return;
   }
 
@@ -2812,7 +2866,7 @@ function handleRegisterStoreSubmit(e) {
   const submitBtn = document.getElementById('btnSubmitRegisterStore');
   if (submitBtn) {
     submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span>⏳</span> Mengirim Pengajuan & Dokumen...';
+    submitBtn.innerHTML = '<span>⏳</span> Mengamankan Akun & Mengirim Berkas...';
     submitBtn.style.opacity = '0.75';
     submitBtn.style.cursor = 'wait';
   }
@@ -2868,7 +2922,7 @@ function handleRegisterStoreSubmit(e) {
     }
   }
 
-  // Documents processing (with fallback to sharp official SVG certificates)
+  // Documents processing (with fallback to sharp official certificates)
   const ktpDocUrl = appState.tempRegKtpBase64 || getMockKtpSvgUrl(owner, nikNumber, city);
   const ktpDocName = appState.tempRegKtpDocName || `KTP_${owner.replace(/\s+/g, '_')}.jpg`;
   const skDocUrl = appState.tempRegSkBase64 || getMockSkSvgUrl(owner, nikNumber, name, skNumber, city);
@@ -2882,6 +2936,16 @@ function handleRegisterStoreSubmit(e) {
 
   if (appState.partnerStores.some(s => s.slug === slug) || (appState.pendingStoreApps && appState.pendingStoreApps.some(a => a.slug === slug))) {
     slug += '-' + Date.now().toString().slice(-4);
+  }
+
+  // 3. Hash Password Kriptografis berbasis Slug Toko (Anti-Plaintext & Anti-Bypass)
+  let passwordHash = '';
+  if (typeof hashPasswordSecure === 'function') {
+    try {
+      passwordHash = await hashPasswordSecure(password, slug);
+    } catch (eH) {
+      console.warn('hashPasswordSecure error:', eH);
+    }
   }
 
   const cleanWa = wa.startsWith('0') ? '62' + wa.slice(1) : wa;
@@ -2902,6 +2966,8 @@ function handleRegisterStoreSubmit(e) {
     storeCity: city,
     storeOwner: owner,
     partnerTier: tier,
+    ownerEmail: email,
+    passwordHash: passwordHash,
     feePayer: 'buyer',
     storeAdminPin: pin,
     nikNumber: nikNumber,
@@ -3329,6 +3395,8 @@ async function approvePendingStore(appId) {
     storeCity: app.storeCity,
     storeOwner: app.storeOwner,
     partnerTier: app.partnerTier,
+    ownerEmail: (app.ownerEmail || app.owner_email || '').toLowerCase().trim(),
+    passwordHash: app.passwordHash || app.password_hash || '',
     recommenderDistributor: app.recommenderDistributor || '',
     recommenderWa: app.recommenderWa || '',
     recommenderSlug: app.recommenderSlug || '',
@@ -3388,6 +3456,16 @@ async function approvePendingStore(appId) {
       console.warn('saveStoreToSupabase error:', e);
     }
   }
+
+  // Otomatis daftarkan / kunci akun login email pemilik toko di database Cloud
+  if (approvedStore.ownerEmail && approvedStore.passwordHash && typeof registerDistributorEmailInSupabase === 'function') {
+    try {
+      await registerDistributorEmailInSupabase(approvedStore.slug, approvedStore.ownerEmail, approvedStore.passwordHash, approvedStore.storeAdminPin);
+    } catch(eReg) {
+      console.warn('registerDistributorEmailInSupabase on approve error:', eReg);
+    }
+  }
+
   if (typeof deletePendingStoreFromSupabase === 'function') {
     try {
       await deletePendingStoreFromSupabase(app.id, app.slug);
@@ -5266,12 +5344,25 @@ function initEventListeners() {
     btnCloseStoreSettings.addEventListener('click', () => modalStoreSettings.classList.remove('open'));
   }
 
+  // Helper Validator Format File Gambar Ketat (Hanya JPG & PNG Resmi)
+  function isStrictImageFile(file) {
+    if (!file) return false;
+    const validMimes = ['image/jpeg', 'image/png'];
+    const validExts = /\.(jpe?g|png)$/i;
+    return validMimes.includes(file.type) || validExts.test(file.name);
+  }
+
   // Store Logo Upload
   const storeLogoFileInput = document.getElementById('settingLogoFileInput');
   if (storeLogoFileInput) {
     storeLogoFileInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (file) {
+        if (!isStrictImageFile(file)) {
+          alert('Format file tidak didukung! Demi keamanan sistem, hanya diperbolehkan mengupload foto format JPG atau PNG.');
+          e.target.value = '';
+          return;
+        }
         if (typeof showToast === 'function') {
           showToast('⏳ Memproses & mengoptimasi foto profil...');
         }
@@ -5329,6 +5420,11 @@ function initEventListeners() {
     regLogoFileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file) {
+        if (!isStrictImageFile(file)) {
+          alert('Format file tidak didukung! Hanya format gambar JPG dan PNG yang diperbolehkan.');
+          e.target.value = '';
+          return;
+        }
         const reader = new FileReader();
         reader.onload = (event) => {
           appState.tempRegLogoBase64 = event.target.result;
@@ -5348,6 +5444,11 @@ function initEventListeners() {
     regKtpFileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file) {
+        if (!isStrictImageFile(file)) {
+          alert('Format file tidak didukung! Unggah foto dokumen KTP asli berformat JPG atau PNG.');
+          e.target.value = '';
+          return;
+        }
         appState.tempRegKtpDocName = file.name;
         const reader = new FileReader();
         reader.onload = (event) => {
@@ -5373,6 +5474,11 @@ function initEventListeners() {
     regSkFileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file) {
+        if (!isStrictImageFile(file)) {
+          alert('Format file tidak didukung! Unggah foto berkas SK resmi berformat JPG atau PNG.');
+          e.target.value = '';
+          return;
+        }
         appState.tempRegSkDocName = file.name;
         const reader = new FileReader();
         reader.onload = (event) => {
@@ -5382,12 +5488,38 @@ function initEventListeners() {
           const docNameSpan = document.getElementById('regSkDocName');
           if (docNameSpan) docNameSpan.textContent = `📎 ${file.name} (${Math.round(file.size / 1024)} KB)`;
           if (previewImg) {
-            if (file.type.startsWith('image/')) {
-              previewImg.src = event.target.result;
-              previewImg.style.display = 'inline-block';
-            } else {
-              previewImg.style.display = 'none';
-            }
+            previewImg.src = event.target.result;
+            previewImg.style.display = 'inline-block';
+          }
+          if (previewBox) previewBox.style.display = 'flex';
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  }
+
+  // Registration Store Recommendation Document Upload
+  const regRecommendationFileInput = document.getElementById('regRecommendationFileInput');
+  if (regRecommendationFileInput) {
+    regRecommendationFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        if (!isStrictImageFile(file)) {
+          alert('Format berkas tidak didukung! Unggah surat rekomendasi berformat foto JPG atau PNG.');
+          e.target.value = '';
+          return;
+        }
+        appState.tempRegRecDocName = file.name;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          appState.tempRegRecBase64 = event.target.result;
+          const previewBox = document.getElementById('regRecommendationPreviewBox');
+          const previewImg = document.getElementById('regRecommendationPreviewImg');
+          const docNameSpan = document.getElementById('regRecommendationDocName');
+          if (docNameSpan) docNameSpan.textContent = `👑 ${file.name} (${Math.round(file.size / 1024)} KB)`;
+          if (previewImg) {
+            previewImg.src = event.target.result;
+            previewImg.style.display = 'inline-block';
           }
           if (previewBox) previewBox.style.display = 'flex';
         };
@@ -5402,6 +5534,11 @@ function initEventListeners() {
     regSelfieFileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file) {
+        if (!isStrictImageFile(file)) {
+          alert('Format foto selfie tidak didukung! Hanya diperbolehkan format foto JPG atau PNG.');
+          e.target.value = '';
+          return;
+        }
         appState.tempRegSelfieDocName = file.name;
         const reader = new FileReader();
         reader.onload = (event) => {
@@ -5427,6 +5564,11 @@ function initEventListeners() {
     settingBannerFileInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (file) {
+        if (!isStrictImageFile(file)) {
+          alert('Format file tidak didukung! Unggah foto banner toko berformat JPG atau PNG.');
+          e.target.value = '';
+          return;
+        }
         showToast('⏳ Memproses & mengoptimasi banner toko...');
         try {
           const compressed = await compressImageSource(file, 800, 0.75);
@@ -5465,6 +5607,11 @@ function initEventListeners() {
     editProdFileInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (file) {
+        if (!isStrictImageFile(file)) {
+          alert('Format foto produk tidak didukung! Hanya menerima gambar format JPG atau PNG.');
+          e.target.value = '';
+          return;
+        }
         showToast('⏳ Memproses & mengoptimasi foto produk...');
         try {
           const compressed = await compressImageSource(file, 500, 0.76);
@@ -6406,8 +6553,7 @@ async function handleSecurityPinChangeSubmit(e) {
     const validDevPins = [
       String(appState.masterDevPin || '').trim(),
       String(getStoredDevPin() || '').trim(),
-      String(localStorage.getItem('sr12_master_dev_pin') || '').trim(),
-      '8899'
+      String(localStorage.getItem('sr12_master_dev_pin') || '').trim()
     ].filter(Boolean);
     if (!validDevPins.includes(inputPin)) {
       showAlert('PIN Lama Pengembang salah! Verifikasi otentikasi gagal.');
@@ -6416,11 +6562,11 @@ async function handleSecurityPinChangeSubmit(e) {
   } else {
     const storeSlug = appState.currentStoreSlug || (appState.storeSettings && appState.storeSettings.slug);
     const store = (appState.partnerStores || []).find(s => s.slug === storeSlug) || appState.storeSettings || DEFAULT_STORE_SETTINGS;
-    const actualStorePin = String(store.storeAdminPin || (appState.storeSettings && appState.storeSettings.storeAdminPin) || '1234').trim();
-    const masterPin = String(appState.masterDevPin || '8899').trim();
+    const actualStorePin = String(store.storeAdminPin || (appState.storeSettings && appState.storeSettings.storeAdminPin) || '').trim();
+    const masterPin = String(appState.masterDevPin || '').trim();
 
-    // Verifikasi toleran: cocok dengan PIN toko saat ini, master dev PIN, atau PIN default awal 1234
-    const isMatch = (inputPin === actualStorePin) || (inputPin === masterPin) || (inputPin === '1234');
+    // Verifikasi otentikasi: cocok dengan PIN toko saat ini atau master dev PIN yang sah
+    const isMatch = (actualStorePin && inputPin === actualStorePin) || (masterPin && inputPin === masterPin);
     if (!isMatch) {
       showAlert('PIN Lama Toko salah! Verifikasi otentikasi gagal.');
       return;
@@ -7139,21 +7285,39 @@ function checkoutViaWhatsApp() {
     return;
   }
 
+  // Proteksi Integritas Katalog & Anti-Tamper Kalkulasi Harga
   let totalHet = 0;
   let subtotal = 0;
   let totalPcs = 0;
   const tier = SR12_TIERS[appState.currentTier] || SR12_TIERS.konsumen;
 
-  const itemsText = appState.cart.map((item, idx) => {
-    const prod = appState.products.find(p => p.id === item.productId);
-    const price = getProductTierPrice(prod, appState.currentTier);
-    totalHet += (prod.het || price) * item.qty;
-    subtotal += price * item.qty;
-    totalPcs += item.qty;
-    const isDiscounted = appState.currentTier !== 'konsumen' && price < prod.het;
-    return `${idx + 1}. ${prod.name} (${item.qty} pcs) x ${formatRupiah(price)}${isDiscounted ? ` [Diskon ${tier.discountPct}% dari ${formatRupiah(prod.het)}]` : ''} = ${formatRupiah(price * item.qty)}`;
-  }).join('\n');
+  const validatedCartItems = [];
+  for (let i = 0; i < appState.cart.length; i++) {
+    const item = appState.cart[i];
+    const prod = (appState.products || []).find(p => p.id === item.productId);
+    if (!prod || !prod.name) continue;
 
+    const qty = Math.max(1, parseInt(item.qty, 10) || 1);
+    // Verifikasi harga HET resmi (anti-tamper Rp 0 atau negatif)
+    const officialHet = Math.max(1000, Number(prod.het) || 1000);
+    prod.het = officialHet;
+    const price = getProductTierPrice(prod, appState.currentTier);
+
+    totalHet += officialHet * qty;
+    subtotal += price * qty;
+    totalPcs += qty;
+
+    const isDiscounted = appState.currentTier !== 'konsumen' && price < officialHet;
+    const text = `${validatedCartItems.length + 1}. ${prod.name} (${qty} pcs) x ${formatRupiah(price)}${isDiscounted ? ` [Diskon ${tier.discountPct}% dari ${formatRupiah(officialHet)}]` : ''} = ${formatRupiah(price * qty)}`;
+    validatedCartItems.push({ item, prod, qty, price, text });
+  }
+
+  if (validatedCartItems.length === 0) {
+    alert('Keranjang belanja Anda tidak memuat produk resmi yang valid!');
+    return;
+  }
+
+  const itemsText = validatedCartItems.map(v => v.text).join('\n');
   const totalSavings = Math.max(0, totalHet - subtotal);
   const isVerifiedPartner = !!appState.verifiedMitra && appState.verifiedMitra.tier === appState.currentTier;
 
