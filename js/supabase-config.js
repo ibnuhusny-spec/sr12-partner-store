@@ -314,6 +314,25 @@ async function saveStoreToSupabase(store) {
       payload.password_hash = String(store.passwordHash || store.password_hash).trim();
     }
 
+    // 1. Prioritas Utama: Eksekusi Stored Procedure Terotentikasi rpc_update_store_profile (Anti-Tamper)
+    const token = getActiveSessionToken(store.slug);
+    if (token) {
+      try {
+        const { data: rpcRes, error: rpcErr } = await client.rpc('rpc_update_store_profile', {
+          p_slug: store.slug,
+          p_token: token,
+          p_profile: payload
+        });
+        if (!rpcErr && rpcRes && rpcRes.success) {
+          console.log('⚡ [RPC] Berhasil perbarui profil toko aman:', store.storeName);
+          return true;
+        } else if (rpcErr) {
+          console.warn('RPC rpc_update_store_profile notice:', rpcErr.message || rpcErr);
+        }
+      } catch(eRpc) {}
+    }
+
+    // 2. Fallback upsert
     const { error } = await client
       .from('stores')
       .upsert(payload, { onConflict: 'slug' });
@@ -855,7 +874,25 @@ async function saveMitraToSupabase(mitra, storeSlug = 'sr12-central') {
       status: mitra.status || 'active'
     };
 
-    // Cek apakah data mitra sudah ada di Supabase Cloud (berdasarkan store_slug DAN partner_code unik)
+    // 1. Prioritas Utama: Eksekusi Stored Procedure Terotentikasi rpc_save_store_downline (Anti-Leak)
+    const token = getActiveSessionToken(targetStoreSlug);
+    if (token) {
+      try {
+        const { data: rpcRes, error: rpcErr } = await client.rpc('rpc_save_store_downline', {
+          p_slug: targetStoreSlug,
+          p_token: token,
+          p_mitra: payload
+        });
+        if (!rpcErr && rpcRes && rpcRes.success) {
+          console.log('⚡ [RPC] Berhasil simpan mitra terisolasi aman:', targetStoreSlug, mitra.id);
+          return true;
+        } else if (rpcErr) {
+          console.warn('RPC rpc_save_store_downline notice:', rpcErr.message || rpcErr);
+        }
+      } catch(eRpc) {}
+    }
+
+    // 2. Fallback query langsung jika RLS server masih terbuka
     const { data: existing } = await client
       .from('mitra_downlines')
       .select('id')
@@ -883,16 +920,34 @@ async function saveMitraToSupabase(mitra, storeSlug = 'sr12-central') {
 }
 
 /**
- * Hapus Mitra dari Supabase Cloud
+ * Hapus Mitra dari Supabase Cloud (Terisolasi per Toko via RPC rpc_delete_store_downline)
  */
 async function deleteMitraFromSupabase(partnerCode, storeSlug = 'sr12-central') {
   const client = initSupabaseClient();
   if (!client || !partnerCode) return;
   try {
+    const targetSlug = storeSlug || 'sr12-central';
+    const token = getActiveSessionToken(targetSlug);
+    if (token) {
+      try {
+        const { data: rpcRes, error: rpcErr } = await client.rpc('rpc_delete_store_downline', {
+          p_slug: targetSlug,
+          p_token: token,
+          p_partner_code: String(partnerCode)
+        });
+        if (!rpcErr && rpcRes && rpcRes.success) {
+          console.log('⚡ [RPC] Berhasil hapus mitra terisolasi:', targetSlug, partnerCode);
+          return true;
+        } else if (rpcErr) {
+          console.warn('RPC rpc_delete_store_downline notice:', rpcErr.message || rpcErr);
+        }
+      } catch(eRpc) {}
+    }
+
     const { error } = await client
       .from('mitra_downlines')
       .delete()
-      .eq('store_slug', storeSlug)
+      .eq('store_slug', targetSlug)
       .eq('partner_code', partnerCode);
     if (error) console.warn('Supabase delete mitra error:', error);
   } catch (e) {}
@@ -1064,6 +1119,25 @@ async function saveProductToSupabase(prod, storeSlug = 'global') {
       stock: (typeof prod.stock !== 'undefined') ? Number(prod.stock) : 50
     };
 
+    // 1. Prioritas Utama: Eksekusi Stored Procedure Terotentikasi rpc_save_store_product
+    const token = getActiveSessionToken(cleanStore);
+    if (token) {
+      try {
+        const { data: rpcRes, error: rpcErr } = await client.rpc('rpc_save_store_product', {
+          p_slug: cleanStore,
+          p_token: token,
+          p_product: payload
+        });
+        if (!rpcErr && rpcRes && rpcRes.success) {
+          console.log('⚡ [RPC] Produk berhasil disinkronkan aman ke Supabase Cloud:', prod.name);
+          return true;
+        } else if (rpcErr) {
+          console.warn('RPC rpc_save_store_product notice:', rpcErr.message || rpcErr);
+        }
+      } catch(eRpc) {}
+    }
+
+    // 2. Fallback query langsung jika RLS server masih terbuka
     const { data: existing } = await client
       .from('products')
       .select('id')
@@ -1081,6 +1155,36 @@ async function saveProductToSupabase(prod, storeSlug = 'global') {
     return true;
   } catch (err) {
     console.warn('Gagal simpan produk ke Supabase:', err);
+    return false;
+  }
+}
+
+/**
+ * Hapus data produk dari Supabase Cloud (Terotentikasi via rpc_delete_store_product)
+ */
+async function deleteProductFromSupabase(productId, storeSlug = 'global') {
+  const client = initSupabaseClient();
+  if (!client || !productId) return false;
+  try {
+    const cleanStore = (storeSlug && storeSlug !== 'all') ? storeSlug : 'sr12-central';
+    const token = getActiveSessionToken(cleanStore);
+    if (token) {
+      try {
+        const { data: rpcRes, error: rpcErr } = await client.rpc('rpc_delete_store_product', {
+          p_slug: cleanStore,
+          p_token: token,
+          p_product_id: String(productId)
+        });
+        if (!rpcErr && rpcRes && rpcRes.success) {
+          console.log('⚡ [RPC] Produk berhasil dihapus secara aman:', productId);
+          return true;
+        }
+      } catch(eRpc) {}
+    }
+
+    await client.from('products').delete().eq('id', productId).eq('store_slug', cleanStore);
+    return true;
+  } catch(e) {
     return false;
   }
 }
@@ -1560,7 +1664,26 @@ async function updateOrderStatusInSupabase(orderId, newStatus, storeSlug = 'sr12
     const isPaid = (newStatus === 'Selesai' || newStatus === 'Lunas' || newStatus === 'Lunas / Selesai');
     const canonicalStatus = isPaid ? 'Lunas / Selesai' : newStatus;
 
-    // 1. Coba update di tabel orders
+    // 1. Prioritas Utama: Eksekusi Stored Procedure Terotentikasi rpc_update_order_status (Anti-Tamper)
+    const token = getActiveSessionToken(targetStore);
+    if (token) {
+      try {
+        const { data: rpcRes, error: rpcErr } = await client.rpc('rpc_update_order_status', {
+          p_slug: targetStore,
+          p_order_id: String(orderId),
+          p_new_status: canonicalStatus,
+          p_token: token
+        });
+        if (!rpcErr && rpcRes && rpcRes.success) {
+          console.log('⚡ [RPC] Status order berhasil diperbarui aman:', orderId, canonicalStatus);
+          return true;
+        } else if (rpcErr) {
+          console.warn('RPC rpc_update_order_status notice:', rpcErr.message || rpcErr);
+        }
+      } catch(eRpc) {}
+    }
+
+    // 2. Fallback update langsung jika RLS server masih mengizinkan
     try {
       await client.from('orders').update({ status: canonicalStatus }).eq('order_id', orderId).eq('store_slug', targetStore);
     } catch(e) {}
@@ -1970,6 +2093,7 @@ window.syncMarketerSalesFromSupabase = syncMarketerSalesFromSupabase;
 window.saveMarketerSaleToSupabase = saveMarketerSaleToSupabase;
 window.clearMarketerSalesFromSupabase = clearMarketerSalesFromSupabase;
 window.saveProductToSupabase = saveProductToSupabase;
+window.deleteProductFromSupabase = deleteProductFromSupabase;
 window.syncProductsFromSupabase = syncProductsFromSupabase;
 window.findMitraInSupabase = findMitraInSupabase;
 window.fetchSingleProductFromSupabase = fetchSingleProductFromSupabase;

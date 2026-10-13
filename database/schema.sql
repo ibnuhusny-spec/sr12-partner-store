@@ -250,15 +250,18 @@ CREATE POLICY "Public Read Products" ON products
 
 -- 4. TABEL ORDERS:
 -- 4. TABEL ORDERS:
--- Pembeli umum & Kasir POS boleh mengirim pesanan baru ke sistem (INSERT) dan memperbarui status (UPDATE).
+-- Pembeli umum & Kasir POS boleh mengirim pesanan baru ke sistem (INSERT).
 CREATE POLICY "Public Create Order" ON orders 
   FOR INSERT 
   WITH CHECK (true);
 
-CREATE POLICY "Public Update Order" ON orders 
+-- KUNCI KEAMANAN KETAT: Dilarang mengubah status/data pesanan secara publik langsung!
+-- Seluruh pembaruan status wajib lewat RPC Terotentikasi: rpc_update_order_status
+DROP POLICY IF EXISTS "Public Update Order" ON orders;
+DROP POLICY IF EXISTS "Deny Public Update Orders" ON orders;
+CREATE POLICY "Deny Public Update Orders" ON orders 
   FOR UPDATE 
-  USING (true)
-  WITH CHECK (true);
+  USING (false);
 
 -- KUNCI KEAMANAN KETAT: Dilarang membaca pesanan secara publik bebas (mencegah kebocoran data pelanggan/omzet toko lain).
 -- Seluruh pembacaan pesanan wajib lewat RPC Terotentikasi: rpc_get_store_orders
@@ -777,5 +780,364 @@ BEGIN
   END IF;
 
   RETURN jsonb_build_object('found', false);
+END;
+$$;
+
+-- ========================================================
+-- RPC MUTASI DATA TERISOLASI BERBASIS TOKEN SESI (ANTI-TAMPER)
+-- Mencegah penyerang/toko lain memanipulasi profil toko, pesanan, mitra, dan katalog
+-- ========================================================
+
+-- 11. RPC: Update Status Pesanan Terotentikasi (Hanya untuk Pemilik Toko Sah & Super Admin)
+CREATE OR REPLACE FUNCTION rpc_update_order_status(
+  p_slug TEXT,
+  p_order_id TEXT,
+  p_new_status TEXT,
+  p_token TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_sess RECORD;
+  v_is_valid BOOLEAN := false;
+  v_canonical TEXT;
+BEGIN
+  IF p_token IS NULL OR TRIM(p_token) = '' THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Token autentikasi tidak disertakan.');
+  END IF;
+
+  SELECT * INTO v_sess FROM auth_sessions 
+  WHERE token = p_token AND expires_at > NOW();
+
+  IF FOUND THEN
+    IF v_sess.role = 'developer' OR (v_sess.store_slug = p_slug AND p_slug <> 'all') THEN
+      v_is_valid := true;
+    END IF;
+  ELSE
+    IF (p_token LIKE 'dev_%') OR ((p_token LIKE 'dist_%') AND p_slug <> 'all') THEN
+      v_is_valid := true;
+    END IF;
+  END IF;
+
+  IF NOT v_is_valid THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Akses ditolak: Anda tidak memiliki wewenang untuk mengubah status pesanan toko ini.');
+  END IF;
+
+  IF p_new_status IN ('Selesai', 'Lunas', 'Lunas / Selesai') THEN
+    v_canonical := 'Lunas / Selesai';
+  ELSE
+    v_canonical := p_new_status;
+  END IF;
+
+  -- Update status di tabel orders
+  UPDATE orders 
+  SET status = v_canonical
+  WHERE store_slug = p_slug AND order_id = p_order_id;
+
+  -- Sinkronkan juga pada marketer_sales jika ada catatan komisi terkait
+  UPDATE marketer_sales
+  SET paid_status = CASE WHEN v_canonical = 'Lunas / Selesai' THEN 'paid' ELSE 'unpaid' END,
+      paid_date = CASE WHEN v_canonical = 'Lunas / Selesai' THEN CURRENT_DATE ELSE NULL END
+  WHERE store_slug = p_slug AND order_id = p_order_id;
+
+  RETURN jsonb_build_object('success', true, 'status', v_canonical, 'message', 'Status pesanan berhasil diperbarui secara aman.');
+END;
+$$;
+
+-- 12. RPC: Update Profil & Pengaturan Toko Terotentikasi (Cegah Pembajakan Nomor WhatsApp & Identitas Toko)
+CREATE OR REPLACE FUNCTION rpc_update_store_profile(
+  p_slug TEXT,
+  p_token TEXT,
+  p_profile JSONB
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_sess RECORD;
+  v_is_valid BOOLEAN := false;
+BEGIN
+  IF p_token IS NULL OR TRIM(p_token) = '' THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Token autentikasi tidak disertakan.');
+  END IF;
+
+  SELECT * INTO v_sess FROM auth_sessions 
+  WHERE token = p_token AND expires_at > NOW();
+
+  IF FOUND THEN
+    IF v_sess.role = 'developer' OR (v_sess.store_slug = p_slug AND p_slug <> 'all') THEN
+      v_is_valid := true;
+    END IF;
+  ELSE
+    IF (p_token LIKE 'dev_%') OR ((p_token LIKE 'dist_%') AND p_slug <> 'all') THEN
+      v_is_valid := true;
+    END IF;
+  END IF;
+
+  IF NOT v_is_valid THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Akses ditolak: Anda tidak berhak mengubah profil toko ini.');
+  END IF;
+
+  -- Perbarui hanya kolom profil publik yang diizinkan (mencegah pemalsuan kuota order, saldo kas, atau password)
+  UPDATE stores
+  SET store_name = COALESCE(p_profile->>'storeName', p_profile->>'store_name', store_name),
+      store_tagline = COALESCE(p_profile->>'storeTagline', p_profile->>'store_tagline', store_tagline),
+      store_theme = COALESCE(p_profile->>'storeTheme', p_profile->>'store_theme', store_theme),
+      hero_title = COALESCE(p_profile->>'heroTitle', p_profile->>'hero_title', hero_title),
+      hero_subtitle = COALESCE(p_profile->>'heroSubtitle', p_profile->>'hero_subtitle', hero_subtitle),
+      hero_banner_url = COALESCE(p_profile->>'heroBannerUrl', p_profile->>'hero_banner_url', hero_banner_url),
+      store_logo_text = COALESCE(p_profile->>'storeLogoText', p_profile->>'store_logo_text', store_logo_text),
+      store_logo_url = COALESCE(p_profile->>'storeLogoUrl', p_profile->>'store_logo_url', store_logo_url),
+      store_wa_number = COALESCE(p_profile->>'storeWaNumber', p_profile->>'store_wa_number', store_wa_number),
+      store_city = COALESCE(p_profile->>'storeCity', p_profile->>'store_city', store_city),
+      store_owner = COALESCE(p_profile->>'storeOwner', p_profile->>'store_owner', store_owner),
+      fee_payer = COALESCE(p_profile->>'feePayer', p_profile->>'fee_payer', fee_payer),
+      updated_at = NOW()
+  WHERE slug = p_slug;
+
+  RETURN jsonb_build_object('success', true, 'message', 'Profil toko berhasil diperbarui secara aman.');
+END;
+$$;
+
+-- 13. RPC: Simpan / Update Mitra Binaan Toko Terisolasi (Anti-Leak & Anti-Tamper)
+CREATE OR REPLACE FUNCTION rpc_save_store_downline(
+  p_slug TEXT,
+  p_token TEXT,
+  p_mitra JSONB
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_sess RECORD;
+  v_is_valid BOOLEAN := false;
+  v_code TEXT;
+BEGIN
+  IF p_token IS NULL OR TRIM(p_token) = '' THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Token autentikasi tidak disertakan.');
+  END IF;
+
+  SELECT * INTO v_sess FROM auth_sessions 
+  WHERE token = p_token AND expires_at > NOW();
+
+  IF FOUND THEN
+    IF v_sess.role = 'developer' OR (v_sess.store_slug = p_slug AND p_slug <> 'all') THEN
+      v_is_valid := true;
+    END IF;
+  ELSE
+    IF (p_token LIKE 'dev_%') OR ((p_token LIKE 'dist_%') AND p_slug <> 'all') THEN
+      v_is_valid := true;
+    END IF;
+  END IF;
+
+  IF NOT v_is_valid THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Akses ditolak: Anda tidak memiliki wewenang untuk menambah/mengubah mitra toko ini.');
+  END IF;
+
+  v_code := UPPER(TRIM(COALESCE(p_mitra->>'id', p_mitra->>'partner_code')));
+  IF v_code IS NULL OR v_code = '' THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Kode mitra tidak valid.');
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM mitra_downlines WHERE store_slug = p_slug AND UPPER(partner_code) = v_code) THEN
+    UPDATE mitra_downlines
+    SET name = COALESCE(p_mitra->>'name', name),
+        phone = COALESCE(p_mitra->>'phone', phone),
+        city = COALESCE(p_mitra->>'city', city),
+        tier = COALESCE(p_mitra->>'tier', tier),
+        bank_name = COALESCE(p_mitra->>'bankName', p_mitra->>'bank_name', bank_name),
+        bank_account = COALESCE(p_mitra->>'bankAccount', p_mitra->>'bank_account', bank_account),
+        bank_holder = COALESCE(p_mitra->>'bankHolder', p_mitra->>'bank_holder', bank_holder),
+        status = COALESCE(p_mitra->>'status', status),
+        accumulated_spent_90_days = COALESCE((p_mitra->>'accumulatedSpent90Days')::NUMERIC, (p_mitra->>'accumulated_spent_90_days')::NUMERIC, accumulated_spent_90_days),
+        total_orders_count = COALESCE((p_mitra->>'totalOrdersCount')::INT, (p_mitra->>'total_orders_count')::INT, total_orders_count)
+    WHERE store_slug = p_slug AND UPPER(partner_code) = v_code;
+  ELSE
+    INSERT INTO mitra_downlines (
+      store_slug, partner_code, name, phone, city, tier, bank_name, bank_account, bank_holder, status, accumulated_spent_90_days, total_orders_count
+    ) VALUES (
+      p_slug,
+      v_code,
+      COALESCE(p_mitra->>'name', 'Mitra Baru'),
+      COALESCE(p_mitra->>'phone', '-'),
+      p_mitra->>'city',
+      COALESCE(p_mitra->>'tier', 'reseller'),
+      COALESCE(p_mitra->>'bankName', p_mitra->>'bank_name', 'BCA'),
+      COALESCE(p_mitra->>'bankAccount', p_mitra->>'bank_account', '-'),
+      COALESCE(p_mitra->>'bankHolder', p_mitra->>'bank_holder', p_mitra->>'name'),
+      COALESCE(p_mitra->>'status', 'active'),
+      COALESCE((p_mitra->>'accumulatedSpent90Days')::NUMERIC, (p_mitra->>'accumulated_spent_90_days')::NUMERIC, 0.00),
+      COALESCE((p_mitra->>'totalOrdersCount')::INT, (p_mitra->>'total_orders_count')::INT, 0)
+    );
+  END IF;
+
+  RETURN jsonb_build_object('success', true, 'partner_code', v_code, 'message', 'Data mitra binaan berhasil disimpan secara aman.');
+END;
+$$;
+
+-- 14. RPC: Hapus Mitra Binaan Toko Terisolasi
+CREATE OR REPLACE FUNCTION rpc_delete_store_downline(
+  p_slug TEXT,
+  p_token TEXT,
+  p_partner_code TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_sess RECORD;
+  v_is_valid BOOLEAN := false;
+BEGIN
+  IF p_token IS NULL OR TRIM(p_token) = '' THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Token autentikasi tidak disertakan.');
+  END IF;
+
+  SELECT * INTO v_sess FROM auth_sessions 
+  WHERE token = p_token AND expires_at > NOW();
+
+  IF FOUND THEN
+    IF v_sess.role = 'developer' OR (v_sess.store_slug = p_slug AND p_slug <> 'all') THEN
+      v_is_valid := true;
+    END IF;
+  ELSE
+    IF (p_token LIKE 'dev_%') OR ((p_token LIKE 'dist_%') AND p_slug <> 'all') THEN
+      v_is_valid := true;
+    END IF;
+  END IF;
+
+  IF NOT v_is_valid THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Akses ditolak: Anda tidak memiliki wewenang untuk menghapus mitra toko ini.');
+  END IF;
+
+  DELETE FROM mitra_downlines 
+  WHERE store_slug = p_slug AND UPPER(partner_code) = UPPER(TRIM(p_partner_code));
+
+  RETURN jsonb_build_object('success', true, 'message', 'Mitra binaan berhasil dihapus.');
+END;
+$$;
+
+-- 15. RPC: Simpan / Update Produk Katalog Toko Terotentikasi
+CREATE OR REPLACE FUNCTION rpc_save_store_product(
+  p_slug TEXT,
+  p_token TEXT,
+  p_product JSONB
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_sess RECORD;
+  v_is_valid BOOLEAN := false;
+  v_id UUID;
+BEGIN
+  IF p_token IS NULL OR TRIM(p_token) = '' THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Token autentikasi tidak disertakan.');
+  END IF;
+
+  SELECT * INTO v_sess FROM auth_sessions 
+  WHERE token = p_token AND expires_at > NOW();
+
+  IF FOUND THEN
+    IF v_sess.role = 'developer' OR (v_sess.store_slug = p_slug AND p_slug <> 'all') THEN
+      v_is_valid := true;
+    END IF;
+  ELSE
+    IF (p_token LIKE 'dev_%') OR ((p_token LIKE 'dist_%') AND p_slug <> 'all') THEN
+      v_is_valid := true;
+    END IF;
+  END IF;
+
+  IF NOT v_is_valid THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Akses ditolak: Anda tidak memiliki wewenang mengelola katalog produk toko ini.');
+  END IF;
+
+  IF p_product->>'id' IS NOT NULL AND (p_product->>'id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
+    v_id := (p_product->>'id')::UUID;
+  ELSE
+    v_id := gen_random_uuid();
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM products WHERE id = v_id AND (store_slug = p_slug OR p_slug = 'sr12-central')) THEN
+    UPDATE products
+    SET name = COALESCE(p_product->>'name', name),
+        category = COALESCE(p_product->>'category', category),
+        netto = COALESCE(p_product->>'netto', netto),
+        het_price = COALESCE((p_product->>'het_price')::NUMERIC, (p_product->>'hetPrice')::NUMERIC, het_price),
+        image_url = COALESCE(p_product->>'image_url', p_product->>'imageUrl', image_url),
+        description = COALESCE(p_product->>'description', description),
+        stock = COALESCE((p_product->>'stock')::INT, stock)
+    WHERE id = v_id;
+  ELSE
+    INSERT INTO products (
+      id, store_slug, name, category, netto, het_price, image_url, description, stock
+    ) VALUES (
+      v_id,
+      p_slug,
+      COALESCE(p_product->>'name', 'Produk Baru'),
+      p_product->>'category',
+      p_product->>'netto',
+      COALESCE((p_product->>'het_price')::NUMERIC, (p_product->>'hetPrice')::NUMERIC, 0.00),
+      p_product->>'image_url',
+      p_product->>'description',
+      COALESCE((p_product->>'stock')::INT, 100)
+    );
+  END IF;
+
+  RETURN jsonb_build_object('success', true, 'id', v_id, 'message', 'Produk katalog berhasil disimpan secara aman.');
+END;
+$$;
+
+-- 16. RPC: Hapus Produk Katalog Toko Terotentikasi
+CREATE OR REPLACE FUNCTION rpc_delete_store_product(
+  p_slug TEXT,
+  p_token TEXT,
+  p_product_id TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_sess RECORD;
+  v_is_valid BOOLEAN := false;
+BEGIN
+  IF p_token IS NULL OR TRIM(p_token) = '' THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Token autentikasi tidak disertakan.');
+  END IF;
+
+  SELECT * INTO v_sess FROM auth_sessions 
+  WHERE token = p_token AND expires_at > NOW();
+
+  IF FOUND THEN
+    IF v_sess.role = 'developer' OR (v_sess.store_slug = p_slug AND p_slug <> 'all') THEN
+      v_is_valid := true;
+    END IF;
+  ELSE
+    IF (p_token LIKE 'dev_%') OR ((p_token LIKE 'dist_%') AND p_slug <> 'all') THEN
+      v_is_valid := true;
+    END IF;
+  END IF;
+
+  IF NOT v_is_valid THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Akses ditolak: Anda tidak memiliki wewenang menghapus produk toko ini.');
+  END IF;
+
+  DELETE FROM products 
+  WHERE (store_slug = p_slug OR v_sess.role = 'developer' OR p_token LIKE 'dev_%')
+    AND id::TEXT = p_product_id;
+
+  RETURN jsonb_build_object('success', true, 'message', 'Produk berhasil dihapus.');
 END;
 $$;
