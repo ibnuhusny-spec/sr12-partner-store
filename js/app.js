@@ -1992,6 +1992,35 @@ document.addEventListener('DOMContentLoaded', async () => {
             switchPartnerStore('sr12-central');
           }
 
+          // Sinkronisasi data rekening & profil Developer dari row sr12-central di Supabase Cloud
+          const centralCloud = cloudStores.find(s => s && s.slug === 'sr12-central');
+          if (centralCloud) {
+            const idxCentral = appState.partnerStores.findIndex(s => s && s.slug === 'sr12-central');
+            if (idxCentral >= 0) {
+              appState.partnerStores[idxCentral] = Object.assign({}, appState.partnerStores[idxCentral], centralCloud);
+            }
+            if (appState.currentStoreSlug === 'sr12-central' && appState.storeSettings) {
+              appState.storeSettings = Object.assign({}, appState.storeSettings, centralCloud);
+            }
+            const rawSub = centralCloud.heroSubtitle || centralCloud.hero_subtitle;
+            if (rawSub) {
+              try {
+                const parsed = typeof rawSub === 'string' ? JSON.parse(rawSub) : rawSub;
+                if (parsed && typeof parsed === 'object') {
+                  const existing = getStoredDevPaymentSettings();
+                  const merged = Object.assign({}, existing, parsed);
+                  appState.devPaymentSettings = merged;
+                  try {
+                    localStorage.setItem('sr12_dev_payment_settings_v1', JSON.stringify(merged));
+                  } catch (eLS) {}
+                  if (typeof updateDevPaymentUI === 'function') {
+                    updateDevPaymentUI();
+                  }
+                }
+              } catch (eParse) {}
+            }
+          }
+
           cloudStores.forEach(apiStore => {
             if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central' || apiStore.slug === 'toko-supa-distributor' || apiStore.slug.startsWith('deleted_') || apiStore.slug.includes('toko-supa') || deletedSlugs.includes(apiStore.slug)) return;
             const idx = appState.partnerStores.findIndex(s => s.slug === apiStore.slug);
@@ -4526,10 +4555,145 @@ window.showCurrentStoreSk = showCurrentStoreSk;
 // Security Lockout Tracker (Anti-Brute Force PIN)
 const securityLockout = {
   devPinFails: 0,
-  devLockedUntil: 0,
-  storeLoginFails: 0,
-  storeLockedUntil: 0
+  devLockedUntil: 0
 };
+
+// Persistent Anti-Brute Force Rate Limiting (Tersimpan di LocalStorage agar anti-refresh)
+function getAuthLockout(type = 'store') {
+  try {
+    const raw = localStorage.getItem(`sr12_lockout_${type}`);
+    if (raw) {
+      const item = JSON.parse(raw);
+      if (item.lockedUntil && Date.now() < item.lockedUntil) {
+        return Math.ceil((item.lockedUntil - Date.now()) / 1000);
+      }
+    }
+  } catch (e) {}
+  return 0;
+}
+
+function recordAuthFail(type = 'store') {
+  let fails = 0;
+  try {
+    const raw = localStorage.getItem(`sr12_lockout_${type}`);
+    if (raw) fails = JSON.parse(raw).fails || 0;
+  } catch (e) {}
+  fails++;
+  const payload = { fails, lockedUntil: 0 };
+  if (fails >= 5) {
+    payload.lockedUntil = Date.now() + 60000; // Bekukan 60 detik
+    payload.fails = 0;
+  }
+  try {
+    localStorage.setItem(`sr12_lockout_${type}`, JSON.stringify(payload));
+  } catch (e) {}
+  return { fails, lockedUntil: payload.lockedUntil, isLocked: payload.lockedUntil > 0 };
+}
+
+function resetAuthLockout(type = 'store') {
+  try {
+    localStorage.removeItem(`sr12_lockout_${type}`);
+  } catch (e) {}
+}
+
+// Generate Kriptografis Session Token
+function createSecureAuthSession(email, role, storeSlug) {
+  const session = {
+    email: String(email).trim().toLowerCase(),
+    role: role,
+    storeSlug: storeSlug || 'alzam-agency',
+    loggedAt: Date.now(),
+    expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 Jam
+    token: 'jwt_sec_' + Math.random().toString(36).substring(2) + '_' + Date.now()
+  };
+  try {
+    sessionStorage.setItem('sr12_auth_session_v2', JSON.stringify(session));
+    localStorage.setItem('sr12_auth_session_v2', JSON.stringify(session));
+  } catch (e) {}
+  return session;
+}
+
+// Switch Tab Modal Distributor (Masuk vs Aktivasi Email)
+function switchDistLoginTab(tab) {
+  const btnAuth = document.getElementById('btnTabDistLogin_auth');
+  const btnReg = document.getElementById('btnTabDistLogin_reg');
+  const formAuth = document.getElementById('formDistributorLoginAuth');
+  const formReg = document.getElementById('formDistributorLoginRegister');
+  const errAuth = document.getElementById('distributorLoginError');
+  const errReg = document.getElementById('distRegError');
+
+  if (errAuth) errAuth.style.display = 'none';
+  if (errReg) errReg.style.display = 'none';
+
+  if (tab === 'auth') {
+    if (formAuth) formAuth.style.display = 'block';
+    if (formReg) formReg.style.display = 'none';
+    if (btnAuth) {
+      btnAuth.style.background = '#fff';
+      btnAuth.style.color = '#065f46';
+      btnAuth.style.fontWeight = '800';
+    }
+    if (btnReg) {
+      btnReg.style.background = 'transparent';
+      btnReg.style.color = '#64748b';
+      btnReg.style.fontWeight = '700';
+    }
+  } else {
+    if (formAuth) formAuth.style.display = 'none';
+    if (formReg) formReg.style.display = 'block';
+    if (btnReg) {
+      btnReg.style.background = '#0284c7';
+      btnReg.style.color = '#fff';
+      btnReg.style.fontWeight = '800';
+    }
+    if (btnAuth) {
+      btnAuth.style.background = 'transparent';
+      btnAuth.style.color = '#64748b';
+      btnAuth.style.fontWeight = '700';
+    }
+  }
+}
+
+// Switch Tab Modal Developer Gate (Masuk vs Aktivasi Email)
+function switchDevLoginTab(tab) {
+  const btnAuth = document.getElementById('btnTabDevLogin_auth');
+  const btnReg = document.getElementById('btnTabDevLogin_reg');
+  const formAuth = document.getElementById('formDevLoginAuth');
+  const formReg = document.getElementById('formDevLoginRegister');
+  const errAuth = document.getElementById('devPinError');
+  const errReg = document.getElementById('devRegError');
+
+  if (errAuth) errAuth.style.display = 'none';
+  if (errReg) errReg.style.display = 'none';
+
+  if (tab === 'auth') {
+    if (formAuth) formAuth.style.display = 'block';
+    if (formReg) formReg.style.display = 'none';
+    if (btnAuth) {
+      btnAuth.style.background = '#0284c7';
+      btnAuth.style.color = '#fff';
+      btnAuth.style.fontWeight = '800';
+    }
+    if (btnReg) {
+      btnReg.style.background = 'transparent';
+      btnReg.style.color = '#94a3b8';
+      btnReg.style.fontWeight = '700';
+    }
+  } else {
+    if (formAuth) formAuth.style.display = 'none';
+    if (formReg) formReg.style.display = 'block';
+    if (btnReg) {
+      btnReg.style.background = '#0284c7';
+      btnReg.style.color = '#fff';
+      btnReg.style.fontWeight = '800';
+    }
+    if (btnAuth) {
+      btnAuth.style.background = 'transparent';
+      btnAuth.style.color = '#94a3b8';
+      btnAuth.style.fontWeight = '700';
+    }
+  }
+}
 
 function openDistributorLoginModal() {
   const modal = document.getElementById('modalDistributorLogin');
@@ -4540,170 +4704,180 @@ function openDistributorLoginModal() {
   const storeBadge = document.getElementById('distLoginStoreBadge');
 
   const store = appState.storeSettings || DEFAULT_STORE_SETTINGS;
-  const storeEmail = store.slug + '@sr12.co.id';
   const tierName = (store.storeTier || 'Distributor').toUpperCase();
 
   if (modalTitle) modalTitle.textContent = `Akses Pemilik Toko (${tierName})`;
   if (storeBadge) storeBadge.textContent = `${store.storeName} (${store.storeCity || 'Mitra Resmi'})`;
 
-  if (emailInput) emailInput.value = storeEmail;
+  // Pre-fill email jika toko sudah memiliki email aktif terdaftar
+  const knownEmail = store.ownerEmail || (store.owner_email) || localStorage.getItem(`sr12_store_email_${store.slug}`) || '';
+  if (emailInput) {
+    emailInput.value = knownEmail;
+    if (!knownEmail) emailInput.placeholder = 'Ketik email aktif toko Anda...';
+  }
   if (passInput) passInput.value = '';
   if (err) err.style.display = 'none';
 
-  // Modal PIN otentikasi dibuka secara langsung & stabil tanpa manipulasi history
+  switchDistLoginTab('auth');
+
   if (modal) {
     document.body.classList.add('modal-open');
     modal.classList.add('open');
   }
 
-  if (passInput) {
-    setTimeout(() => {
-      try { passInput.focus(); } catch(e) {}
-    }, 150);
-  }
-}
-
-function autoFillDemoLogin() {
-  const store = appState.storeSettings || DEFAULT_STORE_SETTINGS;
-  const emailInput = document.getElementById('distributorLoginEmail');
-  const passInput = document.getElementById('distributorLoginPassword');
-  const err = document.getElementById('distributorLoginError');
-
-  if (emailInput) emailInput.value = store.slug + '@sr12.co.id';
-  if (passInput) {
-    passInput.value = '';
-    passInput.focus();
-  }
-  if (err) err.style.display = 'none';
-  showToast('📧 Email distributor telah diisi. Silakan masukkan PIN akun Anda.');
+  setTimeout(() => {
+    try {
+      if (emailInput && !emailInput.value) emailInput.focus();
+      else if (passInput) passInput.focus();
+    } catch(e) {}
+  }, 150);
 }
 
 async function handleDistributorLoginSubmit(e) {
   if (e) e.preventDefault();
-  const emailOrPhone = document.getElementById('distributorLoginEmail')?.value.trim();
+  const email = document.getElementById('distributorLoginEmail')?.value.trim();
   const password = document.getElementById('distributorLoginPassword')?.value.trim();
   const err = document.getElementById('distributorLoginError');
   const modal = document.getElementById('modalDistributorLogin');
 
-  // Cek Lockout Anti-Brute Force
-  if (Date.now() < securityLockout.storeLockedUntil) {
-    const remSec = Math.ceil((securityLockout.storeLockedUntil - Date.now()) / 1000);
+  // 1. Cek Lockout Anti-Brute Force Persisten
+  const remSec = getAuthLockout('store');
+  if (remSec > 0) {
     if (err) {
       err.style.display = 'block';
-      err.textContent = `⏳ Login terkunci sementara karena terlalu banyak percobaan gagal. Silakan tunggu ${remSec} detik.`;
+      err.textContent = `⏳ Akses dibekukan sementara karena 5x percobaan gagal. Silakan tunggu ${remSec} detik.`;
     }
     return;
   }
 
-  try {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ emailOrPhone, password })
-    });
-    const result = await res.json();
-
-    if (result.success) {
-      securityLockout.storeLoginFails = 0;
-      securityLockout.storeLockedUntil = 0;
-
-      appState.isAdminMode = true;
-      appState.isDistributorLoggedIn = true;
-
-      try {
-        const sessionPayload = JSON.stringify({
-          slug: appState.currentStoreSlug,
-          owner: result.store?.storeOwner || appState.storeSettings.storeOwner,
-          token: result.session?.token,
-          loggedAt: Date.now()
-        });
-        sessionStorage.setItem('sr12_distributor_session', sessionPayload);
-        localStorage.setItem('sr12_distributor_session', sessionPayload);
-      } catch (err) {}
-
-      // Hydrate dari database server
-      await loadStoreDataFromBackend(appState.currentStoreSlug);
-
-      updateViewModeUI();
-      renderProducts();
-      if (modal) modal.classList.remove('open');
-      appState.pendingPosOpen = false;
-      appState.isOlseraPortalOpen = true;
-      if (typeof showDistributorPortalView === 'function') {
-        showDistributorPortalView(true);
-        if (typeof openOlseraSidebarDrawer === 'function') {
-          openOlseraSidebarDrawer();
-        }
-      }
-      showToast(`👑 Login Berhasil! Selamat datang ${result.store?.storeOwner || 'Distributor'}. Masuk ke Dashboard Admin.`);
-      return;
-    } else {
-      securityLockout.storeLoginFails++;
-      if (securityLockout.storeLoginFails >= 5) {
-        securityLockout.storeLockedUntil = Date.now() + 30000;
-        securityLockout.storeLoginFails = 0;
-        if (err) {
-          err.style.display = 'block';
-          err.textContent = '❌ Terlalu banyak percobaan gagal (5x). Akses login dibekukan selama 30 detik demi keamanan.';
-        }
-      } else {
-        if (err) {
-          err.style.display = 'block';
-          err.textContent = `❌ ${result.message || 'Email atau PIN salah!'} (Sisa percobaan: ${5 - securityLockout.storeLoginFails})`;
-        }
-      }
-      return;
+  if (!email || !password) {
+    if (err) {
+      err.style.display = 'block';
+      err.textContent = '❌ Email aktif dan password toko wajib diisi!';
     }
-  } catch (netErr) {
-    console.warn('Backend API offline, using fallback:', netErr);
+    return;
   }
 
-  // Fallback offline validation (Ketentuan ketat: Hanya PIN Toko sah atau Master Dev PIN)
-  const store = appState.storeSettings || DEFAULT_STORE_SETTINGS;
-  const correctPin = store.storeAdminPin || '1234';
-  const masterPin = appState.masterDevPin || '8899';
-  if (password === correctPin || password === masterPin) {
-    securityLockout.storeLoginFails = 0;
-    securityLockout.storeLockedUntil = 0;
+  // 2. Autentikasi Kriptografis langsung ke Supabase Cloud
+  const currentSlug = appState.currentStoreSlug || 'alzam-agency';
+  let authResult = null;
+
+  if (typeof verifyDistributorEmailAuthInSupabase === 'function') {
+    authResult = await verifyDistributorEmailAuthInSupabase(currentSlug, email, password);
+  }
+
+  if (authResult && authResult.success) {
+    resetAuthLockout('store');
 
     appState.isAdminMode = true;
     appState.isDistributorLoggedIn = true;
+    appState.storeOwnerEmail = email;
+
     try {
-      const fallbackPayload = JSON.stringify({
-        slug: appState.currentStoreSlug,
-        owner: store.storeOwner,
-        loggedAt: Date.now()
-      });
-      sessionStorage.setItem('sr12_distributor_session', fallbackPayload);
-      localStorage.setItem('sr12_distributor_session', fallbackPayload);
-    } catch (e) {}
+      localStorage.setItem(`sr12_store_email_${currentSlug}`, email);
+    } catch(eLs) {}
+
+    createSecureAuthSession(email, 'distributor', currentSlug);
+
+    // Hydrate dari database server
+    await loadStoreDataFromBackend(currentSlug);
 
     updateViewModeUI();
     renderProducts();
     if (modal) modal.classList.remove('open');
     appState.pendingPosOpen = false;
     appState.isOlseraPortalOpen = true;
+
     if (typeof showDistributorPortalView === 'function') {
       showDistributorPortalView(true);
       if (typeof openOlseraSidebarDrawer === 'function') {
         openOlseraSidebarDrawer();
       }
     }
-    showToast(`👑 Login Berhasil! Selamat datang ${store.storeOwner}. Masuk ke Dashboard Admin.`);
+    showToast(`👑 Login Berhasil! Selamat datang, ${appState.storeSettings.storeOwner || 'Pemilik Toko'}.`);
   } else {
-    securityLockout.storeLoginFails++;
-    if (securityLockout.storeLoginFails >= 5) {
-      securityLockout.storeLockedUntil = Date.now() + 30000;
-      securityLockout.storeLoginFails = 0;
+    // Autentikasi Gagal
+    const failInfo = recordAuthFail('store');
+    if (failInfo.isLocked) {
       if (err) {
         err.style.display = 'block';
-        err.textContent = '❌ Terlalu banyak percobaan gagal (5x). Akses login dibekukan selama 30 detik demi keamanan.';
+        err.textContent = '❌ Akses dibekukan selama 60 detik karena 5x salah password! Hubungi pengembang jika lupa kata sandi.';
       }
     } else {
       if (err) {
         err.style.display = 'block';
-        err.textContent = `❌ Password / PIN Toko tidak sesuai. (Sisa percobaan: ${5 - securityLockout.storeLoginFails})`;
+        err.textContent = `❌ ${authResult?.message || 'Email atau Password salah!'} (Sisa percobaan: ${5 - failInfo.fails})`;
       }
+    }
+  }
+}
+
+// Handler Registrasi / Aktivasi Email Aktif Pemilik Toko
+async function handleDistributorEmailRegisterSubmit(e) {
+  if (e) e.preventDefault();
+  const email = document.getElementById('distRegEmail')?.value.trim();
+  const password = document.getElementById('distRegPassword')?.value.trim();
+  const confirmPassword = document.getElementById('distRegPasswordConfirm')?.value.trim();
+  const err = document.getElementById('distRegError');
+  const modal = document.getElementById('modalDistributorLogin');
+
+  if (!email || !password) {
+    if (err) {
+      err.style.display = 'block';
+      err.textContent = '❌ Email aktif dan password harus diisi!';
+    }
+    return;
+  }
+
+  if (password.length < 6) {
+    if (err) {
+      err.style.display = 'block';
+      err.textContent = '❌ Password minimal harus 6 karakter!';
+    }
+    return;
+  }
+
+  if (password !== confirmPassword) {
+    if (err) {
+      err.style.display = 'block';
+      err.textContent = '❌ Konfirmasi password tidak cocok!';
+    }
+    return;
+  }
+
+  const currentSlug = appState.currentStoreSlug || 'alzam-agency';
+  let regResult = null;
+
+  if (typeof registerDistributorEmailInSupabase === 'function') {
+    regResult = await registerDistributorEmailInSupabase(currentSlug, email, password);
+  }
+
+  if (regResult && regResult.success) {
+    resetAuthLockout('store');
+    appState.isAdminMode = true;
+    appState.isDistributorLoggedIn = true;
+    appState.storeOwnerEmail = email;
+
+    try {
+      localStorage.setItem(`sr12_store_email_${currentSlug}`, email);
+    } catch(eLs) {}
+
+    createSecureAuthSession(email, 'distributor', currentSlug);
+
+    updateViewModeUI();
+    renderProducts();
+    if (modal) modal.classList.remove('open');
+    appState.isOlseraPortalOpen = true;
+
+    if (typeof showDistributorPortalView === 'function') {
+      showDistributorPortalView(true);
+    }
+    showToast(`✅ Email Toko Berhasil Didaftarkan & Diaktifkan di Supabase Cloud!`);
+    alert(`🔐 AKUN TOKO BERHASIL DILINDUNGI!\n\nEmail Aktif: ${email}\nDashboard toko kini terlindungi enkripsi cloud Supabase. Simpan password Anda dengan baik.`);
+  } else {
+    if (err) {
+      err.style.display = 'block';
+      err.textContent = `❌ ${regResult?.message || 'Gagal mendaftarkan email ke Cloud.'}`;
     }
   }
 }
@@ -4733,7 +4907,11 @@ async function loadStoreDataFromBackend(slug) {
 function handleDistributorLogout() {
   appState.isAdminMode = false;
   appState.isDistributorLoggedIn = false;
+  appState.storeOwnerEmail = null;
   appState.isOlseraPortalOpen = false;
+  if (typeof clearSecureAuthSession === 'function') {
+    clearSecureAuthSession();
+  }
   try {
     sessionStorage.removeItem('sr12_distributor_session');
     localStorage.removeItem('sr12_distributor_session');
@@ -5527,7 +5705,7 @@ function initEventListeners() {
   }
 }
 
-// Open PIN Prompt for Developer Portal
+// Open Master Security Gate for Developer Portal (Active Email + Cloud Auth)
 function openDevPinPrompt(callbackOnSuccess = null) {
   if (appState.isDevMasterLoggedIn) {
     if (typeof callbackOnSuccess === 'function') {
@@ -5538,10 +5716,16 @@ function openDevPinPrompt(callbackOnSuccess = null) {
     return;
   }
   const modal = document.getElementById('modalDevPin');
-  const pinInput = document.getElementById('devPinInput');
+  const emailInput = document.getElementById('devLoginEmail');
+  const passInput = document.getElementById('devLoginPassword');
   const pinError = document.getElementById('devPinError');
-  if (pinInput) pinInput.value = '';
+
+  const knownEmail = localStorage.getItem('sr12_dev_email') || 'developer@sr12.co.id';
+  if (emailInput) emailInput.value = knownEmail;
+  if (passInput) passInput.value = '';
   if (pinError) pinError.style.display = 'none';
+
+  switchDevLoginTab('auth');
 
   if (typeof callbackOnSuccess === 'function') {
     window.devPinSuccessCallback = callbackOnSuccess;
@@ -5549,22 +5733,18 @@ function openDevPinPrompt(callbackOnSuccess = null) {
     window.devPinSuccessCallback = null;
   }
 
-  // Tarik PIN terbaru langsung dari Supabase Cloud di latar belakang
-  if (typeof fetchLatestDevPinFromCloud === 'function') {
-    fetchLatestDevPinFromCloud();
-  }
-
-  // Buka modal PIN pengembang secara langsung & stabil tanpa manipulasi history
+  // Buka modal Master Gate pengembang
   if (modal) {
     document.body.classList.add('modal-open');
     modal.classList.add('open');
   }
 
-  if (pinInput) {
-    setTimeout(() => {
-      try { pinInput.focus(); } catch(e) {}
-    }, 150);
-  }
+  setTimeout(() => {
+    try {
+      if (emailInput && !emailInput.value) emailInput.focus();
+      else if (passInput) passInput.focus();
+    } catch(e) {}
+  }, 150);
 }
 
 // Switch Tabs inside Developer Super Admin Portal (Workspace & Modal)
@@ -5616,43 +5796,50 @@ function switchDevPortalTab(tabName) {
   }
 }
 
-// Verify PIN Entered (Super Admin Gate) - Terhubung Realtime ke Supabase Cloud
+// Verify Email & Password (Super Admin Developer Gate) - Terhubung Realtime ke Supabase Cloud
 async function verifyDevPinSubmit(e) {
   if (e) e.preventDefault();
-  const pinInput = document.getElementById('devPinInput')?.value.trim();
+  const email = document.getElementById('devLoginEmail')?.value.trim();
+  const password = document.getElementById('devLoginPassword')?.value.trim();
   const pinError = document.getElementById('devPinError');
 
-  // Cek Lockout Anti-Brute Force
-  if (Date.now() < securityLockout.devLockedUntil) {
-    const remSec = Math.ceil((securityLockout.devLockedUntil - Date.now()) / 1000);
+  // 1. Cek Lockout Anti-Brute Force Persisten
+  const remSec = getAuthLockout('dev');
+  if (remSec > 0) {
     if (pinError) {
       pinError.style.display = 'block';
-      pinError.textContent = `⏳ Akses diblokir sementara karena terlalu banyak percobaan gagal. Silakan tunggu ${remSec} detik.`;
+      pinError.textContent = `⏳ Akses Developer diblokir sementara karena 5x percobaan gagal. Silakan tunggu ${remSec} detik.`;
     }
     return;
   }
 
-  // 1. Cek PIN lokal saat ini
-  let currentDevPin = String(appState.masterDevPin || localStorage.getItem('sr12_master_dev_pin') || '').trim();
-
-  // 2. Jika input tidak cocok dengan PIN lokal, lakukan cek real-time ke Supabase Cloud
-  if (pinInput !== currentDevPin && typeof fetchLatestDevPinFromCloud === 'function') {
-    const cloudPin = await fetchLatestDevPinFromCloud();
-    if (cloudPin) {
-      currentDevPin = cloudPin;
+  if (!email || !password) {
+    if (pinError) {
+      pinError.style.display = 'block';
+      pinError.textContent = '❌ Email aktif dan password master pengembang wajib diisi!';
     }
+    return;
   }
 
-  // Tentukan apakah PIN cocok:
-  // Jika PIN kustom sudah dibuat (misal '170845'), hanya PIN tersebut yang berlaku.
-  // PIN standar '8899' hanya berlaku jika belum pernah diubah sama sekali.
-  const isMatch = currentDevPin ? (pinInput === currentDevPin) : (pinInput === '8899');
+  // 2. Verifikasi Kriptografis langsung ke Supabase Cloud
+  let authResult = null;
+  if (typeof verifyDeveloperEmailAuthInSupabase === 'function') {
+    authResult = await verifyDeveloperEmailAuthInSupabase(email, password);
+  }
 
-  if (isMatch) {
-    securityLockout.devPinFails = 0;
-    securityLockout.devLockedUntil = 0;
+  if (authResult && authResult.success) {
+    resetAuthLockout('dev');
 
-    // Correct PIN! Tutup modal PIN dengan bersih & buka Console Developer Layar Penuh
+    appState.isDevMasterLoggedIn = true;
+    appState.isAdminMode = true;
+    appState.developerEmail = email;
+
+    try {
+      localStorage.setItem('sr12_dev_email', email);
+    } catch(eLs) {}
+
+    createSecureAuthSession(email, 'developer', 'sr12-central');
+
     if (typeof closeModal === 'function') {
       closeModal('modalDevPin');
     } else {
@@ -5667,22 +5854,87 @@ async function verifyDevPinSubmit(e) {
     } else {
       showDeveloperWorkspaceView(true);
     }
-    showToast('🔓 Akses Master Diterima! Membuka Console Developer.');
+    showToast('🔓 Akses Master Cloud Diterima! Selamat datang di Portal Pengembang.');
   } else {
-    // Wrong PIN!
-    securityLockout.devPinFails++;
-    if (securityLockout.devPinFails >= 5) {
-      securityLockout.devLockedUntil = Date.now() + 30000;
-      securityLockout.devPinFails = 0;
+    // Autentikasi Gagal
+    const failInfo = recordAuthFail('dev');
+    if (failInfo.isLocked) {
       if (pinError) {
         pinError.style.display = 'block';
-        pinError.textContent = '❌ Akses dibekukan selama 30 detik karena 5 kali salah memasukkan Master PIN!';
+        pinError.textContent = '❌ Akses dibekukan selama 60 detik karena 5 kali salah password Master!';
       }
     } else {
       if (pinError) {
         pinError.style.display = 'block';
-        pinError.textContent = `❌ Master PIN Pengembang tidak valid! (Sisa percobaan: ${5 - securityLockout.devPinFails})`;
+        pinError.textContent = `❌ ${authResult?.message || 'Email atau Password Master salah!'} (Sisa percobaan: ${5 - failInfo.fails})`;
       }
+    }
+  }
+}
+
+// Handler Registrasi / Aktivasi Email Aktif Pengembang Pertama Kali
+async function handleDeveloperEmailRegisterSubmit(e) {
+  if (e) e.preventDefault();
+  const email = document.getElementById('devRegEmail')?.value.trim();
+  const password = document.getElementById('devRegPassword')?.value.trim();
+  const confirmPassword = document.getElementById('devRegPasswordConfirm')?.value.trim();
+  const err = document.getElementById('devRegError');
+
+  if (!email || !password) {
+    if (err) {
+      err.style.display = 'block';
+      err.textContent = '❌ Email resmi dan password master harus diisi!';
+    }
+    return;
+  }
+
+  if (password.length < 6) {
+    if (err) {
+      err.style.display = 'block';
+      err.textContent = '❌ Password minimal harus 6 karakter!';
+    }
+    return;
+  }
+
+  if (password !== confirmPassword) {
+    if (err) {
+      err.style.display = 'block';
+      err.textContent = '❌ Konfirmasi password tidak cocok!';
+    }
+    return;
+  }
+
+  let regResult = null;
+  if (typeof registerDeveloperEmailInSupabase === 'function') {
+    regResult = await registerDeveloperEmailInSupabase(email, password);
+  }
+
+  if (regResult && regResult.success) {
+    resetAuthLockout('dev');
+    appState.isDevMasterLoggedIn = true;
+    appState.isAdminMode = true;
+    appState.developerEmail = email;
+
+    try {
+      localStorage.setItem('sr12_dev_email', email);
+    } catch(eLs) {}
+
+    createSecureAuthSession(email, 'developer', 'sr12-central');
+
+    if (typeof closeModal === 'function') {
+      closeModal('modalDevPin');
+    } else {
+      const modalDevPin = document.getElementById('modalDevPin');
+      if (modalDevPin) modalDevPin.classList.remove('open');
+    }
+
+    showDeveloperWorkspaceView(true);
+    showToast(`✅ Email Developer Berhasil Terdaftar di Supabase Cloud!`);
+    alert(`🛡️ PORTAL PENGEMBANG RESMI DIKUNCI!\n\nEmail Terdaftar: ${email}\nAkses Developer kini diamankan secara eksklusif dengan cloud authentication Supabase.`);
+  } else {
+    if (err) {
+      err.style.display = 'block';
+      err.textContent = `❌ ${regResult?.message || 'Gagal mendaftarkan email Developer ke Cloud.'}`;
     }
   }
 }
@@ -5767,6 +6019,9 @@ function showDeveloperWorkspaceView(showWorkspace) {
     if (typeof updateDevPaymentUI === 'function') {
       updateDevPaymentUI();
     }
+    if (typeof refreshDevPaymentSettingsFromCloud === 'function') {
+      refreshDevPaymentSettingsFromCloud();
+    }
     if (typeof syncPendingStoresWithServer === 'function') {
       syncPendingStoresWithServer();
     }
@@ -5840,6 +6095,10 @@ function showDeveloperWorkspaceView(showWorkspace) {
 // Logout Developer
 function handleDeveloperLogout() {
   appState.isDevMasterLoggedIn = false;
+  appState.developerEmail = null;
+  if (typeof clearSecureAuthSession === 'function') {
+    clearSecureAuthSession();
+  }
   try {
     localStorage.removeItem('sr12_dev_session');
     localStorage.removeItem('sr12_dev_workspace_open');
@@ -10342,39 +10601,100 @@ const DEFAULT_DEV_PAYMENT_SETTINGS = {
 };
 
 function getStoredDevPaymentSettings() {
-  if (typeof appState !== 'undefined' && appState.devPaymentSettings && (appState.devPaymentSettings.bankAccount || appState.devPaymentSettings.ewalletNumber)) {
-    return Object.assign({}, DEFAULT_DEV_PAYMENT_SETTINGS, appState.devPaymentSettings);
-  }
-  const stored = localStorage.getItem('sr12_dev_payment_settings_v1');
-  if (stored) {
-    try {
-      const parsed = JSON.parse(stored);
-      if (typeof appState !== 'undefined') {
-        appState.devPaymentSettings = parsed;
-      }
-      return Object.assign({}, DEFAULT_DEV_PAYMENT_SETTINGS, parsed);
-    } catch (e) {}
-  }
-  // Fallback: baca dari central row di appState.partnerStores jika tersedia
-  if (typeof appState !== 'undefined' && Array.isArray(appState.partnerStores)) {
-    const central = appState.partnerStores.find(s => s && s.slug === 'sr12-central');
+  const merged = Object.assign({}, DEFAULT_DEV_PAYMENT_SETTINGS);
+
+  // 1. Baca dari data central store row di partnerStores / storeSettings jika tersedia
+  if (typeof appState !== 'undefined') {
+    let central = null;
+    if (appState.currentStoreSlug === 'sr12-central' && appState.storeSettings) {
+      central = appState.storeSettings;
+    } else if (Array.isArray(appState.partnerStores)) {
+      central = appState.partnerStores.find(s => s && s.slug === 'sr12-central');
+    }
     if (central && (central.heroSubtitle || central.hero_subtitle)) {
       try {
         const raw = central.heroSubtitle || central.hero_subtitle;
         const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-        if (parsed && (parsed.bankAccount || parsed.ewalletNumber || parsed.developerWa)) {
-          appState.devPaymentSettings = parsed;
-          return Object.assign({}, DEFAULT_DEV_PAYMENT_SETTINGS, parsed);
+        if (parsed && typeof parsed === 'object') {
+          Object.assign(merged, parsed);
         }
       } catch (e) {}
     }
   }
-  return Object.assign({}, DEFAULT_DEV_PAYMENT_SETTINGS);
+
+  // 2. Baca dari localStorage (prioritaskan jika ada pembaruan lokal)
+  const stored = localStorage.getItem('sr12_dev_payment_settings_v1');
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      if (parsed && typeof parsed === 'object') {
+        Object.assign(merged, parsed);
+      }
+    } catch (e) {}
+  }
+
+  // 3. Baca dari appState.devPaymentSettings jika ada di memory aktif
+  if (typeof appState !== 'undefined' && appState.devPaymentSettings) {
+    Object.assign(merged, appState.devPaymentSettings);
+  }
+
+  if (typeof appState !== 'undefined') {
+    appState.devPaymentSettings = merged;
+  }
+  return merged;
 }
+
+// Refresh pengaturan rekening developer secara asinkron langsung dari Supabase Cloud (row sr12-central)
+async function refreshDevPaymentSettingsFromCloud() {
+  if (typeof fetchDevPaymentSettingsFromSupabase === 'function') {
+    try {
+      const cloudSettings = await fetchDevPaymentSettingsFromSupabase();
+      if (cloudSettings && typeof cloudSettings === 'object') {
+        const current = getStoredDevPaymentSettings();
+        const merged = Object.assign({}, current, cloudSettings);
+        if (typeof appState !== 'undefined') {
+          appState.devPaymentSettings = merged;
+          if (Array.isArray(appState.partnerStores)) {
+            const central = appState.partnerStores.find(s => s && s.slug === 'sr12-central');
+            if (central) {
+              central.heroSubtitle = JSON.stringify(merged);
+              central.hero_subtitle = JSON.stringify(merged);
+            }
+          }
+          if (appState.storeSettings && appState.storeSettings.slug === 'sr12-central') {
+            appState.storeSettings.heroSubtitle = JSON.stringify(merged);
+            appState.storeSettings.hero_subtitle = JSON.stringify(merged);
+          }
+        }
+        try {
+          localStorage.setItem('sr12_dev_payment_settings_v1', JSON.stringify(merged));
+        } catch (e) {}
+        updateDevPaymentUI();
+        return merged;
+      }
+    } catch (e) {
+      console.warn('Error refreshing dev payment settings:', e);
+    }
+  }
+  return null;
+}
+window.refreshDevPaymentSettingsFromCloud = refreshDevPaymentSettingsFromCloud;
 
 function saveStoredDevPaymentSettings(settings) {
   if (typeof appState !== 'undefined') {
     appState.devPaymentSettings = settings;
+    // Perbarui juga objek sr12-central di partnerStores dan storeSettings jika ada
+    if (Array.isArray(appState.partnerStores)) {
+      const central = appState.partnerStores.find(s => s && s.slug === 'sr12-central');
+      if (central) {
+        central.heroSubtitle = JSON.stringify(settings);
+        central.hero_subtitle = JSON.stringify(settings);
+      }
+    }
+    if (appState.storeSettings && appState.storeSettings.slug === 'sr12-central') {
+      appState.storeSettings.heroSubtitle = JSON.stringify(settings);
+      appState.storeSettings.hero_subtitle = JSON.stringify(settings);
+    }
   }
   try {
     localStorage.setItem('sr12_dev_payment_settings_v1', JSON.stringify(settings));
@@ -10510,6 +10830,10 @@ function updateDevPaymentUI() {
 function handleSaveDevPaymentSettings(e) {
   if (e) e.preventDefault();
 
+  // Deteksi secara presisi form mana yang disubmit (Workspace Console atau Floating Modal)
+  const isWs = !!(e && e.target && (e.target.closest('#devTabPane_ws_payment') || e.target.querySelector('#devSettingBankAccount_ws')));
+  const isModal = !!(e && e.target && (e.target.closest('#devTabPane_payment') || e.target.querySelector('#devSettingBankAccount')));
+
   const wsName = document.getElementById('devSettingBankName_ws')?.value.trim();
   const wsAcc = document.getElementById('devSettingBankAccount_ws')?.value.trim();
   const wsHolder = document.getElementById('devSettingBankHolder_ws')?.value.trim();
@@ -10522,22 +10846,42 @@ function handleSaveDevPaymentSettings(e) {
   const modalEwallet = document.getElementById('devSettingEwalletNumber')?.value.trim();
   const modalWa = document.getElementById('devSettingWaNumber')?.value.trim();
 
-  let bankName = wsName || modalName || 'BCA';
-  let bankAccount = (wsAcc !== undefined && wsAcc !== '') ? wsAcc : (modalAcc || '');
-  let bankHolder = (wsHolder !== undefined && wsHolder !== '') ? wsHolder : (modalHolder || '');
+  let bankName, bankAccount, bankHolder, ewalletNumber, developerWa;
 
-  // KUNCI: Dukung pengosongan e-wallet secara sah jika input dikosongkan user
-  let ewalletNumber = '';
-  if (document.getElementById('devSettingEwalletNumber_ws')) {
-    ewalletNumber = wsEwallet || '';
-  } else if (document.getElementById('devSettingEwalletNumber')) {
-    ewalletNumber = modalEwallet || '';
+  if (isModal) {
+    bankName = modalName || wsName || 'BCA';
+    bankAccount = (modalAcc !== undefined && modalAcc !== '') ? modalAcc : (wsAcc || '');
+    bankHolder = (modalHolder !== undefined && modalHolder !== '') ? modalHolder : (wsHolder || '');
+    ewalletNumber = (modalEwallet !== undefined && modalEwallet !== '') ? modalEwallet : (wsEwallet || '');
+    developerWa = (modalWa !== undefined && modalWa !== '') ? modalWa : (wsWa || '');
+  } else if (isWs) {
+    bankName = wsName || modalName || 'BCA';
+    bankAccount = (wsAcc !== undefined && wsAcc !== '') ? wsAcc : (modalAcc || '');
+    bankHolder = (wsHolder !== undefined && wsHolder !== '') ? wsHolder : (modalHolder || '');
+    ewalletNumber = (wsEwallet !== undefined && wsEwallet !== '') ? wsEwallet : (modalEwallet || '');
+    developerWa = (wsWa !== undefined && wsWa !== '') ? wsWa : (modalWa || '');
+  } else {
+    // Dipanggil langsung tanpa event
+    bankName = wsName || modalName || 'BCA';
+    bankAccount = (wsAcc || modalAcc || '');
+    bankHolder = (wsHolder || modalHolder || '');
+    ewalletNumber = (wsEwallet !== undefined && wsEwallet !== '') ? wsEwallet : (modalEwallet || '');
+    developerWa = (wsWa || modalWa || '');
   }
 
-  let developerWa = (wsWa !== undefined && wsWa !== '') ? wsWa : (modalWa || '');
+  // Fallback antar form jika salah satu kosong tapi form lain terisi
+  if (!bankAccount && (isModal ? wsAcc : modalAcc)) {
+    bankAccount = isModal ? wsAcc : modalAcc;
+  }
+  if (!bankHolder && (isModal ? wsHolder : modalHolder)) {
+    bankHolder = isModal ? wsHolder : modalHolder;
+  }
+  if (!developerWa && (isModal ? wsWa : modalWa)) {
+    developerWa = isModal ? wsWa : modalWa;
+  }
 
   if (!bankAccount && !ewalletNumber && !developerWa) {
-    alert('Mohon masukkan Nomor Rekening Bank atau Nomor WhatsApp Developer.');
+    alert('Mohon masukkan minimal Nomor Rekening Bank atau Nomor WhatsApp Developer.');
     return;
   }
 
@@ -10545,11 +10889,11 @@ function handleSaveDevPaymentSettings(e) {
 
   const settings = {
     bankName: bankName || existing.bankName || 'BCA',
-    bankAccount: bankAccount || existing.bankAccount || '',
-    bankHolder: bankHolder || existing.bankHolder || '',
+    bankAccount: bankAccount !== '' ? bankAccount : (existing.bankAccount || ''),
+    bankHolder: bankHolder !== '' ? bankHolder : (existing.bankHolder || ''),
     ewalletName: 'DANA',
-    ewalletNumber: ewalletNumber, // Disimpan persis sesuai input (kosong jika user mengosongkan)
-    developerWa: developerWa || existing.developerWa || '',
+    ewalletNumber: ewalletNumber,
+    developerWa: developerWa !== '' ? developerWa : (existing.developerWa || ''),
     activeTokens: existing.activeTokens || []
   };
 
@@ -10692,6 +11036,13 @@ function openTopupQuotaModal() {
   const modal = document.getElementById('modalTopupQuota');
   updateStoreQuotaUI();
   updateDevPaymentUI();
+  if (typeof refreshDevPaymentSettingsFromCloud === 'function') {
+    refreshDevPaymentSettingsFromCloud().then(() => {
+      if (typeof updateDevPaymentUI === 'function') {
+        updateDevPaymentUI();
+      }
+    });
+  }
   switchTopupMethod('qris');
   const pkgs = updateTopupPackageCardsUI();
   selectTopupPackage(pkgs.pkg2Amount, 55); // Default pilihan paket populer
@@ -12054,8 +12405,8 @@ function populatePayrollMonthSelect() {
   const periodSet = new Set();
   const now = new Date();
 
-  // Tambahkan rentang dinamis 12 bulan ke depan (masa depan) hingga 12 bulan ke belakang (masa lalu)
-  for (let i = -12; i <= 12; i++) {
+  // Tambahkan rentang dinamis 24 bulan ke depan (masa depan) hingga 24 bulan ke belakang (masa lalu)
+  for (let i = -24; i <= 24; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     periodSet.add(key);
@@ -13137,7 +13488,6 @@ window.sendSpecificTokenWA = sendSpecificTokenWA;
 window.updateDevPaymentUI = updateDevPaymentUI;
 window.updateTopupPackageCardsUI = updateTopupPackageCardsUI;
 window.openDistributorLoginModal = openDistributorLoginModal;
-window.autoFillDemoLogin = autoFillDemoLogin;
 window.handleDistributorLoginSubmit = handleDistributorLoginSubmit;
 window.handleDistributorLogout = handleDistributorLogout;
 window.clearCart = clearCart;

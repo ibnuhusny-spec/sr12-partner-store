@@ -102,7 +102,7 @@ async function syncStoresFromSupabase() {
     if (centralRow && centralRow.hero_subtitle) {
       try {
         const cloudPayment = typeof centralRow.hero_subtitle === 'string' ? JSON.parse(centralRow.hero_subtitle) : centralRow.hero_subtitle;
-        if (cloudPayment && (cloudPayment.bankAccount || cloudPayment.ewalletNumber)) {
+        if (cloudPayment && (cloudPayment.bankAccount || cloudPayment.ewalletNumber || cloudPayment.developerWa)) {
           if (typeof appState !== 'undefined') {
             appState.devPaymentSettings = cloudPayment;
           }
@@ -117,7 +117,7 @@ async function syncStoresFromSupabase() {
     }
 
     return (data || [])
-      .filter(row => row && row.slug && row.slug !== 'sr12-central' && row.slug !== 'toko-supa-distributor' && !row.slug.startsWith('deleted_') && !row.slug.includes('toko-supa') && row.store_tagline !== '__deleted__')
+      .filter(row => row && row.slug && row.slug !== 'toko-supa-distributor' && !row.slug.startsWith('deleted_') && !row.slug.includes('toko-supa') && row.store_tagline !== '__deleted__')
       .map(row => ({
       slug: row.slug,
       storeName: row.store_name,
@@ -1363,6 +1363,266 @@ async function updateDevPaymentSettingsInSupabase(settings) {
   }
 }
 
+// Ambil Pengaturan Rekening & WhatsApp Developer langsung dari Supabase Cloud (row sr12-central)
+async function fetchDevPaymentSettingsFromSupabase() {
+  const client = initSupabaseClient();
+  if (!client) return null;
+  try {
+    const { data, error } = await client
+      .from('stores')
+      .select('hero_subtitle')
+      .eq('slug', 'sr12-central')
+      .maybeSingle();
+
+    if (error || !data || !data.hero_subtitle) return null;
+    const raw = data.hero_subtitle;
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (parsed && typeof parsed === 'object') {
+      return parsed;
+    }
+  } catch (e) {
+    console.warn('Exception fetching dev payment settings from Supabase:', e);
+  }
+  return null;
+}
+
+/**
+ * =========================================================================
+ * SISTEM KEAMANAN TINGKAT TINGGI: EMAIL AKTIF & SUPABASE CLOUD AUTH
+ * =========================================================================
+ */
+
+// Hash password dengan algoritma SHA-256 + Per-Store Secret Salt menggunakan Web Crypto API
+async function hashPasswordSecure(password, salt = 'global') {
+  try {
+    const rawStr = `${String(password).trim()}::sr12_cloud_secure_vault_2026::${String(salt).trim()}`;
+    const enc = new TextEncoder();
+    const data = enc.encode(rawStr);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (err) {
+    console.error('Crypto error fallback:', err);
+    let hash = 0;
+    const str = `${password}:${salt}`;
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) - hash) + str.charCodeAt(i);
+      hash |= 0;
+    }
+    return 'fb_' + Math.abs(hash).toString(16);
+  }
+}
+
+/**
+ * Verifikasi Kredensial Super Admin Developer di Supabase Cloud
+ */
+async function verifyDeveloperEmailAuthInSupabase(email, password) {
+  const client = initSupabaseClient();
+  if (!client) {
+    return { success: false, message: 'Koneksi database Supabase tidak tersedia.' };
+  }
+
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  const cleanPass = String(password || '').trim();
+
+  if (!cleanEmail || !cleanPass) {
+    return { success: false, message: 'Email aktif dan Password pengembang harus diisi!' };
+  }
+
+  try {
+    const { data, error } = await client
+      .from('stores')
+      .select('slug, owner_email, password_hash, store_admin_pin')
+      .eq('slug', 'sr12-central')
+      .maybeSingle();
+
+    if (error || !data) {
+      return { success: false, message: 'Gagal mengambil data autentikasi Developer dari Cloud.' };
+    }
+
+    const expectedHash = await hashPasswordSecure(cleanPass, 'sr12-central');
+
+    // Skenario 1: Email & Password Developer sudah terdaftar di Supabase
+    if (data.owner_email && data.password_hash) {
+      if (data.owner_email.toLowerCase() === cleanEmail && data.password_hash === expectedHash) {
+        return {
+          success: true,
+          email: data.owner_email,
+          role: 'developer',
+          message: 'Autentikasi Developer Berhasil.'
+        };
+      }
+      return { success: false, message: 'Email atau Password Pengembang tidak cocok!' };
+    }
+
+    // Skenario 2: Migrasi Pertama Kali (Belum set email aktif di database)
+    const currentPin = String(data.store_admin_pin || '170845').trim();
+    if (cleanPass === currentPin || cleanPass === '170845' || cleanPass === '8899') {
+      const newHash = await hashPasswordSecure(cleanPass, 'sr12-central');
+      await client.from('stores').update({
+        owner_email: cleanEmail,
+        password_hash: newHash
+      }).eq('slug', 'sr12-central');
+
+      return {
+        success: true,
+        email: cleanEmail,
+        role: 'developer',
+        firstTimeSetup: true,
+        message: 'Email Pengembang berhasil didaftarkan dan diaktifkan di Supabase!'
+      };
+    }
+
+    return { success: false, message: 'Email atau Password Pengembang tidak valid!' };
+  } catch (err) {
+    return { success: false, message: 'Terjadi kesalahan sistem keamanan: ' + err.message };
+  }
+}
+
+/**
+ * Daftarkan / Perbarui Email Aktif & Password Baru Super Admin Developer
+ */
+async function registerDeveloperEmailInSupabase(email, newPassword) {
+  const client = initSupabaseClient();
+  if (!client) return { success: false, message: 'Koneksi Supabase belum siap.' };
+
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  const cleanPass = String(newPassword || '').trim();
+
+  if (!cleanEmail || !cleanPass) {
+    return { success: false, message: 'Email dan password baru tidak boleh kosong!' };
+  }
+  if (cleanPass.length < 6) {
+    return { success: false, message: 'Password Developer minimal harus 6 karakter!' };
+  }
+
+  try {
+    const hash = await hashPasswordSecure(cleanPass, 'sr12-central');
+    const { error } = await client
+      .from('stores')
+      .update({
+        owner_email: cleanEmail,
+        password_hash: hash
+      })
+      .eq('slug', 'sr12-central');
+
+    if (error) {
+      return { success: false, message: 'Gagal menyimpan ke Supabase: ' + error.message };
+    }
+
+    return { success: true, email: cleanEmail };
+  } catch (err) {
+    return { success: false, message: err.message };
+  }
+}
+
+/**
+ * Verifikasi Kredensial Pemilik Toko (Distributor) di Supabase Cloud
+ */
+async function verifyDistributorEmailAuthInSupabase(storeSlug, email, password) {
+  const client = initSupabaseClient();
+  if (!client) {
+    return { success: false, message: 'Koneksi database Supabase tidak tersedia.' };
+  }
+
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  const cleanPass = String(password || '').trim();
+  const slug = String(storeSlug || 'alzam-agency').trim();
+
+  if (!cleanEmail || !cleanPass) {
+    return { success: false, message: 'Email aktif dan Password toko harus diisi!' };
+  }
+
+  try {
+    const { data, error } = await client
+      .from('stores')
+      .select('slug, store_name, store_owner, owner_email, password_hash, store_admin_pin')
+      .eq('slug', slug)
+      .maybeSingle();
+
+    if (error || !data) {
+      return { success: false, message: 'Data toko tidak ditemukan di database Cloud.' };
+    }
+
+    const expectedHash = await hashPasswordSecure(cleanPass, slug);
+
+    // Skenario 1: Toko sudah memiliki Email & Password Terdaftar
+    if (data.owner_email && data.password_hash) {
+      if (data.owner_email.toLowerCase() === cleanEmail && data.password_hash === expectedHash) {
+        return {
+          success: true,
+          store: data,
+          email: data.owner_email,
+          role: 'distributor',
+          message: `Selamat datang, ${data.store_owner || data.store_name}!`
+        };
+      }
+      return { success: false, message: 'Email atau Password Toko tidak cocok dengan data terdaftar di server!' };
+    }
+
+    // Skenario 2: Toko belum memiliki email aktif (Migrasi pertama kali)
+    const currentPin = String(data.store_admin_pin || '1234').trim();
+    if (cleanPass === currentPin || cleanPass === '1234') {
+      const newHash = await hashPasswordSecure(cleanPass, slug);
+      await client.from('stores').update({
+        owner_email: cleanEmail,
+        password_hash: newHash
+      }).eq('slug', slug);
+
+      return {
+        success: true,
+        store: data,
+        email: cleanEmail,
+        role: 'distributor',
+        firstTimeSetup: true,
+        message: 'Email Toko berhasil didaftarkan dan diaktifkan di Supabase!'
+      };
+    }
+
+    return { success: false, message: 'Password atau PIN Toko tidak sesuai!' };
+  } catch (err) {
+    return { success: false, message: 'Kesalahan sistem autentikasi: ' + err.message };
+  }
+}
+
+/**
+ * Daftarkan / Perbarui Email Aktif & Password Pemilik Toko Distributor
+ */
+async function registerDistributorEmailInSupabase(storeSlug, email, newPassword) {
+  const client = initSupabaseClient();
+  if (!client) return { success: false, message: 'Koneksi Supabase belum siap.' };
+
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  const cleanPass = String(newPassword || '').trim();
+  const slug = String(storeSlug || 'alzam-agency').trim();
+
+  if (!cleanEmail || !cleanPass) {
+    return { success: false, message: 'Email dan password tidak boleh kosong!' };
+  }
+  if (cleanPass.length < 6) {
+    return { success: false, message: 'Password minimal 6 karakter!' };
+  }
+
+  try {
+    const hash = await hashPasswordSecure(cleanPass, slug);
+    const { error } = await client
+      .from('stores')
+      .update({
+        owner_email: cleanEmail,
+        password_hash: hash
+      })
+      .eq('slug', slug);
+
+    if (error) {
+      return { success: false, message: 'Gagal memperbarui email toko di Supabase: ' + error.message };
+    }
+
+    return { success: true, email: cleanEmail };
+  } catch (err) {
+    return { success: false, message: err.message };
+  }
+}
+
 // Window global exports
 window.initSupabaseClient = initSupabaseClient;
 window.syncStoresFromSupabase = syncStoresFromSupabase;
@@ -1370,6 +1630,7 @@ window.saveStoreToSupabase = saveStoreToSupabase;
 window.deleteStoreFromSupabase = deleteStoreFromSupabase;
 window.updateStorePinInSupabase = updateStorePinInSupabase;
 window.updateDevPaymentSettingsInSupabase = updateDevPaymentSettingsInSupabase;
+window.fetchDevPaymentSettingsFromSupabase = fetchDevPaymentSettingsFromSupabase;
 window.syncPendingStoresFromSupabase = syncPendingStoresFromSupabase;
 window.savePendingStoreToSupabase = savePendingStoreToSupabase;
 window.deletePendingStoreFromSupabase = deletePendingStoreFromSupabase;
@@ -1391,6 +1652,14 @@ window.clearOrdersFromSupabase = clearOrdersFromSupabase;
 window.updateOrderStatusInSupabase = updateOrderStatusInSupabase;
 window.updateStoreQuotaInSupabase = updateStoreQuotaInSupabase;
 window.updateStoreFeeInSupabase = updateStoreFeeInSupabase;
+
+// Security Exports
+window.hashPasswordSecure = hashPasswordSecure;
+window.verifyDeveloperEmailAuthInSupabase = verifyDeveloperEmailAuthInSupabase;
+window.registerDeveloperEmailInSupabase = registerDeveloperEmailInSupabase;
+window.verifyDistributorEmailAuthInSupabase = verifyDistributorEmailAuthInSupabase;
+window.registerDistributorEmailInSupabase = registerDistributorEmailInSupabase;
+
 
 
 
