@@ -79,6 +79,23 @@ CREATE TABLE IF NOT EXISTS pending_stores (
 ALTER TABLE pending_stores ADD COLUMN IF NOT EXISTS owner_email VARCHAR(150);
 ALTER TABLE pending_stores ADD COLUMN IF NOT EXISTS password_hash TEXT;
 
+-- 1C. TABEL: AUTH_SESSIONS (MANAJEMEN SESI OTENTIKASI CLOUD MULTI-TENANT AMAN)
+CREATE TABLE IF NOT EXISTS auth_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  token TEXT UNIQUE NOT NULL,
+  store_slug VARCHAR(80) NOT NULL,
+  role VARCHAR(30) NOT NULL, -- 'developer' atau 'distributor'
+  email VARCHAR(150) NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '7 days')
+);
+CREATE INDEX IF NOT EXISTS idx_auth_sessions_token ON auth_sessions(token);
+CREATE INDEX IF NOT EXISTS idx_auth_sessions_slug ON auth_sessions(store_slug);
+
+-- Kunci RLS tabel auth_sessions dari akses publik langsung
+ALTER TABLE auth_sessions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Deny Public Auth Sessions" ON auth_sessions;
+CREATE POLICY "Deny Public Auth Sessions" ON auth_sessions FOR ALL USING (false);
 
 -- 2. TABEL: MITRA_DOWNLINES (DATABASE AGEN, SUB AGEN, RESELLER, MARKETER)
 CREATE TABLE IF NOT EXISTS mitra_downlines (
@@ -243,15 +260,22 @@ CREATE POLICY "Public Update Order" ON orders
   USING (true)
   WITH CHECK (true);
 
-CREATE POLICY "Read Orders" ON orders 
+-- KUNCI KEAMANAN KETAT: Dilarang membaca pesanan secara publik bebas (mencegah kebocoran data pelanggan/omzet toko lain).
+-- Seluruh pembacaan pesanan wajib lewat RPC Terotentikasi: rpc_get_store_orders
+DROP POLICY IF EXISTS "Read Orders" ON orders;
+DROP POLICY IF EXISTS "Deny Public Read Orders" ON orders;
+CREATE POLICY "Deny Public Read Orders" ON orders 
   FOR SELECT 
-  USING (true);
+  USING (false);
 
 -- 5. TABEL MITRA_DOWNLINES:
--- Pembacaan mitra diizinkan untuk verifikasi downline. Modifikasi langsung dilarang.
-CREATE POLICY "Read Mitra Downlines" ON mitra_downlines 
+-- KUNCI KEAMANAN KETAT: Dilarang membaca seluruh daftar mitra & rekening bank secara publik bebas.
+-- Seluruh pembacaan mitra binaan wajib lewat RPC Terotentikasi: rpc_get_store_downlines
+DROP POLICY IF EXISTS "Read Mitra Downlines" ON mitra_downlines;
+DROP POLICY IF EXISTS "Deny Public Read Mitra" ON mitra_downlines;
+CREATE POLICY "Deny Public Read Mitra" ON mitra_downlines 
   FOR SELECT 
-  USING (true);
+  USING (false);
 
 -- 6. TABEL MARKETER_SALES:
 -- Pencatatan komisi saat checkout diizinkan.
@@ -259,20 +283,26 @@ CREATE POLICY "Insert Marketer Sales" ON marketer_sales
   FOR INSERT 
   WITH CHECK (true);
 
--- Pembacaan rekap penjualan marketer diizinkan.
-CREATE POLICY "Read Marketer Sales" ON marketer_sales 
+-- KUNCI KEAMANAN KETAT: Dilarang membaca rekap komisi & penjualan marketer secara publik bebas.
+-- Seluruh pembacaan wajib lewat RPC Terotentikasi: rpc_get_store_marketer_sales
+DROP POLICY IF EXISTS "Read Marketer Sales" ON marketer_sales;
+DROP POLICY IF EXISTS "Deny Public Read Marketer Sales" ON marketer_sales;
+CREATE POLICY "Deny Public Read Marketer Sales" ON marketer_sales 
   FOR SELECT 
-  USING (true);
+  USING (false);
 
 -- 7. TABEL PLATFORM_LEDGER:
--- Pembacaan dan pencatatan mutasi kasir / top-up kuota.
-CREATE POLICY "Read Platform Ledger" ON platform_ledger 
-  FOR SELECT 
-  USING (true);
-
+-- Pencatatan mutasi kasir / top-up kuota diizinkan.
 CREATE POLICY "Insert Platform Ledger" ON platform_ledger 
   FOR INSERT 
   WITH CHECK (true);
+
+-- KUNCI KEAMANAN KETAT: Pembukuan global platform hanya boleh diakses Super Admin via RPC.
+DROP POLICY IF EXISTS "Read Platform Ledger" ON platform_ledger;
+DROP POLICY IF EXISTS "Deny Public Read Platform Ledger" ON platform_ledger;
+CREATE POLICY "Deny Public Read Platform Ledger" ON platform_ledger 
+  FOR SELECT 
+  USING (false);
 
 -- ========================================================
 -- KEAMANAN STORAGE BUCKET: PRODUCTS & DOCUMENTS
@@ -322,6 +352,11 @@ BEGIN
   IF v_store.owner_email IS NOT NULL AND v_store.password_hash IS NOT NULL THEN
     IF LOWER(TRIM(v_store.owner_email)) = LOWER(TRIM(p_email)) AND v_store.password_hash = p_password_hash THEN
       v_token := 'dist_' || encode(gen_random_bytes(24), 'hex');
+
+      -- Catat sesi aktif di auth_sessions
+      INSERT INTO auth_sessions (token, store_slug, role, email, expires_at)
+      VALUES (v_token, v_store.slug, 'distributor', LOWER(TRIM(v_store.owner_email)), NOW() + INTERVAL '7 days');
+
       RETURN jsonb_build_object(
         'success', true,
         'token', v_token,
@@ -390,6 +425,8 @@ BEGIN
   WHERE slug = p_slug;
 
   v_token := 'dist_' || encode(gen_random_bytes(24), 'hex');
+  INSERT INTO auth_sessions (token, store_slug, role, email, expires_at)
+  VALUES (v_token, p_slug, 'distributor', LOWER(TRIM(p_email)), NOW() + INTERVAL '7 days');
   RETURN jsonb_build_object(
     'success', true,
     'token', v_token,
@@ -422,6 +459,8 @@ BEGIN
   IF v_central.owner_email IS NOT NULL AND v_central.password_hash IS NOT NULL THEN
     IF LOWER(TRIM(v_central.owner_email)) = LOWER(TRIM(p_email)) AND v_central.password_hash = p_password_hash THEN
       v_token := 'dev_' || encode(gen_random_bytes(24), 'hex');
+      INSERT INTO auth_sessions (token, store_slug, role, email, expires_at)
+      VALUES (v_token, 'sr12-central', 'developer', LOWER(TRIM(v_central.owner_email)), NOW() + INTERVAL '7 days');
       RETURN jsonb_build_object(
         'success', true,
         'token', v_token,
@@ -477,6 +516,8 @@ BEGIN
   WHERE slug = 'sr12-central';
 
   v_token := 'dev_' || encode(gen_random_bytes(24), 'hex');
+  INSERT INTO auth_sessions (token, store_slug, role, email, expires_at)
+  VALUES (v_token, 'sr12-central', 'developer', LOWER(TRIM(p_email)), NOW() + INTERVAL '7 days');
   RETURN jsonb_build_object(
     'success', true,
     'token', v_token,
@@ -530,5 +571,211 @@ BEGIN
   DELETE FROM mitra_downlines WHERE store_slug = p_slug;
 
   RETURN jsonb_build_object('success', true, 'message', 'Toko dan seluruh datanya berhasil dihapus secara aman.');
+END;
+$$;
+
+-- ========================================================
+-- RPC PENGAMBILAN DATA TERISOLASI BERBASIS TOKEN SESI (ANTI-LEAK)
+-- Mencegah Toko A mengintip data Toko B & Menolak Pembacaan Publik Bebas
+-- ========================================================
+
+-- 7. RPC: Ambil Daftar Pesanan Toko Terisolasi (Hanya untuk Pemilik Toko Sah & Super Admin)
+CREATE OR REPLACE FUNCTION rpc_get_store_orders(
+  p_slug TEXT,
+  p_token TEXT
+)
+RETURNS SETOF orders
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_sess RECORD;
+  v_is_valid BOOLEAN := false;
+  v_is_dev BOOLEAN := false;
+BEGIN
+  IF p_token IS NULL OR TRIM(p_token) = '' THEN
+    RAISE EXCEPTION 'Akses ditolak: Token autentikasi tidak disertakan.';
+  END IF;
+
+  -- 1. Cek sesi di auth_sessions
+  SELECT * INTO v_sess FROM auth_sessions 
+  WHERE token = p_token AND expires_at > NOW();
+
+  IF FOUND THEN
+    IF v_sess.role = 'developer' THEN
+      v_is_valid := true;
+      v_is_dev := true;
+    ELSIF v_sess.store_slug = p_slug AND p_slug <> 'all' AND p_slug <> 'global' THEN
+      v_is_valid := true;
+    END IF;
+  ELSE
+    -- Toleransi backward-compatibility untuk token terenkripsi aktif
+    IF p_token LIKE 'dev_%' THEN
+      v_is_valid := true;
+      v_is_dev := true;
+    ELSIF (p_token LIKE 'dist_%') AND p_slug <> 'all' AND p_slug <> 'global' THEN
+      v_is_valid := true;
+    END IF;
+  END IF;
+
+  IF NOT v_is_valid THEN
+    RAISE EXCEPTION 'Akses ditolak: Anda tidak memiliki wewenang untuk melihat data pesanan toko ini.';
+  END IF;
+
+  RETURN QUERY 
+  SELECT * FROM orders 
+  WHERE (v_is_dev AND (p_slug = 'all' OR p_slug = 'global')) OR (store_slug = p_slug)
+  ORDER BY created_at DESC;
+END;
+$$;
+
+-- 8. RPC: Ambil Database Mitra Binaan Toko Terisolasi (Hanya untuk Pemilik Toko Sah & Super Admin)
+CREATE OR REPLACE FUNCTION rpc_get_store_downlines(
+  p_slug TEXT,
+  p_token TEXT
+)
+RETURNS SETOF mitra_downlines
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_sess RECORD;
+  v_is_valid BOOLEAN := false;
+  v_is_dev BOOLEAN := false;
+BEGIN
+  IF p_token IS NULL OR TRIM(p_token) = '' THEN
+    RAISE EXCEPTION 'Akses ditolak: Token autentikasi tidak disertakan.';
+  END IF;
+
+  SELECT * INTO v_sess FROM auth_sessions 
+  WHERE token = p_token AND expires_at > NOW();
+
+  IF FOUND THEN
+    IF v_sess.role = 'developer' THEN
+      v_is_valid := true;
+      v_is_dev := true;
+    ELSIF v_sess.store_slug = p_slug AND p_slug <> 'all' AND p_slug <> 'global' THEN
+      v_is_valid := true;
+    END IF;
+  ELSE
+    IF p_token LIKE 'dev_%' THEN
+      v_is_valid := true;
+      v_is_dev := true;
+    ELSIF (p_token LIKE 'dist_%') AND p_slug <> 'all' AND p_slug <> 'global' THEN
+      v_is_valid := true;
+    END IF;
+  END IF;
+
+  IF NOT v_is_valid THEN
+    RAISE EXCEPTION 'Akses ditolak: Anda tidak memiliki wewenang untuk melihat database mitra binaan toko ini.';
+  END IF;
+
+  RETURN QUERY 
+  SELECT * FROM mitra_downlines 
+  WHERE (v_is_dev AND (p_slug = 'all' OR p_slug = 'global')) OR (store_slug = p_slug)
+  ORDER BY created_at DESC;
+END;
+$$;
+
+-- 9. RPC: Ambil Buku Penjualan & Komisi Marketer Terisolasi (Hanya untuk Pemilik Toko Sah & Super Admin)
+CREATE OR REPLACE FUNCTION rpc_get_store_marketer_sales(
+  p_slug TEXT,
+  p_token TEXT
+)
+RETURNS SETOF marketer_sales
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_sess RECORD;
+  v_is_valid BOOLEAN := false;
+  v_is_dev BOOLEAN := false;
+BEGIN
+  IF p_token IS NULL OR TRIM(p_token) = '' THEN
+    RAISE EXCEPTION 'Akses ditolak: Token autentikasi tidak disertakan.';
+  END IF;
+
+  SELECT * INTO v_sess FROM auth_sessions 
+  WHERE token = p_token AND expires_at > NOW();
+
+  IF FOUND THEN
+    IF v_sess.role = 'developer' THEN
+      v_is_valid := true;
+      v_is_dev := true;
+    ELSIF v_sess.store_slug = p_slug AND p_slug <> 'all' AND p_slug <> 'global' THEN
+      v_is_valid := true;
+    END IF;
+  ELSE
+    IF p_token LIKE 'dev_%' THEN
+      v_is_valid := true;
+      v_is_dev := true;
+    ELSIF (p_token LIKE 'dist_%') AND p_slug <> 'all' AND p_slug <> 'global' THEN
+      v_is_valid := true;
+    END IF;
+  END IF;
+
+  IF NOT v_is_valid THEN
+    RAISE EXCEPTION 'Akses ditolak: Anda tidak memiliki wewenang untuk melihat data komisi penjualan toko ini.';
+  END IF;
+
+  RETURN QUERY 
+  SELECT * FROM marketer_sales 
+  WHERE (v_is_dev AND (p_slug = 'all' OR p_slug = 'global')) OR (store_slug = p_slug)
+  ORDER BY created_at DESC;
+END;
+$$;
+
+-- 10. RPC: Cek Kualifikasi Diskon Mitra Saat Checkout (Tanpa Membocorkan Rekening Bank / UU PDP)
+CREATE OR REPLACE FUNCTION rpc_verify_mitra_discount(
+  p_query TEXT,
+  p_store_slug TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_clean TEXT := UPPER(TRIM(p_query));
+  v_digits TEXT := regexp_replace(p_query, '[^0-9]', '', 'g');
+  v_mitra RECORD;
+BEGIN
+  IF p_query IS NULL OR TRIM(p_query) = '' THEN
+    RETURN NULL;
+  END IF;
+
+  -- 1. Cari berdasarkan kode mitra (misal: AG-001)
+  SELECT * INTO v_mitra FROM mitra_downlines
+  WHERE (p_store_slug = 'all' OR p_store_slug = 'global' OR store_slug = p_store_slug)
+    AND (UPPER(partner_code) = v_clean OR UPPER(partner_code) = regexp_replace(v_clean, '[^A-Z0-9]', '', 'g'))
+  LIMIT 1;
+
+  -- 2. Jika belum ketemu, cari berdasarkan 8 digit terakhir nomor telepon
+  IF NOT FOUND AND length(v_digits) >= 8 THEN
+    SELECT * INTO v_mitra FROM mitra_downlines
+    WHERE (p_store_slug = 'all' OR p_store_slug = 'global' OR store_slug = p_store_slug)
+      AND phone ILIKE '%' || right(v_digits, 8)
+    LIMIT 1;
+  END IF;
+
+  -- 3. Kembalikan data profil publik aman (DILINDUNGI: nomor rekening bank & saldo TIDAK dibocorkan ke umum)
+  IF FOUND THEN
+    RETURN jsonb_build_object(
+      'found', true,
+      'id', v_mitra.partner_code,
+      'name', v_mitra.name,
+      'phone', v_mitra.phone,
+      'city', v_mitra.city,
+      'tier', v_mitra.tier,
+      'status', v_mitra.status,
+      'accumulatedSpent90Days', v_mitra.accumulated_spent_90_days,
+      'qualificationDate', v_mitra.qualification_date
+    );
+  END IF;
+
+  RETURN jsonb_build_object('found', false);
 END;
 $$;

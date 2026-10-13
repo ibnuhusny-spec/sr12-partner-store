@@ -1184,9 +1184,12 @@ async function syncMitraWithIndexedDB() {
       await dbSaveAllMarketerSales(appState.marketerSales);
     }
 
-    // 3. Sinkronkan dari Supabase Cloud jika online (Ambil seluruh mitra jaringan global lintas toko)
-    if (typeof syncMitraFromSupabase === 'function' && typeof appState !== 'undefined') {
-      const cloudMitra = await syncMitraFromSupabase();
+    // 3. Sinkronkan dari Supabase Cloud hanya jika pemilik toko / admin sedang login (Aman UU PDP & Anti-Leak)
+    const isOwnerOrAdmin = (typeof appState !== 'undefined') && (appState.isAdminMode || appState.isDistributorLoggedIn || appState.isDevMasterLoggedIn);
+    if (isOwnerOrAdmin && typeof syncMitraFromSupabase === 'function') {
+      const curSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+      const targetSlug = appState.isDevMasterLoggedIn ? 'all' : curSlug;
+      const cloudMitra = await syncMitraFromSupabase(targetSlug);
       if (cloudMitra && cloudMitra.length > 0) {
         // Gabungkan dengan key unik komposit: (store_slug + '_' + id) agar tidak saling menimpa antar toko
         const curMap = new Map();
@@ -1203,7 +1206,6 @@ async function syncMitraWithIndexedDB() {
         });
         if (cloudAdded) {
           appState.mitraList = Array.from(curMap.values());
-          const curSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
           appState.resellers = appState.mitraList.filter(m => (m.store_slug || 'sr12-central') === curSlug);
           saveStoredMitra(appState.mitraList, false);
           if (typeof renderResellers === 'function') renderResellers();
@@ -2139,6 +2141,17 @@ window.initReferralAffiliateBanner = initReferralAffiliateBanner;
       if (parsedSession && parsedSession.slug === initSlug) {
         appState.isAdminMode = true;
         appState.isDistributorLoggedIn = true;
+        if (parsedSession.token) {
+          appState.distSessionToken = parsedSession.token;
+        } else {
+          const authV2 = sessionStorage.getItem('sr12_auth_session_v2') || localStorage.getItem('sr12_auth_session_v2');
+          if (authV2) {
+            try {
+              const pV2 = JSON.parse(authV2);
+              if (pV2 && pV2.token) appState.distSessionToken = pV2.token;
+            } catch(e2) {}
+          }
+        }
       } else {
         appState.isAdminMode = false;
         appState.isDistributorLoggedIn = false;
@@ -2238,7 +2251,8 @@ window.initReferralAffiliateBanner = initReferralAffiliateBanner;
     if (t && t.id) appState.notifiedOrderIds.add(t.id);
   });
 
-  if (typeof syncOrdersFromSupabase === 'function') {
+  const isAuthorizedToReadOrders = appState.isAdminMode || appState.isDistributorLoggedIn || appState.isDevMasterLoggedIn;
+  if (isAuthorizedToReadOrders && typeof syncOrdersFromSupabase === 'function') {
     syncOrdersFromSupabase(initStoreSlug).then(cloudOrders => {
       if (Array.isArray(cloudOrders) && cloudOrders.length > 0) {
         const local = appState.transactions || [];
@@ -2386,8 +2400,9 @@ function loadStoreBySlug(slug) {
   if (typeof getStoredTransactions === 'function') {
     appState.transactions = getStoredTransactions(found.slug);
   }
-  // Sinkronkan pesanan masuk dari Supabase Cloud (agar order yang dibuat dari laptop/hp lain langsung masuk)
-  if (typeof syncOrdersFromSupabase === 'function') {
+  // Sinkronkan pesanan masuk dari Supabase Cloud hanya jika pengguna adalah pemilik toko/admin sah
+  const isAuthForSwitch = appState.isAdminMode || appState.isDistributorLoggedIn || appState.isDevMasterLoggedIn;
+  if (isAuthForSwitch && typeof syncOrdersFromSupabase === 'function') {
     syncOrdersFromSupabase(found.slug).then(cloudOrders => {
       if (Array.isArray(cloudOrders) && cloudOrders.length > 0) {
         const local = (typeof getStoredTransactions === 'function') ? getStoredTransactions(found.slug) : [];
@@ -4674,22 +4689,63 @@ function resetAuthLockout(type = 'store') {
   } catch (e) {}
 }
 
-// Generate Kriptografis Session Token
-function createSecureAuthSession(email, role, storeSlug) {
+// Generate Kriptografis Session Token & Kelola Sesi Cloud Terisolasi
+function createSecureAuthSession(email, role, storeSlug, token) {
+  const sessionToken = token || (role === 'developer' 
+    ? ('dev_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8))
+    : ('dist_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8)));
   const session = {
     email: String(email).trim().toLowerCase(),
     role: role,
     storeSlug: storeSlug || 'alzam-agency',
     loggedAt: Date.now(),
-    expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 Jam
-    token: 'jwt_sec_' + Math.random().toString(36).substring(2) + '_' + Date.now()
+    expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000), // 7 Hari
+    token: sessionToken
   };
   try {
     sessionStorage.setItem('sr12_auth_session_v2', JSON.stringify(session));
     localStorage.setItem('sr12_auth_session_v2', JSON.stringify(session));
+    if (role === 'distributor') {
+      const distSessionObj = {
+        slug: session.storeSlug,
+        email: session.email,
+        token: sessionToken,
+        loggedAt: session.loggedAt
+      };
+      sessionStorage.setItem('sr12_distributor_session', JSON.stringify(distSessionObj));
+      localStorage.setItem('sr12_distributor_session', JSON.stringify(distSessionObj));
+      localStorage.setItem(`sr12_dist_token_${session.storeSlug}`, sessionToken);
+      if (typeof appState !== 'undefined') {
+        appState.distSessionToken = sessionToken;
+      }
+    } else if (role === 'developer') {
+      localStorage.setItem('sr12_dev_token', sessionToken);
+      if (typeof appState !== 'undefined') {
+        appState.devSessionToken = sessionToken;
+      }
+    }
   } catch (e) {}
   return session;
 }
+
+function clearSecureAuthSession() {
+  try {
+    sessionStorage.removeItem('sr12_auth_session_v2');
+    localStorage.removeItem('sr12_auth_session_v2');
+    sessionStorage.removeItem('sr12_distributor_session');
+    localStorage.removeItem('sr12_distributor_session');
+    localStorage.removeItem('sr12_dev_token');
+    if (typeof appState !== 'undefined') {
+      if (appState.currentStoreSlug) {
+        localStorage.removeItem(`sr12_dist_token_${appState.currentStoreSlug}`);
+      }
+      appState.distSessionToken = null;
+      appState.devSessionToken = null;
+    }
+  } catch (e) {}
+}
+window.createSecureAuthSession = createSecureAuthSession;
+window.clearSecureAuthSession = clearSecureAuthSession;
 
 // Switch Tab Modal Distributor (Masuk vs Aktivasi Email)
 function switchDistLoginTab(tab) {
@@ -4855,7 +4911,7 @@ async function handleDistributorLoginSubmit(e) {
       localStorage.setItem(`sr12_store_email_${currentSlug}`, email);
     } catch(eLs) {}
 
-    createSecureAuthSession(email, 'distributor', currentSlug);
+    createSecureAuthSession(email, 'distributor', currentSlug, authResult?.token);
 
     // Hydrate dari database server
     await loadStoreDataFromBackend(currentSlug);
@@ -4940,7 +4996,7 @@ async function handleDistributorEmailRegisterSubmit(e) {
       localStorage.setItem(`sr12_store_email_${currentSlug}`, email);
     } catch(eLs) {}
 
-    createSecureAuthSession(email, 'distributor', currentSlug);
+    createSecureAuthSession(email, 'distributor', currentSlug, regResult?.token);
 
     updateViewModeUI();
     renderProducts();
@@ -4962,20 +5018,31 @@ async function handleDistributorEmailRegisterSubmit(e) {
 
 async function loadStoreDataFromBackend(slug) {
   try {
-    const [resMitra, resSales] = await Promise.all([
-      fetch(`/api/stores/${slug}/mitra`).then(r => r.json()).catch(() => null),
-      fetch(`/api/stores/${slug}/marketer-sales`).then(r => r.json()).catch(() => null)
-    ]);
-
-    if (resMitra && resMitra.success && Array.isArray(resMitra.data) && resMitra.data.length > 0) {
-      appState.mitraList = resMitra.data;
-      saveStoredMitra(appState.mitraList);
-      renderResellers();
+    const targetSlug = slug || appState.currentStoreSlug || 'sr12-central';
+    // Tarik data toko terisolasi via PostgreSQL Stored Procedure (RPC)
+    if (typeof syncMitraFromSupabase === 'function') {
+      const cloudMitra = await syncMitraFromSupabase(targetSlug);
+      if (Array.isArray(cloudMitra) && cloudMitra.length > 0) {
+        appState.mitraList = cloudMitra;
+        appState.resellers = cloudMitra.filter(m => (m.store_slug || targetSlug) === targetSlug);
+        saveStoredMitra(appState.mitraList, false);
+        if (typeof renderResellers === 'function') renderResellers();
+      }
     }
-    if (resSales && resSales.success && Array.isArray(resSales.data)) {
-      appState.marketerSales = resSales.data;
-      saveStoredMarketerSales(appState.marketerSales);
-      renderMarketerPayroll();
+    if (typeof syncOrdersFromSupabase === 'function') {
+      const cloudOrders = await syncOrdersFromSupabase(targetSlug);
+      if (Array.isArray(cloudOrders) && cloudOrders.length > 0) {
+        appState.transactions = cloudOrders;
+        if (typeof renderOrdersTable === 'function') renderOrdersTable();
+      }
+    }
+    if (typeof syncMarketerSalesFromSupabase === 'function') {
+      const cloudSales = await syncMarketerSalesFromSupabase(targetSlug);
+      if (Array.isArray(cloudSales) && cloudSales.length > 0) {
+        appState.marketerSales = cloudSales;
+        saveStoredMarketerSales(appState.marketerSales);
+        if (typeof renderMarketerPayroll === 'function') renderMarketerPayroll();
+      }
     }
   } catch (e) {
     console.warn('Database load warning:', e);
@@ -5985,7 +6052,7 @@ async function verifyDevPinSubmit(e) {
       localStorage.setItem('sr12_dev_email', email);
     } catch(eLs) {}
 
-    createSecureAuthSession(email, 'developer', 'sr12-central');
+    createSecureAuthSession(email, 'developer', 'sr12-central', authResult?.token);
 
     if (typeof closeModal === 'function') {
       closeModal('modalDevPin');
@@ -6066,7 +6133,7 @@ async function handleDeveloperEmailRegisterSubmit(e) {
       localStorage.setItem('sr12_dev_email', email);
     } catch(eLs) {}
 
-    createSecureAuthSession(email, 'developer', 'sr12-central');
+    createSecureAuthSession(email, 'developer', 'sr12-central', regResult?.token);
 
     if (typeof closeModal === 'function') {
       closeModal('modalDevPin');

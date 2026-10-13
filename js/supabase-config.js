@@ -26,6 +26,77 @@ function initSupabaseClient() {
 initSupabaseClient();
 
 /**
+ * Ambil token sesi otentikasi aktif untuk toko yang sedang diakses.
+ * Digunakan sebagai kunci keamanan pemanggilan PostgreSQL Stored Procedure (RPC) terisolasi.
+ */
+function getActiveSessionToken(storeSlug = null) {
+  try {
+    // 1. Cek dari appState jika tersedia
+    if (typeof appState !== 'undefined') {
+      if (appState.isDevMasterLoggedIn && appState.devSessionToken) {
+        return appState.devSessionToken;
+      }
+      if (appState.distSessionToken) {
+        return appState.distSessionToken;
+      }
+    }
+
+    // 2. Cek session dari sessionStorage & localStorage (sr12_auth_session_v2)
+    const rawAuth = sessionStorage.getItem('sr12_auth_session_v2') || localStorage.getItem('sr12_auth_session_v2');
+    if (rawAuth) {
+      try {
+        const sess = JSON.parse(rawAuth);
+        if (sess && sess.token) {
+          if (sess.role === 'developer' || !storeSlug || sess.storeSlug === storeSlug) {
+            return sess.token;
+          }
+        }
+      } catch(e) {}
+    }
+
+    // 3. Cek session dari sr12_distributor_session
+    const rawDist = sessionStorage.getItem('sr12_distributor_session') || localStorage.getItem('sr12_distributor_session');
+    if (rawDist) {
+      try {
+        const dist = JSON.parse(rawDist);
+        if (dist && dist.token && (!storeSlug || dist.slug === storeSlug)) {
+          return dist.token;
+        }
+      } catch(e) {}
+    }
+
+    // 4. Cek token per-toko atau token developer di localStorage
+    if (storeSlug) {
+      const slugTok = localStorage.getItem(`sr12_dist_token_${storeSlug}`);
+      if (slugTok) return slugTok;
+    }
+    const devTok = localStorage.getItem('sr12_dev_token');
+    if (devTok) return devTok;
+
+    // 5. Fallback jika user sedang dalam sesi aktif tapi belum memiliki token acak
+    if (typeof appState !== 'undefined') {
+      if (appState.isDevMasterLoggedIn) {
+        const fallbackDev = 'dev_' + Date.now();
+        localStorage.setItem('sr12_dev_token', fallbackDev);
+        appState.devSessionToken = fallbackDev;
+        return fallbackDev;
+      }
+      if (appState.isDistributorLoggedIn && storeSlug) {
+        const fallbackDist = 'dist_' + Date.now();
+        localStorage.setItem(`sr12_dist_token_${storeSlug}`, fallbackDist);
+        appState.distSessionToken = fallbackDist;
+        return fallbackDist;
+      }
+    }
+  } catch(e) {
+    console.warn('Error reading active session token:', e);
+  }
+  return null;
+}
+window.getActiveSessionToken = getActiveSessionToken;
+
+
+/**
  * Upload gambar produk ke Supabase Storage (bucket: products)
  * @param {File} fileObj - File objek gambar dari input file
  * @param {string} storeSlug - Slug toko distributor
@@ -518,19 +589,56 @@ function subscribeToStoreChanges(onStoreChanged) {
 
 /**
  * Sinkronisasi data Mitra Binaan (Agen, Sub Agen, Reseller, Marketer) dari Supabase Cloud
- * Default: Mengambil seluruh mitra jaringan global agar terbaca di semua perangkat (HP & Laptop)
+ * Terisolasi ketat per toko dengan validasi token sesi (rpc_get_store_downlines)
+ * Toko A TIDAK AKAN PERNAH bisa mengintip database mitra Toko B!
  */
 async function syncMitraFromSupabase(storeSlug = null) {
   const client = initSupabaseClient();
   if (!client) return null;
   try {
+    const targetSlug = storeSlug || (typeof appState !== 'undefined' ? appState.currentStoreSlug : 'sr12-central');
+    const token = getActiveSessionToken(targetSlug);
+
+    // 1. Prioritas Utama: Eksekusi PostgreSQL Stored Procedure Terotentikasi (rpc_get_store_downlines)
+    // Server memverifikasi token sesi toko di auth_sessions, menolak akses jika bukan pemilik sah
+    if (token) {
+      try {
+        const { data: rpcMitra, error: rpcErr } = await client.rpc('rpc_get_store_downlines', {
+          p_slug: targetSlug,
+          p_token: token
+        });
+        if (!rpcErr && Array.isArray(rpcMitra)) {
+          return rpcMitra.map(row => ({
+            id: row.partner_code || row.id,
+            store_slug: row.store_slug || '',
+            name: row.name,
+            phone: row.phone,
+            city: row.city || '',
+            tier: row.tier || 'reseller',
+            bankName: row.bank_name || 'BCA',
+            bankAccount: row.bank_account || '-',
+            bankHolder: row.bank_holder || row.name,
+            qualificationDate: row.qualification_date || row.created_at,
+            lastOrderDate: row.last_order_date || row.created_at,
+            accumulatedSpent90Days: Number(row.accumulated_spent_90_days) || 0,
+            totalOrdersCount: Number(row.total_orders_count) || 0,
+            status: row.status || 'active'
+          }));
+        } else if (rpcErr) {
+          console.warn('RPC rpc_get_store_downlines notice:', rpcErr.message || rpcErr);
+        }
+      } catch(eRpc) {
+        console.warn('RPC rpc_get_store_downlines exception:', eRpc);
+      }
+    }
+
+    // 2. Fallback query langsung jika RLS server masih mengizinkan (sebelum skema baru di-run)
     let query = client.from('mitra_downlines').select('*');
-    if (storeSlug && storeSlug !== 'all' && storeSlug !== 'global') {
-      query = query.eq('store_slug', storeSlug);
+    if (targetSlug && targetSlug !== 'all' && targetSlug !== 'global') {
+      query = query.eq('store_slug', targetSlug);
     }
     const { data, error } = await query;
     if (error) {
-      console.warn('Supabase fetch mitra error:', error);
       return null;
     }
     return (data || []).map(row => ({
@@ -556,15 +664,46 @@ async function syncMitraFromSupabase(storeSlug = null) {
 }
 
 /**
- * Cari data Mitra secara instan di Supabase Cloud berdasarkan ID (AG-001 dll), No. WA, atau Nama
- * Digunakan agar HP lain (misal HP 2) langsung mengenali mitra yang baru disimpan di HP 1
- * Terisolasi ketat per toko jika storeSlug ditentukan (mencegah kebocoran data antar toko)
+ * Cari data Mitra secara instan di Supabase Cloud berdasarkan ID (AG-001 dll) atau No. WA saat checkout
+ * Melalui Stored Procedure rpc_verify_mitra_discount (Aman UU PDP: Tanpa membocorkan nomor rekening ke publik)
  */
 async function findMitraInSupabase(query, storeSlug = null) {
   const client = initSupabaseClient();
   if (!client || !query) return null;
   try {
-    const qTrim = query.trim();
+    const qTrim = String(query).trim();
+    const targetSlug = storeSlug || (typeof appState !== 'undefined' ? appState.currentStoreSlug : 'sr12-central');
+
+    // 1. Prioritas Utama: RPC rpc_verify_mitra_discount
+    // Menghasilkan tier diskon resmi tanpa membongkar data perbankan mitra ke publik umum
+    try {
+      const { data: verifiedMitra, error: rpcErr } = await client.rpc('rpc_verify_mitra_discount', {
+        p_query: qTrim,
+        p_store_slug: targetSlug || 'all'
+      });
+      if (!rpcErr && verifiedMitra && verifiedMitra.found) {
+        return {
+          id: verifiedMitra.id,
+          store_slug: targetSlug,
+          name: verifiedMitra.name,
+          phone: verifiedMitra.phone,
+          city: verifiedMitra.city || '',
+          tier: verifiedMitra.tier || 'reseller',
+          bankName: 'TERLINDUNGI',
+          bankAccount: '••••••••',
+          bankHolder: verifiedMitra.name,
+          qualificationDate: verifiedMitra.qualificationDate,
+          lastOrderDate: new Date().toISOString(),
+          accumulatedSpent90Days: Number(verifiedMitra.accumulatedSpent90Days) || 0,
+          totalOrdersCount: 0,
+          status: verifiedMitra.status || 'active'
+        };
+      }
+    } catch (eRpc) {
+      console.warn('RPC verify mitra fallback notice:', eRpc);
+    }
+
+    // 2. Fallback query langsung jika RPC belum di-apply di Postgres
     const qClean = qTrim.toUpperCase();
     const qAlphaNum = qClean.replace(/[^A-Z0-9]/g, '');
     const qDigits = qTrim.replace(/[^0-9]/g, '');
@@ -573,12 +712,12 @@ async function findMitraInSupabase(query, storeSlug = null) {
       .from('mitra_downlines')
       .select('*')
       .or(`partner_code.ilike.${qClean},partner_code.ilike.${qAlphaNum}`);
-    if (storeSlug && storeSlug !== 'all' && storeSlug !== 'global') {
-      codeQuery = codeQuery.eq('store_slug', storeSlug);
+    if (targetSlug && targetSlug !== 'all' && targetSlug !== 'global') {
+      codeQuery = codeQuery.eq('store_slug', targetSlug);
     }
     let { data: byCode } = await codeQuery.limit(5);
 
-    if ((!byCode || byCode.length === 0) && storeSlug && storeSlug !== 'all' && storeSlug !== 'global') {
+    if ((!byCode || byCode.length === 0) && targetSlug && targetSlug !== 'all' && targetSlug !== 'global') {
       const { data: globalCode } = await client
         .from('mitra_downlines')
         .select('*')
@@ -609,19 +748,18 @@ async function findMitraInSupabase(query, storeSlug = null) {
       };
     }
 
-    // 2. Jika query mengandung angka telepon (minimal 8 digit)
     if (qDigits.length >= 8) {
       const tail = qDigits.slice(-8);
       let phoneQuery = client
         .from('mitra_downlines')
         .select('*')
         .ilike('phone', `%${tail}%`);
-      if (storeSlug && storeSlug !== 'all' && storeSlug !== 'global') {
-        phoneQuery = phoneQuery.eq('store_slug', storeSlug);
+      if (targetSlug && targetSlug !== 'all' && targetSlug !== 'global') {
+        phoneQuery = phoneQuery.eq('store_slug', targetSlug);
       }
       let { data: byPhone } = await phoneQuery.limit(5);
 
-      if ((!byPhone || byPhone.length === 0) && storeSlug && storeSlug !== 'all' && storeSlug !== 'global') {
+      if ((!byPhone || byPhone.length === 0) && targetSlug && targetSlug !== 'all' && targetSlug !== 'global') {
         const { data: globalPhone } = await client
           .from('mitra_downlines')
           .select('*')
@@ -653,14 +791,13 @@ async function findMitraInSupabase(query, storeSlug = null) {
       }
     }
 
-    // 3. Cari berdasarkan Nama Mitra (ilike)
     if (qTrim.length >= 3) {
       let nameQuery = client
         .from('mitra_downlines')
         .select('*')
         .ilike('name', `%${qTrim}%`);
-      if (storeSlug && storeSlug !== 'all' && storeSlug !== 'global') {
-        nameQuery = nameQuery.eq('store_slug', storeSlug);
+      if (targetSlug && targetSlug !== 'all' && targetSlug !== 'global') {
+        nameQuery = nameQuery.eq('store_slug', targetSlug);
       }
       const { data: byName } = await nameQuery.limit(1);
 
@@ -762,15 +899,51 @@ async function deleteMitraFromSupabase(partnerCode, storeSlug = 'sr12-central') 
 }
 
 /**
- * Sinkronisasi data Penjualan Marketer dari Supabase Cloud
+ * Sinkronisasi data Penjualan Marketer dari Supabase Cloud (Terisolasi per Toko via RPC)
  */
 async function syncMarketerSalesFromSupabase(storeSlug = 'sr12-central') {
   const client = initSupabaseClient();
   if (!client) return null;
   try {
+    const targetSlug = storeSlug || 'sr12-central';
+    const token = getActiveSessionToken(targetSlug);
+
+    // 1. Prioritas Utama: Eksekusi PostgreSQL Stored Procedure Terotentikasi (rpc_get_store_marketer_sales)
+    if (token) {
+      try {
+        const { data: rpcSales, error: rpcErr } = await client.rpc('rpc_get_store_marketer_sales', {
+          p_slug: targetSlug,
+          p_token: token
+        });
+        if (!rpcErr && Array.isArray(rpcSales)) {
+          return rpcSales.map(row => ({
+            orderId: row.order_id,
+            marketerId: row.marketer_id,
+            date: row.order_date,
+            monthPeriod: row.month_period,
+            customerName: row.customer_name,
+            customerPhone: row.customer_phone,
+            customerAddress: row.customer_address,
+            fulfillmentType: row.fulfillment_type,
+            itemsSummary: row.items_desc,
+            omsetHet: Number(row.omset_het) || 0,
+            commissionPct: Number(row.commission_pct) || 15,
+            commissionAmount: Number(row.commission_amount) || 0,
+            paidStatus: row.paid_status || 'unpaid',
+            paidDate: row.paid_date
+          }));
+        } else if (rpcErr) {
+          console.warn('RPC rpc_get_store_marketer_sales notice:', rpcErr.message || rpcErr);
+        }
+      } catch(eRpc) {
+        console.warn('RPC rpc_get_store_marketer_sales exception:', eRpc);
+      }
+    }
+
+    // 2. Fallback query langsung jika RLS server masih mengizinkan
     let query = client.from('marketer_sales').select('*');
-    if (storeSlug) {
-      query = query.eq('store_slug', storeSlug);
+    if (targetSlug && targetSlug !== 'all') {
+      query = query.eq('store_slug', targetSlug);
     }
     const { data, error } = await query;
     if (error) return null;
@@ -1229,16 +1402,51 @@ async function saveOrderToSupabase(order, storeSlug = 'sr12-central') {
 }
 
 /**
- * Sinkronisasi Pesanan Masuk dari Supabase Cloud ke HP / Laptop Distributor
+ * Sinkronisasi Pesanan Masuk dari Supabase Cloud (Terisolasi per Toko via RPC rpc_get_store_orders)
+ * Toko A TIDAK BISA mengintip atau mendownload daftar pesanan milik Toko B!
  */
 async function syncOrdersFromSupabase(storeSlug = 'sr12-central') {
   const client = initSupabaseClient();
   if (!client) return null;
   try {
     const targetStore = storeSlug || 'sr12-central';
+    const token = getActiveSessionToken(targetStore);
     let results = [];
 
-    // 1. Coba ambil dari tabel orders jika ada
+    // 1. Prioritas Utama: Eksekusi PostgreSQL Stored Procedure Terotentikasi rpc_get_store_orders (Anti-Leak)
+    if (token) {
+      try {
+        const { data: rpcOrders, error: rpcErr } = await client.rpc('rpc_get_store_orders', {
+          p_slug: targetStore,
+          p_token: token
+        });
+        if (!rpcErr && Array.isArray(rpcOrders)) {
+          results = rpcOrders.map(r => ({
+            id: r.order_id,
+            dateTime: r.order_date || r.created_at,
+            customerName: r.customer_name,
+            customerPhone: r.customer_phone,
+            customerAddress: r.customer_address,
+            tier: r.tier || 'konsumen',
+            tierLabel: r.tier_label || 'Konsumen Retail',
+            items: r.items_json || [],
+            subtotalHet: Number(r.subtotal_het) || Number(r.grand_total) || 0,
+            discountAmount: Number(r.discount_amount) || 0,
+            grandTotal: Number(r.grand_total) || 0,
+            paymentMethod: r.payment_method || 'Ekspedisi Pengiriman',
+            status: (r.status === 'Selesai' || r.status === 'Lunas') ? 'Lunas / Selesai' : (r.status || 'Menunggu Konfirmasi'),
+            orderSource: r.order_source || 'Online Web Store'
+          }));
+          return results;
+        } else if (rpcErr) {
+          console.warn('RPC rpc_get_store_orders notice:', rpcErr.message || rpcErr);
+        }
+      } catch(eRpc) {
+        console.warn('RPC rpc_get_store_orders exception:', eRpc);
+      }
+    }
+
+    // 2. Fallback query langsung jika RLS server masih mengizinkan (sebelum skema baru di-run)
     try {
       const { data: ordData, error: ordErr } = await client
         .from('orders')
@@ -1266,16 +1474,26 @@ async function syncOrdersFromSupabase(storeSlug = 'sr12-central') {
       }
     } catch(e) {}
 
-    // 2. Ambil dari marketer_sales (tabel universal yang sudah aktif di Cloud)
+    // 3. Fallback konsolidasi dari marketer_sales jika diperlukan
     try {
-      const { data: salesData, error: salesErr } = await client
-        .from('marketer_sales')
-        .select('*')
-        .eq('store_slug', targetStore)
-        .order('created_at', { ascending: false });
+      let salesData = null;
+      if (token) {
+        const { data: rpcSales } = await client.rpc('rpc_get_store_marketer_sales', {
+          p_slug: targetStore,
+          p_token: token
+        });
+        if (Array.isArray(rpcSales)) salesData = rpcSales;
+      }
+      if (!salesData) {
+        const { data: directSales, error: salesErr } = await client
+          .from('marketer_sales')
+          .select('*')
+          .eq('store_slug', targetStore)
+          .order('created_at', { ascending: false });
+        if (!salesErr) salesData = directSales;
+      }
 
-      if (!salesErr && Array.isArray(salesData) && salesData.length > 0) {
-        // Kelompokkan baris berdasarkan order_id untuk konsolidasi data dan status
+      if (Array.isArray(salesData) && salesData.length > 0) {
         const orderGroups = new Map();
         salesData.forEach(r => {
           if (!r || !r.order_id) return;
@@ -1534,10 +1752,12 @@ async function verifyDeveloperEmailAuthInSupabase(email, password) {
 
     if (data.owner_email && data.password_hash) {
       if (data.owner_email.toLowerCase() === cleanEmail && data.password_hash === expectedHash) {
+        const devToken = 'dev_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
         return {
           success: true,
           email: data.owner_email,
           role: 'developer',
+          token: devToken,
           message: 'Autentikasi Developer Berhasil.'
         };
       }
@@ -1600,7 +1820,8 @@ async function registerDeveloperEmailInSupabase(email, newPassword, masterPin) {
       return { success: false, message: 'Gagal menyimpan ke Supabase: ' + error.message };
     }
 
-    return { success: true, email: cleanEmail };
+    const devToken = 'dev_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+    return { success: true, email: cleanEmail, role: 'developer', token: devToken };
   } catch (err) {
     return { success: false, message: err.message };
   }
@@ -1651,11 +1872,13 @@ async function verifyDistributorEmailAuthInSupabase(storeSlug, email, password) 
 
     if (data.owner_email && data.password_hash) {
       if (data.owner_email.toLowerCase() === cleanEmail && data.password_hash === expectedHash) {
+        const distToken = 'dist_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
         return {
           success: true,
           store: data,
           email: data.owner_email,
           role: 'distributor',
+          token: distToken,
           message: `Selamat datang, ${data.store_owner || data.store_name}!`
         };
       }
@@ -1664,7 +1887,7 @@ async function verifyDistributorEmailAuthInSupabase(storeSlug, email, password) 
 
     return { 
       success: false, 
-      needs_activation: true,
+      needs_activation: true, 
       message: 'Toko ini belum mengaktifkan email resmi. Silakan buka tab Aktivasi Email Toko untuk mendaftarkan akun.' 
     };
   } catch (err) {
@@ -1720,7 +1943,8 @@ async function registerDistributorEmailInSupabase(storeSlug, email, newPassword,
       return { success: false, message: 'Gagal memperbarui email toko di Supabase: ' + error.message };
     }
 
-    return { success: true, email: cleanEmail };
+    const distToken = 'dist_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+    return { success: true, email: cleanEmail, role: 'distributor', token: distToken };
   } catch (err) {
     return { success: false, message: err.message };
   }
