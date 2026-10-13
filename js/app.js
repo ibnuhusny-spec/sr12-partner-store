@@ -9706,9 +9706,6 @@ function updateDevPortalMetrics() {
                 Buka
               </button>
               ${s.slug !== 'sr12-central' ? `
-              <button onclick="promptResetStorePin('${s.slug}')" style="background: #0284c7; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer;" title="Reset PIN Toko (PIN Saat Ini: ${s.storeAdminPin || '1234'})">
-                🔑
-              </button>
               <button onclick="toggleBlockStore('${s.slug}')" style="background: ${s.isBlocked ? '#059669' : '#dc2626'}; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer;" title="${s.isBlocked ? 'Buka Blokir Toko' : 'Blokir Toko Karena Pelanggaran'}">
                 ${s.isBlocked ? '✅ Buka' : '🚫 Blok'}
               </button>
@@ -9733,17 +9730,17 @@ function updateDevPortalMetrics() {
       return `
         <tr style="border-bottom: 1px solid #334155;">
           <td data-label="Nama Toko" style="padding: 10px 12px; font-weight: 700;">
-            <div style="font-size: 0.9rem; color: #f8fafc;">${s.storeName}</div>
-            <div style="font-size: 0.72rem; color: #38bdf8; font-family: monospace;">?store=${s.slug}</div>
-            <div style="font-size: 0.72rem; color: #fde047; font-weight: 700; margin-top: 2px;">🔑 PIN: <span style="font-family: monospace; letter-spacing: 1px; color: #fef08a;">${s.storeAdminPin || '1234'}</span></div>
+            <div style="font-size: 0.9rem; color: #f8fafc;">${escapeHtml(s.storeName)}</div>
+            <div style="font-size: 0.72rem; color: #38bdf8; font-family: monospace;">?store=${escapeHtml(s.slug)}</div>
+            <div style="font-size: 0.72rem; color: #38bdf8; font-weight: 600; margin-top: 2px;">✉️ ${escapeHtml(s.ownerEmail || s.owner_email || 'Email belum diatur')}</div>
             <div style="margin-top: 4px;">${statusBadge}</div>
           </td>
           <td data-label="Pemilik & Kota" style="padding: 10px 12px;">
-            <div style="font-weight: 600; color: #f1f5f9;">${s.storeOwner}</div>
-            <div style="font-size: 0.7rem; color: #94a3b8;">📍 ${s.storeCity || '-'}</div>
+            <div style="font-weight: 600; color: #f1f5f9;">${escapeHtml(s.storeOwner)}</div>
+            <div style="font-size: 0.7rem; color: #94a3b8;">📍 ${escapeHtml(s.storeCity || '-')}</div>
           </td>
           <td data-label="Level" style="padding: 10px 12px;"><span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;">${tierObj.name}</span></td>
-          <td data-label="WhatsApp" style="padding: 10px 12px; font-family: monospace; color: #cbd5e1;">+${s.storeWaNumber}</td>
+          <td data-label="WhatsApp" style="padding: 10px 12px; font-family: monospace; color: #cbd5e1;">+${escapeHtml(s.storeWaNumber)}</td>
           <td data-label="Sisa Kuota" style="padding: 10px 12px; text-align: center;">
             <span style="background: ${quotaVal <= 2 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}; color: ${quotaVal <= 2 ? '#f87171' : '#34d399'}; padding: 4px 12px; border-radius: 9999px; font-weight: 800; font-size: 0.75rem; display: inline-block;">
               ${quotaVal} Order
@@ -9758,9 +9755,6 @@ function updateDevPortalMetrics() {
                 👑 Backoffice
               </button>
               ${s.slug !== 'sr12-central' ? `
-              <button type="button" onclick="promptResetStorePin('${s.slug}')" style="background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);" title="Reset PIN Login Toko (PIN Saat Ini: ${s.storeAdminPin || '1234'})">
-                🔑 PIN
-              </button>
               <button type="button" onclick="toggleBlockStore('${s.slug}')" style="background: ${s.isBlocked ? 'linear-gradient(135deg, #059669, #047857)' : 'linear-gradient(135deg, #dc2626, #b91c1c)'}; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="${s.isBlocked ? 'Buka Blokir Toko' : 'Blokir Toko Karena Pelanggaran'}">
                 ${s.isBlocked ? '✅ Buka' : '🚫 Blok'}
               </button>
