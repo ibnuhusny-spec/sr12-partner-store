@@ -76,6 +76,11 @@
           <span style="font-size: 0.72rem; color: #94a3b8;">🏪 Toko:</span>
           <span id="activeStorePublicBadge" style="font-size: 0.76rem; font-weight: 800; color: #38bdf8;">SR12 Official Central Hub</span>
         </div>
+        <!-- Status Koneksi Cloud Supabase -->
+        <button type="button" class="btn-topbar-cloud-status" id="cloudStatusBadge" onclick="handleCloudBadgeClick()" title="Cloud Supabase Terhubung Realtime. Klik untuk cek koneksi & tes suara.">
+          <span class="cloud-status-dot online"></span>
+          <span class="cloud-status-text">Cloud Aktif</span>
+        </button>
         <!-- Tombol Admin Distributor (Hanya Muncul Jika Sudah Login) -->
         <button class="btn-topbar-olsera" id="topbarBtnOlseraPos" onclick="openOlseraPosDirect()" title="Buka Aplikasi Olsera POS Kasir & Backoffice" aria-label="Olsera POS" style="display: none;">
           🛒 <span class="topbar-btn-text">Olsera POS</span>
@@ -228,7 +233,13 @@
     </div>
 
     <div class="tools-section">
-      <!-- 0. Kasir Aktif Bertugas: Terlihat jelas di HP dan Desktop -->
+      <!-- 0. Indikator Cloud Realtime & Mode Offline Kasir -->
+      <button type="button" id="olseraCloudStatusBadge" class="btn-topbar-cloud-status" onclick="handleCloudBadgeClick()" title="Cloud Supabase Terhubung Realtime. Klik untuk cek status.">
+        <span class="cloud-status-dot online"></span>
+        <span class="cloud-status-text">Cloud Aktif</span>
+      </button>
+
+      <!-- 0.5. Kasir Aktif Bertugas: Terlihat jelas di HP dan Desktop -->
       <button type="button" class="btn-topbar-cashier-active" onclick="openOlseraAbsensiModal()" title="Kasir Aktif: Klik untuk Absensi / Ganti Shift">
         <span style="font-size: 0.95rem;">👤</span>
         <span class="topbar-cashier-text">Kasir: <b id="topbarActiveCashierName">Administrator Pusat</b></span>
@@ -4951,6 +4962,9 @@
         </div>
 
         <div style="display: flex; align-items: center; gap: 8px; position: relative; z-index: 2;">
+          <button type="button" onclick="playOrderChime(true);" style="background: rgba(255,255,255,0.18); color: #ffffff; border: 1px solid rgba(255,255,255,0.3); padding: 0 10px; height: 32px; border-radius: 8px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; flex-shrink: 0; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.3)';" onmouseout="this.style.background='rgba(255,255,255,0.18)';" title="Uji suara nada dering pesanan masuk & aktifkan izin audio browser" aria-label="Uji Suara">
+            <span>🔔</span> <span class="hide-on-mobile">Uji Suara</span>
+          </button>
           <button type="button" onclick="clearAllSimulationOrders()" style="background: rgba(255,255,255,0.15); color: #ffffff; border: 1px solid rgba(255,255,255,0.28); width: 32px; height: 32px; border-radius: 8px; font-size: 0.95rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.35)'; this.style.borderColor='rgba(252,165,165,0.6)';" onmouseout="this.style.background='rgba(255,255,255,0.15)'; this.style.borderColor='rgba(255,255,255,0.28)';" title="Kosongkan seluruh riwayat pesanan" aria-label="Kosongkan Pesanan">
             🗑️
           </button>
@@ -5009,9 +5023,9 @@
   <!-- SCRIPTS -->
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=6.5"></script>
-  <script src="js/data.js?v=6.5"></script>
-  <script src="js/app.js?v=6.5"></script>
-  <script src="js/olsera-suite.js?v=6.5"></script>
+  <script src="js/supabase-config.js?v=6.6"></script>
+  <script src="js/data.js?v=6.6"></script>
+  <script src="js/app.js?v=6.6"></script>
+  <script src="js/olsera-suite.js?v=6.6"></script>
 </body>
 </html>

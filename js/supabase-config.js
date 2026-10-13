@@ -598,7 +598,15 @@ function subscribeToStoreChanges(onStoreChanged) {
         if (typeof onStoreChanged === 'function') onStoreChanged(payload);
         if (typeof handleRealtimeCloudOrderUpdate === 'function') handleRealtimeCloudOrderUpdate(payload);
       })
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log('⚡ [Realtime Channel Status]:', status);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('sr12:cloud-status', { detail: { status, err } }));
+          if (status === 'SUBSCRIBED' && typeof flushOfflineTransactions === 'function') {
+            flushOfflineTransactions();
+          }
+        }
+      });
     return channel;
   } catch (e) {
     console.warn('Realtime subscription warning:', e);
@@ -1425,22 +1433,173 @@ async function updateStoreQuotaInSupabase(slug, newQuota) {
 }
 
 /**
- * Simpan Pesanan Masuk (Web Order) ke Supabase Cloud
- * Bekerja secara otomatis sinkron antar Laptop, HP pembeli, dan HP Distributor
+ * ========================================================
+ * KETAHANAN OFFLINE & ANTREAN KASIR POS (OFFLINE-FIRST RESILIENCE)
+ * ========================================================
  */
-async function saveOrderToSupabase(order, storeSlug = 'sr12-central') {
-  const client = initSupabaseClient();
-  if (!client || !order || !order.id) return false;
+const OFFLINE_ORDER_QUEUE_KEY = 'sr12_offline_tx_queue';
+
+function getOfflineTransactionsQueue() {
   try {
-    const targetStore = storeSlug || order.store_slug || 'sr12-central';
+    const raw = localStorage.getItem(OFFLINE_ORDER_QUEUE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveOfflineTransactionsQueue(queue) {
+  try {
+    localStorage.setItem(OFFLINE_ORDER_QUEUE_KEY, JSON.stringify(queue || []));
+  } catch (e) {
+    console.warn('Gagal menyimpan antrean offline:', e);
+  }
+}
+
+function enqueueOfflineTransaction(order, storeSlug) {
+  if (!order || !order.id) return false;
+  const queue = getOfflineTransactionsQueue();
+  const existingIdx = queue.findIndex(item => item && item.order && item.order.id === order.id);
+  const queueItem = {
+    order,
+    storeSlug: storeSlug || order.store_slug || 'sr12-central',
+    enqueuedAt: new Date().toISOString()
+  };
+  if (existingIdx >= 0) {
+    queue[existingIdx] = queueItem;
+  } else {
+    queue.push(queueItem);
+  }
+  saveOfflineTransactionsQueue(queue);
+  console.log(`📦 [Offline Queue] Pesanan ${order.id} disimpan di antrean offline lokal (${queue.length} transaksi tertunda).`);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('sr12:offline-queue-updated', { detail: { count: queue.length } }));
+  }
+  return true;
+}
+
+let isFlushingOfflineQueue = false;
+async function flushOfflineTransactions() {
+  if (isFlushingOfflineQueue) return;
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+
+  const queue = getOfflineTransactionsQueue();
+  if (!queue || queue.length === 0) return;
+
+  isFlushingOfflineQueue = true;
+  console.log(`🔄 [Offline Sync] Memulai sinkronisasi ${queue.length} pesanan offline ke Supabase Cloud...`);
+
+  const remaining = [];
+  let syncedCount = 0;
+
+  for (const item of queue) {
+    try {
+      const res = await saveOrderToSupabase(item.order, item.storeSlug, true /* isFlushing */);
+      if (res && res.success && !res.offline) {
+        syncedCount++;
+      } else {
+        remaining.push(item);
+      }
+    } catch (err) {
+      remaining.push(item);
+    }
+  }
+
+  saveOfflineTransactionsQueue(remaining);
+  isFlushingOfflineQueue = false;
+
+  if (syncedCount > 0) {
+    console.log(`✅ [Offline Sync] Berhasil menyinkronkan ${syncedCount} transaksi offline ke Supabase!`);
+    if (typeof showToast === 'function') {
+      showToast(`☁️ ${syncedCount} pesanan offline berhasil disinkronkan ke Cloud Supabase!`);
+    }
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('sr12:offline-queue-updated', { detail: { count: remaining.length } }));
+  }
+}
+
+/**
+ * Simpan Pesanan Masuk (Web Order & Kasir POS) ke Supabase Cloud
+ * Dilengkapi proteksi anti-tamper, pengurangan kuota atomik server-side (rpc_create_store_order),
+ * dan antrean offline-first otomatis bila jaringan terputus.
+ */
+async function saveOrderToSupabase(order, storeSlug = 'sr12-central', isFlushing = false) {
+  const targetStore = storeSlug || order.store_slug || 'sr12-central';
+  if (!order || !order.id) return { success: false, message: 'Data pesanan tidak valid' };
+
+  // 1. Deteksi Jaringan Offline -> Masuk Antrean Lokal
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    if (!isFlushing) {
+      enqueueOfflineTransaction(order, targetStore);
+      if (typeof showToast === 'function') {
+        showToast('📦 Mode Offline: Pesanan disimpan di antrean lokal & akan otomatis disinkronkan.');
+      }
+    }
+    return { success: true, offline: true, order_id: order.id, message: 'Tersimpan di antrean offline' };
+  }
+
+  const client = initSupabaseClient();
+  if (!client) {
+    if (!isFlushing) enqueueOfflineTransaction(order, targetStore);
+    return { success: true, offline: true, order_id: order.id, message: 'Supabase client offline' };
+  }
+
+  try {
+    const nowIso = new Date().toISOString();
+    const orderPayload = {
+      store_slug: targetStore,
+      order_id: order.id,
+      order_date: order.date || nowIso,
+      customer_name: order.customerName || 'Pelanggan',
+      customer_phone: order.customerPhone || '-',
+      customer_address: order.customerAddress || '-',
+      tier: order.tier || 'konsumen',
+      tier_label: order.tierLabel || 'Konsumen Retail',
+      items_json: order.items || [],
+      subtotal_het: Number(order.subtotalHet) || Number(order.grandTotal) || 0,
+      discount_amount: Number(order.discountAmount) || 0,
+      grand_total: Number(order.grandTotal) || 0,
+      payment_method: order.paymentMethod || 'Ekspedisi Pengiriman',
+      status: order.status || 'Menunggu Konfirmasi',
+      order_source: order.orderSource || 'Online Web Store',
+      marketer_id: order.marketerId || (order.tier === 'marketer' ? 'MKT-WEB' : (order.tier === 'reseller' ? 'RS-WEB' : 'RETAIL'))
+    };
+
+    // 2. Prioritas Utama: Eksekusi PostgreSQL Stored Procedure rpc_create_store_order (Atomic Quota)
+    try {
+      const { data: rpcRes, error: rpcErr } = await client.rpc('rpc_create_store_order', {
+        p_slug: targetStore,
+        p_order: orderPayload
+      });
+
+      if (!rpcErr && rpcRes && rpcRes.success) {
+        console.log('⚡ [RPC] Pesanan aman tersimpan via rpc_create_store_order:', rpcRes);
+        // Perbarui sisa kuota order toko secara instan dari hasil database
+        if (typeof rpcRes.remaining_quota === 'number' && rpcRes.remaining_quota >= 0) {
+          if (typeof appState !== 'undefined' && appState.storeSettings && (appState.storeSettings.slug === targetStore || appState.currentStoreSlug === targetStore)) {
+            appState.storeSettings.orderQuota = rpcRes.remaining_quota;
+            const quotaDisplay = document.getElementById('adminStoreQuotaDisplay');
+            if (quotaDisplay) quotaDisplay.textContent = `${rpcRes.remaining_quota} Order`;
+            const olseraQuota = document.getElementById('olseraTopbarQuotaDisplay');
+            if (olseraQuota) olseraQuota.textContent = `${rpcRes.remaining_quota}`;
+          }
+        }
+        return { success: true, order_id: order.id, data: rpcRes };
+      } else if (rpcErr) {
+        console.warn('RPC rpc_create_store_order fallback notice:', rpcErr.message || rpcErr);
+      }
+    } catch (eRpc) {
+      console.warn('RPC rpc_create_store_order exception, falling back:', eRpc);
+    }
+
+    // 3. Fallback Aman: Upsert langsung ke tabel jika migrasi RPC belum dijalankan
     const now = new Date();
-    const nowIso = now.toISOString();
     const dateOnly = nowIso.split('T')[0];
     const monthPeriod = nowIso.slice(0, 7);
 
-    // 1. Coba simpan ke tabel orders jika ada
     try {
-      const orderPayload = {
+      await client.from('orders').upsert({
         store_slug: targetStore,
         order_id: order.id,
         order_date: nowIso,
@@ -1456,14 +1615,10 @@ async function saveOrderToSupabase(order, storeSlug = 'sr12-central') {
         payment_method: order.paymentMethod || 'Ekspedisi Pengiriman',
         status: order.status || 'Menunggu Konfirmasi',
         order_source: order.orderSource || 'Online Web Store'
-      };
-      const { error: ordErr } = await client.from('orders').upsert(orderPayload, { onConflict: 'order_id' });
-      if (!ordErr) {
-        console.log('☁️ [Supabase] Pesanan tersimpan di tabel orders:', order.id);
-      }
+      }, { onConflict: 'order_id' });
     } catch(e) {}
 
-    // 2. Simpan juga ke marketer_sales sebagai cloud-backing universal
+    // Backing ke marketer_sales
     const salePayload = {
       store_slug: targetStore,
       order_id: order.id,
@@ -1474,7 +1629,7 @@ async function saveOrderToSupabase(order, storeSlug = 'sr12-central') {
       customer_phone: order.customerPhone || '-',
       customer_address: order.customerAddress || '-',
       fulfillment_type: (order.paymentMethod && order.paymentMethod.includes('Ambil')) ? 'pickup' : 'delivery',
-      items_desc: JSON.stringify(order), // Simpan full JSON pesanan lengkap
+      items_desc: JSON.stringify(order),
       omset_het: Number(order.subtotalHet || order.grandTotal) || 0,
       commission_pct: order.tier === 'marketer' ? 15 : 0,
       commission_amount: order.tier === 'marketer' ? Math.round(Number(order.grandTotal || 0) * 0.15) : 0,
@@ -1498,12 +1653,19 @@ async function saveOrderToSupabase(order, storeSlug = 'sr12-central') {
     }
 
     console.log('✅ Pesanan berhasil disinkronkan ke Cloud Supabase:', order.id, `[Toko: ${targetStore}]`);
-    return true;
+    return { success: true, order_id: order.id };
   } catch(err) {
-    console.warn('Gagal simpan pesanan ke Supabase:', err);
-    return false;
+    console.warn('Gagal simpan pesanan ke Supabase, masuk antrean offline:', err);
+    if (!isFlushing) {
+      enqueueOfflineTransaction(order, targetStore);
+      if (typeof showToast === 'function') {
+        showToast('📦 Jaringan lambat/terputus: Pesanan diamankan di antrean offline.');
+      }
+    }
+    return { success: true, offline: true, order_id: order.id };
   }
 }
+
 
 /**
  * Sinkronisasi Pesanan Masuk dari Supabase Cloud (Terisolasi per Toko via RPC rpc_get_store_orders)
@@ -2102,6 +2264,9 @@ window.syncOrdersFromSupabase = syncOrdersFromSupabase;
 window.clearOrdersFromSupabase = clearOrdersFromSupabase;
 window.updateOrderStatusInSupabase = updateOrderStatusInSupabase;
 window.updateStoreQuotaInSupabase = updateStoreQuotaInSupabase;
+window.getOfflineTransactionsQueue = getOfflineTransactionsQueue;
+window.enqueueOfflineTransaction = enqueueOfflineTransaction;
+window.flushOfflineTransactions = flushOfflineTransactions;
 /**
  * Sinkronkan transaksi arus kas POS Olsera / Web ke Cloud Supabase (platform_ledger)
  */

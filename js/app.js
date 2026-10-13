@@ -2366,8 +2366,9 @@ window.initReferralAffiliateBanner = initReferralAffiliateBanner;
   if (typeof initUniversalModalGestures === 'function') {
     initUniversalModalGestures();
   }
-  if (typeof initGlobalEdgeSwipeBackGesture === 'function') {
-    initGlobalEdgeSwipeBackGesture();
+  // Perbarui indikator status koneksi Cloud Supabase
+  if (typeof updateCloudStatusUI === 'function') {
+    updateCloudStatusUI();
   }
 });
 
@@ -10215,26 +10216,228 @@ function showToast(message) {
 }
 
 // ==========================================
-// REAL-TIME ADMIN NOTIFICATION & ORDER MONITOR
+// REAL-TIME AUDIO ENGINE & NOTIFICATION CHIME (WEB AUDIO API UNLOCKED)
 // ==========================================
-function playOrderChime() {
-  try {
+let sr12GlobalAudioCtx = null;
+let sr12AudioUnlocked = false;
+
+function getSR12AudioContext() {
+  if (!sr12GlobalAudioCtx) {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.15); // A5
-    gain.gain.setValueAtTime(0.2, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.5);
-  } catch (e) {}
+    if (AudioCtx) {
+      sr12GlobalAudioCtx = new AudioCtx();
+    }
+  }
+  return sr12GlobalAudioCtx;
 }
+
+function unlockSR12Audio() {
+  if (sr12AudioUnlocked) return;
+  const ctx = getSR12AudioContext();
+  if (ctx) {
+    if (ctx.state === 'suspended') {
+      ctx.resume().then(() => {
+        sr12AudioUnlocked = true;
+        console.log('🔊 [Web Audio] AudioContext berhasil diaktifkan oleh gesture pengguna.');
+      }).catch(() => {});
+    } else if (ctx.state === 'running') {
+      sr12AudioUnlocked = true;
+    }
+  }
+}
+
+// Global user gesture listeners: Aktifkan hak pemutaran audio browser pada klik/sentuhan pertama
+if (typeof window !== 'undefined') {
+  ['pointerdown', 'touchstart', 'mousedown', 'keydown'].forEach(evtType => {
+    window.addEventListener(evtType, unlockSR12Audio, { once: true, passive: true });
+  });
+}
+
+/**
+ * Nada Dering Pesanan Masuk: Harmoni Mewah 3-Nada (C6 -> E6 -> G6 + Sparkle C7)
+ * Menghasilkan suara dering khas kasir ritel elegan tanpa ketergantungan file MP3 eksternal.
+ */
+function playOrderChime(isTest = false) {
+  try {
+    const ctx = getSR12AudioContext();
+    if (!ctx) return;
+
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+
+    const t = ctx.currentTime;
+    // 3 nada beruntun yang merdu: C6 (1046.5Hz) -> E6 (1318.5Hz) -> G6 (1567.98Hz)
+    const tones = [
+      { freq: 1046.50, start: 0.00, dur: 0.35, gain: 0.25 },
+      { freq: 1318.51, start: 0.11, dur: 0.40, gain: 0.28 },
+      { freq: 1567.98, start: 0.22, dur: 0.70, gain: 0.30 }
+    ];
+
+    tones.forEach(tone => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(tone.freq, t + tone.start);
+
+      // Fast attack & smooth exponential decay
+      gain.gain.setValueAtTime(0.0001, t + tone.start);
+      gain.gain.exponentialRampToValueAtTime(tone.gain, t + tone.start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + tone.start + tone.dur);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t + tone.start);
+      osc.stop(t + tone.start + tone.dur + 0.05);
+    });
+
+    // Sentuhan harmonik sparkle lembut di nada penutup (C7)
+    const sparkleOsc = ctx.createOscillator();
+    const sparkleGain = ctx.createGain();
+    sparkleOsc.type = 'triangle';
+    sparkleOsc.frequency.setValueAtTime(2093.00, t + 0.22);
+    sparkleGain.gain.setValueAtTime(0.0001, t + 0.22);
+    sparkleGain.gain.exponentialRampToValueAtTime(0.08, t + 0.24);
+    sparkleGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.85);
+    sparkleOsc.connect(sparkleGain);
+    sparkleGain.connect(ctx.destination);
+    sparkleOsc.start(t + 0.22);
+    sparkleOsc.stop(t + 0.90);
+
+    if (isTest && typeof showToast === 'function') {
+      showToast('🔔 Suara notifikasi aktif & berfungsi jernih!');
+    }
+  } catch (e) {
+    console.warn('Audio chime warning:', e);
+  }
+}
+
+/**
+ * ========================================================
+ * INDIKATOR STATUS CLOUD SUPABASE (REALTIME CONNECTION MONITOR)
+ * ========================================================
+ */
+let currentCloudStatus = 'online';
+
+function updateCloudStatusUI(status) {
+  currentCloudStatus = status || (typeof navigator !== 'undefined' && navigator.onLine ? 'online' : 'offline');
+
+  const badges = [
+    document.getElementById('cloudStatusBadge'),
+    document.getElementById('olseraCloudStatusBadge'),
+    document.getElementById('adminCloudStatusBadge')
+  ].filter(Boolean);
+
+  let text = 'Cloud Aktif';
+  let color = '#10b981';
+  let bg = 'rgba(16, 185, 129, 0.12)';
+  let border = 'rgba(16, 185, 129, 0.3)';
+  let title = 'Cloud Supabase Terhubung Realtime. Klik untuk cek status & tes suara.';
+
+  if (currentCloudStatus === 'connecting') {
+    text = 'Menghubungkan...';
+    color = '#f59e0b';
+    bg = 'rgba(245, 158, 11, 0.12)';
+    border = 'rgba(245, 158, 11, 0.3)';
+    title = 'Sedang menyambungkan ke Cloud Supabase...';
+  } else if (currentCloudStatus === 'offline') {
+    text = 'Mode Offline';
+    color = '#ef4444';
+    bg = 'rgba(239, 68, 68, 0.12)';
+    border = 'rgba(239, 68, 68, 0.3)';
+    title = 'Koneksi internet terputus. Pesanan & transaksi diamankan di antrean lokal.';
+  }
+
+  // Cek antrean offline
+  let queueCount = 0;
+  if (typeof getOfflineTransactionsQueue === 'function') {
+    queueCount = getOfflineTransactionsQueue().length;
+  }
+  if (queueCount > 0) {
+    if (currentCloudStatus === 'online') {
+      text = `Cloud Aktif (${queueCount} Antrean)`;
+    } else {
+      text = `Offline (${queueCount} Antrean)`;
+    }
+  }
+
+  badges.forEach(b => {
+    b.style.display = 'inline-flex';
+    b.style.background = bg;
+    b.style.borderColor = border;
+    b.style.color = color;
+    b.setAttribute('title', title);
+    b.innerHTML = `
+      <span class="cloud-status-dot ${currentCloudStatus}"></span>
+      <span class="cloud-status-text">${text}</span>
+    `;
+  });
+}
+
+function handleCloudBadgeClick() {
+  unlockSR12Audio();
+  if (currentCloudStatus === 'offline' || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+    if (typeof showToast === 'function') {
+      showToast('🔴 Perangkat sedang offline. Pastikan koneksi internet / WiFi aktif.');
+    }
+  } else if (currentCloudStatus === 'connecting') {
+    if (typeof showToast === 'function') {
+      showToast('🟡 Sedang menyambungkan ke Supabase Cloud...');
+    }
+    if (typeof flushOfflineTransactions === 'function') flushOfflineTransactions();
+  } else {
+    playOrderChime(true);
+    let queueCount = 0;
+    if (typeof getOfflineTransactionsQueue === 'function') {
+      queueCount = getOfflineTransactionsQueue().length;
+    }
+    if (queueCount > 0) {
+      if (typeof showToast === 'function') {
+        showToast(`🟢 Cloud Realtime Aktif! Memproses ${queueCount} pesanan di antrean...`);
+      }
+      if (typeof flushOfflineTransactions === 'function') flushOfflineTransactions();
+    } else {
+      if (typeof showToast === 'function') {
+        showToast('🟢 Cloud Supabase Terhubung Realtime 100%!');
+      }
+    }
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    console.log('🌐 [Network] Perangkat kembali online.');
+    updateCloudStatusUI('connecting');
+    if (typeof flushOfflineTransactions === 'function') {
+      setTimeout(() => {
+        flushOfflineTransactions();
+        updateCloudStatusUI('online');
+      }, 1000);
+    }
+  });
+
+  window.addEventListener('offline', () => {
+    console.warn('🌐 [Network] Perangkat offline.');
+    updateCloudStatusUI('offline');
+    if (typeof showToast === 'function') {
+      showToast('⚠️ Koneksi internet terputus. Mode antrean kasir offline aktif.');
+    }
+  });
+
+  window.addEventListener('sr12:cloud-status', (e) => {
+    const detail = e.detail || {};
+    if (detail.status === 'SUBSCRIBED') {
+      updateCloudStatusUI('online');
+    } else if (detail.status === 'CLOSED' || detail.status === 'CHANNEL_ERROR' || detail.status === 'TIMED_OUT') {
+      updateCloudStatusUI('connecting');
+    }
+  });
+
+  window.addEventListener('sr12:offline-queue-updated', () => {
+    updateCloudStatusUI(currentCloudStatus);
+  });
+}
+
 
 function updateAdminNotificationUI() {
   const list = appState.transactions || [];
@@ -13724,6 +13927,9 @@ window.openAdminOrdersModal = openAdminOrdersModal;
 window.confirmOrderFromModal = confirmOrderFromModal;
 window.clearAllSimulationOrders = clearAllSimulationOrders;
 window.playOrderChime = playOrderChime;
+window.updateCloudStatusUI = updateCloudStatusUI;
+window.handleCloudBadgeClick = handleCloudBadgeClick;
+window.unlockSR12Audio = unlockSR12Audio;
 
 // Pending Store Registration & SK Approval System Exports
 window.openRegisterStoreModal = openRegisterStoreModal;
