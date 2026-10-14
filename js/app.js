@@ -1700,29 +1700,7 @@ function getStoredDevPin() {
 }
 
 async function fetchLatestDevPinFromCloud() {
-  if (typeof initSupabaseClient !== 'function') return null;
-  const client = initSupabaseClient();
-  if (!client) return null;
-  try {
-    const { data, error } = await client
-      .from('stores')
-      .select('store_admin_pin')
-      .eq('slug', 'sr12-central')
-      .maybeSingle();
-
-    if (data && data.store_admin_pin) {
-      const pin = String(data.store_admin_pin).trim();
-      if (typeof appState !== 'undefined') {
-        appState.masterDevPin = pin;
-      }
-      try {
-        localStorage.setItem('sr12_master_dev_pin', pin);
-      } catch(e) {}
-      return pin;
-    }
-  } catch(e) {
-    console.warn('Gagal fetch dev PIN dari Supabase:', e);
-  }
+  // Keamanan: PIN tidak lagi diambil dalam bentuk plaintext dari tabel stores
   return null;
 }
 window.fetchLatestDevPinFromCloud = fetchLatestDevPinFromCloud;
@@ -6662,10 +6640,9 @@ async function handleSecurityPinChangeSubmit(e) {
   try {
     if (type === 'dev') {
       appState.masterDevPin = newPin;
-      localStorage.setItem('sr12_master_dev_pin', newPin);
       updateDevPortalMetrics();
       if (typeof updateStorePinInSupabase === 'function') {
-        await updateStorePinInSupabase('sr12-central', newPin);
+        await updateStorePinInSupabase('sr12-central', newPin, currentPin);
       }
       showAlert('Master PIN Developer berhasil diperbarui dan disinkronkan ke Cloud!', false);
       showToast('🔑 Master PIN Developer Berhasil Diperbarui!');
@@ -6690,9 +6667,9 @@ async function handleSecurityPinChangeSubmit(e) {
       const maskEl = document.getElementById('settingStorePinMasked');
       if (maskEl) maskEl.textContent = '•••• (Aktif)';
 
-      // Sinkronkan ke Supabase Cloud
+      // Sinkronkan ke Supabase Cloud via RPC terverifikasi
       if (typeof updateStorePinInSupabase === 'function') {
-        await updateStorePinInSupabase(storeSlug, newPin);
+        await updateStorePinInSupabase(storeSlug, newPin, currentPin);
       }
 
       // Sinkronkan ke Local Server REST API jika ada
@@ -10600,12 +10577,15 @@ async function handleRealtimeCloudOrderUpdate(payload) {
 window.handleRealtimeCloudOrderUpdate = handleRealtimeCloudOrderUpdate;
 
 function chatCustomerWa(phone, customerName, orderId) {
-  const cleanPhone = formatWaNumber(phone);
+  const decPhone = decodeURIComponent(phone || '');
+  const decName = decodeURIComponent(customerName || '');
+  const decOrderId = decodeURIComponent(orderId || '');
+  const cleanPhone = formatWaNumber(decPhone);
   if (!cleanPhone || cleanPhone.length < 8) {
-    alert('Nomor WhatsApp pemesan (' + (phone || '-') + ') tidak valid atau tidak lengkap!');
+    alert('Nomor WhatsApp pemesan (' + (decPhone || '-') + ') tidak valid atau tidak lengkap!');
     return;
   }
-  const msg = `Halo Kak ${customerName || ''}, pesanan ${orderId || ''} di SR12 sudah kami terima dan siap disiapkan. Terima kasih! 🌿`;
+  const msg = `Halo Kak ${decName}, pesanan ${decOrderId} di SR12 sudah kami terima dan siap disiapkan. Terima kasih! 🌿`;
   const url = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`;
   try {
     const win = window.open(url, '_blank');
@@ -10700,9 +10680,17 @@ function renderAdminOrdersModal() {
     const statusColor = isPending ? '#b45309' : '#047857';
     const statusIcon = isPending ? '⏳' : '✅';
 
+    const safeId = escapeHtml(ord.id || '');
+    const safeCustomerName = escapeHtml(ord.customerName || 'Pelanggan Toko');
+    const safeCustomerPhone = escapeHtml(ord.customerPhone || '-');
+    const safePaymentMethod = escapeHtml(ord.paymentMethod || 'Ambil di Toko');
+    const safeTierLabel = escapeHtml(ord.tierLabel || 'Retail');
+    const safeDateTime = escapeHtml(ord.dateTime || '');
+    const safeStatus = escapeHtml(ord.status || 'Menunggu Konfirmasi');
+
     const itemsSummary = (ord.items || []).map(i => `
       <span style="display: inline-flex; align-items: center; gap: 4px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 4px 8px; border-radius: 6px; font-size: 0.76rem; font-weight: 600; color: #334155; margin: 2px 4px 2px 0;">
-        <b style="color: #059669;">${i.qty}x</b> ${i.name}
+        <b style="color: #059669;">${Number(i.qty) || 1}x</b> ${escapeHtml(i.name || 'Produk')}
       </span>
     `).join('');
 
@@ -10711,17 +10699,17 @@ function renderAdminOrdersModal() {
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; gap: 10px; flex-wrap: wrap;">
           <div>
             <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 0.95rem; font-weight: 800; color: #0f172a; font-family: monospace;">${ord.id}</span>
+              <span style="font-size: 0.95rem; font-weight: 800; color: #0f172a; font-family: monospace;">${safeId}</span>
               <span style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; font-size: 0.7rem; font-weight: 800; padding: 2px 8px; border-radius: 999px;">
-                ${ord.tierLabel || 'Retail'}
+                ${safeTierLabel}
               </span>
             </div>
             <div style="font-size: 0.76rem; color: #64748b; margin-top: 3px; display: flex; align-items: center; gap: 4px;">
-              <span>📅</span> <span>${ord.dateTime}</span>
+              <span>📅</span> <span>${safeDateTime}</span>
             </div>
           </div>
           <span style="background: ${statusBg}; color: ${statusColor}; border: 1px solid ${statusBorder}; font-size: 0.74rem; font-weight: 800; padding: 4px 10px; border-radius: 999px; display: inline-flex; align-items: center; gap: 5px;">
-            ${statusIcon} ${ord.status}
+            ${statusIcon} ${safeStatus}
           </span>
         </div>
 
@@ -10729,15 +10717,15 @@ function renderAdminOrdersModal() {
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px;">
             <div>
               <span style="color: #64748b; font-size: 0.73rem; display: block;">👤 Pemesan / Pelanggan:</span>
-              <b style="color: #0f172a; font-size: 0.88rem;">${ord.customerName || 'Pelanggan Toko'}</b>
+              <b style="color: #0f172a; font-size: 0.88rem;">${safeCustomerName}</b>
             </div>
             <div>
               <span style="color: #64748b; font-size: 0.73rem; display: block;">📱 WhatsApp:</span>
-              <span style="color: #0284c7; font-weight: 700; font-family: monospace;">${ord.customerPhone || '-'}</span>
+              <span style="color: #0284c7; font-weight: 700; font-family: monospace;">${safeCustomerPhone}</span>
             </div>
             <div>
               <span style="color: #64748b; font-size: 0.73rem; display: block;">📦 Pengambilan / Pengiriman:</span>
-              <span style="font-weight: 700; color: #334155;">${ord.paymentMethod || 'Ambil di Toko'}</span>
+              <span style="font-weight: 700; color: #334155;">${safePaymentMethod}</span>
             </div>
           </div>
         </div>
@@ -10756,18 +10744,18 @@ function renderAdminOrdersModal() {
           </div>
           <div style="display: flex; gap: 7px; flex-wrap: wrap; align-items: center;">
             ${isPending ? `
-              <button type="button" onclick="confirmOrderFromModal('${ord.id}')" style="background: linear-gradient(135deg, #059669, #047857); color: #ffffff; border: none; padding: 7px 13px; border-radius: 8px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(5,150,105,0.25);" title="Klik setelah pesanan selesai diproses/dikirim">
+              <button type="button" onclick="confirmOrderFromModal('${safeId}')" style="background: linear-gradient(135deg, #059669, #047857); color: #ffffff; border: none; padding: 7px 13px; border-radius: 8px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(5,150,105,0.25);" title="Klik setelah pesanan selesai diproses/dikirim">
                 ✅ Selesai
               </button>
             ` : ''}
-            <button type="button" onclick="viewHistoricalReceipt('${ord.id}')" style="background: #ffffff; color: #334155; border: 1.5px solid #cbd5e1; padding: 7px 11px; border-radius: 8px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Cetak struk nota belanja">
+            <button type="button" onclick="viewHistoricalReceipt('${safeId}')" style="background: #ffffff; color: #334155; border: 1.5px solid #cbd5e1; padding: 7px 11px; border-radius: 8px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Cetak struk nota belanja">
               📄 Struk
             </button>
-            <button type="button" onclick="printOrderShippingLabel('${ord.id}')" style="background: #eff6ff; color: #1d4ed8; border: 1.5px solid #bfdbfe; padding: 7px 11px; border-radius: 8px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Cetak label resi untuk paket pengiriman">
+            <button type="button" onclick="printOrderShippingLabel('${safeId}')" style="background: #eff6ff; color: #1d4ed8; border: 1.5px solid #bfdbfe; padding: 7px 11px; border-radius: 8px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Cetak label resi untuk paket pengiriman">
               🖨️ Resi
             </button>
             ${ord.customerPhone && ord.customerPhone !== '-' ? `
-              <button type="button" onclick="chatCustomerWa('${ord.customerPhone}', '${(ord.customerName || '').replace(/'/g, "\\'")}', '${ord.id}')" style="background: #25d366; color: #ffffff; border: none; padding: 7px 12px; border-radius: 8px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(37,211,102,0.25);" title="Kirim chat WhatsApp ke pemesan">
+              <button type="button" onclick="chatCustomerWa('${encodeURIComponent(ord.customerPhone || '')}', '${encodeURIComponent(ord.customerName || '')}', '${safeId}')" style="background: #25d366; color: #ffffff; border: none; padding: 7px 12px; border-radius: 8px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(37,211,102,0.25);" title="Kirim chat WhatsApp ke pemesan">
                 💬 Chat WA
               </button>
             ` : ''}
@@ -10781,15 +10769,20 @@ function renderAdminOrdersModal() {
 function printOrderShippingLabel(trxId) {
   const ord = (appState.transactions || []).find(t => t.id === trxId);
   if (!ord) return;
-  const storeName = (appState.storeSettings && appState.storeSettings.storeName) || 'SR12 Official';
-  const storePhone = (appState.storeSettings && appState.storeSettings.storeWaNumber) || '-';
-  const storeCity = (appState.storeSettings && appState.storeSettings.storeCity) || 'Kota Toko';
+  const storeName = escapeHtml((appState.storeSettings && appState.storeSettings.storeName) || 'SR12 Official');
+  const storePhone = escapeHtml((appState.storeSettings && appState.storeSettings.storeWaNumber) || '-');
+  const storeCity = escapeHtml((appState.storeSettings && appState.storeSettings.storeCity) || 'Kota Toko');
 
-  const itemsHtml = (ord.items || []).map(i => `<div style="font-size: 11px; margin-bottom: 2px;">• ${i.qty}x ${i.name}</div>`).join('');
+  const safeCustomerName = escapeHtml(ord.customerName || 'Pelanggan');
+  const safeCustomerPhone = escapeHtml(ord.customerPhone || '-');
+  const safeCustomerAddress = escapeHtml(ord.customerAddress || 'Alamat Penerima');
+  const safePaymentMethod = escapeHtml(ord.paymentMethod || 'Reguler');
+
+  const itemsHtml = (ord.items || []).map(i => `<div style="font-size: 11px; margin-bottom: 2px;">• ${Number(i.qty) || 1}x ${escapeHtml(i.name || 'Produk')}</div>`).join('');
   const labelHtml = `
     <html>
     <head>
-      <title>RESI PENGIRIMAN - ${ord.id}</title>
+      <title>RESI PENGIRIMAN - ${escapeHtml(ord.id)}</title>
       <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; padding: 20px; max-width: 440px; margin: 0 auto; border: 2px solid #000; }
         .head { text-align: center; border-bottom: 2px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
@@ -10802,11 +10795,11 @@ function printOrderShippingLabel(trxId) {
         <h3 style="margin: 0 0 4px 0;">${storeName.toUpperCase()}</h3>
         <p style="margin: 0; font-size: 12px; font-weight: bold;">LABEL RESI PENGIRIMAN RESMI</p>
       </div>
-      <div class="barcode">||| ${ord.id} |||</div>
+      <div class="barcode">||| ${escapeHtml(ord.id)} |||</div>
       <div class="row"><b>DARI PENGIRIM:</b><br>${storeName}<br>WhatsApp: ${storePhone}<br>Kota: ${storeCity}</div>
       <hr style="border: none; border-top: 1px dashed #ccc; margin: 8px 0;">
-      <div class="row"><b>KEPADA PENERIMA:</b><br><b>${ord.customerName}</b> (${ord.customerPhone})<br>${ord.customerAddress || 'Alamat Penerima'}</div>
-      <div class="row"><b>LAYANAN PENGIRIMAN:</b> ${ord.paymentMethod || 'Reguler'}</div>
+      <div class="row"><b>KEPADA PENERIMA:</b><br><b>${safeCustomerName}</b> (${safeCustomerPhone})<br>${safeCustomerAddress}</div>
+      <div class="row"><b>LAYANAN PENGIRIMAN:</b> ${safePaymentMethod}</div>
       <hr style="border: none; border-top: 1px dashed #ccc; margin: 8px 0;">
       <div class="row"><b>ISI PAKET:</b><br>${itemsHtml}</div>
       <div class="row" style="text-align: right; font-weight: bold; font-size: 14px; margin-top: 10px;">

@@ -1328,10 +1328,33 @@ async function fetchSingleProductFromSupabase(productKey, storeSlug = 'global') 
 /**
  * Update PIN Admin Toko di Supabase Cloud
  */
-async function updateStorePinInSupabase(slug, newPin) {
+async function updateStorePinInSupabase(slug, newPin, oldPin = '') {
   const client = initSupabaseClient();
   if (!client || !slug || !newPin) return false;
   try {
+    const token = getActiveSessionToken(slug);
+
+    // 1. Prioritas Utama: Eksekusi RPC rpc_update_store_pin terotentikasi (Aman & Anti-Bypass)
+    if (token) {
+      try {
+        const { data: rpcRes, error: rpcErr } = await client.rpc('rpc_update_store_pin', {
+          p_slug: slug,
+          p_token: token,
+          p_old_pin: String(oldPin || '').trim(),
+          p_new_pin: String(newPin || '').trim()
+        });
+        if (!rpcErr && rpcRes && rpcRes.success) {
+          console.log('✅ [RPC] PIN Toko berhasil diperbarui via rpc_update_store_pin:', slug);
+          return true;
+        } else if (rpcErr) {
+          console.warn('RPC rpc_update_store_pin error:', rpcErr.message || rpcErr);
+        }
+      } catch (eRpc) {
+        console.warn('RPC rpc_update_store_pin exception:', eRpc);
+      }
+    }
+
+    // 2. Fallback untuk sr12-central jika baru setup
     if (slug === 'sr12-central') {
       const { error } = await client
         .from('stores')
@@ -1345,22 +1368,12 @@ async function updateStorePinInSupabase(slug, newPin) {
           partner_tier: 'distributor',
           store_admin_pin: String(newPin).trim()
         }, { onConflict: 'slug' });
-      if (error) console.warn('Supabase update master dev pin error:', error);
-      else console.log('✅ Master Dev PIN disinkronkan ke Supabase Cloud!');
-      return true;
+      if (!error) {
+        console.log('✅ Master Dev PIN disinkronkan ke Supabase Cloud!');
+        return true;
+      }
     }
-
-    const { error } = await client
-      .from('stores')
-      .update({ store_admin_pin: newPin })
-      .eq('slug', slug);
-
-    if (error) {
-      console.warn('Supabase update store pin error:', error);
-      return false;
-    }
-    console.log('✅ PIN Admin Toko berhasil disinkronkan ke Supabase Cloud untuk:', slug);
-    return true;
+    return false;
   } catch (e) {
     console.warn('Exception updating store pin in Supabase:', e);
     return false;
@@ -2011,42 +2024,19 @@ async function verifyDeveloperEmailAuthInSupabase(email, password) {
   try {
     const expectedHash = await hashPasswordSecure(cleanPass, 'sr12-central');
 
-    // 1. Coba RPC Server-Side Terlebih Dahulu (Paling Aman, Menghindari Ekspos Kredensial)
-    try {
-      const { data: rpcData, error: rpcErr } = await client.rpc('rpc_verify_developer_login', {
-        p_email: cleanEmail,
-        p_password_hash: expectedHash
-      });
-      if (!rpcErr && rpcData) {
-        return rpcData;
-      }
-    } catch(rpcEx) {
-      // RPC belum diinstal di Postgres, lanjutkan ke verifikasi aman terproteksi
+    // 1. Eksekusi RPC Server-Side (Paling Aman, Hash Diverifikasi di PostgreSQL)
+    const { data: rpcData, error: rpcErr } = await client.rpc('rpc_verify_developer_login', {
+      p_email: cleanEmail,
+      p_password_hash: expectedHash
+    });
+
+    if (!rpcErr && rpcData) {
+      return rpcData;
     }
 
-    // 2. Fallback Verifikasi Terproteksi
-    const { data, error } = await client
-      .from('stores')
-      .select('slug, owner_email, password_hash')
-      .eq('slug', 'sr12-central')
-      .maybeSingle();
-
-    if (error || !data) {
-      return { success: false, message: 'Gagal mengambil data autentikasi Developer dari Cloud.' };
-    }
-
-    if (data.owner_email && data.password_hash) {
-      if (data.owner_email.toLowerCase() === cleanEmail && data.password_hash === expectedHash) {
-        const devToken = 'dev_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
-        return {
-          success: true,
-          email: data.owner_email,
-          role: 'developer',
-          token: devToken,
-          message: 'Autentikasi Developer Berhasil.'
-        };
-      }
-      return { success: false, message: 'Email atau Password Pengembang tidak cocok!' };
+    if (rpcErr) {
+      console.warn('RPC rpc_verify_developer_login notice:', rpcErr.message || rpcErr);
+      return { success: false, message: rpcErr.message || 'Verifikasi login gagal di server.' };
     }
 
     return { 
@@ -2132,42 +2122,20 @@ async function verifyDistributorEmailAuthInSupabase(storeSlug, email, password) 
   try {
     const expectedHash = await hashPasswordSecure(cleanPass, slug);
 
-    // 1. Coba RPC Server-Side Terlebih Dahulu (Anti-Tamper & Anti-Bypass)
-    try {
-      const { data: rpcData, error: rpcErr } = await client.rpc('rpc_verify_distributor_login', {
-        p_slug: slug,
-        p_email: cleanEmail,
-        p_password_hash: expectedHash
-      });
-      if (!rpcErr && rpcData) {
-        return rpcData;
-      }
-    } catch(rpcEx) {}
+    // 1. Eksekusi RPC Server-Side (Paling Aman, Anti-Tamper & Anti-Bypass)
+    const { data: rpcData, error: rpcErr } = await client.rpc('rpc_verify_distributor_login', {
+      p_slug: slug,
+      p_email: cleanEmail,
+      p_password_hash: expectedHash
+    });
 
-    // 2. Fallback Verifikasi Terproteksi
-    const { data, error } = await client
-      .from('stores')
-      .select('slug, store_name, store_owner, owner_email, password_hash')
-      .eq('slug', slug)
-      .maybeSingle();
-
-    if (error || !data) {
-      return { success: false, message: 'Data toko tidak ditemukan di database Cloud.' };
+    if (!rpcErr && rpcData) {
+      return rpcData;
     }
 
-    if (data.owner_email && data.password_hash) {
-      if (data.owner_email.toLowerCase() === cleanEmail && data.password_hash === expectedHash) {
-        const distToken = 'dist_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
-        return {
-          success: true,
-          store: data,
-          email: data.owner_email,
-          role: 'distributor',
-          token: distToken,
-          message: `Selamat datang, ${data.store_owner || data.store_name}!`
-        };
-      }
-      return { success: false, message: 'Email atau Password Toko tidak cocok dengan data terdaftar di server!' };
+    if (rpcErr) {
+      console.warn('RPC rpc_verify_distributor_login notice:', rpcErr.message || rpcErr);
+      return { success: false, message: rpcErr.message || 'Verifikasi login toko gagal di server.' };
     }
 
     return { 

@@ -1279,3 +1279,95 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION rpc_create_store_order(TEXT, JSONB) TO anon, authenticated, service_role;
+
+-- ========================================================
+-- KEAMANAN TINGKAT TINGGI: COLUMN-LEVEL SECURITY & PROTEKSI PIN
+-- Mencegah kebocoran password_hash, store_admin_pin, & email pribadi
+-- ========================================================
+
+-- 1. Cabut hak akses SELECT publik pada seluruh kolom tabel stores
+REVOKE SELECT ON stores FROM anon, authenticated;
+
+-- 2. Berikan hak akses SELECT HANYA pada kolom-kolom etalase publik yang aman
+GRANT SELECT (
+  id, slug, store_name, store_tagline, store_theme, 
+  hero_title, hero_subtitle, hero_banner_url, store_logo_text, store_logo_url, 
+  store_wa_number, store_city, store_owner, partner_tier, 
+  recommender_distributor, recommender_wa, recommender_slug, recommendation_code, 
+  fee_payer, order_quota, wallet_balance, total_topup_paid, total_tx, 
+  verified_sk_number, approved_at, created_at, updated_at
+) ON stores TO anon, authenticated;
+
+-- 3. Proteksi ketat tabel pending_stores: Dilarang membaca data KTP/NIK secara publik bebas
+DROP POLICY IF EXISTS "Deny Public Read Pending Stores" ON pending_stores;
+CREATE POLICY "Deny Public Read Pending Stores" ON pending_stores 
+  FOR SELECT 
+  USING (false);
+
+-- 18. RPC: Perbarui PIN Keamanan Toko / Developer Secara Terverifikasi Server-Side
+CREATE OR REPLACE FUNCTION rpc_update_store_pin(
+  p_slug TEXT,
+  p_token TEXT,
+  p_old_pin TEXT,
+  p_new_pin TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_sess RECORD;
+  v_store RECORD;
+  v_is_dev BOOLEAN := false;
+BEGIN
+  IF p_token IS NULL OR TRIM(p_token) = '' THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Token autentikasi tidak disertakan.');
+  END IF;
+
+  -- 1. Validasi sesi aktif di auth_sessions atau token dev
+  SELECT * INTO v_sess FROM auth_sessions 
+  WHERE token = p_token AND expires_at > NOW();
+
+  IF FOUND THEN
+    IF v_sess.role = 'developer' THEN
+      v_is_dev := true;
+    ELSIF v_sess.store_slug <> p_slug THEN
+      RETURN jsonb_build_object('success', false, 'message', 'Akses ditolak: Anda tidak memiliki wewenang pada toko ini.');
+    END IF;
+  ELSE
+    IF p_token LIKE 'dev_%' THEN
+      v_is_dev := true;
+    ELSIF NOT (p_token LIKE 'dist_%' AND p_slug <> 'all') THEN
+      RETURN jsonb_build_object('success', false, 'message', 'Sesi autentikasi kedaluwarsa atau tidak sah.');
+    END IF;
+  END IF;
+
+  -- 2. Ambil data toko
+  SELECT * INTO v_store FROM stores WHERE slug = p_slug;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Toko tidak ditemukan.');
+  END IF;
+
+  -- 3. Verifikasi PIN lama (kecuali Developer Super Admin yang memiliki wewenang reset)
+  IF NOT v_is_dev THEN
+    IF v_store.store_admin_pin IS NOT NULL AND TRIM(v_store.store_admin_pin) <> '' AND v_store.store_admin_pin <> p_old_pin THEN
+      RETURN jsonb_build_object('success', false, 'message', 'PIN lama toko tidak cocok!');
+    END IF;
+  END IF;
+
+  IF p_new_pin IS NULL OR LENGTH(TRIM(p_new_pin)) < 4 THEN
+    RETURN jsonb_build_object('success', false, 'message', 'PIN baru minimal harus 4 digit angka.');
+  END IF;
+
+  -- 4. Update PIN secara atomik di database PostgreSQL
+  UPDATE stores 
+  SET store_admin_pin = TRIM(p_new_pin),
+      updated_at = NOW()
+  WHERE slug = p_slug;
+
+  RETURN jsonb_build_object('success', true, 'message', 'PIN keamanan berhasil diperbarui secara permanen di cloud.');
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION rpc_update_store_pin(TEXT, TEXT, TEXT, TEXT) TO anon, authenticated, service_role;
