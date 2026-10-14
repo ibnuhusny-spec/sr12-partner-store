@@ -340,7 +340,7 @@ CREATE OR REPLACE FUNCTION rpc_verify_distributor_login(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_store RECORD;
@@ -354,7 +354,7 @@ BEGIN
   -- Cek apakah toko sudah mengaktifkan email & password
   IF v_store.owner_email IS NOT NULL AND v_store.password_hash IS NOT NULL THEN
     IF LOWER(TRIM(v_store.owner_email)) = LOWER(TRIM(p_email)) AND v_store.password_hash = p_password_hash THEN
-      v_token := 'dist_' || encode(gen_random_bytes(24), 'hex');
+      v_token := 'dist_' || replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '');
 
       -- Catat sesi aktif di auth_sessions
       INSERT INTO auth_sessions (token, store_slug, role, email, expires_at)
@@ -400,7 +400,7 @@ CREATE OR REPLACE FUNCTION rpc_register_distributor_email(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_store RECORD;
@@ -427,7 +427,7 @@ BEGIN
       updated_at = NOW()
   WHERE slug = p_slug;
 
-  v_token := 'dist_' || encode(gen_random_bytes(24), 'hex');
+  v_token := 'dist_' || replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '');
   INSERT INTO auth_sessions (token, store_slug, role, email, expires_at)
   VALUES (v_token, p_slug, 'distributor', LOWER(TRIM(p_email)), NOW() + INTERVAL '7 days');
   RETURN jsonb_build_object(
@@ -448,7 +448,7 @@ CREATE OR REPLACE FUNCTION rpc_verify_developer_login(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_central RECORD;
@@ -461,7 +461,7 @@ BEGIN
 
   IF v_central.owner_email IS NOT NULL AND v_central.password_hash IS NOT NULL THEN
     IF LOWER(TRIM(v_central.owner_email)) = LOWER(TRIM(p_email)) AND v_central.password_hash = p_password_hash THEN
-      v_token := 'dev_' || encode(gen_random_bytes(24), 'hex');
+      v_token := 'dev_' || replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '');
       INSERT INTO auth_sessions (token, store_slug, role, email, expires_at)
       VALUES (v_token, 'sr12-central', 'developer', LOWER(TRIM(v_central.owner_email)), NOW() + INTERVAL '7 days');
       RETURN jsonb_build_object(
@@ -493,7 +493,7 @@ CREATE OR REPLACE FUNCTION rpc_register_developer_email(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   v_central RECORD;
@@ -518,7 +518,7 @@ BEGIN
       updated_at = NOW()
   WHERE slug = 'sr12-central';
 
-  v_token := 'dev_' || encode(gen_random_bytes(24), 'hex');
+  v_token := 'dev_' || replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '');
   INSERT INTO auth_sessions (token, store_slug, role, email, expires_at)
   VALUES (v_token, 'sr12-central', 'developer', LOWER(TRIM(p_email)), NOW() + INTERVAL '7 days');
   RETURN jsonb_build_object(
