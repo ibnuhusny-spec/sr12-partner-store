@@ -993,8 +993,9 @@ async function syncMarketerSalesFromSupabase(storeSlug = 'sr12-central') {
   try {
     const targetSlug = storeSlug || 'sr12-central';
     const token = getActiveSessionToken(targetSlug);
+    let allSales = [];
 
-    // 1. Prioritas Utama: Eksekusi PostgreSQL Stored Procedure Terotentikasi (rpc_get_store_marketer_sales)
+    // 1. Eksekusi Stored Procedure RPC rpc_get_store_marketer_sales
     if (token) {
       try {
         const { data: rpcSales, error: rpcErr } = await client.rpc('rpc_get_store_marketer_sales', {
@@ -1002,23 +1003,7 @@ async function syncMarketerSalesFromSupabase(storeSlug = 'sr12-central') {
           p_token: token
         });
         if (!rpcErr && Array.isArray(rpcSales)) {
-          const validSales = rpcSales.filter(r => r && r.paid_status !== 'deleted' && r.paid_status !== 'Dihapus');
-          return validSales.map(row => ({
-            orderId: row.order_id,
-            marketerId: row.marketer_id,
-            date: row.order_date,
-            monthPeriod: row.month_period,
-            customerName: row.customer_name,
-            customerPhone: row.customer_phone,
-            customerAddress: row.customer_address,
-            fulfillmentType: row.fulfillment_type,
-            itemsSummary: row.items_desc,
-            omsetHet: Number(row.omset_het) || 0,
-            commissionPct: Number(row.commission_pct) || 15,
-            commissionAmount: Number(row.commission_amount) || 0,
-            paidStatus: row.paid_status || 'unpaid',
-            paidDate: row.paid_date
-          }));
+          allSales = rpcSales;
         } else if (rpcErr) {
           console.warn('RPC rpc_get_store_marketer_sales notice:', rpcErr.message || rpcErr);
         }
@@ -1028,29 +1013,76 @@ async function syncMarketerSalesFromSupabase(storeSlug = 'sr12-central') {
     }
 
     // 2. Fallback query langsung jika RLS server masih mengizinkan
-    let query = client.from('marketer_sales').select('*');
-    if (targetSlug && targetSlug !== 'all') {
-      query = query.eq('store_slug', targetSlug);
+    if (allSales.length === 0) {
+      let query = client.from('marketer_sales').select('*');
+      if (targetSlug && targetSlug !== 'all') {
+        query = query.eq('store_slug', targetSlug);
+      }
+      const { data, error } = await query;
+      if (!error && Array.isArray(data)) {
+        allSales = data;
+      }
     }
-    const { data, error } = await query;
-    if (error) return null;
-    const validData = (data || []).filter(r => r && r.paid_status !== 'deleted' && r.paid_status !== 'Dihapus');
-    return validData.map(row => ({
-      orderId: row.order_id,
-      marketerId: row.marketer_id,
-      date: row.order_date,
-      monthPeriod: row.month_period,
-      customerName: row.customer_name,
-      customerPhone: row.customer_phone,
-      customerAddress: row.customer_address,
-      fulfillmentType: row.fulfillment_type,
-      itemsSummary: row.items_desc,
-      omsetHet: Number(row.omset_het) || 0,
-      commissionPct: Number(row.commission_pct) || 15,
-      commissionAmount: Number(row.commission_amount) || 0,
-      paidStatus: row.paid_status || 'unpaid',
-      paidDate: row.paid_date
-    }));
+
+    // 3. Dapatkan daftar pesanan toko agar penjualan web (ORD-WEB-) yang sudah dihapus/phantom tidak ikut termuat
+    let deletedOrderIds = new Set();
+    let validOrderIds = new Set();
+    if (token) {
+      try {
+        const { data: ords } = await client.rpc('rpc_get_store_orders', {
+          p_slug: targetSlug,
+          p_token: token
+        });
+        if (Array.isArray(ords)) {
+          ords.forEach(o => {
+            if (o) {
+              if (o.status === 'Dihapus' || o.status === 'deleted') {
+                deletedOrderIds.add(o.order_id);
+              } else {
+                validOrderIds.add(o.order_id);
+              }
+            }
+          });
+        }
+      } catch(e) {}
+    }
+
+    const seenOrderIds = new Set();
+    const validSales = [];
+
+    allSales.forEach(row => {
+      if (!row || !row.order_id) return;
+      if (row.paid_status === 'deleted' || row.paid_status === 'Dihapus') return;
+      if (deletedOrderIds.has(row.order_id)) return;
+      if (row.order_id.startsWith('ORD-MKT-')) return; // Abaikan dummy lawas
+      if (row.marketer_id === 'RS-WEB' || row.marketer_id === 'RETAIL') return; // Bukan penjualan marketer
+
+      // Jika berawalan ORD-WEB-, pastikan benar-benar ada di pesanan aktif toko
+      if (row.order_id.startsWith('ORD-WEB-') && validOrderIds.size > 0 && !validOrderIds.has(row.order_id)) return;
+
+      if (seenOrderIds.has(row.order_id)) return;
+      seenOrderIds.add(row.order_id);
+
+      validSales.push({
+        orderId: row.order_id,
+        store_slug: row.store_slug || targetSlug,
+        marketerId: row.marketer_id,
+        date: row.order_date,
+        monthPeriod: row.month_period,
+        customerName: row.customer_name,
+        customerPhone: row.customer_phone,
+        customerAddress: row.customer_address,
+        fulfillmentType: row.fulfillment_type,
+        itemsSummary: row.items_desc,
+        omsetHet: Number(row.omset_het) || 0,
+        commissionPct: Number(row.commission_pct) || 15,
+        commissionAmount: Number(row.commission_amount) || Math.round((Number(row.omset_het) || 0) * 0.15),
+        paidStatus: row.paid_status || 'unpaid',
+        paidDate: row.paid_date
+      });
+    });
+
+    return validSales;
   } catch (e) {
     return null;
   }
@@ -1656,38 +1688,47 @@ async function saveOrderToSupabase(order, storeSlug = 'sr12-central', isFlushing
       }, { onConflict: 'order_id' });
     } catch(e) {}
 
-    // Backing ke marketer_sales
-    const salePayload = {
-      store_slug: targetStore,
-      order_id: order.id,
-      marketer_id: order.marketerId || (order.tier === 'marketer' ? 'MKT-WEB' : (order.tier === 'reseller' ? 'RS-WEB' : 'RETAIL')),
-      order_date: dateOnly,
-      month_period: monthPeriod,
-      customer_name: order.customerName || 'Pelanggan',
-      customer_phone: order.customerPhone || '-',
-      customer_address: order.customerAddress || '-',
-      fulfillment_type: (order.paymentMethod && order.paymentMethod.includes('Ambil')) ? 'pickup' : 'delivery',
-      items_desc: JSON.stringify(order),
-      omset_het: Number(order.subtotalHet || order.grandTotal) || 0,
-      commission_pct: order.tier === 'marketer' ? 15 : 0,
-      commission_amount: order.tier === 'marketer' ? Math.round(Number(order.grandTotal || 0) * 0.15) : 0,
-      paid_status: (order.status === 'Selesai' || order.status === 'Lunas') ? 'paid' : 'unpaid',
-      paid_date: (order.status === 'Selesai') ? dateOnly : null
-    };
+    // Backing ke marketer_sales HANYA jika pesanan ini adalah pesanan marketer
+    const isMarketerOrder = order.tier === 'marketer' || (order.marketerId && !String(order.marketerId).toUpperCase().startsWith('RS-'));
+    if (isMarketerOrder) {
+      const resolvedMarketerId = order.marketerId || (order.customerPhone && String(order.customerPhone).toUpperCase().startsWith('MKT-') ? String(order.customerPhone).trim().toUpperCase() : null) || (order.customerName === 'Maryam' ? 'MKT-001' : 'MKT-001');
+      const salePayload = {
+        store_slug: targetStore,
+        order_id: order.id,
+        marketer_id: resolvedMarketerId,
+        order_date: dateOnly,
+        month_period: monthPeriod,
+        customer_name: order.customerName || 'Pelanggan',
+        customer_phone: order.customerPhone || '-',
+        customer_address: order.customerAddress || '-',
+        fulfillment_type: (order.paymentMethod && order.paymentMethod.includes('Ambil')) ? 'pickup' : 'delivery',
+        items_desc: JSON.stringify(order),
+        omset_het: Number(order.subtotalHet || order.grandTotal) || 0,
+        commission_pct: 15,
+        commission_amount: Math.round(Number(order.subtotalHet || order.grandTotal || 0) * 0.15),
+        paid_status: (order.status === 'Selesai' || order.status === 'Lunas') ? 'paid' : 'unpaid',
+        paid_date: (order.status === 'Selesai') ? dateOnly : null
+      };
 
-    const { data: existingRows } = await client
-      .from('marketer_sales')
-      .select('id')
-      .eq('store_slug', targetStore)
-      .eq('order_id', order.id);
+      const { data: existingRows } = await client
+        .from('marketer_sales')
+        .select('id')
+        .eq('store_slug', targetStore)
+        .eq('order_id', order.id);
 
-    if (Array.isArray(existingRows) && existingRows.length > 0) {
-      await client.from('marketer_sales').update(salePayload).eq('id', existingRows[0].id);
-      for (let i = 1; i < existingRows.length; i++) {
-        await client.from('marketer_sales').delete().eq('id', existingRows[i].id);
+      if (Array.isArray(existingRows) && existingRows.length > 0) {
+        await client.from('marketer_sales').update(salePayload).eq('id', existingRows[0].id);
+        for (let i = 1; i < existingRows.length; i++) {
+          await client.from('marketer_sales').delete().eq('id', existingRows[i].id);
+        }
+      } else {
+        await client.from('marketer_sales').insert(salePayload);
       }
     } else {
-      await client.from('marketer_sales').insert(salePayload);
+      // Jika pesanan bukan marketer (misal grosir reseller), pastikan tidak ada row nyasar di marketer_sales
+      try {
+        await client.from('marketer_sales').delete().eq('store_slug', targetStore).eq('order_id', order.id);
+      } catch(e) {}
     }
 
     console.log('✅ Pesanan berhasil disinkronkan ke Cloud Supabase:', order.id, `[Toko: ${targetStore}]`);
@@ -1729,12 +1770,16 @@ async function syncOrdersFromSupabase(storeSlug = 'sr12-central') {
           const validOrders = rpcOrders.filter(r => r && r.status !== 'Dihapus' && r.status !== 'deleted');
           results = validOrders.map(r => ({
             id: r.order_id,
+            store_slug: r.store_slug || targetStore,
             dateTime: r.order_date || r.created_at,
             customerName: r.customer_name,
             customerPhone: r.customer_phone,
             customerAddress: r.customer_address,
             tier: r.tier || 'konsumen',
             tierLabel: r.tier_label || 'Konsumen Retail',
+            resellerId: r.reseller_id || (r.customer_phone && String(r.customer_phone).toUpperCase().startsWith('RS-') ? String(r.customer_phone).trim().toUpperCase() : null) || (r.tier_label && r.tier_label.includes('RS-') ? r.tier_label.match(/RS-[A-Z0-9]+/)?.[0] : null) || (r.tier === 'reseller' ? (r.customer_phone === 'RS-001' || r.customer_name === 'AzZahrah' ? 'RS-001' : null) : null),
+            marketerId: r.marketer_id || (r.customer_phone && String(r.customer_phone).toUpperCase().startsWith('MKT-') ? String(r.customer_phone).trim().toUpperCase() : null) || (r.tier_label && r.tier_label.includes('MKT-') ? r.tier_label.match(/MKT-[A-Z0-9]+/)?.[0] : null) || (r.tier === 'marketer' ? (r.customer_phone === 'MKT-001' || r.customer_name === 'Maryam' ? 'MKT-001' : null) : null),
+            marketerName: r.marketer_name || (r.tier === 'marketer' ? r.customer_name : null),
             items: r.items_json || [],
             subtotalHet: Number(r.subtotal_het) || Number(r.grand_total) || 0,
             discountAmount: Number(r.discount_amount) || 0,
@@ -1764,12 +1809,16 @@ async function syncOrdersFromSupabase(storeSlug = 'sr12-central') {
         const validOrders = ordData.filter(r => r && r.status !== 'Dihapus' && r.status !== 'deleted');
         results = validOrders.map(r => ({
           id: r.order_id,
+          store_slug: r.store_slug || targetStore,
           dateTime: r.order_date || r.created_at,
           customerName: r.customer_name,
           customerPhone: r.customer_phone,
           customerAddress: r.customer_address,
           tier: r.tier || 'konsumen',
           tierLabel: r.tier_label || 'Konsumen Retail',
+          resellerId: r.reseller_id || (r.customer_phone && String(r.customer_phone).toUpperCase().startsWith('RS-') ? String(r.customer_phone).trim().toUpperCase() : null) || (r.tier_label && r.tier_label.includes('RS-') ? r.tier_label.match(/RS-[A-Z0-9]+/)?.[0] : null) || (r.tier === 'reseller' ? (r.customer_phone === 'RS-001' || r.customer_name === 'AzZahrah' ? 'RS-001' : null) : null),
+          marketerId: r.marketer_id || (r.customer_phone && String(r.customer_phone).toUpperCase().startsWith('MKT-') ? String(r.customer_phone).trim().toUpperCase() : null) || (r.tier_label && r.tier_label.includes('MKT-') ? r.tier_label.match(/MKT-[A-Z0-9]+/)?.[0] : null) || (r.tier === 'marketer' ? (r.customer_phone === 'MKT-001' || r.customer_name === 'Maryam' ? 'MKT-001' : null) : null),
+          marketerName: r.marketer_name || (r.tier === 'marketer' ? r.customer_name : null),
           items: r.items_json || [],
           subtotalHet: Number(r.subtotal_het) || Number(r.grand_total) || 0,
           discountAmount: Number(r.discount_amount) || 0,

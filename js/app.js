@@ -12313,30 +12313,61 @@ function renderResellers() {
     const seenIds = new Set();
     const mCleanId = String(m.id || m.partner_code || '').trim().toUpperCase();
     const mPhoneClean = String(m.phone || '').replace(/[^0-9]/g, '');
+    const mNameClean = String(m.name || '').trim().toLowerCase();
+
+    // Dapatkan transaksi aktif milik toko saat ini (tidak berstatus Dihapus/deleted)
+    const activeTransactions = (appState.transactions || []).filter(t => {
+      if (!t || !t.id) return false;
+      if (t.status === 'Dihapus' || t.status === 'deleted') return false;
+      const tSlug = t.store_slug || currentStoreSlug;
+      return !t.store_slug || tSlug === currentStoreSlug;
+    });
 
     if (m.tier === 'marketer') {
-      // 1. Marketer: Cocokkan HANYA dari transaksi/penjualan yang dialokasikan ke Marketer ini
+      // 1. Marketer: Cocokkan HANYA dari transaksi/penjualan aktif yang dialokasikan ke Marketer ini
       (appState.marketerSales || []).forEach(s => {
         if (!s) return;
+        if (s.paidStatus === 'deleted' || s.paidStatus === 'Dihapus') return;
         const sid = String(s.orderId || s.order_id || s.id || '').trim();
+        if (sid.startsWith('ORD-MKT-')) return; // Abaikan dummy lawas
+        if (s.marketerId === 'RS-WEB' || s.marketerId === 'RETAIL') return; // Bukan penjualan marketer
+
+        // Jika berawalan ORD-WEB-, pastikan ada di transaksi aktif toko
+        if (sid.startsWith('ORD-WEB-') && !activeTransactions.some(t => t.id === sid)) return;
+
         const sMarketerId = String(s.marketerId || s.partner_code || '').trim().toUpperCase();
-        if (sMarketerId && sMarketerId === mCleanId) {
-          if (!sid || !seenIds.has(sid)) {
-            if (sid) seenIds.add(sid);
-            mOrders.push({
-              id: sid || 'MKT-ORD',
-              amount: Number(s.omsetHet || s.omset_het) || 0,
-              date: s.date || s.dateTime
-            });
-          }
+        const sPhoneRaw = String(s.customerPhone || '').trim().toUpperCase();
+        const sName = String(s.customerName || '').trim().toLowerCase();
+
+        const isMatch = (sMarketerId && (sMarketerId === mCleanId || sMarketerId === String(m.id).toUpperCase())) ||
+                        (sPhoneRaw && (sPhoneRaw === mCleanId || sPhoneRaw === String(m.id).toUpperCase())) ||
+                        (mNameClean && sName && (sName === mNameClean || mNameClean.includes(sName)));
+
+        if (isMatch && (!sid || !seenIds.has(sid))) {
+          if (sid) seenIds.add(sid);
+          mOrders.push({
+            id: sid || 'MKT-ORD',
+            amount: Number(s.omsetHet || s.omset_het) || 0,
+            date: s.date || s.dateTime
+          });
         }
       });
 
-      (appState.transactions || []).forEach(t => {
-        if (!t || !t.id) return;
+      activeTransactions.forEach(t => {
         const tid = String(t.id).trim();
         const tMarketerId = String(t.marketerId || '').trim().toUpperCase();
-        if (tMarketerId && tMarketerId === mCleanId && !seenIds.has(tid)) {
+        const tPhoneRaw = String(t.customerPhone || '').trim().toUpperCase();
+        const tPhoneDigits = tPhoneRaw.replace(/[^0-9]/g, '');
+        const tName = String(t.customerName || '').trim().toLowerCase();
+        const tLabel = String(t.tierLabel || '').toLowerCase();
+
+        const isMatch = (tMarketerId && (tMarketerId === mCleanId || tMarketerId === String(m.id).toUpperCase())) ||
+                        (tPhoneRaw && (tPhoneRaw === mCleanId || tPhoneRaw === String(m.id).toUpperCase())) ||
+                        (t.tier === 'marketer' && mPhoneClean.length >= 8 && tPhoneDigits.length >= 8 && (tPhoneDigits === mPhoneClean || tPhoneDigits.endsWith(mPhoneClean.slice(-8)) || mPhoneClean.endsWith(tPhoneDigits.slice(-8)))) ||
+                        (t.tier === 'marketer' && tName && (tName === mNameClean || mNameClean.includes(tName))) ||
+                        (t.tier === 'marketer' && (tLabel.includes(mCleanId.toLowerCase()) || (mNameClean && tLabel.includes(mNameClean))));
+
+        if (isMatch && !seenIds.has(tid)) {
           seenIds.add(tid);
           mOrders.push({
             id: tid,
@@ -12347,16 +12378,21 @@ function renderResellers() {
       });
     } else {
       // 2. Reseller / Sub Agen / Agen: Cocokkan HANYA pesanan grosir untuk mitra ini
-      (appState.transactions || []).forEach(t => {
-        if (!t || !t.id) return;
+      activeTransactions.forEach(t => {
         const tid = String(t.id).trim();
         const tResellerId = String(t.resellerId || '').trim().toUpperCase();
-        const tPhone = String(t.customerPhone || '').replace(/[^0-9]/g, '');
+        const tPhoneRaw = String(t.customerPhone || '').trim().toUpperCase();
+        const tPhoneDigits = tPhoneRaw.replace(/[^0-9]/g, '');
+        const tName = String(t.customerName || '').trim().toLowerCase();
+        const tLabel = String(t.tierLabel || '').toLowerCase();
 
-        const isExactId = (tResellerId && tResellerId === mCleanId);
-        const isExactPhoneTier = (t.tier === m.tier && mPhoneClean.length >= 8 && tPhone.length >= 8 && (tPhone === mPhoneClean || tPhone.endsWith(mPhoneClean.slice(-8))));
+        const isExactId = (tResellerId && (tResellerId === mCleanId || tResellerId === String(m.id).toUpperCase()));
+        const isCodePhone = (tPhoneRaw === mCleanId || tPhoneRaw === String(m.id).toUpperCase());
+        const isExactPhoneTier = (t.tier === m.tier && mPhoneClean.length >= 8 && tPhoneDigits.length >= 8 && (tPhoneDigits === mPhoneClean || tPhoneDigits.endsWith(mPhoneClean.slice(-8)) || mPhoneClean.endsWith(tPhoneDigits.slice(-8))));
+        const isExactNameTier = (t.tier === m.tier && tName && (tName === mNameClean || mNameClean.includes(tName)));
+        const isLabelMatch = (t.tier === m.tier && (tLabel.includes(mCleanId.toLowerCase()) || (mNameClean && tLabel.includes(mNameClean))));
 
-        if ((isExactId || isExactPhoneTier) && !seenIds.has(tid)) {
+        if ((isExactId || isCodePhone || isExactPhoneTier || isExactNameTier || isLabelMatch) && !seenIds.has(tid)) {
           seenIds.add(tid);
           mOrders.push({
             id: tid,
@@ -13117,19 +13153,30 @@ function populatePayrollMonthSelect() {
 function getMarketerConsolidatedSales(m, selectedMonth, currentStoreSlug) {
   if (!m) return [];
 
+  const mCleanId = String(m.id || m.partner_code || '').trim().toUpperCase();
   const mPhoneDigits = (m.phone || '').replace(/[^0-9]/g, '');
+  const mNameClean = String(m.name || '').trim().toLowerCase();
 
   const isCurrentStore = (sSlug) => {
-    if (!sSlug) return currentStoreSlug === 'sr12-central';
+    if (!sSlug) return true; // Sesuai dengan toko aktif saat ini
     return sSlug === currentStoreSlug;
   };
 
-  const isMatchingMarketer = (mId, mCode) => {
-    const cleanMid = String(mId || '').trim().toUpperCase();
-    const cleanMCode = String(mCode || '').trim().toUpperCase();
-    const targetId = String(m.id || m.partner_code || '').trim().toUpperCase();
-    if (cleanMid && cleanMid === targetId) return true;
-    if (cleanMCode && cleanMCode === targetId) return true;
+  const isMatchingMarketer = (mId, mCode, item) => {
+    const cleanMid = String(mId || (item && item.marketerId) || '').trim().toUpperCase();
+    const cleanMCode = String(mCode || (item && (item.marketerCode || item.partner_code)) || '').trim().toUpperCase();
+    const targetId = mCleanId;
+    if (cleanMid && (cleanMid === targetId || cleanMid === String(m.id).toUpperCase())) return true;
+    if (cleanMCode && (cleanMCode === targetId || cleanMCode === String(m.id).toUpperCase())) return true;
+    if (item) {
+      const itemPhone = String(item.customerPhone || item.phone || '').trim().toUpperCase();
+      if (itemPhone && (itemPhone === targetId || (mPhoneDigits.length >= 8 && itemPhone.replace(/[^0-9]/g, '') === mPhoneDigits))) return true;
+      const itemName = String(item.customerName || item.name || '').trim().toLowerCase();
+      if (itemName && mNameClean && (itemName === mNameClean || mNameClean.includes(itemName) || itemName.includes(mNameClean))) return true;
+      const itemLabel = String(item.tierLabel || '').toLowerCase();
+      if (itemLabel && mNameClean && itemLabel.includes(mNameClean)) return true;
+      if (itemLabel && targetId && itemLabel.includes(targetId.toLowerCase())) return true;
+    }
     return false;
   };
 
@@ -13139,12 +13186,28 @@ function getMarketerConsolidatedSales(m, selectedMonth, currentStoreSlug) {
     return extracted === selectedMonth;
   };
 
+  // Dapatkan map transaksi aktif milik toko saat ini
+  const activeTrxMap = new Map();
+  (appState.transactions || []).forEach(t => {
+    if (t && t.id && t.status !== 'Dihapus' && t.status !== 'deleted') {
+      activeTrxMap.set(String(t.id).trim(), t);
+    }
+  });
+
   // 1. Ambil dari catatan penjualan marketer (appState.marketerSales)
   const salesFromRecords = (appState.marketerSales || []).filter(s => {
     if (!s) return false;
+    if (s.paidStatus === 'deleted' || s.paidStatus === 'Dihapus') return false;
     if (!isCurrentStore(s.store_slug)) return false;
 
-    const isM = isMatchingMarketer(s.marketerId, s.partner_code);
+    const oid = String(s.orderId || s.order_id || s.id || '').trim();
+    if (oid.startsWith('ORD-MKT-')) return false; // Abaikan dummy lawas
+    if (s.marketerId === 'RS-WEB' || s.marketerId === 'RETAIL') return false; // Bukan marketer
+
+    // Jika berawalan ORD-WEB-, pastikan ada di transaksi aktif toko
+    if (oid.startsWith('ORD-WEB-') && !activeTrxMap.has(oid)) return false;
+
+    const isM = isMatchingMarketer(s.marketerId, s.partner_code, s);
     if (!isM) return false;
 
     return isMatchingPeriod(s.date || s.dateTime || s.created_at, s.monthPeriod || s.month_period);
@@ -13153,11 +13216,14 @@ function getMarketerConsolidatedSales(m, selectedMonth, currentStoreSlug) {
   // 2. Ambil dari transaksi toko online / POS (appState.transactions)
   const salesFromTrx = (appState.transactions || []).filter(t => {
     if (!t || !t.id) return false;
+    if (t.status === 'Dihapus' || t.status === 'deleted') return false;
     if (!isCurrentStore(t.store_slug)) return false;
 
     // Transaksi POS/Online HANYA diakui jika memang order marketer resmi
-    if (!t.marketerId && t.tier !== 'marketer') return false;
-    const isM = isMatchingMarketer(t.marketerId, null);
+    const isMktTier = t.tier === 'marketer' || (t.marketerId && String(t.marketerId).toUpperCase().startsWith('MKT-'));
+    if (!isMktTier && !t.marketerId) return false;
+
+    const isM = isMatchingMarketer(t.marketerId, null, t);
     if (!isM) return false;
 
     return isMatchingPeriod(t.dateTime || t.date || t.created_at, t.monthPeriod);
@@ -13276,7 +13342,7 @@ function renderMarketerPayroll() {
 
   // Tambahkan marketer dari riwayat penjualan marketer di toko ini jika belum ada di map
   (appState.marketerSales || []).forEach(s => {
-    const isStore = (s.store_slug === currentStoreSlug) || (!s.store_slug && currentStoreSlug === 'sr12-central');
+    const isStore = (!s.store_slug || s.store_slug === currentStoreSlug);
     if (isStore && s.marketerId && !marketersMap.has(s.marketerId)) {
       const resolvedName = (typeof getMarketerNameById === 'function' ? getMarketerNameById(s.marketerId) : '') || s.marketerName || (s.marketerId === 'MKT-001' ? 'Maryam' : `Marketer ${s.marketerId}`);
       marketersMap.set(s.marketerId, {
@@ -13293,7 +13359,7 @@ function renderMarketerPayroll() {
 
   // Tambahkan marketer dari transaksi online toko HANYA jika memang order marketer resmi
   (appState.transactions || []).forEach(t => {
-    const isStore = (t.store_slug === currentStoreSlug) || (!t.store_slug && currentStoreSlug === 'sr12-central');
+    const isStore = (!t.store_slug || t.store_slug === currentStoreSlug);
     const isMktTrx = t.tier === 'marketer' || (t.marketerId && String(t.marketerId).toUpperCase().startsWith('MKT-'));
     if (isStore && t.marketerId && isMktTrx && !marketersMap.has(t.marketerId)) {
       const resolvedName = (typeof getMarketerNameById === 'function' ? getMarketerNameById(t.marketerId) : '') || t.marketerName || (t.marketerId === 'MKT-001' ? 'Maryam' : `Marketer ${t.marketerId}`);
