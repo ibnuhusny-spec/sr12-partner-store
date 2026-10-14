@@ -1785,7 +1785,7 @@ function getStoredMarketerSales(slug) {
     try {
       const list = JSON.parse(stored);
       if (Array.isArray(list)) {
-        return list;
+        return list.filter(s => s && s.paidStatus !== 'deleted' && s.paidStatus !== 'Dihapus');
       }
     } catch (e) {}
   }
@@ -2272,27 +2272,51 @@ window.initReferralAffiliateBanner = initReferralAffiliateBanner;
     if (t && t.id) appState.notifiedOrderIds.add(t.id);
   });
 
+function mergeCloudOrdersIntoLocal(cloudOrders, storeSlug) {
+  if (!Array.isArray(cloudOrders)) return;
+  const currentSlug = storeSlug || (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  const local = (typeof getStoredTransactions === 'function' ? getStoredTransactions(currentSlug) : (appState.transactions || []))
+    .filter(t => t && t.status !== 'Dihapus' && t.status !== 'deleted');
+  
+  const cloudMap = new Map();
+  cloudOrders.forEach(co => {
+    if (co && co.id && co.status !== 'Dihapus' && co.status !== 'deleted') {
+      cloudMap.set(co.id, co);
+    }
+  });
+
+  const merged = [];
+  local.forEach(t => {
+    if (!t || !t.id) return;
+    if (t.id.startsWith('ORD-WEB-')) {
+      if (cloudMap.has(t.id)) {
+        const co = cloudMap.get(t.id);
+        if (t.status === 'Lunas / Selesai' || t.status === 'Selesai') co.status = 'Lunas / Selesai';
+        merged.push(co);
+        cloudMap.delete(t.id);
+      }
+    } else {
+      merged.push(t);
+    }
+  });
+
+  cloudMap.forEach(co => {
+    merged.push(co);
+    if (appState.notifiedOrderIds) appState.notifiedOrderIds.add(co.id);
+  });
+
+  appState.transactions = merged;
+  if (typeof saveStoredTransactions === 'function') {
+    saveStoredTransactions(appState.transactions, currentSlug);
+  }
+}
+window.mergeCloudOrdersIntoLocal = mergeCloudOrdersIntoLocal;
+
   const isAuthorizedToReadOrders = appState.isAdminMode || appState.isDistributorLoggedIn || appState.isDevMasterLoggedIn;
   if (isAuthorizedToReadOrders && typeof syncOrdersFromSupabase === 'function') {
     syncOrdersFromSupabase(initStoreSlug).then(cloudOrders => {
-      if (Array.isArray(cloudOrders) && cloudOrders.length > 0) {
-        const local = appState.transactions || [];
-        const existingMap = new Map();
-        local.forEach(t => { if (t && t.id) existingMap.set(t.id, t); });
-        cloudOrders.forEach(co => {
-          if (co && co.id) {
-            const loc = existingMap.get(co.id);
-            if (loc && (loc.status === 'Lunas / Selesai' || loc.status === 'Selesai')) {
-              co.status = 'Lunas / Selesai';
-            }
-            existingMap.set(co.id, co);
-            appState.notifiedOrderIds.add(co.id);
-          }
-        });
-        appState.transactions = Array.from(existingMap.values());
-        if (typeof saveStoredTransactions === 'function') {
-          saveStoredTransactions(appState.transactions, initStoreSlug);
-        }
+      if (Array.isArray(cloudOrders)) {
+        mergeCloudOrdersIntoLocal(cloudOrders, initStoreSlug);
         updateAdminNotificationUI();
         if (typeof renderPosTransactions === 'function') renderPosTransactions();
         if (typeof renderAdminOrdersModal === 'function') renderAdminOrdersModal();
@@ -2430,25 +2454,8 @@ function loadStoreBySlug(slug) {
   const isAuthForSwitch = appState.isAdminMode || appState.isDistributorLoggedIn || appState.isDevMasterLoggedIn;
   if (isAuthForSwitch && typeof syncOrdersFromSupabase === 'function') {
     syncOrdersFromSupabase(found.slug).then(cloudOrders => {
-      if (Array.isArray(cloudOrders) && cloudOrders.length > 0) {
-        const local = (typeof getStoredTransactions === 'function') ? getStoredTransactions(found.slug) : [];
-        const existingMap = new Map();
-        local.forEach(t => { if (t && t.id) existingMap.set(t.id, t); });
-        cloudOrders.forEach(co => {
-          if (co && co.id) {
-            const loc = existingMap.get(co.id);
-            if (loc && (loc.status === 'Lunas / Selesai' || loc.status === 'Selesai')) {
-              co.status = 'Lunas / Selesai';
-            }
-            existingMap.set(co.id, co);
-            if (appState.notifiedOrderIds) appState.notifiedOrderIds.add(co.id);
-          }
-        });
-        const merged = Array.from(existingMap.values());
-        appState.transactions = merged;
-        if (typeof saveStoredTransactions === 'function') {
-          saveStoredTransactions(appState.transactions, found.slug);
-        }
+      if (Array.isArray(cloudOrders)) {
+        mergeCloudOrdersIntoLocal(cloudOrders, found.slug);
         if (typeof renderPosTransactions === 'function') renderPosTransactions();
         if (typeof renderAdminOrdersModal === 'function') renderAdminOrdersModal();
         updateAdminNotificationUI();
@@ -10493,7 +10500,7 @@ if (typeof window !== 'undefined') {
 
 
 function updateAdminNotificationUI() {
-  const list = appState.transactions || [];
+  const list = (appState.transactions || []).filter(t => t && t.status !== 'Dihapus' && t.status !== 'deleted');
   const pendingOrders = list.filter(t => t.status === 'Menunggu Konfirmasi' || t.status === 'Siap Diambil di Toko');
   const count = pendingOrders.length;
 
@@ -10593,24 +10600,8 @@ async function handleRealtimeCloudOrderUpdate(payload) {
   if (typeof syncOrdersFromSupabase === 'function') {
     try {
       const cloudOrders = await syncOrdersFromSupabase(currentSlug);
-      if (Array.isArray(cloudOrders) && cloudOrders.length > 0) {
-        const local = (typeof getStoredTransactions === 'function') ? getStoredTransactions(currentSlug) : (appState.transactions || []);
-        const existingMap = new Map();
-        local.forEach(t => { if (t && t.id) existingMap.set(t.id, t); });
-        cloudOrders.forEach(co => {
-          if (co && co.id) {
-            const loc = existingMap.get(co.id);
-            if (loc && (loc.status === 'Lunas / Selesai' || loc.status === 'Selesai')) {
-              co.status = 'Lunas / Selesai';
-            }
-            existingMap.set(co.id, co);
-          }
-        });
-
-        appState.transactions = Array.from(existingMap.values());
-        if (typeof saveStoredTransactions === 'function') {
-          saveStoredTransactions(appState.transactions, currentSlug);
-        }
+      if (Array.isArray(cloudOrders)) {
+        mergeCloudOrdersIntoLocal(cloudOrders, currentSlug);
         
         if (typeof renderPosTransactions === 'function') renderPosTransactions();
         if (typeof renderAdminOrdersModal === 'function') renderAdminOrdersModal();
@@ -10621,7 +10612,7 @@ async function handleRealtimeCloudOrderUpdate(payload) {
         if (payload.eventType === 'INSERT' && newRow) {
           const targetOrderId = newRow.order_id;
           if (targetOrderId) {
-            const targetOrder = appState.transactions.find(o => o.id === targetOrderId);
+            const targetOrder = (appState.transactions || []).find(o => o && o.id === targetOrderId);
             if (targetOrder && (targetOrder.status === 'Menunggu Konfirmasi' || targetOrder.status === 'Siap Diambil di Toko')) {
               triggerAdminNewOrderNotification(targetOrder);
             }
@@ -10706,7 +10697,7 @@ function renderAdminOrdersModal() {
   const body = document.getElementById('adminOrdersListBody');
   if (!body) return;
 
-  const orders = appState.transactions || [];
+  const orders = (appState.transactions || []).filter(ord => ord && ord.status !== 'Dihapus' && ord.status !== 'deleted');
   const pendingOrders = orders.filter(ord => ord.status === 'Menunggu Konfirmasi' || ord.status === 'Siap Diambil di Toko');
   const doneOrders = orders.filter(ord => ord.status === 'Lunas / Selesai' || ord.status === 'Selesai');
 
@@ -10832,6 +10823,9 @@ function renderAdminOrdersModal() {
                 💬 Chat WA
               </button>
             ` : ''}
+            <button type="button" onclick="deleteTransactionEntry('${safeId}')" style="background: #fff1f2; color: #b91c1c; border: 1.5px solid #fecdd3; padding: 7px 11px; border-radius: 8px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Hapus pesanan ini secara permanen dari browser dan Supabase">
+              🗑️ Hapus
+            </button>
           </div>
         </div>
       </div>
@@ -10995,13 +10989,14 @@ function confirmOrderFromModal(trxId) {
 function clearAllSimulationOrders() {
   const curSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
   const storeName = (appState.storeSettings && appState.storeSettings.storeName) || curSlug;
-  if (!confirm(`🧹 Kosongkan seluruh riwayat pesanan simulasi toko "${storeName}"?\n\n• Seluruh transaksi dan pesanan masuk akan dibersihkan dari penyimpanan lokal dan Supabase Cloud.\n• Rekap komisi marketer dan arus kas toko akan dinolkan kembali untuk simulasi baru.\n• Data kemitraan Anda tetap aman.`)) {
+  if (!confirm(`🗑️ Kosongkan seluruh riwayat pesanan toko "${storeName}"?\n\n• Seluruh transaksi dan pesanan masuk akan dibersihkan total dari penyimpanan lokal dan Supabase Cloud.\n• Rekap komisi marketer dan pembukuan toko akan dinolkan kembali.\n• Data kemitraan Anda tetap tersimpan aman.`)) {
     return;
   }
-  clearStoreAllSimulationData(curSlug, true);
-  showToast('🗑️ Seluruh riwayat pesanan simulasi dan buku toko berhasil dibersihkan total!');
+  clearStoreOrdersAndFinancials(curSlug, true);
+  showToast('🗑️ Seluruh riwayat pesanan dan pembukuan toko berhasil dibersihkan total!');
 }
 window.clearAllSimulationOrders = clearAllSimulationOrders;
+window.clearAllStoreOrders = clearAllSimulationOrders;
 
 // ==========================================
 // MODEL 1: PREPAID ORDER QUOTA & TOP-UP SYSTEM
@@ -12832,12 +12827,12 @@ function clearAllMarketerSales() {
 }
 window.clearAllMarketerSales = clearAllMarketerSales;
 
-function clearStoreAllSimulationData(targetSlug, silent = false) {
+function clearStoreOrdersAndFinancials(targetSlug, silent = false) {
   const curSlug = targetSlug || (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
   const storeName = (appState.storeSettings && appState.storeSettings.storeName) || curSlug;
 
   if (!silent) {
-    if (!confirm(`🧹 BERSIHKAN TOTAL SIMULASI TOKO: "${storeName}"?\n\nFitur ini akan mengosongkan seluruh:\n• Riwayat transaksi kasir POS & pesanan online\n• Seluruh catatan rekap komisi gaji marketer\n• Riwayat kas masuk simulasi & keranjang belanja\n• Reset angka akumulasi belanja mitra ke Rp 0\n• Supabase Cloud & IndexedDB disinkronkan bersih\n\nSetelah ini toko Anda bersih siap untuk simulasi belanja 1 pesanan baru!`)) {
+    if (!confirm(`🧹 BERSIHKAN DATA TRANSAKSI & PEMBUKUAN TOKO: "${storeName}"?\n\nFitur ini akan mengosongkan seluruh:\n• Riwayat transaksi kasir POS & pesanan online\n• Seluruh catatan rekap komisi gaji marketer\n• Riwayat kas masuk & keranjang belanja\n• Reset angka akumulasi belanja mitra ke Rp 0\n• Supabase Cloud & IndexedDB disinkronkan bersih\n\nData kemitraan & produk Anda tetap tersimpan aman.`)) {
       return;
     }
   }
@@ -12850,6 +12845,8 @@ function clearStoreAllSimulationData(targetSlug, silent = false) {
   try {
     localStorage.removeItem(`sr12_pos_transactions_v2_${curSlug}`);
     localStorage.removeItem('sr12_pos_transactions_v1');
+    localStorage.removeItem(`sr12_admin_orders_${curSlug}`);
+    localStorage.removeItem(`sr12_orders_${curSlug}`);
     localStorage.removeItem('sr12_notified_orders');
     Object.keys(localStorage).forEach(k => {
       if (k.startsWith('sr12_pos_transactions_') && (k.includes(curSlug) || curSlug === 'sr12-central')) {
@@ -12903,7 +12900,7 @@ function clearStoreAllSimulationData(targetSlug, silent = false) {
     dbSaveAllMarketerSales([]);
   }
 
-  // 6. Bersihkan Cloud Supabase jika terhubung
+  // 6. Bersihkan Cloud Supabase secara total
   if (typeof clearOrdersFromSupabase === 'function') {
     clearOrdersFromSupabase(curSlug);
   }
@@ -12933,6 +12930,14 @@ function clearStoreAllSimulationData(targetSlug, silent = false) {
   const badgeDone = document.getElementById('adminOrdersTabBadgeDone');
   if (badgePending) badgePending.textContent = '0';
   if (badgeDone) badgeDone.textContent = '0';
+  const badge1 = document.getElementById('adminPendingOrderCountBadge');
+  const badge2 = document.getElementById('olseraTopbarOrderBadge');
+  if (badge1) badge1.textContent = '0';
+  if (badge2) badge2.textContent = '0';
+  const drawerOrderBadge = document.getElementById('olseraDrawerOrderBadge');
+  if (drawerOrderBadge) drawerOrderBadge.style.display = 'none';
+  const staticMenuBadge = document.getElementById('olseraStaticMenuOrderBadge');
+  if (staticMenuBadge) staticMenuBadge.style.display = 'none';
 
   // 9. Refresh seluruh tampilan seketika
   if (typeof updateCartUI === 'function') updateCartUI();
@@ -12945,10 +12950,11 @@ function clearStoreAllSimulationData(targetSlug, silent = false) {
   if (typeof updateStoreQuotaUI === 'function') updateStoreQuotaUI();
 
   if (!silent) {
-    showToast(`✅ Seluruh data simulasi untuk toko "${storeName}" berhasil dibersihkan total! Transaksi, pesanan & omset kembali 0.`);
+    showToast(`✅ Seluruh data transaksi & pesanan untuk toko "${storeName}" berhasil dibersihkan total!`);
   }
 }
-window.clearStoreAllSimulationData = clearStoreAllSimulationData;
+window.clearStoreOrdersAndFinancials = clearStoreOrdersAndFinancials;
+window.clearStoreAllSimulationData = clearStoreOrdersAndFinancials;
 
 function resetAllMitraAccumulation() {
   const curSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';

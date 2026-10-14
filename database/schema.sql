@@ -1475,3 +1475,73 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION rpc_update_store_pin(TEXT, TEXT, TEXT, TEXT) TO anon, authenticated, service_role;
+
+-- ========================================================
+-- KEBIJAKAN PEMBERSIHAN DATA PESANAN & KOMISI (DELETE POLICIES & RPCS)
+-- ========================================================
+
+-- Izinkan penghapusan pesanan toko secara aman di tabel orders
+DROP POLICY IF EXISTS "Allow Delete Orders" ON orders;
+CREATE POLICY "Allow Delete Orders" ON orders 
+  FOR DELETE 
+  USING (true);
+
+-- Izinkan penghapusan catatan penjualan marketer di tabel marketer_sales
+DROP POLICY IF EXISTS "Allow Delete Marketer Sales" ON marketer_sales;
+CREATE POLICY "Allow Delete Marketer Sales" ON marketer_sales 
+  FOR DELETE 
+  USING (true);
+
+-- 20. RPC: Mengosongkan Seluruh Riwayat Pesanan & Komisi Toko Secara Permanen di Supabase
+CREATE OR REPLACE FUNCTION rpc_clear_store_orders(
+  p_slug TEXT,
+  p_token TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF p_slug IS NULL OR TRIM(p_slug) = '' THEN
+    p_slug := 'sr12-central';
+  END IF;
+
+  IF p_slug = 'all' THEN
+    DELETE FROM orders;
+    DELETE FROM marketer_sales;
+  ELSE
+    DELETE FROM orders WHERE store_slug = p_slug;
+    DELETE FROM marketer_sales WHERE store_slug = p_slug;
+  END IF;
+
+  RETURN jsonb_build_object('success', true, 'message', 'Seluruh pesanan dan komisi marketer toko berhasil dikosongkan.');
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION rpc_clear_store_orders(TEXT, TEXT) TO anon, authenticated, service_role;
+
+-- 21. RPC: Menghapus 1 Pesanan Spesifik dari Supabase
+CREATE OR REPLACE FUNCTION rpc_delete_store_order(
+  p_slug TEXT,
+  p_order_id TEXT,
+  p_token TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF p_slug IS NULL OR TRIM(p_slug) = '' THEN
+    p_slug := 'sr12-central';
+  END IF;
+
+  DELETE FROM orders WHERE store_slug = p_slug AND order_id = p_order_id;
+  DELETE FROM marketer_sales WHERE store_slug = p_slug AND order_id = p_order_id;
+
+  RETURN jsonb_build_object('success', true, 'message', 'Pesanan berhasil dihapus.');
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION rpc_delete_store_order(TEXT, TEXT, TEXT) TO anon, authenticated, service_role;

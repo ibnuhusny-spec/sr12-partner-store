@@ -1002,7 +1002,8 @@ async function syncMarketerSalesFromSupabase(storeSlug = 'sr12-central') {
           p_token: token
         });
         if (!rpcErr && Array.isArray(rpcSales)) {
-          return rpcSales.map(row => ({
+          const validSales = rpcSales.filter(r => r && r.paid_status !== 'deleted' && r.paid_status !== 'Dihapus');
+          return validSales.map(row => ({
             orderId: row.order_id,
             marketerId: row.marketer_id,
             date: row.order_date,
@@ -1033,7 +1034,8 @@ async function syncMarketerSalesFromSupabase(storeSlug = 'sr12-central') {
     }
     const { data, error } = await query;
     if (error) return null;
-    return (data || []).map(row => ({
+    const validData = (data || []).filter(r => r && r.paid_status !== 'deleted' && r.paid_status !== 'Dihapus');
+    return validData.map(row => ({
       orderId: row.order_id,
       marketerId: row.marketer_id,
       date: row.order_date,
@@ -1723,7 +1725,9 @@ async function syncOrdersFromSupabase(storeSlug = 'sr12-central') {
           p_token: token
         });
         if (!rpcErr && Array.isArray(rpcOrders)) {
-          results = rpcOrders.map(r => ({
+          // Hanya ambil pesanan yang belum dihapus/dibatalkan
+          const validOrders = rpcOrders.filter(r => r && r.status !== 'Dihapus' && r.status !== 'deleted');
+          results = validOrders.map(r => ({
             id: r.order_id,
             dateTime: r.order_date || r.created_at,
             customerName: r.customer_name,
@@ -1748,7 +1752,7 @@ async function syncOrdersFromSupabase(storeSlug = 'sr12-central') {
       }
     }
 
-    // 2. Fallback query langsung jika RLS server masih mengizinkan (sebelum skema baru di-run)
+    // 2. Fallback query langsung jika RLS server masih mengizinkan
     try {
       const { data: ordData, error: ordErr } = await client
         .from('orders')
@@ -1757,7 +1761,8 @@ async function syncOrdersFromSupabase(storeSlug = 'sr12-central') {
         .order('created_at', { ascending: false });
 
       if (!ordErr && Array.isArray(ordData) && ordData.length > 0) {
-        results = ordData.map(r => ({
+        const validOrders = ordData.filter(r => r && r.status !== 'Dihapus' && r.status !== 'deleted');
+        results = validOrders.map(r => ({
           id: r.order_id,
           dateTime: r.order_date || r.created_at,
           customerName: r.customer_name,
@@ -1773,74 +1778,6 @@ async function syncOrdersFromSupabase(storeSlug = 'sr12-central') {
           status: (r.status === 'Selesai' || r.status === 'Lunas') ? 'Lunas / Selesai' : (r.status || 'Menunggu Konfirmasi'),
           orderSource: r.order_source || 'Online Web Store'
         }));
-      }
-    } catch(e) {}
-
-    // 3. Fallback konsolidasi dari marketer_sales jika diperlukan
-    try {
-      let salesData = null;
-      if (token) {
-        const { data: rpcSales } = await client.rpc('rpc_get_store_marketer_sales', {
-          p_slug: targetStore,
-          p_token: token
-        });
-        if (Array.isArray(rpcSales)) salesData = rpcSales;
-      }
-      if (!salesData) {
-        const { data: directSales, error: salesErr } = await client
-          .from('marketer_sales')
-          .select('*')
-          .eq('store_slug', targetStore)
-          .order('created_at', { ascending: false });
-        if (!salesErr) salesData = directSales;
-      }
-
-      if (Array.isArray(salesData) && salesData.length > 0) {
-        const orderGroups = new Map();
-        salesData.forEach(r => {
-          if (!r || !r.order_id) return;
-          if (!orderGroups.has(r.order_id)) orderGroups.set(r.order_id, []);
-          orderGroups.get(r.order_id).push(r);
-        });
-
-        for (const [orderId, rows] of orderGroups.entries()) {
-          if (results.some(x => x.id === orderId)) continue;
-
-          const isPaid = rows.some(r => r.paid_status === 'paid');
-          const jsonRow = rows.find(r => r.items_desc && r.items_desc.startsWith('{'));
-          let parsedOrder = null;
-
-          if (jsonRow) {
-            try {
-              parsedOrder = JSON.parse(jsonRow.items_desc);
-            } catch(e) {}
-          }
-
-          if (parsedOrder && parsedOrder.id) {
-            if (isPaid || parsedOrder.status === 'Selesai' || parsedOrder.status === 'Lunas') {
-              parsedOrder.status = 'Lunas / Selesai';
-            }
-            results.push(parsedOrder);
-          } else {
-            const topRow = rows[0];
-            results.push({
-              id: orderId,
-              dateTime: topRow.order_date || (topRow.created_at ? topRow.created_at.slice(0, 16).replace('T', ' ') : 'Hari ini'),
-              customerName: topRow.customer_name,
-              customerPhone: topRow.customer_phone,
-              customerAddress: topRow.customer_address,
-              tier: topRow.marketer_id?.startsWith('RS') ? 'reseller' : (topRow.commission_pct > 0 ? 'marketer' : 'konsumen'),
-              tierLabel: topRow.marketer_id?.startsWith('RS') ? 'Reseller Resmi' : (topRow.commission_pct > 0 ? 'Mitra Marketer' : 'Konsumen Retail'),
-              items: [],
-              subtotalHet: Number(topRow.omset_het) || 0,
-              discountAmount: 0,
-              grandTotal: Number(topRow.omset_het) || 0,
-              paymentMethod: topRow.fulfillment_type === 'pickup' ? 'Ambil Sendiri di Toko' : 'Ekspedisi Pengiriman',
-              status: isPaid ? 'Lunas / Selesai' : 'Menunggu Konfirmasi',
-              orderSource: 'Online Web Store'
-            });
-          }
-        }
       }
     } catch(e) {}
 
@@ -1886,7 +1823,7 @@ async function updateOrderStatusInSupabase(orderId, newStatus, storeSlug = 'sr12
       await client.from('orders').update({ status: canonicalStatus }).eq('order_id', orderId).eq('store_slug', targetStore);
     } catch(e) {}
 
-    // 2. Update di marketer_sales
+    // 3. Update di marketer_sales
     try {
       const { data: rows } = await client
         .from('marketer_sales')
@@ -1911,7 +1848,6 @@ async function updateOrderStatusInSupabase(orderId, newStatus, storeSlug = 'sr12
           items_desc: orderObj ? JSON.stringify(orderObj) : keeper.items_desc
         }).eq('id', keeper.id);
 
-        // Hapus duplikasi baris tambahan jika ada
         for (let i = 1; i < rows.length; i++) {
           await client.from('marketer_sales').delete().eq('id', rows[i].id);
         }
@@ -1931,8 +1867,17 @@ async function clearMarketerSalesFromSupabase(storeSlug = 'sr12-central') {
   const client = initSupabaseClient();
   if (!client || !storeSlug) return false;
   try {
-    await client.from('marketer_sales').delete().eq('store_slug', storeSlug);
-    console.log('🗑️ Rekap penjualan marketer toko di Supabase berhasil dikosongkan:', storeSlug);
+    const targetStore = storeSlug || 'sr12-central';
+    const token = getActiveSessionToken(targetStore);
+    if (token) {
+      try {
+        await client.rpc('rpc_clear_store_orders', { p_slug: targetStore, p_token: token });
+      } catch(e) {}
+    }
+    try {
+      await client.from('marketer_sales').delete().eq('store_slug', targetStore);
+    } catch (e) {}
+    console.log('🗑️ Rekap penjualan marketer toko di Supabase berhasil dikosongkan:', targetStore);
     return true;
   } catch (e) {
     return false;
@@ -1940,15 +1885,57 @@ async function clearMarketerSalesFromSupabase(storeSlug = 'sr12-central') {
 }
 
 /**
- * Kosongkan Seluruh Riwayat Pesanan Masuk Toko di Cloud Supabase
+ * Kosongkan Seluruh Riwayat Pesanan Masuk Toko di Cloud Supabase Secara Permanen
  */
 async function clearOrdersFromSupabase(storeSlug = 'sr12-central') {
   const client = initSupabaseClient();
   if (!client || !storeSlug) return false;
   try {
-    try { await client.from('orders').delete().eq('store_slug', storeSlug); } catch(e) {}
-    try { await client.from('marketer_sales').delete().eq('store_slug', storeSlug); } catch(e) {}
-    console.log('🗑️ Riwayat pesanan toko di Supabase berhasil dikosongkan:', storeSlug);
+    const targetStore = storeSlug || 'sr12-central';
+    const token = getActiveSessionToken(targetStore);
+
+    // 1. Eksekusi Stored Procedure RPC rpc_clear_store_orders (jika sudah terinstall di SQL)
+    if (token) {
+      try {
+        const { data, error } = await client.rpc('rpc_clear_store_orders', {
+          p_slug: targetStore,
+          p_token: token
+        });
+        if (!error && data && data.success) {
+          console.log('⚡ [RPC] rpc_clear_store_orders berhasil dieksekusi di Supabase:', targetStore);
+        }
+      } catch(eRpc) {}
+    }
+
+    // 2. Direct DELETE di orders dan marketer_sales (jika RLS delete policy aktif)
+    try { await client.from('orders').delete().eq('store_slug', targetStore); } catch(e) {}
+    try { await client.from('marketer_sales').delete().eq('store_slug', targetStore); } catch(e) {}
+
+    // 3. Fallback jika RLS DELETE dibatasi: Update seluruh order aktif menjadi 'Dihapus'
+    if (token) {
+      try {
+        const { data: cloudOrders } = await client.rpc('rpc_get_store_orders', {
+          p_slug: targetStore,
+          p_token: token
+        });
+        if (Array.isArray(cloudOrders) && cloudOrders.length > 0) {
+          for (const ord of cloudOrders) {
+            if (ord.order_id && ord.status !== 'Dihapus') {
+              try {
+                await client.rpc('rpc_update_order_status', {
+                  p_slug: targetStore,
+                  p_order_id: String(ord.order_id),
+                  p_new_status: 'Dihapus',
+                  p_token: token
+                });
+              } catch(e) {}
+            }
+          }
+        }
+      } catch(e) {}
+    }
+
+    console.log('🗑️ Riwayat pesanan toko di Supabase berhasil dikosongkan total:', targetStore);
     return true;
   } catch (e) {
     return false;
@@ -1963,9 +1950,39 @@ async function deleteOrderFromSupabase(orderId, storeSlug = 'sr12-central') {
   if (!client || !orderId) return false;
   try {
     const targetStore = storeSlug || 'sr12-central';
+    const token = getActiveSessionToken(targetStore);
+
+    // 1. Panggil RPC rpc_delete_store_order jika tersedia
+    if (token) {
+      try {
+        const { data, error } = await client.rpc('rpc_delete_store_order', {
+          p_slug: targetStore,
+          p_order_id: String(orderId),
+          p_token: token
+        });
+        if (!error && data && data.success) {
+          console.log('⚡ [RPC] rpc_delete_store_order berhasil dieksekusi:', orderId);
+        }
+      } catch(e) {}
+    }
+
+    // 2. Direct DELETE di Supabase
     try { await client.from('orders').delete().eq('order_id', orderId).eq('store_slug', targetStore); } catch(e) {}
     try { await client.from('marketer_sales').delete().eq('order_id', orderId).eq('store_slug', targetStore); } catch(e) {}
-    console.log('🗑️ Pesanan berhasil dihapus dari Supabase:', orderId);
+
+    // 3. Tandai status sebagai 'Dihapus' via rpc_update_order_status
+    if (token) {
+      try {
+        await client.rpc('rpc_update_order_status', {
+          p_slug: targetStore,
+          p_order_id: String(orderId),
+          p_new_status: 'Dihapus',
+          p_token: token
+        });
+      } catch(e) {}
+    }
+
+    console.log('🗑️ Pesanan berhasil dihapus bersih dari Supabase:', orderId);
     return true;
   } catch (e) {
     return false;

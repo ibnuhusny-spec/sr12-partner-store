@@ -17,7 +17,9 @@ function getStoredTransactions(slug) {
   if (s !== null) {
     try {
       const parsed = JSON.parse(s);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed.filter(t => t && t.status !== 'Dihapus' && t.status !== 'deleted');
+      }
     } catch (e) {}
   }
   return [];
@@ -2041,7 +2043,7 @@ function renderPosTransactions(filter = 'all') {
   const todayCountEl = document.getElementById('trxTodayCountVal');
   if (!tbody || typeof appState === 'undefined') return;
 
-  const list = appState.transactions || [];
+  const list = (appState.transactions || []).filter(t => t && t.status !== 'Dihapus' && t.status !== 'deleted');
   const nowStr = new Date().toISOString().split('T')[0];
 
   let totalOmset = 0;
@@ -2227,17 +2229,20 @@ function deleteTransactionEntry(trxId) {
 window.deleteTransactionEntry = deleteTransactionEntry;
 
 function clearAllTransactionsHistory() {
-  if (typeof clearStoreAllSimulationData === 'function') {
-    clearStoreAllSimulationData();
+  const curSlug = (typeof appState !== 'undefined' && ((appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug)) || 'sr12-central';
+  const storeName = (appState.storeSettings && appState.storeSettings.storeName) || curSlug;
+  if (!confirm(`⚠️ Kosongkan seluruh Riwayat Transaksi Kasir POS & Pesanan Web untuk toko "${storeName}"?\n\n• Seluruh riwayat transaksi & pesanan akan dibersihkan dari browser dan Supabase Cloud.\n• Rekap omset dan status pesanan akan kembali nol.`)) return;
+  if (typeof clearStoreOrdersAndFinancials === 'function') {
+    clearStoreOrdersAndFinancials(curSlug, true);
+  } else if (typeof clearStoreAllSimulationData === 'function') {
+    clearStoreAllSimulationData(curSlug, true);
   } else {
-    if (!confirm('⚠️ Kosongkan seluruh Riwayat Transaksi Kasir POS & Pesanan Web?')) return;
-    const curSlug = (typeof appState !== 'undefined' && ((appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug)) || 'sr12-central';
     appState.transactions = [];
     saveStoredTransactions([], curSlug);
     renderPosTransactions('all');
     if (typeof updateAdminNotificationUI === 'function') updateAdminNotificationUI();
-    if (typeof showToast === 'function') showToast('🗑️ Seluruh Riwayat Transaksi berhasil dikosongkan!');
   }
+  if (typeof showToast === 'function') showToast('🗑️ Seluruh Riwayat Transaksi berhasil dikosongkan total!');
 }
 window.clearAllTransactionsHistory = clearAllTransactionsHistory;
 
