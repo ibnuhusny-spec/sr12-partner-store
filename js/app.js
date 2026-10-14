@@ -1785,7 +1785,12 @@ function getStoredMarketerSales(slug) {
     try {
       const list = JSON.parse(stored);
       if (Array.isArray(list)) {
-        return list.filter(s => s && s.paidStatus !== 'deleted' && s.paidStatus !== 'Dihapus');
+        return list.filter(s => {
+          if (!s || s.paidStatus === 'deleted' || s.paidStatus === 'Dihapus') return false;
+          const mid = String(s.marketerId || '').trim().toUpperCase();
+          if (!mid || mid === 'RS-WEB' || mid === 'RES-WEB' || mid === 'RETAIL' || mid.startsWith('RS-') || mid.startsWith('RES-') || mid.startsWith('AG-') || mid.startsWith('SUB-')) return false;
+          return true;
+        });
       }
     } catch (e) {}
   }
@@ -2328,7 +2333,11 @@ window.mergeCloudOrdersIntoLocal = mergeCloudOrdersIntoLocal;
   if (typeof syncMarketerSalesFromSupabase === 'function') {
     syncMarketerSalesFromSupabase(initStoreSlug).then(cloudSales => {
       if (Array.isArray(cloudSales) && cloudSales.length > 0) {
-        const local = appState.marketerSales || [];
+        const local = (appState.marketerSales || []).filter(s => {
+          if (!s) return false;
+          const mid = String(s.marketerId || '').trim().toUpperCase();
+          return mid && mid !== 'RS-WEB' && mid !== 'RES-WEB' && mid !== 'RETAIL' && !mid.startsWith('RS-') && !mid.startsWith('RES-');
+        });
         const sMap = new Map();
         local.forEach(s => { if (s && s.orderId) sMap.set(s.orderId, s); });
         cloudSales.forEach(cs => { if (cs && cs.orderId) sMap.set(cs.orderId, cs); });
@@ -2467,7 +2476,11 @@ function loadStoreBySlug(slug) {
   if (typeof syncMarketerSalesFromSupabase === 'function') {
     syncMarketerSalesFromSupabase(found.slug).then(cloudSales => {
       if (Array.isArray(cloudSales) && cloudSales.length > 0) {
-        const local = appState.marketerSales || [];
+        const local = (appState.marketerSales || []).filter(s => {
+          if (!s) return false;
+          const mid = String(s.marketerId || '').trim().toUpperCase();
+          return mid && mid !== 'RS-WEB' && mid !== 'RES-WEB' && mid !== 'RETAIL' && !mid.startsWith('RS-') && !mid.startsWith('RES-');
+        });
         const sMap = new Map();
         local.forEach(s => { if (s && s.orderId) sMap.set(s.orderId, s); });
         cloudSales.forEach(cs => { if (cs && cs.orderId) sMap.set(cs.orderId, cs); });
@@ -13326,9 +13339,32 @@ function renderMarketerPayroll() {
   }
   const storeMitra = (appState.mitraList || []).filter(m => (m.store_slug || 'sr12-central') === currentStoreSlug);
 
+  // Fungsi validasi ketat ID Marketer (menolak RS-WEB, RES-WEB, RETAIL, dll)
+  const isValidMarketer = (id, tier) => {
+    if (!id) return false;
+    const clean = String(id).trim().toUpperCase();
+    if (clean === 'RS-WEB' || clean === 'RES-WEB' || clean === 'RETAIL' || clean === 'KONSUMEN' || clean === 'PELANGGAN') return false;
+    if (clean.startsWith('RS-') || clean.startsWith('RES-') || clean.startsWith('AG-') || clean.startsWith('SUB-')) return false;
+    if (tier && tier !== 'marketer') return false;
+    return true;
+  };
+
+  // Bersihkan data sampah non-marketer dari appState.marketerSales
+  if (Array.isArray(appState.marketerSales)) {
+    const prevCount = appState.marketerSales.length;
+    appState.marketerSales = appState.marketerSales.filter(s => {
+      if (!s) return false;
+      const sMid = String(s.marketerId || '').trim().toUpperCase();
+      return isValidMarketer(sMid);
+    });
+    if (appState.marketerSales.length !== prevCount && typeof saveStoredMarketerSales === 'function') {
+      saveStoredMarketerSales(appState.marketerSales, false, currentStoreSlug);
+    }
+  }
+
   // Kumpulkan seluruh data marketer yang terdaftar di toko ini
   const marketersMap = new Map();
-  storeMitra.filter(m => m.tier === 'marketer').forEach(m => {
+  storeMitra.filter(m => m.tier === 'marketer' && isValidMarketer(m.id)).forEach(m => {
     if ((m.id === 'MKT-001' || m.partner_code === 'MKT-001') && (!m.name || m.name.includes('Marketer MKT-001'))) {
       m.name = 'Maryam';
       m.phone = m.phone || '085342743763';
@@ -13343,10 +13379,12 @@ function renderMarketerPayroll() {
   // Tambahkan marketer dari riwayat penjualan marketer di toko ini jika belum ada di map
   (appState.marketerSales || []).forEach(s => {
     const isStore = (!s.store_slug || s.store_slug === currentStoreSlug);
-    if (isStore && s.marketerId && !marketersMap.has(s.marketerId)) {
+    const sMktId = String(s.marketerId || '').trim().toUpperCase();
+    if (isStore && sMktId && isValidMarketer(sMktId) && !marketersMap.has(s.marketerId)) {
       const resolvedName = (typeof getMarketerNameById === 'function' ? getMarketerNameById(s.marketerId) : '') || s.marketerName || (s.marketerId === 'MKT-001' ? 'Maryam' : `Marketer ${s.marketerId}`);
       marketersMap.set(s.marketerId, {
         id: s.marketerId,
+        tier: 'marketer',
         name: resolvedName,
         phone: (s.marketerId === 'MKT-001' ? '0895800355550' : (s.customerPhone || '-')),
         city: (s.marketerId === 'MKT-001' ? 'Baniaga' : 'Indonesia'),
@@ -13360,11 +13398,13 @@ function renderMarketerPayroll() {
   // Tambahkan marketer dari transaksi online toko HANYA jika memang order marketer resmi
   (appState.transactions || []).forEach(t => {
     const isStore = (!t.store_slug || t.store_slug === currentStoreSlug);
-    const isMktTrx = t.tier === 'marketer' || (t.marketerId && String(t.marketerId).toUpperCase().startsWith('MKT-'));
-    if (isStore && t.marketerId && isMktTrx && !marketersMap.has(t.marketerId)) {
+    const tMktId = String(t.marketerId || '').trim().toUpperCase();
+    const isMktTrx = t.tier === 'marketer' || (tMktId && tMktId.startsWith('MKT-'));
+    if (isStore && tMktId && isValidMarketer(tMktId) && isMktTrx && !marketersMap.has(t.marketerId)) {
       const resolvedName = (typeof getMarketerNameById === 'function' ? getMarketerNameById(t.marketerId) : '') || t.marketerName || (t.marketerId === 'MKT-001' ? 'Maryam' : `Marketer ${t.marketerId}`);
       marketersMap.set(t.marketerId, {
         id: t.marketerId,
+        tier: 'marketer',
         name: resolvedName,
         phone: (t.marketerId === 'MKT-001' ? '0895800355550' : (t.customerPhone || '-')),
         city: (t.marketerId === 'MKT-001' ? 'Baniaga' : 'Indonesia'),
@@ -13375,7 +13415,9 @@ function renderMarketerPayroll() {
     }
   });
 
-  const marketers = Array.from(marketersMap.values());
+  const marketers = Array.from(marketersMap.values()).filter(m => {
+    return isValidMarketer(m.id, m.tier);
+  });
 
   let grandOrders = 0;
   let grandOmset = 0;

@@ -1054,8 +1054,8 @@ async function syncMarketerSalesFromSupabase(storeSlug = 'sr12-central') {
       if (!row || !row.order_id) return;
       if (row.paid_status === 'deleted' || row.paid_status === 'Dihapus') return;
       if (deletedOrderIds.has(row.order_id)) return;
-      if (row.order_id.startsWith('ORD-MKT-')) return; // Abaikan dummy lawas
-      if (row.marketer_id === 'RS-WEB' || row.marketer_id === 'RETAIL') return; // Bukan penjualan marketer
+      const rowMktId = String(row.marketer_id || '').trim().toUpperCase();
+      if (rowMktId === 'RS-WEB' || rowMktId === 'RES-WEB' || rowMktId === 'RETAIL' || rowMktId.startsWith('RS-') || rowMktId.startsWith('RES-')) return; // Bukan penjualan marketer
 
       // Jika berawalan ORD-WEB-, pastikan benar-benar ada di pesanan aktif toko
       if (row.order_id.startsWith('ORD-WEB-') && validOrderIds.size > 0 && !validOrderIds.has(row.order_id)) return;
@@ -1633,7 +1633,7 @@ async function saveOrderToSupabase(order, storeSlug = 'sr12-central', isFlushing
       payment_method: order.paymentMethod || 'Ekspedisi Pengiriman',
       status: order.status || 'Menunggu Konfirmasi',
       order_source: order.orderSource || 'Online Web Store',
-      marketer_id: order.marketerId || (order.tier === 'marketer' ? 'MKT-WEB' : (order.tier === 'reseller' ? 'RS-WEB' : 'RETAIL'))
+      marketer_id: (order.tier === 'marketer' || (order.marketerId && !String(order.marketerId).toUpperCase().startsWith('RS-') && String(order.marketerId).toUpperCase() !== 'RETAIL' && String(order.marketerId).toUpperCase() !== 'RES-WEB')) ? (order.marketerId || (order.customerPhone && String(order.customerPhone).toUpperCase().startsWith('MKT-') ? String(order.customerPhone).toUpperCase() : 'MKT-001')) : null
     };
 
     // 2. Prioritas Utama: Eksekusi PostgreSQL Stored Procedure rpc_create_store_order (Atomic Quota)
@@ -1778,7 +1778,14 @@ async function syncOrdersFromSupabase(storeSlug = 'sr12-central') {
             tier: r.tier || 'konsumen',
             tierLabel: r.tier_label || 'Konsumen Retail',
             resellerId: r.reseller_id || (r.customer_phone && String(r.customer_phone).toUpperCase().startsWith('RS-') ? String(r.customer_phone).trim().toUpperCase() : null) || (r.tier_label && r.tier_label.includes('RS-') ? r.tier_label.match(/RS-[A-Z0-9]+/)?.[0] : null) || (r.tier === 'reseller' ? (r.customer_phone === 'RS-001' || r.customer_name === 'AzZahrah' ? 'RS-001' : null) : null),
-            marketerId: r.marketer_id || (r.customer_phone && String(r.customer_phone).toUpperCase().startsWith('MKT-') ? String(r.customer_phone).trim().toUpperCase() : null) || (r.tier_label && r.tier_label.includes('MKT-') ? r.tier_label.match(/MKT-[A-Z0-9]+/)?.[0] : null) || (r.tier === 'marketer' ? (r.customer_phone === 'MKT-001' || r.customer_name === 'Maryam' ? 'MKT-001' : null) : null),
+            marketerId: (() => {
+              const raw = r.marketer_id && String(r.marketer_id).trim().toUpperCase();
+              if (raw && raw !== 'RS-WEB' && raw !== 'RES-WEB' && raw !== 'RETAIL' && !raw.startsWith('RS-') && !raw.startsWith('RES-')) return r.marketer_id;
+              if (r.customer_phone && String(r.customer_phone).toUpperCase().startsWith('MKT-')) return String(r.customer_phone).trim().toUpperCase();
+              if (r.tier_label && r.tier_label.includes('MKT-')) return r.tier_label.match(/MKT-[A-Z0-9]+/)?.[0] || null;
+              if (r.tier === 'marketer') return (r.customer_phone === 'MKT-001' || r.customer_name === 'Maryam' ? 'MKT-001' : 'MKT-001');
+              return null;
+            })(),
             marketerName: r.marketer_name || (r.tier === 'marketer' ? r.customer_name : null),
             items: r.items_json || [],
             subtotalHet: Number(r.subtotal_het) || Number(r.grand_total) || 0,
@@ -1817,7 +1824,14 @@ async function syncOrdersFromSupabase(storeSlug = 'sr12-central') {
           tier: r.tier || 'konsumen',
           tierLabel: r.tier_label || 'Konsumen Retail',
           resellerId: r.reseller_id || (r.customer_phone && String(r.customer_phone).toUpperCase().startsWith('RS-') ? String(r.customer_phone).trim().toUpperCase() : null) || (r.tier_label && r.tier_label.includes('RS-') ? r.tier_label.match(/RS-[A-Z0-9]+/)?.[0] : null) || (r.tier === 'reseller' ? (r.customer_phone === 'RS-001' || r.customer_name === 'AzZahrah' ? 'RS-001' : null) : null),
-          marketerId: r.marketer_id || (r.customer_phone && String(r.customer_phone).toUpperCase().startsWith('MKT-') ? String(r.customer_phone).trim().toUpperCase() : null) || (r.tier_label && r.tier_label.includes('MKT-') ? r.tier_label.match(/MKT-[A-Z0-9]+/)?.[0] : null) || (r.tier === 'marketer' ? (r.customer_phone === 'MKT-001' || r.customer_name === 'Maryam' ? 'MKT-001' : null) : null),
+          marketerId: (() => {
+            const raw = r.marketer_id && String(r.marketer_id).trim().toUpperCase();
+            if (raw && raw !== 'RS-WEB' && raw !== 'RES-WEB' && raw !== 'RETAIL' && !raw.startsWith('RS-') && !raw.startsWith('RES-')) return r.marketer_id;
+            if (r.customer_phone && String(r.customer_phone).toUpperCase().startsWith('MKT-')) return String(r.customer_phone).trim().toUpperCase();
+            if (r.tier_label && r.tier_label.includes('MKT-')) return r.tier_label.match(/MKT-[A-Z0-9]+/)?.[0] || null;
+            if (r.tier === 'marketer') return (r.customer_phone === 'MKT-001' || r.customer_name === 'Maryam' ? 'MKT-001' : 'MKT-001');
+            return null;
+          })(),
           marketerName: r.marketer_name || (r.tier === 'marketer' ? r.customer_name : null),
           items: r.items_json || [],
           subtotalHet: Number(r.subtotal_het) || Number(r.grand_total) || 0,
