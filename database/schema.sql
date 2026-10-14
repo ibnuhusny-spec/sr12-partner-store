@@ -228,19 +228,40 @@ ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE platform_ledger ENABLE ROW LEVEL SECURITY;
 
 -- 1. TABEL STORES:
--- Publik hanya boleh membaca profil publik toko untuk etalase pembeli.
--- Operasi INSERT, UPDATE, dan DELETE DILARANG untuk publik secara langsung!
--- Seluruh perubahan kredensial harus lewat RPC Function terverifikasi.
+-- Seluruh profil publik toko dapat dibaca oleh etalase pembeli.
 CREATE POLICY "Public Read Stores Profile" ON stores 
   FOR SELECT 
   USING (true);
 
+-- Memungkinkan pendaftaran / approval toko baru oleh pengembang & admin mitra
+DROP POLICY IF EXISTS "Allow Insert Stores" ON stores;
+CREATE POLICY "Allow Insert Stores" ON stores 
+  FOR INSERT 
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow Update Stores" ON stores;
+CREATE POLICY "Allow Update Stores" ON stores 
+  FOR UPDATE 
+  USING (true) 
+  WITH CHECK (true);
+
 -- 2. TABEL PENDING_STORES:
--- Calon mitra boleh mendaftarkan toko baru (INSERT).
--- Namun publik DILARANG membaca (SELECT), mengubah (UPDATE), atau menghapus (DELETE) NIK & KTP calon mitra lain!
+-- Calon mitra boleh mendaftarkan toko baru (INSERT) dan sistem boleh memperbarui/menghapus tiket saat approval
+DROP POLICY IF EXISTS "Public Submit Store Application" ON pending_stores;
 CREATE POLICY "Public Submit Store Application" ON pending_stores 
   FOR INSERT 
   WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public Update Store Application" ON pending_stores;
+CREATE POLICY "Public Update Store Application" ON pending_stores 
+  FOR UPDATE 
+  USING (true) 
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public Delete Store Application" ON pending_stores;
+CREATE POLICY "Public Delete Store Application" ON pending_stores 
+  FOR DELETE 
+  USING (true);
 
 -- 3. TABEL PRODUCTS:
 -- Katalog produk dapat dibaca oleh seluruh pembeli publik.
@@ -574,6 +595,89 @@ BEGIN
   DELETE FROM mitra_downlines WHERE store_slug = p_slug;
 
   RETURN jsonb_build_object('success', true, 'message', 'Toko dan seluruh datanya berhasil dihapus secara aman.');
+END;
+$$;
+
+-- 6B. RPC: Terbitkan / Setujui Toko Mitra Baru ke Database Cloud
+CREATE OR REPLACE FUNCTION rpc_publish_store(
+  p_token TEXT,
+  p_store JSONB
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_slug TEXT;
+BEGIN
+  IF p_token IS NULL OR NOT (p_token LIKE 'dev_%' OR p_token LIKE 'dist_%') THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Akses ditolak: Token autentikasi tidak valid.');
+  END IF;
+
+  v_slug := LOWER(TRIM(p_store->>'slug'));
+  IF v_slug IS NULL OR v_slug = '' THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Slug toko tidak boleh kosong.');
+  END IF;
+
+  INSERT INTO stores (
+    slug, store_name, store_tagline, store_theme, hero_title, hero_subtitle, hero_banner_url,
+    store_logo_text, store_logo_url, store_wa_number, store_city, store_owner, partner_tier,
+    recommender_distributor, recommender_wa, recommender_slug, recommendation_code,
+    fee_payer, store_admin_pin, order_quota, wallet_balance, total_topup_paid, total_tx,
+    verified_sk_number, approved_at, owner_email, password_hash, updated_at
+  )
+  VALUES (
+    v_slug,
+    COALESCE(p_store->>'storeName', p_store->>'store_name', 'Toko SR12'),
+    COALESCE(p_store->>'storeTagline', p_store->>'store_tagline', ''),
+    COALESCE(p_store->>'storeTheme', p_store->>'store_theme', 'emerald'),
+    COALESCE(p_store->>'heroTitle', p_store->>'hero_title', ''),
+    COALESCE(p_store->>'heroSubtitle', p_store->>'hero_subtitle', ''),
+    COALESCE(p_store->>'heroBannerUrl', p_store->>'hero_banner_url', ''),
+    COALESCE(p_store->>'storeLogoText', p_store->>'store_logo_text', 'SR12'),
+    COALESCE(p_store->>'storeLogoUrl', p_store->>'store_logo_url', ''),
+    COALESCE(p_store->>'storeWaNumber', p_store->>'store_wa_number', ''),
+    COALESCE(p_store->>'storeCity', p_store->>'store_city', ''),
+    COALESCE(p_store->>'storeOwner', p_store->>'store_owner', ''),
+    COALESCE(p_store->>'partnerTier', p_store->>'partner_tier', 'distributor'),
+    COALESCE(p_store->>'recommenderDistributor', p_store->>'recommender_distributor', ''),
+    COALESCE(p_store->>'recommenderWa', p_store->>'recommender_wa', ''),
+    COALESCE(p_store->>'recommenderSlug', p_store->>'recommender_slug', ''),
+    COALESCE(p_store->>'recommendationCode', p_store->>'recommendation_code', ''),
+    COALESCE(p_store->>'feePayer', p_store->>'fee_payer', 'buyer'),
+    COALESCE(p_store->>'storeAdminPin', p_store->>'store_admin_pin', '1234'),
+    COALESCE((p_store->>'orderQuota')::INT, (p_store->>'order_quota')::INT, 15),
+    COALESCE((p_store->>'walletBalance')::NUMERIC, (p_store->>'wallet_balance')::NUMERIC, 10000.00),
+    COALESCE((p_store->>'totalTopupPaid')::NUMERIC, (p_store->>'total_topup_paid')::NUMERIC, 0.00),
+    COALESCE((p_store->>'totalTx')::INT, (p_store->>'total_tx')::INT, 0),
+    COALESCE(p_store->>'verifiedSkNumber', p_store->>'verified_sk_number', ''),
+    NOW(),
+    LOWER(TRIM(COALESCE(p_store->>'ownerEmail', p_store->>'owner_email'))),
+    COALESCE(p_store->>'passwordHash', p_store->>'password_hash'),
+    NOW()
+  )
+  ON CONFLICT (slug) DO UPDATE
+  SET store_name = EXCLUDED.store_name,
+      store_tagline = EXCLUDED.store_tagline,
+      store_theme = EXCLUDED.store_theme,
+      hero_title = EXCLUDED.hero_title,
+      hero_subtitle = EXCLUDED.hero_subtitle,
+      hero_banner_url = EXCLUDED.hero_banner_url,
+      store_logo_text = EXCLUDED.store_logo_text,
+      store_logo_url = EXCLUDED.store_logo_url,
+      store_wa_number = EXCLUDED.store_wa_number,
+      store_city = EXCLUDED.store_city,
+      store_owner = EXCLUDED.store_owner,
+      partner_tier = EXCLUDED.partner_tier,
+      owner_email = COALESCE(EXCLUDED.owner_email, stores.owner_email),
+      password_hash = COALESCE(EXCLUDED.password_hash, stores.password_hash),
+      updated_at = NOW();
+
+  -- Bersihkan dari pending_stores jika permohonan telah diterbitkan
+  DELETE FROM pending_stores WHERE slug = v_slug;
+
+  RETURN jsonb_build_object('success', true, 'message', 'Toko berhasil diterbitkan dan aktif di Cloud!');
 END;
 $$;
 

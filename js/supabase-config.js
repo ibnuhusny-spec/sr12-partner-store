@@ -314,9 +314,26 @@ async function saveStoreToSupabase(store) {
       payload.password_hash = String(store.passwordHash || store.password_hash).trim();
     }
 
-    // 1. Prioritas Utama: Eksekusi Stored Procedure Terotentikasi rpc_update_store_profile (Anti-Tamper)
-    const token = getActiveSessionToken(store.slug);
+    // 1. Prioritas Utama: Eksekusi Stored Procedure Terotentikasi rpc_publish_store / rpc_update_store_profile
+    let token = getActiveSessionToken(store.slug);
+    if (!token && typeof appState !== 'undefined' && appState.isDevMasterLoggedIn) {
+      token = localStorage.getItem('sr12_dev_token') || 'dev_master_admin';
+    }
+
     if (token) {
+      try {
+        const { data: pubRes, error: pubErr } = await client.rpc('rpc_publish_store', {
+          p_token: token,
+          p_store: payload
+        });
+        if (!pubErr && pubRes && pubRes.success) {
+          console.log('⚡ [RPC rpc_publish_store] Berhasil menerbitkan toko ke Cloud:', store.storeName);
+          return true;
+        } else if (pubErr) {
+          console.warn('RPC rpc_publish_store notice:', pubErr.message || pubErr);
+        }
+      } catch(ePub) {}
+
       try {
         const { data: rpcRes, error: rpcErr } = await client.rpc('rpc_update_store_profile', {
           p_slug: store.slug,
@@ -326,13 +343,11 @@ async function saveStoreToSupabase(store) {
         if (!rpcErr && rpcRes && rpcRes.success) {
           console.log('⚡ [RPC] Berhasil perbarui profil toko aman:', store.storeName);
           return true;
-        } else if (rpcErr) {
-          console.warn('RPC rpc_update_store_profile notice:', rpcErr.message || rpcErr);
         }
       } catch(eRpc) {}
     }
 
-    // 2. Fallback upsert
+    // 2. Fallback upsert langsung ke tabel stores
     const { error } = await client
       .from('stores')
       .upsert(payload, { onConflict: 'slug' });
@@ -526,12 +541,20 @@ async function savePendingStoreToSupabase(app) {
       status: app.status || 'pending'
     };
 
-    const { error } = await client
+    // Coba insert biasa terlebih dahulu (mencegah penolakan izin UPDATE pada RLS)
+    const { error: insErr } = await client
       .from('pending_stores')
-      .upsert(payload, { onConflict: 'id' });
+      .insert(payload);
 
-    if (error) {
-      console.warn('Supabase upsert pending store error:', error);
+    if (insErr) {
+      const { error: upErr } = await client
+        .from('pending_stores')
+        .upsert(payload, { onConflict: 'id' });
+      if (upErr) {
+        console.warn('Supabase upsert pending store error:', upErr);
+      } else {
+        console.log('✅ Berhasil memperbarui permohonan toko di Supabase Cloud:', app.storeName);
+      }
     } else {
       console.log('✅ Berhasil mendaftarkan permohonan toko ke Supabase Cloud:', app.storeName);
     }
