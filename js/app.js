@@ -1780,16 +1780,6 @@ function getStoredMarketerSales(slug) {
       }
     } catch (e) {}
   }
-  // Fallback ke legacy v1 HANYA untuk toko central
-  if (curSlug === 'sr12-central') {
-    const legacy = localStorage.getItem('sr12_marketer_sales_v1');
-    if (legacy) {
-      try {
-        const list = JSON.parse(legacy);
-        if (Array.isArray(list)) return list;
-      } catch (e) {}
-    }
-  }
   return [];
 }
 
@@ -1802,9 +1792,6 @@ function saveStoredMarketerSales(sales, syncCloud = true, slug) {
   // 1. Simpan ke LocalStorage partisi toko
   try {
     localStorage.setItem(key, data);
-    if (curSlug === 'sr12-central') {
-      localStorage.setItem('sr12_marketer_sales_v1', data);
-    }
   } catch (err) {
     console.warn('LocalStorage save error:', err);
   }
@@ -2271,11 +2258,6 @@ window.initReferralAffiliateBanner = initReferralAffiliateBanner;
         if (typeof saveStoredTransactions === 'function') {
           saveStoredTransactions(appState.transactions, initStoreSlug);
         }
-        if (initStoreSlug === 'sr12-central') {
-          try {
-            localStorage.setItem('sr12_pos_transactions_v1', JSON.stringify(appState.transactions));
-          } catch(e) {}
-        }
         updateAdminNotificationUI();
         if (typeof renderPosTransactions === 'function') renderPosTransactions();
         if (typeof renderAdminOrdersModal === 'function') renderAdminOrdersModal();
@@ -2431,11 +2413,6 @@ function loadStoreBySlug(slug) {
         appState.transactions = merged;
         if (typeof saveStoredTransactions === 'function') {
           saveStoredTransactions(appState.transactions, found.slug);
-        }
-        if (found.slug === 'sr12-central') {
-          try {
-            localStorage.setItem('sr12_pos_transactions_v1', JSON.stringify(appState.transactions));
-          } catch(e) {}
         }
         if (typeof renderPosTransactions === 'function') renderPosTransactions();
         if (typeof renderAdminOrdersModal === 'function') renderAdminOrdersModal();
@@ -7396,11 +7373,19 @@ function checkoutViaWhatsApp() {
 
   const itemsText = validatedCartItems.map(v => v.text).join('\n');
   const totalSavings = Math.max(0, totalHet - subtotal);
-  const isVerifiedPartner = !!appState.verifiedMitra && appState.verifiedMitra.tier === appState.currentTier;
+  const inputPartnerQueryEarly = (document.getElementById('buyerMitraIdInput')?.value || '').trim();
+  const currentStoreSlugEarly = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  let earlyFoundMitra = appState.verifiedMitra || null;
+  if (!earlyFoundMitra && inputPartnerQueryEarly) {
+    earlyFoundMitra = findMitraByIdOrPhone(inputPartnerQueryEarly, currentStoreSlugEarly);
+  }
+  const isRegisteredPartner = (!!appState.verifiedMitra && appState.verifiedMitra.tier === appState.currentTier) ||
+    (!!earlyFoundMitra && earlyFoundMitra.tier === appState.currentTier);
+  const isSimulationAdmin = !!(appState.isAdminMode || appState.isDevMasterLoggedIn);
 
   // Proteksi & Validasi Tingkatan Kemitraan (Anti-Cheating / Anti-Bypass)
-  // Mitra resmi terdaftar bebas syarat minimal pendaftaran awal (Rp 5 juta)
-  if (!isVerifiedPartner && tier && tier.id !== 'konsumen') {
+  // Mitra resmi terdaftar dan simulasi admin bebas syarat minimal pendaftaran awal
+  if (!isRegisteredPartner && !isSimulationAdmin && tier && tier.id !== 'konsumen') {
     if (subtotal < tier.minOrderNominal || totalPcs < tier.minOrderPcs) {
       alert(`⛔ SYARAT MINIMAL BELANJA LEVEL ${tier.name.toUpperCase()} BELUM TERPENUHI!\n\n` +
         `Anda saat ini memilih harga khusus: ${tier.name} (Diskon ${tier.discountPct}%).\n` +
@@ -7462,18 +7447,15 @@ function checkoutViaWhatsApp() {
   }
 
   // Update atau Kualifikasi Mitra / Reseller / Marketer di Database Distributor
-  const inputPartnerQuery = (document.getElementById('buyerMitraIdInput')?.value.trim() || document.getElementById('cartBuyerPhoneInput')?.value.trim() || '').trim();
-  const inputBuyerName = document.getElementById('cartBuyerNameInput')?.value.trim();
-  const inputBuyerPhone = document.getElementById('cartBuyerPhoneField')?.value.trim();
+  // Input ID mitra HANYA diambil dari kolom verifikasi kemitraan resmi (bukan nomor telepon pembeli umum)
+  const inputPartnerQuery = (document.getElementById('buyerMitraIdInput')?.value || '').trim();
+  const inputBuyerName = (document.getElementById('cartBuyerNameInput')?.value || '').trim();
+  const inputBuyerPhone = (document.getElementById('cartBuyerPhoneInput')?.value || document.getElementById('cartBuyerPhoneField')?.value || '').trim();
 
   if (inputBuyerName) appState.buyerDetails.name = inputBuyerName;
   if (inputBuyerPhone) appState.buyerDetails.phone = inputBuyerPhone;
 
-  if (inputPartnerQuery && !inputPartnerQuery.toUpperCase().startsWith('AG-') && !inputPartnerQuery.toUpperCase().startsWith('SUB-') && !inputPartnerQuery.toUpperCase().startsWith('RS-') && !inputPartnerQuery.toUpperCase().startsWith('MKT-') && /^[0-9+]+$/.test(inputPartnerQuery)) {
-    appState.buyerDetails.phone = inputPartnerQuery;
-  }
-
-  const buyerPhone = appState.buyerDetails.phone;
+  const buyerPhone = appState.buyerDetails.phone || inputBuyerPhone || '-';
   const now = new Date();
   const nowIso = now.toISOString().split('T')[0];
   const currentMonthPeriod = nowIso.slice(0, 7);
@@ -7491,23 +7473,28 @@ function checkoutViaWhatsApp() {
     activeRefMkt = sessionStorage.getItem('sr12_active_referral_marketer') || (typeof appState !== 'undefined' ? appState.activeReferralMarketer : '') || '';
   } catch(e) {}
 
-  // 1. Cari identitas mitra pembeli (berdasarkan input ID mitra / nomor telepon pembeli)
-  let foundMitra = null;
-  if (inputPartnerQuery) {
+  // 1. Cari identitas mitra pembeli
+  // Utamakan mitra yang sudah terverifikasi di keranjang (appState.verifiedMitra)
+  let foundMitra = appState.verifiedMitra || null;
+  if (!foundMitra && inputPartnerQuery) {
     foundMitra = findMitraByIdOrPhone(inputPartnerQuery, currentStoreSlug);
   }
-  if (!foundMitra && buyerPhone) {
+  // Hanya jika pembeli memilih tingkat grosir (bukan konsumen biasa) atau berbelanja via tautan marketer, kita periksa buyerPhone
+  if (!foundMitra && buyerPhone && (appState.currentTier !== 'konsumen' || activeRefMkt)) {
     foundMitra = findMitraByIdOrPhone(buyerPhone, currentStoreSlug);
   }
   let crmNoticeText = '';
 
   // 2. Deteksi pesanan: Reseller grosir vs Marketer komisi retail 15%
-  const isResellerOrder = (appState.currentTier === 'reseller') || (foundMitra && foundMitra.tier === 'reseller');
+  const isResellerOrder = (appState.currentTier === 'reseller') ||
+    (inputPartnerQuery && inputPartnerQuery.toUpperCase().startsWith('RS-') && foundMitra && foundMitra.tier === 'reseller');
+
   // Marketer order HANYA jika bukan reseller grosir (Reseller tidak mendapatkan komisi marketer 15% di atas diskon 20%)
   const isMarketerOrder = !isResellerOrder && (
     (appState.currentTier === 'marketer') ||
-    (foundMitra && foundMitra.tier === 'marketer') ||
-    (appState.currentTier === 'konsumen' && !!activeRefMkt)
+    (!!activeRefMkt) ||
+    (inputPartnerQuery && inputPartnerQuery.toUpperCase().startsWith('MKT-')) ||
+    (foundMitra && foundMitra.tier === 'marketer' && appState.currentTier !== 'reseller')
   );
 
   // Jika order konsumen via tautan marketer, cari data marketer dari kode referral
@@ -7533,7 +7520,7 @@ function checkoutViaWhatsApp() {
         id: marketerCode,
         store_slug: currentStoreSlug,
         name: marketerName,
-        phone: (marketerCode === 'MKT-001' ? '085342743763' : (buyerPhone || '-')),
+        phone: (marketerCode === 'MKT-001' ? '0895800355550' : (buyerPhone || '-')),
         city: (marketerCode === 'MKT-001' ? 'Baniaga' : (appState.buyerDetails.address?.split(',')[0] || appState.storeSettings.storeCity)),
         tier: 'marketer',
         bankName: 'BCA',
@@ -7546,6 +7533,15 @@ function checkoutViaWhatsApp() {
         status: 'active'
       };
       appState.mitraList.unshift(foundMitra);
+      saveStoredMitra(appState.mitraList);
+      if (typeof saveMitraToSupabase === 'function') {
+        saveMitraToSupabase(foundMitra, currentStoreSlug);
+      }
+    } else {
+      // Perbarui akumulasi marketer satu kali secara akurat (tanpa dobel hitung)
+      foundMitra.accumulatedSpent90Days = (foundMitra.accumulatedSpent90Days || 0) + subtotal;
+      foundMitra.totalOrdersCount = (foundMitra.totalOrdersCount || 0) + 1;
+      foundMitra.lastOrderDate = nowIso;
       saveStoredMitra(appState.mitraList);
       if (typeof saveMitraToSupabase === 'function') {
         saveMitraToSupabase(foundMitra, currentStoreSlug);
@@ -7578,22 +7574,12 @@ function checkoutViaWhatsApp() {
       saveMarketerSaleToSupabase(newSale, currentStoreSlug);
     }
 
-    if (foundMitra) {
-      foundMitra.accumulatedSpent90Days = (foundMitra.accumulatedSpent90Days || 0) + subtotal;
-      foundMitra.totalOrdersCount = (foundMitra.totalOrdersCount || 0) + 1;
-      foundMitra.lastOrderDate = nowIso;
-      saveStoredMitra(appState.mitraList);
-      if (typeof saveMitraToSupabase === 'function') {
-        saveMitraToSupabase(foundMitra, currentStoreSlug);
-      }
-    }
-
     crmNoticeText = `\n💼 *TIM MARKETER RESMI (PENJUALAN TANPA MODAL):*\n` +
       `• Marketer Penjual : ${marketerName} (${marketerCode})\n` +
       `• No. Rekening     : ${(foundMitra && foundMitra.bankName) || 'BCA'} - ${(foundMitra && foundMitra.bankAccount) || '-'}\n` +
       `• Komisi Marketer  : ${formatRupiah(comm)} (15% otomatis tercatat di Rekap Gaji Bulanan Toko)\n`;
     showToast(`💼 Pesanan berhasil dicatat untuk Tim Marketer: ${marketerName}! Komisi 15% masuk rekap gaji.`);
-  } else if (foundMitra) {
+  } else if (foundMitra && (isResellerOrder || appState.currentTier === foundMitra.tier)) {
     foundMitra.accumulatedSpent90Days = (foundMitra.accumulatedSpent90Days || 0) + subtotal;
     foundMitra.totalOrdersCount = (foundMitra.totalOrdersCount || 0) + 1;
     foundMitra.lastOrderDate = nowIso;
@@ -7716,18 +7702,35 @@ function checkoutViaWhatsApp() {
   const dateFormatted = now.toLocaleDateString('id-ID', { year: 'numeric', month: '2-digit', day: '2-digit' }) + ' ' +
     now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
+  let orderTier = appState.currentTier;
+  let orderTierLabel = SR12_TIERS[appState.currentTier]?.name || 'Konsumen Retail';
+
+  if (isMarketerOrder) {
+    orderTier = 'marketer';
+    orderTierLabel = `Mitra Marketer (${marketerName || marketerCode || '15%'})`;
+  } else if (isResellerOrder) {
+    orderTier = 'reseller';
+    orderTierLabel = `Reseller Resmi (${(foundMitra && foundMitra.name) || 'Diskon 20%'})`;
+  } else if (appState.currentTier === 'sub_agen') {
+    orderTier = 'sub_agen';
+    orderTierLabel = `Sub Agen (${(foundMitra && foundMitra.name) || 'Diskon 30%'})`;
+  } else if (appState.currentTier === 'agen') {
+    orderTier = 'agen';
+    orderTierLabel = `Agen Resmi (${(foundMitra && foundMitra.name) || 'Diskon 40%'})`;
+  }
+
   const webOrder = {
     id: orderTrxId,
     store_slug: currentStoreSlug,
     marketerId: isMarketerOrder ? marketerCode : null,
     marketerName: isMarketerOrder ? marketerName : null,
-    resellerId: isResellerOrder ? (foundMitra ? foundMitra.id : 'RS-WEB') : null,
+    resellerId: isResellerOrder ? ((foundMitra && foundMitra.id) || 'RS-001') : null,
     dateTime: dateFormatted,
     customerName: (inputBuyerName || appState.buyerDetails.name || 'Pelanggan'),
     customerPhone: buyerPhone || appState.buyerDetails.phone || '-',
     customerAddress: appState.buyerDetails.address || '-',
-    tier: appState.currentTier,
-    tierLabel: SR12_TIERS[appState.currentTier]?.name || 'Konsumen Retail',
+    tier: orderTier,
+    tierLabel: orderTierLabel,
     items: appState.cart.map(item => {
       const p = appState.products.find(pr => pr.id === item.productId);
       const prc = getProductTierPrice(p, appState.currentTier);
@@ -7755,11 +7758,6 @@ function checkoutViaWhatsApp() {
   appState.transactions.unshift(webOrder);
   if (typeof saveStoredTransactions === 'function') {
     saveStoredTransactions(appState.transactions, currentStoreSlug);
-  }
-  if (currentStoreSlug === 'sr12-central') {
-    try {
-      localStorage.setItem('sr12_pos_transactions_v1', JSON.stringify(appState.transactions));
-    } catch(e) {}
   }
   
   const trxBadge = document.getElementById('olseraTrxBadge');
@@ -10578,9 +10576,6 @@ async function handleRealtimeCloudOrderUpdate(payload) {
         if (typeof saveStoredTransactions === 'function') {
           saveStoredTransactions(appState.transactions, currentSlug);
         }
-        try {
-          localStorage.setItem('sr12_pos_transactions_v1', JSON.stringify(appState.transactions));
-        } catch(e) {}
         
         if (typeof renderPosTransactions === 'function') renderPosTransactions();
         if (typeof renderAdminOrdersModal === 'function') renderAdminOrdersModal();
@@ -10918,9 +10913,6 @@ function confirmOrderFromModal(trxId) {
   if (typeof saveStoredTransactions === 'function') {
     saveStoredTransactions(appState.transactions, curSlug);
   }
-  try {
-    localStorage.setItem('sr12_pos_transactions_v1', JSON.stringify(appState.transactions));
-  } catch(e) {}
   if (typeof updateOrderStatusInSupabase === 'function') {
     updateOrderStatusInSupabase(trxId, 'Selesai', curSlug);
   }
@@ -10973,11 +10965,15 @@ function clearAllSimulationOrders() {
       saveStoredTransactions([], curSlug);
     }
     try {
+      localStorage.removeItem(`sr12_pos_transactions_v2_${curSlug}`);
       localStorage.removeItem('sr12_pos_transactions_v1');
+      localStorage.removeItem('sr12_notified_orders');
     } catch(e) {}
     if (typeof clearOrdersFromSupabase === 'function') {
       clearOrdersFromSupabase(curSlug);
     }
+    const trxBadge = document.getElementById('olseraTrxBadge');
+    if (trxBadge) trxBadge.textContent = '0';
     renderAdminOrdersModal();
     updateAdminNotificationUI();
     if (typeof renderPosTransactions === 'function') renderPosTransactions();
@@ -12298,49 +12294,70 @@ function renderResellers() {
   let countMarketer = 0;
 
   const evaluatedList = storeMitraList.map(m => {
-    // Hitung dinamis akumulasi penjualan & pesanan dari data transaksi dan penjualan nyata
     const mOrders = [];
     const seenIds = new Set();
+    const mCleanId = String(m.id || m.partner_code || '').trim().toUpperCase();
+    const mPhoneClean = String(m.phone || '').replace(/[^0-9]/g, '');
 
-    (appState.transactions || []).forEach(t => {
-      if (!t || !t.id) return;
-      const isM = (t.marketerId === m.id || t.marketerId === m.partner_code) ||
-                  ((t.customerPhone && m.phone && t.customerPhone.replace(/[^0-9]/g, '') === m.phone.replace(/[^0-9]/g, '')) ||
-                   (t.customerName && (t.customerName.includes(m.id) || t.customerName.toLowerCase().includes(m.name.toLowerCase()))));
-      if (isM && !seenIds.has(t.id)) {
-        seenIds.add(t.id);
-        mOrders.push({
-          id: t.id,
-          amount: Number(t.subtotalHet || t.grandTotal) || 0,
-          date: t.dateTime || t.date
-        });
-      }
-    });
+    if (m.tier === 'marketer') {
+      // 1. Marketer: Cocokkan HANYA dari transaksi/penjualan yang dialokasikan ke Marketer ini
+      (appState.marketerSales || []).forEach(s => {
+        if (!s) return;
+        const sid = String(s.orderId || s.order_id || s.id || '').trim();
+        const sMarketerId = String(s.marketerId || s.partner_code || '').trim().toUpperCase();
+        if (sMarketerId && sMarketerId === mCleanId) {
+          if (!sid || !seenIds.has(sid)) {
+            if (sid) seenIds.add(sid);
+            mOrders.push({
+              id: sid || 'MKT-ORD',
+              amount: Number(s.omsetHet || s.omset_het) || 0,
+              date: s.date || s.dateTime
+            });
+          }
+        }
+      });
 
-    (appState.marketerSales || []).forEach(s => {
-      if (!s) return;
-      const sid = s.orderId || s.order_id || s.id;
-      const isM = (s.marketerId === m.id || s.marketerId === m.partner_code ||
-                  (s.customerPhone && m.phone && s.customerPhone.replace(/[^0-9]/g, '') === m.phone.replace(/[^0-9]/g, '')) ||
-                  (s.customerName && (s.customerName.includes(m.id) || s.customerName.toLowerCase().includes(m.name.toLowerCase()))));
-      if (isM) {
-        if (!sid || !seenIds.has(sid)) {
-          if (sid) seenIds.add(sid);
+      (appState.transactions || []).forEach(t => {
+        if (!t || !t.id) return;
+        const tid = String(t.id).trim();
+        const tMarketerId = String(t.marketerId || '').trim().toUpperCase();
+        if (tMarketerId && tMarketerId === mCleanId && !seenIds.has(tid)) {
+          seenIds.add(tid);
           mOrders.push({
-            id: sid || 'MKT-ORD',
-            amount: Number(s.omsetHet || s.omset_het) || 0,
-            date: s.date
+            id: tid,
+            amount: Number(t.subtotalHet || t.subtotal || t.grandTotal) || 0,
+            date: t.dateTime || t.date
           });
         }
-      }
-    });
+      });
+    } else {
+      // 2. Reseller / Sub Agen / Agen: Cocokkan HANYA pesanan grosir untuk mitra ini
+      (appState.transactions || []).forEach(t => {
+        if (!t || !t.id) return;
+        const tid = String(t.id).trim();
+        const tResellerId = String(t.resellerId || '').trim().toUpperCase();
+        const tPhone = String(t.customerPhone || '').replace(/[^0-9]/g, '');
+
+        const isExactId = (tResellerId && tResellerId === mCleanId);
+        const isExactPhoneTier = (t.tier === m.tier && mPhoneClean.length >= 8 && tPhone.length >= 8 && (tPhone === mPhoneClean || tPhone.endsWith(mPhoneClean.slice(-8))));
+
+        if ((isExactId || isExactPhoneTier) && !seenIds.has(tid)) {
+          seenIds.add(tid);
+          mOrders.push({
+            id: tid,
+            amount: Number(t.subtotal || t.subtotalHet || t.grandTotal) || 0,
+            date: t.dateTime || t.date
+          });
+        }
+      });
+    }
 
     const dynamicTotalAmount = mOrders.reduce((sum, o) => sum + o.amount, 0);
     const dynamicOrdersCount = mOrders.length;
 
-    // Sinkronkan nilai terkini (gunakan yang tertinggi antara cache tersimpan dan kalkulasi dinamis)
-    const effectiveSpent = Math.max(Number(m.accumulatedSpent90Days) || 0, dynamicTotalAmount);
-    const effectiveCount = Math.max(Number(m.totalOrdersCount) || 0, dynamicOrdersCount);
+    // Nilai riil transaksi aktual adalah sumber kebenaran (source of truth)
+    const effectiveSpent = dynamicTotalAmount;
+    const effectiveCount = dynamicOrdersCount;
 
     m.accumulatedSpent90Days = effectiveSpent;
     m.totalOrdersCount = effectiveCount;
@@ -12623,7 +12640,7 @@ function handleMitraTierChange(tier) {
   } else {
     if (spendField) spendField.style.display = 'block';
     if (initialSpendInput) {
-      initialSpendInput.value = tier === 'agen' ? 5000000 : (tier === 'sub_agen' ? 1500000 : 500000);
+      initialSpendInput.value = 0;
     }
   }
 }
@@ -12793,9 +12810,8 @@ function clearStoreAllSimulationData() {
   }
   try {
     localStorage.removeItem(`sr12_pos_transactions_v2_${curSlug}`);
-    if (curSlug === 'sr12-central') {
-      localStorage.removeItem('sr12_pos_transactions_v1');
-    }
+    localStorage.removeItem('sr12_pos_transactions_v1');
+    localStorage.removeItem('sr12_notified_orders');
   } catch(e) {}
 
   // 2. Kosongkan marketer sales toko ini
@@ -12805,9 +12821,7 @@ function clearStoreAllSimulationData() {
   }
   try {
     localStorage.removeItem(`sr12_marketer_sales_v2_${curSlug}`);
-    if (curSlug === 'sr12-central') {
-      localStorage.removeItem('sr12_marketer_sales_v1');
-    }
+    localStorage.removeItem('sr12_marketer_sales_v1');
   } catch(e) {}
 
   // 3. Kosongkan kas masuk toko ini
@@ -12815,6 +12829,10 @@ function clearStoreAllSimulationData() {
   if (typeof saveStoredCashflow === 'function') {
     saveStoredCashflow([], curSlug);
   }
+  try {
+    localStorage.removeItem(`sr12_cashflow_records_v2_${curSlug}`);
+    localStorage.removeItem('sr12_cashflow_records_v1');
+  } catch(e) {}
 
   // 4. Kosongkan keranjang & referral aktif
   appState.cart = [];
@@ -12838,15 +12856,24 @@ function clearStoreAllSimulationData() {
     saveStoredMitra(appState.mitraList);
   }
 
-  // 6. Refresh seluruh tampilan
+  // 6. Reset seluruh badge transaksi & pesanan ke 0
+  const trxBadge = document.getElementById('olseraTrxBadge');
+  if (trxBadge) trxBadge.textContent = '0';
+  const badgePending = document.getElementById('adminOrdersTabBadgePending');
+  const badgeDone = document.getElementById('adminOrdersTabBadgeDone');
+  if (badgePending) badgePending.textContent = '0';
+  if (badgeDone) badgeDone.textContent = '0';
+
+  // 7. Refresh seluruh tampilan
   if (typeof updateCartUI === 'function') updateCartUI();
   if (typeof renderPosTransactions === 'function') renderPosTransactions();
   if (typeof renderMarketerPayroll === 'function') renderMarketerPayroll();
   if (typeof renderResellers === 'function') renderResellers();
   if (typeof renderCashflowTable === 'function') renderCashflowTable();
   if (typeof updateAdminNotificationUI === 'function') updateAdminNotificationUI();
+  if (typeof renderAdminOrdersModal === 'function') renderAdminOrdersModal();
 
-  showToast(`✅ Seluruh data simulasi untuk toko "${storeName}" berhasil dibersihkan! Silakan uji coba 1 pesanan baru.`);
+  showToast(`✅ Seluruh data simulasi untuk toko "${storeName}" berhasil dibersihkan! Transaksi & omset kembali 0.`);
 }
 window.clearStoreAllSimulationData = clearStoreAllSimulationData;
 
@@ -12996,15 +13023,12 @@ function getMarketerConsolidatedSales(m, selectedMonth, currentStoreSlug) {
     return sSlug === currentStoreSlug;
   };
 
-  const isMatchingMarketer = (mId, mCode, phone, custName) => {
-    if (mId && (mId === m.id || mId === m.partner_code)) return true;
-    if (mCode && (mCode === m.id || mCode === m.partner_code)) return true;
-    if (phone && mPhoneDigits && phone.replace(/[^0-9]/g, '') === mPhoneDigits) return true;
-    // Pencocokan nama pembeli HANYA jika ID spesifik tertera (panjang minimal 4 karakter)
-    if (custName && m.id && String(m.id).trim().length >= 4) {
-      const cn = custName.toLowerCase();
-      if (cn.includes(String(m.id).toLowerCase())) return true;
-    }
+  const isMatchingMarketer = (mId, mCode) => {
+    const cleanMid = String(mId || '').trim().toUpperCase();
+    const cleanMCode = String(mCode || '').trim().toUpperCase();
+    const targetId = String(m.id || m.partner_code || '').trim().toUpperCase();
+    if (cleanMid && cleanMid === targetId) return true;
+    if (cleanMCode && cleanMCode === targetId) return true;
     return false;
   };
 
@@ -13019,7 +13043,7 @@ function getMarketerConsolidatedSales(m, selectedMonth, currentStoreSlug) {
     if (!s) return false;
     if (!isCurrentStore(s.store_slug)) return false;
 
-    const isM = isMatchingMarketer(s.marketerId, s.partner_code, s.customerPhone, s.customerName);
+    const isM = isMatchingMarketer(s.marketerId, s.partner_code);
     if (!isM) return false;
 
     return isMatchingPeriod(s.date || s.dateTime || s.created_at, s.monthPeriod || s.month_period);
@@ -13032,7 +13056,7 @@ function getMarketerConsolidatedSales(m, selectedMonth, currentStoreSlug) {
 
     // Transaksi POS/Online HANYA diakui jika memang order marketer resmi
     if (!t.marketerId && t.tier !== 'marketer') return false;
-    const isM = isMatchingMarketer(t.marketerId, null, t.customerPhone, t.customerName);
+    const isM = isMatchingMarketer(t.marketerId, null);
     if (!isM) return false;
 
     return isMatchingPeriod(t.dateTime || t.date || t.created_at, t.monthPeriod);
@@ -13105,27 +13129,6 @@ function getMarketerConsolidatedSales(m, selectedMonth, currentStoreSlug) {
     }
   });
 
-  // 4. Fallback akumulasi awal HANYA untuk "Semua Periode (Akumulasi)" JIKA belum ada catatan pesanan di sistem
-  if (selectedMonth === 'all' && uniqueSales.length === 0 && Number(m.accumulatedSpent90Days) > 0) {
-    const spent = Number(m.accumulatedSpent90Days) || 0;
-    uniqueSales.push({
-      orderId: 'ORD-' + (m.id || m.partner_code || 'MKT') + '-AKUMULASI',
-      store_slug: currentStoreSlug,
-      marketerId: m.id,
-      date: m.lastOrderDate || new Date().toISOString().split('T')[0],
-      monthPeriod: extractMonthPeriod(m.lastOrderDate) || 'all',
-      customerName: m.name,
-      customerPhone: m.phone,
-      customerAddress: m.city || 'Indonesia',
-      fulfillmentType: 'pickup',
-      itemsDesc: 'Akumulasi Belanja Pendaftaran Awal Marketer',
-      omsetHet: spent,
-      commissionPct: 15,
-      commissionAmount: Math.round(spent * 0.15),
-      paidStatus: (m.totalOrdersCount > 0) ? 'paid' : 'unpaid'
-    });
-  }
-
   return uniqueSales;
 }
 
@@ -13178,7 +13181,7 @@ function renderMarketerPayroll() {
       marketersMap.set(s.marketerId, {
         id: s.marketerId,
         name: resolvedName,
-        phone: (s.marketerId === 'MKT-001' ? '085342743763' : (s.customerPhone || '-')),
+        phone: (s.marketerId === 'MKT-001' ? '0895800355550' : (s.customerPhone || '-')),
         city: (s.marketerId === 'MKT-001' ? 'Baniaga' : 'Indonesia'),
         bankName: 'BCA',
         bankAccount: (s.marketerId === 'MKT-001' ? '123456789' : '-'),
@@ -13196,7 +13199,7 @@ function renderMarketerPayroll() {
       marketersMap.set(t.marketerId, {
         id: t.marketerId,
         name: resolvedName,
-        phone: (t.marketerId === 'MKT-001' ? '085342743763' : (t.customerPhone || '-')),
+        phone: (t.marketerId === 'MKT-001' ? '0895800355550' : (t.customerPhone || '-')),
         city: (t.marketerId === 'MKT-001' ? 'Baniaga' : 'Indonesia'),
         bankName: 'BCA',
         bankAccount: (t.marketerId === 'MKT-001' ? '123456789' : '-'),
@@ -14225,7 +14228,7 @@ function refreshPromoShareUrlAndCopy(mktCode) {
         id: 'MKT-001',
         name: 'Maryam',
         tier: 'marketer',
-        phone: '085342743763',
+        phone: '0895800355550',
         city: 'Baniaga',
         bankName: 'BCA',
         bankAccount: '123456789',

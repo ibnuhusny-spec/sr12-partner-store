@@ -11,7 +11,7 @@ const DEFAULT_TRANSACTIONS = [];
 const DEFAULT_CASHFLOW = [];
 
 function getStoredTransactions(slug) {
-  const curSlug = slug || (typeof appState !== 'undefined' && appState.currentStoreSlug) || 'sr12-central';
+  const curSlug = slug || (typeof appState !== 'undefined' && ((appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug)) || 'sr12-central';
   const key = `sr12_pos_transactions_v2_${curSlug}`;
   const s = localStorage.getItem(key);
   if (s !== null) {
@@ -20,30 +20,14 @@ function getStoredTransactions(slug) {
       if (Array.isArray(parsed)) return parsed;
     } catch (e) {}
   }
-  // HANYA toko central default yang diizinkan fallback ke penyimpanan legacy/global v1
-  if (curSlug === 'sr12-central') {
-    try {
-      const sLegacy = localStorage.getItem('sr12_pos_transactions_v1');
-      if (sLegacy) {
-        const pLegacy = JSON.parse(sLegacy);
-        if (Array.isArray(pLegacy)) return pLegacy;
-      }
-    } catch(e) {}
-  }
   return [];
 }
 
 function saveStoredTransactions(list, slug) {
-  const curSlug = slug || (typeof appState !== 'undefined' && appState.currentStoreSlug) || 'sr12-central';
+  const curSlug = slug || (typeof appState !== 'undefined' && ((appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug)) || 'sr12-central';
   const key = `sr12_pos_transactions_v2_${curSlug}`;
   const data = JSON.stringify(list || []);
   localStorage.setItem(key, data);
-  // HANYA cerminkan ke legacy v1 jika toko central default
-  if (curSlug === 'sr12-central') {
-    try {
-      localStorage.setItem('sr12_pos_transactions_v1', data);
-    } catch(e) {}
-  }
 }
 
 function getStoredCashflow(slug) {
@@ -1806,11 +1790,11 @@ function processPosCheckout(action = 'save') {
 
   const customerMitraId = (typeof appState !== 'undefined' && appState.posSelectedMitraId) ? appState.posSelectedMitraId : '';
 
-  // Update akumulasi belanja mitra jika terdaftar di Database Mitra
-  if (Array.isArray(appState.mitraList)) {
+  // Update akumulasi belanja mitra jika transaksi dilakukan untuk mitra terdaftar (bukan konsumen retail)
+  if (Array.isArray(appState.mitraList) && tier !== 'konsumen') {
     const targetM = appState.mitraList.find(m => 
       (m.store_slug || 'sr12-central') === curPosStoreSlug && 
-      (m.id === customerMitraId || (m.phone && customerPhone && m.phone.replace(/[^0-9]/g, '') === customerPhone.replace(/[^0-9]/g, '')) || (m.name && m.name.toLowerCase() === customerName.toLowerCase()))
+      (m.id === customerMitraId || (m.tier === tier && m.phone && customerPhone && m.phone.replace(/[^0-9]/g, '') === customerPhone.replace(/[^0-9]/g, '')))
     );
     if (targetM) {
       targetM.accumulatedSpent90Days = (Number(targetM.accumulatedSpent90Days) || 0) + subtotalHet;
