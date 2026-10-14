@@ -1662,7 +1662,7 @@ function processPosCheckout(action = 'save') {
     dateTime: dateStr,
     customerName,
     customerPhone,
-    marketerId: (tier === 'marketer') ? (customerMitraId || 'MKT-001') : (customerMitraId || null),
+    marketerId: (tier === 'marketer') ? (customerMitraId || null) : (customerMitraId || null),
     cashierName: activeCashier.name || 'Nurlinda Sari',
     shift: activeCashier.shift || 'Shift Pagi',
     tier,
@@ -1810,13 +1810,14 @@ function processPosCheckout(action = 'save') {
     }
   }
 
-  // Jika Marketer: otomatis catat ke buku komisi 15% bulanan
-  if (tier === 'marketer') {
+  // Jika Marketer: otomatis catat ke buku komisi 15% bulanan HANYA jika ada ID marketer resmi
+  const validMarketerId = customerMitraId || (typeof appState !== 'undefined' && appState.activeReferralMarketer) || null;
+  if (tier === 'marketer' && validMarketerId) {
     const marketerComm = Math.round(subtotalHet * 0.15);
     const mSale = {
       orderId: trxId,
       store_slug: curPosStoreSlug,
-      marketerId: customerMitraId || 'MKT-001',
+      marketerId: validMarketerId,
       date: dateStr.split(' ')[0],
       monthPeriod: `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`,
       customerName,
@@ -2184,23 +2185,59 @@ window.confirmWebOrder = confirmWebOrder;
 function deleteTransactionEntry(trxId) {
   if (typeof appState === 'undefined') return;
   if (!confirm(`⚠️ Hapus riwayat transaksi ${trxId}?`)) return;
+
+  const curSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+
+  // 1. Hapus dari riwayat transaksi
   appState.transactions = (appState.transactions || []).filter(t => t.id !== trxId);
-  saveStoredTransactions(appState.transactions);
+  saveStoredTransactions(appState.transactions, curSlug);
+
+  // 2. Hapus dari catatan penjualan marketer jika ada
+  if (Array.isArray(appState.marketerSales)) {
+    const prevLen = appState.marketerSales.length;
+    appState.marketerSales = appState.marketerSales.filter(s => (s.orderId !== trxId && s.id !== trxId));
+    if (appState.marketerSales.length !== prevLen && typeof saveStoredMarketerSales === 'function') {
+      saveStoredMarketerSales(appState.marketerSales, false, curSlug);
+    }
+  }
+
+  // 3. Hapus dari catatan arus kas jika ada
+  if (Array.isArray(appState.cashflow)) {
+    const prevCashLen = appState.cashflow.length;
+    appState.cashflow = appState.cashflow.filter(c => !(c.notes && c.notes.includes(trxId)));
+    if (appState.cashflow.length !== prevCashLen && typeof saveStoredCashflow === 'function') {
+      saveStoredCashflow(appState.cashflow, curSlug);
+    }
+  }
+
+  // 4. Hapus dari Cloud Supabase
+  if (typeof deleteOrderFromSupabase === 'function') {
+    deleteOrderFromSupabase(trxId, curSlug);
+  }
+
+  // 5. Update seluruh tampilan agar sinkron seketika
   renderPosTransactions();
+  if (typeof renderResellers === 'function') renderResellers();
+  if (typeof renderMarketerPayroll === 'function') renderMarketerPayroll();
+  if (typeof renderCashflowTable === 'function') renderCashflowTable();
+  if (typeof renderAdminOrdersModal === 'function') renderAdminOrdersModal();
   if (typeof updateAdminNotificationUI === 'function') updateAdminNotificationUI();
-  if (typeof showToast === 'function') showToast(`🗑️ Transaksi ${trxId} telah dihapus.`);
+  if (typeof showToast === 'function') showToast(`🗑️ Transaksi ${trxId} telah dihapus bersih.`);
 }
 window.deleteTransactionEntry = deleteTransactionEntry;
 
 function clearAllTransactionsHistory() {
-  if (!confirm('⚠️ Anda yakin ingin mengosongkan seluruh Riwayat Transaksi Kasir POS & Pesanan Web?\n\nSemua riwayat transaksi akan dihapus untuk simulasi baru.')) {
-    return;
+  if (typeof clearStoreAllSimulationData === 'function') {
+    clearStoreAllSimulationData();
+  } else {
+    if (!confirm('⚠️ Kosongkan seluruh Riwayat Transaksi Kasir POS & Pesanan Web?')) return;
+    const curSlug = (typeof appState !== 'undefined' && ((appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug)) || 'sr12-central';
+    appState.transactions = [];
+    saveStoredTransactions([], curSlug);
+    renderPosTransactions('all');
+    if (typeof updateAdminNotificationUI === 'function') updateAdminNotificationUI();
+    if (typeof showToast === 'function') showToast('🗑️ Seluruh Riwayat Transaksi berhasil dikosongkan!');
   }
-  appState.transactions = [];
-  saveStoredTransactions([]);
-  renderPosTransactions('all');
-  if (typeof updateAdminNotificationUI === 'function') updateAdminNotificationUI();
-  if (typeof showToast === 'function') showToast('🗑️ Seluruh Riwayat Transaksi berhasil dikosongkan!');
 }
 window.clearAllTransactionsHistory = clearAllTransactionsHistory;
 

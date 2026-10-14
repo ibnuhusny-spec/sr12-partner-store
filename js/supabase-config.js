@@ -1955,6 +1955,24 @@ async function clearOrdersFromSupabase(storeSlug = 'sr12-central') {
   }
 }
 
+/**
+ * Hapus 1 Pesanan Tertentu dari Cloud Supabase (orders & marketer_sales)
+ */
+async function deleteOrderFromSupabase(orderId, storeSlug = 'sr12-central') {
+  const client = initSupabaseClient();
+  if (!client || !orderId) return false;
+  try {
+    const targetStore = storeSlug || 'sr12-central';
+    try { await client.from('orders').delete().eq('order_id', orderId).eq('store_slug', targetStore); } catch(e) {}
+    try { await client.from('marketer_sales').delete().eq('order_id', orderId).eq('store_slug', targetStore); } catch(e) {}
+    console.log('🗑️ Pesanan berhasil dihapus dari Supabase:', orderId);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+window.deleteOrderFromSupabase = deleteOrderFromSupabase;
+
 // Update Pengaturan Rekening Developer ke Supabase Cloud (disimpan pada row sr12-central)
 async function updateDevPaymentSettingsInSupabase(settings) {
   const client = initSupabaseClient();

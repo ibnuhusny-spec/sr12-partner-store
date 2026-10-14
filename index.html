@@ -701,6 +701,9 @@
             <button onclick="filterTransactions('all')" class="chip-btn active" id="btnTrxAll">Semua</button>
             <button onclick="filterTransactions('today')" class="chip-btn" id="btnTrxToday">Hari Ini</button>
             <button onclick="filterTransactions('month')" class="chip-btn" id="btnTrxMonth">Bulan Ini</button>
+            <button onclick="clearStoreAllSimulationData()" style="background: #fff1f2; color: #b91c1c; border: 1px solid #fecdd3; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.78rem; cursor: pointer;" title="Bersihkan seluruh riwayat pesanan simulasi, rekap marketer & keuangan toko">
+              🧹 Reset Simulasi Toko
+            </button>
             <button onclick="clearAllTransactionsHistory()" style="background: #fff; color: #ef4444; border: 1px solid #fca5a5; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.78rem; cursor: pointer;" title="Kosongkan seluruh riwayat pesanan & transaksi">
               🗑️ Hapus Riwayat
             </button>
@@ -1916,6 +1919,9 @@
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
             <button onclick="openAddMitraModal()" style="background: var(--primary-700); color: #fff; border: none; padding: 10px 16px; border-radius: var(--radius-md); font-weight: 700; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
               <span>+</span> Daftarkan Mitra Baru
+            </button>
+            <button onclick="resetAllMitraAccumulation()" style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; padding: 10px 14px; border-radius: var(--radius-md); font-weight: 700; font-size: 0.85rem; cursor: pointer;" title="Reset seluruh angka akumulasi belanja mitra kembali ke Rp 0 tanpa menghapus mitra">
+              🧹 Reset Akumulasi Belanja (Ke Rp 0)
             </button>
             <button onclick="clearAllMitraDatabase()" style="background: #fff; color: #ef4444; border: 1px solid #fca5a5; padding: 10px 14px; border-radius: var(--radius-md); font-weight: 700; font-size: 0.85rem; cursor: pointer;" title="Kosongkan seluruh data mitra">
               🗑️ Hapus Semua Data Mitra
@@ -5026,9 +5032,9 @@
   <!-- SCRIPTS -->
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=7.0"></script>
-  <script src="js/data.js?v=7.0"></script>
-  <script src="js/app.js?v=7.0"></script>
-  <script src="js/olsera-suite.js?v=7.0"></script>
+  <script src="js/supabase-config.js?v=7.1"></script>
+  <script src="js/data.js?v=7.1"></script>
+  <script src="js/app.js?v=7.1"></script>
+  <script src="js/olsera-suite.js?v=7.1"></script>
 </body>
 </html>

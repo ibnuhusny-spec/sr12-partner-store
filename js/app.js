@@ -1170,20 +1170,29 @@ async function syncMitraWithIndexedDB() {
 
     // 2. Sinkronkan Rekap Penjualan Marketer
     const curStoreSlug = (typeof appState !== 'undefined' && ((appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug)) || 'sr12-central';
-    const idbSales = await dbGetAllMarketerSales();
-    if (idbSales && idbSales.length > 0) {
-      if (typeof appState !== 'undefined') {
-        const filteredIdb = idbSales.filter(s => (s.store_slug === curStoreSlug) || (!s.store_slug && curStoreSlug === 'sr12-central'));
-        const salesMap = new Map((appState.marketerSales || []).map(s => [s.orderId, s]));
-        filteredIdb.forEach(s => {
-          if (!salesMap.has(s.orderId)) salesMap.set(s.orderId, s);
-        });
-        appState.marketerSales = Array.from(salesMap.values());
-        saveStoredMarketerSales(appState.marketerSales, false, curStoreSlug);
-        if (typeof renderMarketerPayroll === 'function') renderMarketerPayroll();
+    const rawLocalSales = localStorage.getItem(`sr12_marketer_sales_v2_${curStoreSlug}`);
+    if (rawLocalSales === '[]') {
+      // LocalStorage sengaja dikosongkan oleh user: bersihkan juga IndexedDB agar data hantu tidak hidup kembali!
+      appState.marketerSales = [];
+      if (typeof dbSaveAllMarketerSales === 'function') {
+        await dbSaveAllMarketerSales([]);
       }
-    } else if (typeof appState !== 'undefined' && Array.isArray(appState.marketerSales) && appState.marketerSales.length > 0) {
-      await dbSaveAllMarketerSales(appState.marketerSales);
+    } else {
+      const idbSales = await dbGetAllMarketerSales();
+      if (idbSales && idbSales.length > 0) {
+        if (typeof appState !== 'undefined') {
+          const filteredIdb = idbSales.filter(s => (s.store_slug === curStoreSlug) || (!s.store_slug && curStoreSlug === 'sr12-central'));
+          const salesMap = new Map((appState.marketerSales || []).map(s => [s.orderId, s]));
+          filteredIdb.forEach(s => {
+            if (s && s.orderId && !salesMap.has(s.orderId)) salesMap.set(s.orderId, s);
+          });
+          appState.marketerSales = Array.from(salesMap.values());
+          saveStoredMarketerSales(appState.marketerSales, false, curStoreSlug);
+          if (typeof renderMarketerPayroll === 'function') renderMarketerPayroll();
+        }
+      } else if (typeof appState !== 'undefined' && Array.isArray(appState.marketerSales) && appState.marketerSales.length > 0) {
+        await dbSaveAllMarketerSales(appState.marketerSales);
+      }
     }
 
     // 3. Sinkronkan dari Supabase Cloud hanya jika pemilik toko / admin sedang login (Aman UU PDP & Anti-Leak)
@@ -1902,6 +1911,32 @@ function formatRupiah(amount) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Auto-migrasi v7.1: Bersihkan angka akumulasi belanja mitra hantu & sinkronkan ulang secara bersih
+  if (localStorage.getItem('sr12_clean_sim_reset_v7_1') !== 'ready') {
+    if (Array.isArray(appState.mitraList)) {
+      appState.mitraList.forEach(m => {
+        m.accumulatedSpent90Days = 0;
+        m.totalOrdersCount = 0;
+        m.spent = 0;
+      });
+      saveStoredMitra(appState.mitraList, false);
+      if (typeof dbSaveAllMitra === 'function') {
+        dbSaveAllMitra(appState.mitraList);
+      }
+    }
+    const curSlug = (appState.storeSettings && appState.storeSettings.slug) || 'sr12-central';
+    const curTrx = typeof getStoredTransactions === 'function' ? getStoredTransactions(curSlug) : [];
+    if (!curTrx || curTrx.length === 0) {
+      if (typeof saveStoredMarketerSales === 'function') {
+        saveStoredMarketerSales([], false, curSlug);
+      }
+      if (typeof dbSaveAllMarketerSales === 'function') {
+        dbSaveAllMarketerSales([]);
+      }
+    }
+    localStorage.setItem('sr12_clean_sim_reset_v7_1', 'ready');
+  }
+
   // Sesi Simulasi Bersih Baru: hanya bersihkan jika belum pernah diinisialisasi DAN belum ada toko buatan user
   if (localStorage.getItem('sr12_clean_slate_sim_v5') !== 'ready') {
     const customStores = getStoredPartnerStores().filter(s => s.slug !== 'sr12-central');
@@ -7724,7 +7759,7 @@ function checkoutViaWhatsApp() {
     store_slug: currentStoreSlug,
     marketerId: isMarketerOrder ? marketerCode : null,
     marketerName: isMarketerOrder ? marketerName : null,
-    resellerId: isResellerOrder ? ((foundMitra && foundMitra.id) || 'RS-001') : null,
+    resellerId: isResellerOrder ? ((foundMitra && foundMitra.id) || null) : null,
     dateTime: dateFormatted,
     customerName: (inputBuyerName || appState.buyerDetails.name || 'Pelanggan'),
     customerPhone: buyerPhone || appState.buyerDetails.phone || '-',
@@ -10958,30 +10993,15 @@ function confirmOrderFromModal(trxId) {
 }
 
 function clearAllSimulationOrders() {
-  if (confirm('Kosongkan seluruh daftar pesanan masuk?\n\nSemua riwayat pesanan simulasi akan dibersihkan dari penyimpanan lokal dan Supabase Cloud.')) {
-    const curSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
-    appState.transactions = [];
-    if (typeof saveStoredTransactions === 'function') {
-      saveStoredTransactions([], curSlug);
-    }
-    try {
-      localStorage.removeItem(`sr12_pos_transactions_v2_${curSlug}`);
-      localStorage.removeItem('sr12_pos_transactions_v1');
-      localStorage.removeItem('sr12_notified_orders');
-    } catch(e) {}
-    if (typeof clearOrdersFromSupabase === 'function') {
-      clearOrdersFromSupabase(curSlug);
-    }
-    const trxBadge = document.getElementById('olseraTrxBadge');
-    if (trxBadge) trxBadge.textContent = '0';
-    renderAdminOrdersModal();
-    updateAdminNotificationUI();
-    if (typeof renderPosTransactions === 'function') renderPosTransactions();
-    if (typeof renderResellers === 'function') renderResellers();
-    if (typeof renderMarketerPayroll === 'function') renderMarketerPayroll();
-    showToast('🗑️ Daftar pesanan berhasil dikosongkan.');
+  const curSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  const storeName = (appState.storeSettings && appState.storeSettings.storeName) || curSlug;
+  if (!confirm(`🧹 Kosongkan seluruh riwayat pesanan simulasi toko "${storeName}"?\n\n• Seluruh transaksi dan pesanan masuk akan dibersihkan dari penyimpanan lokal dan Supabase Cloud.\n• Rekap komisi marketer dan arus kas toko akan dinolkan kembali untuk simulasi baru.\n• Data kemitraan Anda tetap aman.`)) {
+    return;
   }
+  clearStoreAllSimulationData(curSlug, true);
+  showToast('🗑️ Seluruh riwayat pesanan simulasi dan buku toko berhasil dibersihkan total!');
 }
+window.clearAllSimulationOrders = clearAllSimulationOrders;
 
 // ==========================================
 // MODEL 1: PREPAID ORDER QUOTA & TOP-UP SYSTEM
@@ -12763,7 +12783,7 @@ function clearAllMarketerSales() {
     return;
   }
   appState.marketerSales = [];
-  saveStoredMarketerSales([], true, curSlug);
+  saveStoredMarketerSales([], false, curSlug);
   try {
     localStorage.removeItem(`sr12_marketer_sales_v2_${curSlug}`);
     if (curSlug === 'sr12-central') {
@@ -12780,27 +12800,46 @@ function clearAllMarketerSales() {
   if (typeof clearMarketerSalesFromSupabase === 'function') {
     clearMarketerSalesFromSupabase(curSlug);
   }
+
+  // Bersihkan juga transaksi pesanan yang terafiliasi marketer agar tidak membangkitkan rekap lagi
+  if (Array.isArray(appState.transactions)) {
+    const prevTrxLen = appState.transactions.length;
+    appState.transactions = appState.transactions.filter(t => !t.marketerId && t.tier !== 'marketer');
+    if (appState.transactions.length !== prevTrxLen && typeof saveStoredTransactions === 'function') {
+      saveStoredTransactions(appState.transactions, curSlug);
+    }
+  }
+
   // Reset akumulasi belanja dan pesanan marketer di mitraList toko ini
   if (Array.isArray(appState.mitraList)) {
     appState.mitraList.forEach(m => {
-      if ((m.store_slug || 'sr12-central') === curSlug && m.tier === 'marketer') {
+      if ((!m.store_slug || m.store_slug === curSlug || curSlug === 'sr12-central') && m.tier === 'marketer') {
         m.accumulatedSpent90Days = 0;
         m.totalOrdersCount = 0;
+        m.spent = 0;
       }
     });
-    saveStoredMitra(appState.mitraList);
+    saveStoredMitra(appState.mitraList, false);
+    if (typeof dbSaveAllMitra === 'function') {
+      dbSaveAllMitra(appState.mitraList);
+    }
   }
   renderMarketerPayroll();
   if (typeof renderResellers === 'function') renderResellers();
+  if (typeof renderPosTransactions === 'function') renderPosTransactions();
+  if (typeof renderAdminOrdersModal === 'function') renderAdminOrdersModal();
   showToast('🗑️ Rekap Gaji & Komisi Marketer toko ini berhasil dikosongkan!');
 }
 window.clearAllMarketerSales = clearAllMarketerSales;
 
-function clearStoreAllSimulationData() {
-  const curSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+function clearStoreAllSimulationData(targetSlug, silent = false) {
+  const curSlug = targetSlug || (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
   const storeName = (appState.storeSettings && appState.storeSettings.storeName) || curSlug;
-  if (!confirm(`🧹 BERSIHKAN SIMULASI TOKO: "${storeName}"?\n\nFitur ini akan mengosongkan:\n• Seluruh riwayat transaksi pesanan simulasi toko ini\n• Seluruh catatan rekap komisi gaji marketer toko ini\n• Riwayat kas masuk simulasi toko ini\n• Keranjang belanja & token referral aktif\n• Reset akumulasi belanja mitra toko ini ke 0\n\nSetelah ini Anda bisa mencoba pesan 1 pesanan baru dengan bersih!`)) {
-    return;
+
+  if (!silent) {
+    if (!confirm(`🧹 BERSIHKAN TOTAL SIMULASI TOKO: "${storeName}"?\n\nFitur ini akan mengosongkan seluruh:\n• Riwayat transaksi kasir POS & pesanan online\n• Seluruh catatan rekap komisi gaji marketer\n• Riwayat kas masuk simulasi & keranjang belanja\n• Reset angka akumulasi belanja mitra ke Rp 0\n• Supabase Cloud & IndexedDB disinkronkan bersih\n\nSetelah ini toko Anda bersih siap untuk simulasi belanja 1 pesanan baru!`)) {
+      return;
+    }
   }
 
   // 1. Kosongkan transaksi toko ini
@@ -12812,16 +12851,27 @@ function clearStoreAllSimulationData() {
     localStorage.removeItem(`sr12_pos_transactions_v2_${curSlug}`);
     localStorage.removeItem('sr12_pos_transactions_v1');
     localStorage.removeItem('sr12_notified_orders');
+    Object.keys(localStorage).forEach(k => {
+      if (k.startsWith('sr12_pos_transactions_') && (k.includes(curSlug) || curSlug === 'sr12-central')) {
+        localStorage.removeItem(k);
+      }
+    });
   } catch(e) {}
+  appState.notifiedOrderIds = new Set();
 
   // 2. Kosongkan marketer sales toko ini
   appState.marketerSales = [];
   if (typeof saveStoredMarketerSales === 'function') {
-    saveStoredMarketerSales([], true, curSlug);
+    saveStoredMarketerSales([], false, curSlug);
   }
   try {
     localStorage.removeItem(`sr12_marketer_sales_v2_${curSlug}`);
     localStorage.removeItem('sr12_marketer_sales_v1');
+    Object.keys(localStorage).forEach(k => {
+      if (k.startsWith('sr12_marketer_sales_') && (k.includes(curSlug) || curSlug === 'sr12-central')) {
+        localStorage.removeItem(k);
+      }
+    });
   } catch(e) {}
 
   // 3. Kosongkan kas masuk toko ini
@@ -12832,10 +12882,13 @@ function clearStoreAllSimulationData() {
   try {
     localStorage.removeItem(`sr12_cashflow_records_v2_${curSlug}`);
     localStorage.removeItem('sr12_cashflow_records_v1');
+    localStorage.removeItem(`sr12_stock_mutations_v2_${curSlug}`);
+    localStorage.removeItem('sr12_stock_mutations_v1');
   } catch(e) {}
 
   // 4. Kosongkan keranjang & referral aktif
   appState.cart = [];
+  appState.posCart = [];
   if (typeof saveStoredCart === 'function') {
     saveStoredCart([]);
   }
@@ -12845,18 +12898,35 @@ function clearStoreAllSimulationData() {
     localStorage.removeItem('sr12_active_referral_marketer');
   } catch(e) {}
 
-  // 5. Reset akumulasi belanja mitra toko ini
-  if (Array.isArray(appState.mitraList)) {
-    appState.mitraList.forEach(m => {
-      if ((m.store_slug || 'sr12-central') === curSlug) {
-        m.accumulatedSpent90Days = 0;
-        m.totalOrdersCount = 0;
-      }
-    });
-    saveStoredMitra(appState.mitraList);
+  // 5. Bersihkan IndexedDB Marketer Sales permanen
+  if (typeof dbSaveAllMarketerSales === 'function') {
+    dbSaveAllMarketerSales([]);
   }
 
-  // 6. Reset seluruh badge transaksi & pesanan ke 0
+  // 6. Bersihkan Cloud Supabase jika terhubung
+  if (typeof clearOrdersFromSupabase === 'function') {
+    clearOrdersFromSupabase(curSlug);
+  }
+  if (typeof clearMarketerSalesFromSupabase === 'function') {
+    clearMarketerSalesFromSupabase(curSlug);
+  }
+
+  // 7. Reset akumulasi belanja seluruh mitra toko ini ke 0
+  if (Array.isArray(appState.mitraList)) {
+    appState.mitraList.forEach(m => {
+      if (!m.store_slug || m.store_slug === curSlug || curSlug === 'sr12-central') {
+        m.accumulatedSpent90Days = 0;
+        m.totalOrdersCount = 0;
+        m.spent = 0;
+      }
+    });
+    saveStoredMitra(appState.mitraList, false);
+    if (typeof dbSaveAllMitra === 'function') {
+      dbSaveAllMitra(appState.mitraList);
+    }
+  }
+
+  // 8. Reset seluruh badge transaksi & pesanan ke 0
   const trxBadge = document.getElementById('olseraTrxBadge');
   if (trxBadge) trxBadge.textContent = '0';
   const badgePending = document.getElementById('adminOrdersTabBadgePending');
@@ -12864,18 +12934,43 @@ function clearStoreAllSimulationData() {
   if (badgePending) badgePending.textContent = '0';
   if (badgeDone) badgeDone.textContent = '0';
 
-  // 7. Refresh seluruh tampilan
+  // 9. Refresh seluruh tampilan seketika
   if (typeof updateCartUI === 'function') updateCartUI();
-  if (typeof renderPosTransactions === 'function') renderPosTransactions();
+  if (typeof renderPosTransactions === 'function') renderPosTransactions('all');
   if (typeof renderMarketerPayroll === 'function') renderMarketerPayroll();
   if (typeof renderResellers === 'function') renderResellers();
   if (typeof renderCashflowTable === 'function') renderCashflowTable();
   if (typeof updateAdminNotificationUI === 'function') updateAdminNotificationUI();
   if (typeof renderAdminOrdersModal === 'function') renderAdminOrdersModal();
+  if (typeof updateStoreQuotaUI === 'function') updateStoreQuotaUI();
 
-  showToast(`✅ Seluruh data simulasi untuk toko "${storeName}" berhasil dibersihkan! Transaksi & omset kembali 0.`);
+  if (!silent) {
+    showToast(`✅ Seluruh data simulasi untuk toko "${storeName}" berhasil dibersihkan total! Transaksi, pesanan & omset kembali 0.`);
+  }
 }
 window.clearStoreAllSimulationData = clearStoreAllSimulationData;
+
+function resetAllMitraAccumulation() {
+  const curSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  const storeName = (appState.storeSettings && appState.storeSettings.storeName) || curSlug;
+  if (!confirm(`🧹 Reset seluruh angka akumulasi belanja mitra toko "${storeName}" kembali ke Rp 0?\n\n• Data mitra (nama, ID, nomor WA, rekening) TETAP TERSIMPAN AMAN.\n• Angka akumulasi belanja & pesanan terjual akan dinolkan kembali untuk simulasi baru.`)) {
+    return;
+  }
+  if (Array.isArray(appState.mitraList)) {
+    appState.mitraList.forEach(m => {
+      m.accumulatedSpent90Days = 0;
+      m.totalOrdersCount = 0;
+      m.spent = 0;
+    });
+    saveStoredMitra(appState.mitraList, false);
+    if (typeof dbSaveAllMitra === 'function') {
+      dbSaveAllMitra(appState.mitraList);
+    }
+  }
+  if (typeof renderResellers === 'function') renderResellers();
+  showToast('✅ Seluruh angka akumulasi belanja mitra berhasil di-reset ke Rp 0!');
+}
+window.resetAllMitraAccumulation = resetAllMitraAccumulation;
 
 function sendGeneralMitraWA(phone, name, tier) {
   const storeName = appState.storeSettings.storeName;
