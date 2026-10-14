@@ -1169,15 +1169,17 @@ async function syncMitraWithIndexedDB() {
     }
 
     // 2. Sinkronkan Rekap Penjualan Marketer
+    const curStoreSlug = (typeof appState !== 'undefined' && ((appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug)) || 'sr12-central';
     const idbSales = await dbGetAllMarketerSales();
     if (idbSales && idbSales.length > 0) {
       if (typeof appState !== 'undefined') {
+        const filteredIdb = idbSales.filter(s => (s.store_slug === curStoreSlug) || (!s.store_slug && curStoreSlug === 'sr12-central'));
         const salesMap = new Map((appState.marketerSales || []).map(s => [s.orderId, s]));
-        idbSales.forEach(s => {
+        filteredIdb.forEach(s => {
           if (!salesMap.has(s.orderId)) salesMap.set(s.orderId, s);
         });
         appState.marketerSales = Array.from(salesMap.values());
-        localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(appState.marketerSales));
+        saveStoredMarketerSales(appState.marketerSales, false, curStoreSlug);
         if (typeof renderMarketerPayroll === 'function') renderMarketerPayroll();
       }
     } else if (typeof appState !== 'undefined' && Array.isArray(appState.marketerSales) && appState.marketerSales.length > 0) {
@@ -1766,9 +1768,11 @@ function saveStoredResellers(resellers) {
   saveStoredMitra(resellers);
 }
 
-function getStoredMarketerSales() {
-  const stored = localStorage.getItem('sr12_marketer_sales_v1');
-  if (stored) {
+function getStoredMarketerSales(slug) {
+  const curSlug = slug || (typeof appState !== 'undefined' && ((appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug)) || 'sr12-central';
+  const key = `sr12_marketer_sales_v2_${curSlug}`;
+  const stored = localStorage.getItem(key);
+  if (stored !== null) {
     try {
       const list = JSON.parse(stored);
       if (Array.isArray(list)) {
@@ -1776,28 +1780,44 @@ function getStoredMarketerSales() {
       }
     } catch (e) {}
   }
+  // Fallback ke legacy v1 HANYA untuk toko central
+  if (curSlug === 'sr12-central') {
+    const legacy = localStorage.getItem('sr12_marketer_sales_v1');
+    if (legacy) {
+      try {
+        const list = JSON.parse(legacy);
+        if (Array.isArray(list)) return list;
+      } catch (e) {}
+    }
+  }
   return [];
 }
 
-function saveStoredMarketerSales(sales, syncCloud = true) {
+function saveStoredMarketerSales(sales, syncCloud = true, slug) {
   if (!Array.isArray(sales)) return;
-  // 1. Simpan ke LocalStorage
+  const curSlug = slug || (typeof appState !== 'undefined' && ((appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug)) || 'sr12-central';
+  const key = `sr12_marketer_sales_v2_${curSlug}`;
+  const data = JSON.stringify(sales);
+
+  // 1. Simpan ke LocalStorage partisi toko
   try {
-    localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(sales));
+    localStorage.setItem(key, data);
+    if (curSlug === 'sr12-central') {
+      localStorage.setItem('sr12_marketer_sales_v1', data);
+    }
   } catch (err) {
     console.warn('LocalStorage save error:', err);
   }
 
-  // 2. Simpan permanen ke IndexedDB
+  // 2. Simpan permanen ke IndexedDB (pastikan selalu ada store_slug)
   if (typeof dbSaveAllMarketerSales === 'function') {
-    dbSaveAllMarketerSales(sales);
+    dbSaveAllMarketerSales(sales.map(s => ({ ...s, store_slug: s.store_slug || curSlug })));
   }
 
   // 3. Sinkronisasi otomatis ke Supabase Cloud jika online
   if (syncCloud && typeof saveMarketerSaleToSupabase === 'function') {
-    const slug = (typeof appState !== 'undefined' && appState.storeSettings && appState.storeSettings.slug) || 'sr12-central';
     sales.forEach(s => {
-      saveMarketerSaleToSupabase(s, slug);
+      saveMarketerSaleToSupabase(s, curSlug);
     });
   }
 }
@@ -2086,19 +2106,28 @@ window.initReferralAffiliateBanner = initReferralAffiliateBanner;
   }
 
   // Deteksi jika link dibuka via tautan referral / afiliasi marketer pribadi (?mkt=... atau ?ref=...)
-  const refMktParam = bootParams.get('mkt') || bootParams.get('ref') || bootParams.get('marketer') || 
-                      sessionStorage.getItem('sr12_active_referral_marketer') || localStorage.getItem('sr12_active_referral_marketer');
+  const explicitRefParam = bootParams.get('mkt') || bootParams.get('ref') || bootParams.get('marketer');
+  let refMktParam = explicitRefParam;
+  if (!refMktParam) {
+    try {
+      refMktParam = sessionStorage.getItem('sr12_active_referral_marketer');
+    } catch(e) {}
+  }
   if (refMktParam && refMktParam.trim()) {
     const cleanRef = refMktParam.trim().toUpperCase();
     try {
       sessionStorage.setItem('sr12_active_referral_marketer', cleanRef);
-      localStorage.setItem('sr12_active_referral_marketer', cleanRef);
+      if (explicitRefParam) {
+        localStorage.setItem('sr12_active_referral_marketer', cleanRef);
+      }
     } catch(e) {}
     appState.activeReferralMarketer = cleanRef;
     console.log('💼 Terdeteksi Link Belanja via Rekomendasi Marketer Resmi:', cleanRef);
     setTimeout(() => {
       initReferralAffiliateBanner(cleanRef);
     }, 200);
+  } else {
+    appState.activeReferralMarketer = '';
   }
 
   // CATATAN PENTING: JANGAN PERNAH menghapus parameter produk (?product=...) agar deep-link link promosi selalu terbuka sempurna!
@@ -2195,26 +2224,18 @@ window.initReferralAffiliateBanner = initReferralAffiliateBanner;
   appState.mitraList = getStoredMitra();
   const initStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
   appState.resellers = (appState.mitraList || []).filter(m => (m.store_slug || 'sr12-central') === initStoreSlug);
-  appState.marketerSales = getStoredMarketerSales();
+  appState.marketerSales = (typeof getStoredMarketerSales === 'function') ? getStoredMarketerSales(initStoreSlug) : [];
   if (typeof syncMitraWithIndexedDB === 'function') {
     syncMitraWithIndexedDB();
   }
   if (typeof getStoredCashflow === 'function') {
-    appState.cashflow = getStoredCashflow();
+    appState.cashflow = getStoredCashflow(initStoreSlug);
   }
-  try {
-    const s = localStorage.getItem('sr12_pos_transactions_v1');
-    if (s) {
-      const parsed = JSON.parse(s);
-      if (Array.isArray(parsed)) {
-        const cleaned = parsed.filter(t => !['TRX-2026-101', 'TRX-2026-102', 'TRX-2026-103'].includes(t.id));
-        if (cleaned.length !== parsed.length) {
-          localStorage.setItem('sr12_pos_transactions_v1', JSON.stringify(cleaned));
-        }
-        appState.transactions = cleaned;
-      }
-    }
-  } catch(e) {}
+  if (typeof getStoredTransactions === 'function') {
+    appState.transactions = getStoredTransactions(initStoreSlug);
+  } else {
+    appState.transactions = [];
+  }
 
   // Tandai seluruh pesanan yang sudah ada di penyimpanan lokal agar tidak memicu pop-up banner mengambang saat web dibuka/refresh
   if (!appState.notifiedOrderIds) {
@@ -2250,9 +2271,11 @@ window.initReferralAffiliateBanner = initReferralAffiliateBanner;
         if (typeof saveStoredTransactions === 'function') {
           saveStoredTransactions(appState.transactions, initStoreSlug);
         }
-        try {
-          localStorage.setItem('sr12_pos_transactions_v1', JSON.stringify(appState.transactions));
-        } catch(e) {}
+        if (initStoreSlug === 'sr12-central') {
+          try {
+            localStorage.setItem('sr12_pos_transactions_v1', JSON.stringify(appState.transactions));
+          } catch(e) {}
+        }
         updateAdminNotificationUI();
         if (typeof renderPosTransactions === 'function') renderPosTransactions();
         if (typeof renderAdminOrdersModal === 'function') renderAdminOrdersModal();
@@ -2368,16 +2391,23 @@ function loadStoreBySlug(slug) {
   if (Array.isArray(appState.mitraList)) {
     appState.resellers = appState.mitraList.filter(m => (m.store_slug || 'sr12-central') === found.slug);
   }
+
+  // ISOLASI KETAT TRANSAKSI, MARKETER SALES & KAS: Muat data spesifik toko ini
+  if (typeof getStoredTransactions === 'function') {
+    appState.transactions = getStoredTransactions(found.slug);
+  }
+  if (typeof getStoredMarketerSales === 'function') {
+    appState.marketerSales = getStoredMarketerSales(found.slug);
+  }
+  if (typeof getStoredCashflow === 'function') {
+    appState.cashflow = getStoredCashflow(found.slug);
+  }
+
   if (typeof renderResellers === 'function') {
     renderResellers();
   }
   if (typeof renderMarketerPayroll === 'function') {
     renderMarketerPayroll();
-  }
-
-  // ISOLASI KETAT TRANSAKSI, KAS & MUTASI STOK: Muat data spesifik toko ini
-  if (typeof getStoredTransactions === 'function') {
-    appState.transactions = getStoredTransactions(found.slug);
   }
   // Sinkronkan pesanan masuk dari Supabase Cloud hanya jika pengguna adalah pemilik toko/admin sah
   const isAuthForSwitch = appState.isAdminMode || appState.isDistributorLoggedIn || appState.isDevMasterLoggedIn;
@@ -2402,9 +2432,11 @@ function loadStoreBySlug(slug) {
         if (typeof saveStoredTransactions === 'function') {
           saveStoredTransactions(appState.transactions, found.slug);
         }
-        try {
-          localStorage.setItem('sr12_pos_transactions_v1', JSON.stringify(appState.transactions));
-        } catch(e) {}
+        if (found.slug === 'sr12-central') {
+          try {
+            localStorage.setItem('sr12_pos_transactions_v1', JSON.stringify(appState.transactions));
+          } catch(e) {}
+        }
         if (typeof renderPosTransactions === 'function') renderPosTransactions();
         if (typeof renderAdminOrdersModal === 'function') renderAdminOrdersModal();
         updateAdminNotificationUI();
@@ -2421,7 +2453,7 @@ function loadStoreBySlug(slug) {
         local.forEach(s => { if (s && s.orderId) sMap.set(s.orderId, s); });
         cloudSales.forEach(cs => { if (cs && cs.orderId) sMap.set(cs.orderId, cs); });
         appState.marketerSales = Array.from(sMap.values());
-        saveStoredMarketerSales(appState.marketerSales, false);
+        saveStoredMarketerSales(appState.marketerSales, false, found.slug);
         if (typeof renderMarketerPayroll === 'function') renderMarketerPayroll();
       }
     }).catch(() => {});
@@ -7449,21 +7481,19 @@ function checkoutViaWhatsApp() {
   if (!appState.mitraList) {
     appState.mitraList = getStoredMitra();
   }
+  const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
   if (!appState.marketerSales) {
-    appState.marketerSales = getStoredMarketerSales();
+    appState.marketerSales = (typeof getStoredMarketerSales === 'function') ? getStoredMarketerSales(currentStoreSlug) : [];
   }
 
-  const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
   let activeRefMkt = '';
   try {
-    activeRefMkt = sessionStorage.getItem('sr12_active_referral_marketer') || localStorage.getItem('sr12_active_referral_marketer') || (typeof appState !== 'undefined' ? appState.activeReferralMarketer : '') || '';
+    activeRefMkt = sessionStorage.getItem('sr12_active_referral_marketer') || (typeof appState !== 'undefined' ? appState.activeReferralMarketer : '') || '';
   } catch(e) {}
 
+  // 1. Cari identitas mitra pembeli (berdasarkan input ID mitra / nomor telepon pembeli)
   let foundMitra = null;
-  if (activeRefMkt) {
-    foundMitra = findMitraByIdOrPhone(activeRefMkt, currentStoreSlug);
-  }
-  if (!foundMitra && inputPartnerQuery) {
+  if (inputPartnerQuery) {
     foundMitra = findMitraByIdOrPhone(inputPartnerQuery, currentStoreSlug);
   }
   if (!foundMitra && buyerPhone) {
@@ -7471,9 +7501,19 @@ function checkoutViaWhatsApp() {
   }
   let crmNoticeText = '';
 
-  // Deteksi pesanan mitra (berdasarkan ID mitra, link referral marketer, atau tier aktif yang dipilih saat belanja)
-  const isMarketerOrder = (foundMitra && foundMitra.tier === 'marketer') || appState.currentTier === 'marketer' || !!activeRefMkt;
-  const isResellerOrder = (foundMitra && foundMitra.tier === 'reseller') || appState.currentTier === 'reseller';
+  // 2. Deteksi pesanan: Reseller grosir vs Marketer komisi retail 15%
+  const isResellerOrder = (appState.currentTier === 'reseller') || (foundMitra && foundMitra.tier === 'reseller');
+  // Marketer order HANYA jika bukan reseller grosir (Reseller tidak mendapatkan komisi marketer 15% di atas diskon 20%)
+  const isMarketerOrder = !isResellerOrder && (
+    (appState.currentTier === 'marketer') ||
+    (foundMitra && foundMitra.tier === 'marketer') ||
+    (appState.currentTier === 'konsumen' && !!activeRefMkt)
+  );
+
+  // Jika order konsumen via tautan marketer, cari data marketer dari kode referral
+  if (!foundMitra && isMarketerOrder && activeRefMkt) {
+    foundMitra = findMitraByIdOrPhone(activeRefMkt, currentStoreSlug);
+  }
 
   // Alokasikan ID transaksi terpadu sejak awal agar pesanan di web & catatan gaji marketer 100% terhubung
   const orderTrxId = 'ORD-WEB-' + Date.now().toString().slice(-6);
@@ -7533,7 +7573,7 @@ function checkoutViaWhatsApp() {
       paidDate: null
     };
     appState.marketerSales.unshift(newSale);
-    saveStoredMarketerSales(appState.marketerSales);
+    saveStoredMarketerSales(appState.marketerSales, true, currentStoreSlug);
     if (typeof saveMarketerSaleToSupabase === 'function') {
       saveMarketerSaleToSupabase(newSale, currentStoreSlug);
     }
@@ -7679,8 +7719,9 @@ function checkoutViaWhatsApp() {
   const webOrder = {
     id: orderTrxId,
     store_slug: currentStoreSlug,
-    marketerId: isMarketerOrder ? marketerCode : (foundMitra ? foundMitra.id : (isResellerOrder ? 'RS-WEB' : null)),
-    marketerName: isMarketerOrder ? marketerName : (foundMitra ? foundMitra.name : null),
+    marketerId: isMarketerOrder ? marketerCode : null,
+    marketerName: isMarketerOrder ? marketerName : null,
+    resellerId: isResellerOrder ? (foundMitra ? foundMitra.id : 'RS-WEB') : null,
     dateTime: dateFormatted,
     customerName: (inputBuyerName || appState.buyerDetails.name || 'Pelanggan'),
     customerPhone: buyerPhone || appState.buyerDetails.phone || '-',
@@ -7715,9 +7756,11 @@ function checkoutViaWhatsApp() {
   if (typeof saveStoredTransactions === 'function') {
     saveStoredTransactions(appState.transactions, currentStoreSlug);
   }
-  try {
-    localStorage.setItem('sr12_pos_transactions_v1', JSON.stringify(appState.transactions));
-  } catch(e) {}
+  if (currentStoreSlug === 'sr12-central') {
+    try {
+      localStorage.setItem('sr12_pos_transactions_v1', JSON.stringify(appState.transactions));
+    } catch(e) {}
+  }
   
   const trxBadge = document.getElementById('olseraTrxBadge');
   if (trxBadge) trxBadge.textContent = `${appState.transactions.length}`;
@@ -12697,19 +12740,30 @@ function clearAllMitraDatabase() {
 window.clearAllMitraDatabase = clearAllMitraDatabase;
 
 function clearAllMarketerSales() {
-  if (!confirm('⚠️ Anda yakin ingin mengosongkan seluruh Rekap Penjualan & Bonus Gaji Marketer?\n\nSeluruh catatan penjualan dan komisi marketer akan dikosongkan untuk simulasi bersih.')) {
+  const curSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  const storeName = (appState.storeSettings && appState.storeSettings.storeName) || curSlug;
+  if (!confirm(`⚠️ Anda yakin ingin mengosongkan seluruh Rekap Penjualan & Bonus Gaji Marketer untuk toko "${storeName}"?\n\nSeluruh catatan penjualan dan komisi marketer toko ini akan dikosongkan untuk simulasi bersih.`)) {
     return;
   }
-  const curSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
   appState.marketerSales = [];
-  saveStoredMarketerSales([]);
+  saveStoredMarketerSales([], true, curSlug);
+  try {
+    localStorage.removeItem(`sr12_marketer_sales_v2_${curSlug}`);
+    if (curSlug === 'sr12-central') {
+      localStorage.removeItem('sr12_marketer_sales_v1');
+    }
+    sessionStorage.removeItem('sr12_active_referral_marketer');
+    localStorage.removeItem('sr12_active_referral_marketer');
+    appState.activeReferralMarketer = '';
+  } catch(e) {}
+
   if (typeof dbSaveAllMarketerSales === 'function') {
     dbSaveAllMarketerSales([]);
   }
   if (typeof clearMarketerSalesFromSupabase === 'function') {
     clearMarketerSalesFromSupabase(curSlug);
   }
-  // Reset akumulasi belanja dan pesanan marketer di mitraList
+  // Reset akumulasi belanja dan pesanan marketer di mitraList toko ini
   if (Array.isArray(appState.mitraList)) {
     appState.mitraList.forEach(m => {
       if ((m.store_slug || 'sr12-central') === curSlug && m.tier === 'marketer') {
@@ -12721,9 +12775,80 @@ function clearAllMarketerSales() {
   }
   renderMarketerPayroll();
   if (typeof renderResellers === 'function') renderResellers();
-  showToast('🗑️ Rekap Gaji & Komisi Marketer berhasil dikosongkan!');
+  showToast('🗑️ Rekap Gaji & Komisi Marketer toko ini berhasil dikosongkan!');
 }
 window.clearAllMarketerSales = clearAllMarketerSales;
+
+function clearStoreAllSimulationData() {
+  const curSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  const storeName = (appState.storeSettings && appState.storeSettings.storeName) || curSlug;
+  if (!confirm(`🧹 BERSIHKAN SIMULASI TOKO: "${storeName}"?\n\nFitur ini akan mengosongkan:\n• Seluruh riwayat transaksi pesanan simulasi toko ini\n• Seluruh catatan rekap komisi gaji marketer toko ini\n• Riwayat kas masuk simulasi toko ini\n• Keranjang belanja & token referral aktif\n• Reset akumulasi belanja mitra toko ini ke 0\n\nSetelah ini Anda bisa mencoba pesan 1 pesanan baru dengan bersih!`)) {
+    return;
+  }
+
+  // 1. Kosongkan transaksi toko ini
+  appState.transactions = [];
+  if (typeof saveStoredTransactions === 'function') {
+    saveStoredTransactions([], curSlug);
+  }
+  try {
+    localStorage.removeItem(`sr12_pos_transactions_v2_${curSlug}`);
+    if (curSlug === 'sr12-central') {
+      localStorage.removeItem('sr12_pos_transactions_v1');
+    }
+  } catch(e) {}
+
+  // 2. Kosongkan marketer sales toko ini
+  appState.marketerSales = [];
+  if (typeof saveStoredMarketerSales === 'function') {
+    saveStoredMarketerSales([], true, curSlug);
+  }
+  try {
+    localStorage.removeItem(`sr12_marketer_sales_v2_${curSlug}`);
+    if (curSlug === 'sr12-central') {
+      localStorage.removeItem('sr12_marketer_sales_v1');
+    }
+  } catch(e) {}
+
+  // 3. Kosongkan kas masuk toko ini
+  appState.cashflow = [];
+  if (typeof saveStoredCashflow === 'function') {
+    saveStoredCashflow([], curSlug);
+  }
+
+  // 4. Kosongkan keranjang & referral aktif
+  appState.cart = [];
+  if (typeof saveStoredCart === 'function') {
+    saveStoredCart([]);
+  }
+  appState.activeReferralMarketer = '';
+  try {
+    sessionStorage.removeItem('sr12_active_referral_marketer');
+    localStorage.removeItem('sr12_active_referral_marketer');
+  } catch(e) {}
+
+  // 5. Reset akumulasi belanja mitra toko ini
+  if (Array.isArray(appState.mitraList)) {
+    appState.mitraList.forEach(m => {
+      if ((m.store_slug || 'sr12-central') === curSlug) {
+        m.accumulatedSpent90Days = 0;
+        m.totalOrdersCount = 0;
+      }
+    });
+    saveStoredMitra(appState.mitraList);
+  }
+
+  // 6. Refresh seluruh tampilan
+  if (typeof updateCartUI === 'function') updateCartUI();
+  if (typeof renderPosTransactions === 'function') renderPosTransactions();
+  if (typeof renderMarketerPayroll === 'function') renderMarketerPayroll();
+  if (typeof renderResellers === 'function') renderResellers();
+  if (typeof renderCashflowTable === 'function') renderCashflowTable();
+  if (typeof updateAdminNotificationUI === 'function') updateAdminNotificationUI();
+
+  showToast(`✅ Seluruh data simulasi untuk toko "${storeName}" berhasil dibersihkan! Silakan uji coba 1 pesanan baru.`);
+}
+window.clearStoreAllSimulationData = clearStoreAllSimulationData;
 
 function sendGeneralMitraWA(phone, name, tier) {
   const storeName = appState.storeSettings.storeName;
@@ -12864,17 +12989,21 @@ function populatePayrollMonthSelect() {
 function getMarketerConsolidatedSales(m, selectedMonth, currentStoreSlug) {
   if (!m) return [];
 
-  const mNameLower = (m.name || '').toLowerCase();
   const mPhoneDigits = (m.phone || '').replace(/[^0-9]/g, '');
+
+  const isCurrentStore = (sSlug) => {
+    if (!sSlug) return currentStoreSlug === 'sr12-central';
+    return sSlug === currentStoreSlug;
+  };
 
   const isMatchingMarketer = (mId, mCode, phone, custName) => {
     if (mId && (mId === m.id || mId === m.partner_code)) return true;
     if (mCode && (mCode === m.id || mCode === m.partner_code)) return true;
     if (phone && mPhoneDigits && phone.replace(/[^0-9]/g, '') === mPhoneDigits) return true;
-    if (custName) {
+    // Pencocokan nama pembeli HANYA jika ID spesifik tertera (panjang minimal 4 karakter)
+    if (custName && m.id && String(m.id).trim().length >= 4) {
       const cn = custName.toLowerCase();
-      if (cn.includes((m.id || '').toLowerCase())) return true;
-      if (mNameLower && cn.includes(mNameLower)) return true;
+      if (cn.includes(String(m.id).toLowerCase())) return true;
     }
     return false;
   };
@@ -12888,8 +13017,7 @@ function getMarketerConsolidatedSales(m, selectedMonth, currentStoreSlug) {
   // 1. Ambil dari catatan penjualan marketer (appState.marketerSales)
   const salesFromRecords = (appState.marketerSales || []).filter(s => {
     if (!s) return false;
-    const isStore = (!s.store_slug || s.store_slug === currentStoreSlug);
-    if (!isStore) return false;
+    if (!isCurrentStore(s.store_slug)) return false;
 
     const isM = isMatchingMarketer(s.marketerId, s.partner_code, s.customerPhone, s.customerName);
     if (!isM) return false;
@@ -12900,11 +13028,11 @@ function getMarketerConsolidatedSales(m, selectedMonth, currentStoreSlug) {
   // 2. Ambil dari transaksi toko online / POS (appState.transactions)
   const salesFromTrx = (appState.transactions || []).filter(t => {
     if (!t || !t.id) return false;
-    const isStore = (!t.store_slug || t.store_slug === currentStoreSlug);
-    if (!isStore) return false;
+    if (!isCurrentStore(t.store_slug)) return false;
 
-    const isM = isMatchingMarketer(t.marketerId, null, t.customerPhone, t.customerName) ||
-                (t.tier === 'marketer' && isMatchingMarketer(null, null, t.customerPhone, t.customerName));
+    // Transaksi POS/Online HANYA diakui jika memang order marketer resmi
+    if (!t.marketerId && t.tier !== 'marketer') return false;
+    const isM = isMatchingMarketer(t.marketerId, null, t.customerPhone, t.customerName);
     if (!isM) return false;
 
     return isMatchingPeriod(t.dateTime || t.date || t.created_at, t.monthPeriod);
@@ -13022,11 +13150,10 @@ function renderMarketerPayroll() {
   if (!appState.mitraList) {
     appState.mitraList = getStoredMitra();
   }
-  if (!appState.marketerSales) {
-    appState.marketerSales = getStoredMarketerSales();
-  }
-
   const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  if (!appState.marketerSales) {
+    appState.marketerSales = getStoredMarketerSales(currentStoreSlug);
+  }
   const storeMitra = (appState.mitraList || []).filter(m => (m.store_slug || 'sr12-central') === currentStoreSlug);
 
   // Kumpulkan seluruh data marketer yang terdaftar di toko ini
@@ -13045,7 +13172,8 @@ function renderMarketerPayroll() {
 
   // Tambahkan marketer dari riwayat penjualan marketer di toko ini jika belum ada di map
   (appState.marketerSales || []).forEach(s => {
-    if ((!s.store_slug || s.store_slug === currentStoreSlug) && s.marketerId && !marketersMap.has(s.marketerId)) {
+    const isStore = (s.store_slug === currentStoreSlug) || (!s.store_slug && currentStoreSlug === 'sr12-central');
+    if (isStore && s.marketerId && !marketersMap.has(s.marketerId)) {
       const resolvedName = (typeof getMarketerNameById === 'function' ? getMarketerNameById(s.marketerId) : '') || s.marketerName || (s.marketerId === 'MKT-001' ? 'Maryam' : `Marketer ${s.marketerId}`);
       marketersMap.set(s.marketerId, {
         id: s.marketerId,
@@ -13059,9 +13187,11 @@ function renderMarketerPayroll() {
     }
   });
 
-  // Tambahkan marketer dari transaksi online toko
+  // Tambahkan marketer dari transaksi online toko HANYA jika memang order marketer resmi
   (appState.transactions || []).forEach(t => {
-    if ((!t.store_slug || t.store_slug === currentStoreSlug) && t.marketerId && !marketersMap.has(t.marketerId)) {
+    const isStore = (t.store_slug === currentStoreSlug) || (!t.store_slug && currentStoreSlug === 'sr12-central');
+    const isMktTrx = t.tier === 'marketer' || (t.marketerId && String(t.marketerId).toUpperCase().startsWith('MKT-'));
+    if (isStore && t.marketerId && isMktTrx && !marketersMap.has(t.marketerId)) {
       const resolvedName = (typeof getMarketerNameById === 'function' ? getMarketerNameById(t.marketerId) : '') || t.marketerName || (t.marketerId === 'MKT-001' ? 'Maryam' : `Marketer ${t.marketerId}`);
       marketersMap.set(t.marketerId, {
         id: t.marketerId,

@@ -14,20 +14,22 @@ function getStoredTransactions(slug) {
   const curSlug = slug || (typeof appState !== 'undefined' && appState.currentStoreSlug) || 'sr12-central';
   const key = `sr12_pos_transactions_v2_${curSlug}`;
   const s = localStorage.getItem(key);
-  if (s) {
+  if (s !== null) {
     try {
       const parsed = JSON.parse(s);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) return parsed;
     } catch (e) {}
   }
-  // Fallback ke penyimpanan legacy/global v1 jika toko belum punya partisi v2
-  try {
-    const sLegacy = localStorage.getItem('sr12_pos_transactions_v1');
-    if (sLegacy) {
-      const pLegacy = JSON.parse(sLegacy);
-      if (Array.isArray(pLegacy)) return pLegacy;
-    }
-  } catch(e) {}
+  // HANYA toko central default yang diizinkan fallback ke penyimpanan legacy/global v1
+  if (curSlug === 'sr12-central') {
+    try {
+      const sLegacy = localStorage.getItem('sr12_pos_transactions_v1');
+      if (sLegacy) {
+        const pLegacy = JSON.parse(sLegacy);
+        if (Array.isArray(pLegacy)) return pLegacy;
+      }
+    } catch(e) {}
+  }
   return [];
 }
 
@@ -36,9 +38,12 @@ function saveStoredTransactions(list, slug) {
   const key = `sr12_pos_transactions_v2_${curSlug}`;
   const data = JSON.stringify(list || []);
   localStorage.setItem(key, data);
-  try {
-    localStorage.setItem('sr12_pos_transactions_v1', data);
-  } catch(e) {}
+  // HANYA cerminkan ke legacy v1 jika toko central default
+  if (curSlug === 'sr12-central') {
+    try {
+      localStorage.setItem('sr12_pos_transactions_v1', data);
+    } catch(e) {}
+  }
 }
 
 function getStoredCashflow(slug) {
