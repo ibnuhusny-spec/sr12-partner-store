@@ -5216,7 +5216,12 @@ async function loadStoreDataFromBackend(slug) {
       if (Array.isArray(cloudOrders)) {
         appState.transactions = cloudOrders;
         if (typeof saveStoredTransactions === 'function') saveStoredTransactions(cloudOrders, targetSlug);
+        if (cloudOrders.length === 0 && Array.isArray(appState.cashflow)) {
+          appState.cashflow = appState.cashflow.filter(c => !c.notes || !c.notes.includes('ORD-'));
+          if (typeof saveStoredCashflow === 'function') saveStoredCashflow(appState.cashflow, targetSlug);
+        }
         if (typeof renderOrdersTable === 'function') renderOrdersTable();
+        if (typeof renderCashflowTable === 'function') renderCashflowTable();
       }
     }
     if (typeof syncMarketerSalesFromSupabase === 'function') {

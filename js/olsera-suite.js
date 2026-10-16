@@ -2530,6 +2530,23 @@ function renderCashflowTable() {
     appState.cashflow = (typeof getStoredCashflow === 'function') ? getStoredCashflow(curSlug) : [];
   }
 
+  // 1. Bersihkan otomatis catatan kas pesanan yang transaksinya sudah dihapus / dinolkan
+  if (Array.isArray(appState.cashflow) && appState.cashflow.length > 0) {
+    const validTrxIds = new Set((appState.transactions || []).map(t => t.id).filter(Boolean));
+    const initialLen = appState.cashflow.length;
+    appState.cashflow = appState.cashflow.filter(c => {
+      if (!c.notes) return true;
+      const orderMatch = c.notes.match(/ORD-[A-Z0-9-]+/);
+      if (orderMatch) {
+        return validTrxIds.has(orderMatch[0]);
+      }
+      return true; // Catatan kas operasional manual (bukan pesanan) tetap dipertahankan
+    });
+    if (appState.cashflow.length !== initialLen && typeof saveStoredCashflow === 'function') {
+      saveStoredCashflow(appState.cashflow, curSlug);
+    }
+  }
+
   // Rekonsiliasi otomatis jika ada transaksi pesanan toko tapi buku kas masih kosong / belum tercatat
   if (Array.isArray(appState.transactions) && appState.transactions.length > 0) {
     let hasNewTrx = false;
