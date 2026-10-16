@@ -1207,7 +1207,7 @@ async function syncMitraWithIndexedDB() {
       const curSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
       const targetSlug = appState.isDevMasterLoggedIn ? 'all' : curSlug;
       const cloudMitra = await syncMitraFromSupabase(targetSlug);
-      if (cloudMitra && cloudMitra.length > 0) {
+      if (Array.isArray(cloudMitra)) {
         if (targetSlug !== 'all' && targetSlug !== 'global') {
           const otherStoreMitra = (appState.mitraList || []).filter(m => (m.store_slug || 'sr12-central') !== curSlug);
           appState.mitraList = [...otherStoreMitra, ...cloudMitra];
@@ -5199,7 +5199,7 @@ async function loadStoreDataFromBackend(slug) {
     // Tarik data toko terisolasi via PostgreSQL Stored Procedure (RPC)
     if (typeof syncMitraFromSupabase === 'function') {
       const cloudMitra = await syncMitraFromSupabase(targetSlug);
-      if (Array.isArray(cloudMitra) && cloudMitra.length > 0) {
+      if (Array.isArray(cloudMitra)) {
         if (targetSlug && targetSlug !== 'all' && targetSlug !== 'global') {
           const otherStoreMitra = (appState.mitraList || []).filter(m => (m.store_slug || 'sr12-central') !== targetSlug);
           appState.mitraList = [...otherStoreMitra, ...cloudMitra];
@@ -5213,16 +5213,17 @@ async function loadStoreDataFromBackend(slug) {
     }
     if (typeof syncOrdersFromSupabase === 'function') {
       const cloudOrders = await syncOrdersFromSupabase(targetSlug);
-      if (Array.isArray(cloudOrders) && cloudOrders.length > 0) {
+      if (Array.isArray(cloudOrders)) {
         appState.transactions = cloudOrders;
+        if (typeof saveStoredTransactions === 'function') saveStoredTransactions(cloudOrders, targetSlug);
         if (typeof renderOrdersTable === 'function') renderOrdersTable();
       }
     }
     if (typeof syncMarketerSalesFromSupabase === 'function') {
       const cloudSales = await syncMarketerSalesFromSupabase(targetSlug);
-      if (Array.isArray(cloudSales) && cloudSales.length > 0) {
+      if (Array.isArray(cloudSales)) {
         appState.marketerSales = cloudSales;
-        saveStoredMarketerSales(appState.marketerSales);
+        if (typeof saveStoredMarketerSales === 'function') saveStoredMarketerSales(cloudSales, false, targetSlug);
         if (typeof renderMarketerPayroll === 'function') renderMarketerPayroll();
       }
     }
