@@ -12475,59 +12475,67 @@ function generateNextMitraId(tier) {
 
 function getMitraStatus(m) {
   const tier = m.tier || 'reseller';
-  const qualDate = new Date(m.qualificationDate || m.lastOrderDate || '2026-08-15');
-  const now = new Date('2026-09-27');
-  const diffMs = now - qualDate;
-  const daysPassed = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
-  const daysLeft = Math.max(0, 90 - daysPassed);
+  const qualDateStr = m.qualificationDate || m.lastOrderDate || new Date().toISOString().split('T')[0];
+  const qualDate = new Date(qualDateStr);
+  const now = new Date();
+
+  // Hitung tanggal akhir siklus 3 bulan (tepat 3 bulan kalender dari tanggal kualifikasi / bergabung)
+  const cycleEndDate = new Date(qualDate);
+  cycleEndDate.setMonth(cycleEndDate.getMonth() + 3);
+
+  const diffEndMs = cycleEndDate - now;
+  const daysLeft = Math.ceil(diffEndMs / (1000 * 60 * 60 * 24));
+  const diffStartMs = now - qualDate;
+  const daysPassed = Math.max(0, Math.floor(diffStartMs / (1000 * 60 * 60 * 24)));
   const spent = m.accumulatedSpent90Days || 0;
+  const endDateStr = isNaN(cycleEndDate.getTime()) ? '-' : cycleEndDate.toISOString().split('T')[0];
 
   if (tier === 'marketer') {
     return {
       state: 'active',
       label: 'Aktif (Tim 15%)',
       badgeColor: '#0284c7',
-      daysPassed: 0,
+      daysPassed,
       daysLeft: 999,
       spent,
       targetNominal: 0,
       isTargetMet: true,
-      deficit: 0
+      deficit: 0,
+      startDateStr: qualDateStr,
+      endDateStr: '-'
     };
   }
 
-  const targetNominal = tier === 'agen' ? 5000000 : (tier === 'sub_agen' ? 1500000 : 500000);
+  // Aturan Pemeliharaan Omset 3 Bulan Resmi 2026 (Rules Kemitraan):
+  // Reseller: Rp 1.500.000 (atau Rp 500.000 / bulan)
+  // Sub Agen: Rp 12.000.000 (atau Rp 4.000.000 / bulan)
+  // Agen: Rp 45.000.000 (atau Rp 15.000.000 / bulan)
+  const tierObj = (typeof SR12_TIERS !== 'undefined' && SR12_TIERS[tier]) ? SR12_TIERS[tier] : null;
+  const targetNominal = tierObj?.maintenance3Months || (tier === 'agen' ? 45000000 : (tier === 'sub_agen' ? 12000000 : 1500000));
   const isTargetMet = spent >= targetNominal;
+  const deficit = Math.max(0, targetNominal - spent);
 
   let state = 'active';
-  let label = 'Aktif Aman';
+  let label = 'Aman (Target 3 Bln Tercapai)';
   let badgeColor = '#10b981';
 
-  if (tier === 'reseller') {
-    if (daysPassed > 90 && !isTargetMet) {
-      state = 'expired';
-      label = 'Expired (Turun Konsumen)';
-      badgeColor = '#ef4444';
-    } else if (!isTargetMet && daysLeft <= 30) {
-      state = 'warning';
-      label = `Perlu RO (Sisa ${daysLeft} Hari)`;
-      badgeColor = '#f59e0b';
-    } else if (isTargetMet) {
-      state = 'active';
-      label = `Aman (Capai ${formatRupiah(spent)})`;
-      badgeColor = '#10b981';
-    }
+  if (daysLeft <= 0 && !isTargetMet) {
+    state = 'expired';
+    const downgradeName = tier === 'agen' ? 'Sub Agen' : (tier === 'sub_agen' ? 'Reseller' : 'Marketer');
+    label = `Evaluasi Habis (Turun ke ${downgradeName})`;
+    badgeColor = '#ef4444';
+  } else if (!isTargetMet && daysLeft <= 30) {
+    state = 'warning';
+    label = `Perlu RO (Sisa ${daysLeft} Hari)`;
+    badgeColor = '#f59e0b';
+  } else if (isTargetMet) {
+    state = 'active';
+    label = `Aman (Capai ${formatRupiah(spent)})`;
+    badgeColor = '#10b981';
   } else {
-    // Agen & Sub Agen
-    if (isTargetMet) {
-      state = 'active';
-      label = 'Aman (Target Tercapai)';
-      badgeColor = '#10b981';
-    } else {
-      state = 'active';
-      label = 'Mitra Grosir';
-      badgeColor = '#8b5cf6';
-    }
+    state = 'active';
+    label = `Aktif (Sisa ${daysLeft} Hari)`;
+    badgeColor = '#059669';
   }
 
   return {
@@ -12535,11 +12543,13 @@ function getMitraStatus(m) {
     label,
     badgeColor,
     daysPassed,
-    daysLeft,
+    daysLeft: Math.max(0, daysLeft),
     spent,
     targetNominal,
     isTargetMet,
-    deficit: Math.max(0, targetNominal - spent)
+    deficit,
+    startDateStr: qualDateStr,
+    endDateStr
   };
 }
 
@@ -12847,21 +12857,18 @@ function renderResellers() {
                 ✨ Jualan Tanpa Modal
               </div>
               <div style="font-size: 0.7rem; color: #64748b; margin-top: 2px; white-space: nowrap;">
-                Komisi 15% bulanan
+                Bergabung: <span style="font-family: monospace;">${m.qualificationDate || '-'}</span>
               </div>
             ` : `
               <div style="font-size: 0.75rem; color: #334155; white-space: nowrap;">
-                Bergabung: <b style="white-space: nowrap; font-family: monospace;">${m.qualificationDate || '-'}</b>
+                Mulai: <b style="white-space: nowrap; font-family: monospace;">${m.qualificationDate || '-'}</b>
               </div>
-              ${m.tier === 'reseller' ? `
-                <div style="font-size: 0.72rem; color: ${m.daysLeft <= 30 && m.state !== 'active' ? '#dc2626' : '#059669'}; font-weight: 800; margin-top: 2px; white-space: nowrap;">
-                  ⏳ Sisa ${m.daysLeft} Hari (90 Hari)
-                </div>
-              ` : `
-                <div style="font-size: 0.72rem; color: #059669; font-weight: 700; margin-top: 2px; white-space: nowrap;">
-                  🛡️ Kuota Order Aktif
-                </div>
-              `}
+              <div style="font-size: 0.68rem; color: #64748b; margin-top: 1px; white-space: nowrap;">
+                Evaluasi: <span style="font-family: monospace; font-weight: 700; color: #0f172a;">${m.endDateStr || '-'}</span> (3 Bulan)
+              </div>
+              <div style="font-size: 0.72rem; color: ${m.daysLeft <= 30 && m.state !== 'active' ? '#dc2626' : (m.daysLeft <= 30 ? '#d97706' : '#059669')}; font-weight: 800; margin-top: 2px; white-space: nowrap;">
+                ⏳ Sisa ${m.daysLeft} Hari
+              </div>
             `}
           </div>
         </td>
@@ -12923,6 +12930,9 @@ function renderResellers() {
                 <span>📲</span> Chat WA
               </button>
             `)}
+            <button onclick="openEditMitraModal('${m.id}')" title="Edit Data & Tanggal Bergabung Mitra" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 5px 8px; border-radius: 6px; font-size: 0.72rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;" aria-label="Edit Data Mitra">
+              ✏️
+            </button>
             <button onclick="deleteMitra('${m.id}')" title="Hapus Data Mitra" style="background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; padding: 5px 8px; border-radius: 6px; font-size: 0.72rem; cursor: pointer;">
               🗑️
             </button>
@@ -13295,10 +13305,12 @@ function openAddMitraModal(preferredTier) {
   const modal = document.getElementById('modalAddMitra') || document.getElementById('modalAddReseller');
   const tierSelect = document.getElementById('newMitraTier');
   const idInput = document.getElementById('newMitraId');
+  const joinDateInput = document.getElementById('newMitraJoinDate');
 
   const tier = preferredTier || (tierSelect ? tierSelect.value : 'reseller');
   if (tierSelect) tierSelect.value = tier;
   if (idInput) idInput.value = generateNextMitraId(tier);
+  if (joinDateInput) joinDateInput.value = new Date().toISOString().split('T')[0];
 
   handleMitraTierChange(tier);
   if (modal) modal.classList.add('open');
@@ -13333,6 +13345,7 @@ function handleAddMitraSubmit(e) {
   const phone = document.getElementById('newMitraPhone')?.value.trim();
   const city = document.getElementById('newMitraCity')?.value.trim();
   const tier = document.getElementById('newMitraTier')?.value || 'reseller';
+  const joinDate = document.getElementById('newMitraJoinDate')?.value || new Date().toISOString().split('T')[0];
   const bankName = document.getElementById('newMitraBankName')?.value || 'BCA';
   const bankAccount = document.getElementById('newMitraBankAccount')?.value.trim() || '-';
   const bankHolder = document.getElementById('newMitraBankHolder')?.value.trim() || name;
@@ -13356,7 +13369,6 @@ function handleAddMitraSubmit(e) {
     return;
   }
 
-  const nowIso = new Date().toISOString().split('T')[0];
   const newMitra = {
     id: id,
     store_slug: currentStoreSlug,
@@ -13367,8 +13379,8 @@ function handleAddMitraSubmit(e) {
     bankName: bankName,
     bankAccount: bankAccount,
     bankHolder: bankHolder,
-    qualificationDate: nowIso,
-    lastOrderDate: nowIso,
+    qualificationDate: joinDate,
+    lastOrderDate: joinDate,
     accumulatedSpent90Days: initialSpend,
     totalOrdersCount: initialSpend > 0 ? 1 : 0,
     status: 'active'
@@ -13385,12 +13397,84 @@ function handleAddMitraSubmit(e) {
   updateViewModeUI();
   closeModal('modalAddMitra');
   closeModal('modalAddReseller');
-  showToast(`✅ Berhasil! Mitra "${name}" (${id}) berhasil didaftarkan ke Database Toko "${appState.storeSettings?.storeName || currentStoreSlug}".`);
+  showToast(`✅ Berhasil! Mitra "${name}" (${id}) berhasil didaftarkan. Siklus 3 bulan dihitung dari ${joinDate}.`);
 }
 
 function handleAddResellerSubmit(e) {
   handleAddMitraSubmit(e);
 }
+
+function openEditMitraModal(mitraId) {
+  const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  const mitra = (appState.mitraList || []).find(m => m.id === mitraId && (m.store_slug || 'sr12-central') === currentStoreSlug);
+  if (!mitra) return;
+
+  const modal = document.getElementById('modalEditMitra');
+  const idHidden = document.getElementById('editMitraOriginalId');
+  const idInput = document.getElementById('editMitraId');
+  const tierSelect = document.getElementById('editMitraTier');
+  const nameInput = document.getElementById('editMitraName');
+  const joinDateInput = document.getElementById('editMitraJoinDate');
+  const phoneInput = document.getElementById('editMitraPhone');
+  const cityInput = document.getElementById('editMitraCity');
+  const bankNameSelect = document.getElementById('editMitraBankName');
+  const bankAccountInput = document.getElementById('editMitraBankAccount');
+  const bankHolderInput = document.getElementById('editMitraBankHolder');
+
+  if (idHidden) idHidden.value = mitra.id;
+  if (idInput) idInput.value = mitra.id;
+  if (tierSelect) tierSelect.value = mitra.tier || 'reseller';
+  if (nameInput) nameInput.value = mitra.name || '';
+  if (joinDateInput) joinDateInput.value = mitra.qualificationDate || mitra.lastOrderDate || new Date().toISOString().split('T')[0];
+  if (phoneInput) phoneInput.value = mitra.phone || '';
+  if (cityInput) cityInput.value = mitra.city || '';
+  if (bankNameSelect) bankNameSelect.value = mitra.bankName || 'BCA';
+  if (bankAccountInput) bankAccountInput.value = mitra.bankAccount || '';
+  if (bankHolderInput) bankHolderInput.value = mitra.bankHolder || mitra.name || '';
+
+  if (modal) modal.classList.add('open');
+}
+window.openEditMitraModal = openEditMitraModal;
+
+async function handleEditMitraSubmit(e) {
+  if (e) e.preventDefault();
+  const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  const originalId = document.getElementById('editMitraOriginalId')?.value;
+  const mitra = (appState.mitraList || []).find(m => m.id === originalId && (m.store_slug || 'sr12-central') === currentStoreSlug);
+  if (!mitra) return;
+
+  const newTier = document.getElementById('editMitraTier')?.value || mitra.tier;
+  const newName = document.getElementById('editMitraName')?.value.trim() || mitra.name;
+  const newJoinDate = document.getElementById('editMitraJoinDate')?.value || mitra.qualificationDate;
+  const newPhone = document.getElementById('editMitraPhone')?.value.trim() || mitra.phone;
+  const newCity = document.getElementById('editMitraCity')?.value.trim() || mitra.city;
+  const newBankName = document.getElementById('editMitraBankName')?.value || mitra.bankName;
+  const newBankAccount = document.getElementById('editMitraBankAccount')?.value.trim() || mitra.bankAccount;
+  const newBankHolder = document.getElementById('editMitraBankHolder')?.value.trim() || mitra.bankHolder;
+
+  mitra.tier = newTier;
+  mitra.name = newName;
+  mitra.qualificationDate = newJoinDate;
+  mitra.phone = newPhone;
+  mitra.city = newCity;
+  mitra.bankName = newBankName;
+  mitra.bankAccount = newBankAccount;
+  mitra.bankHolder = newBankHolder;
+
+  saveStoredMitra(appState.mitraList, false);
+  if (typeof dbSaveMitra === 'function') {
+    dbSaveMitra(mitra);
+  }
+  if (typeof saveMitraToSupabase === 'function') {
+    saveMitraToSupabase(mitra, currentStoreSlug);
+  }
+
+  closeModal('modalEditMitra');
+  renderResellers();
+  updateViewModeUI();
+  showToast(`✅ Data mitra "${newName}" berhasil diperbarui! Siklus 3 bulan dihitung dari ${newJoinDate}.`);
+}
+window.handleEditMitraSubmit = handleEditMitraSubmit;
 
 function deleteMitra(id) {
   const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';

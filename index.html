@@ -20,7 +20,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <link rel="stylesheet" href="css/style.css?v=7.5">
+  <link rel="stylesheet" href="css/style.css?v=7.6">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
 </head>
 <body>
@@ -4483,6 +4483,12 @@
             </div>
           </div>
 
+          <div style="margin-bottom: 12px;">
+            <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 4px;">Tanggal Bergabung / Mulai Periode (Evaluasi 3 Bulan):</label>
+            <input type="date" id="newMitraJoinDate" required style="width: 100%; padding: 8px 12px; border: 1.5px solid #cbd5e1; border-radius: var(--radius-sm); font-family: var(--font-main); font-weight: 700; color: #0f172a; background: #ffffff;">
+            <span style="font-size: 0.72rem; color: #64748b; margin-top: 3px; display: block;">*Bisa disesuaikan jika mitra sudah bergabung sejak tanggal lampau. Siklus 3 bulan (90 hari) otomatis dihitung dari tanggal ini.</span>
+          </div>
+
           <!-- Info Rekening Bank / E-Wallet (Sangat berguna untuk transfer bonus Marketer & mitra) -->
           <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; margin-bottom: 12px;">
             <span style="font-size: 0.76rem; font-weight: 800; color: #1e293b; display: block; margin-bottom: 6px;">
@@ -4518,6 +4524,92 @@
           <button type="submit" style="width: 100%; background: var(--primary-700); color: #fff; border: none; padding: 11px; border-radius: var(--radius-md); font-weight: 700; font-size: 0.9rem; cursor: pointer;">
             Simpan ke Database Distributor
           </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: EDIT DATA MITRA & TANGGAL BERGABUNG -->
+  <div class="modal-backdrop" id="modalEditMitra">
+    <div class="modal-dialog" style="max-width: 540px;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #0f172a, #1e293b); color: #ffffff;">
+        <h3 style="color: #ffffff; margin: 0; font-size: 1.05rem;">✏️ Edit Data & Tanggal Bergabung Mitra</h3>
+        <button class="btn-close-modal" onclick="closeModal('modalEditMitra')" style="color: #ffffff;">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 20px;">
+        <form onsubmit="handleEditMitraSubmit(event)">
+          <input type="hidden" id="editMitraOriginalId">
+
+          <div style="display: grid; grid-template-columns: 140px 1fr; gap: 10px; margin-bottom: 12px;">
+            <div>
+              <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 4px;">ID Mitra:</label>
+              <input type="text" id="editMitraId" readonly style="width: 100%; padding: 8px 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: monospace; font-weight: 800; color: #0369a1; background: #f1f5f9;">
+            </div>
+            <div>
+              <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 4px;">Tingkatan Level:</label>
+              <select id="editMitraTier" style="width: 100%; padding: 8px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: var(--font-main); font-weight: 700;">
+                <option value="agen">👑 Agen Resmi (Diskon 40%)</option>
+                <option value="sub_agen">🏢 Sub Agen (Diskon 30%)</option>
+                <option value="reseller">🌿 Reseller Resmi (Diskon 20% & Evaluasi 90 Hari)</option>
+                <option value="marketer">💼 Tim Marketer (Komisi 15% Bulanan Tanpa Modal)</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 12px;">
+            <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 4px;">Nama Lengkap Mitra:</label>
+            <input type="text" id="editMitraName" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: var(--font-main); font-weight: 700;">
+          </div>
+
+          <div style="margin-bottom: 14px; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 8px; padding: 12px;">
+            <label style="font-size: 0.82rem; font-weight: 800; color: #166534; display: block; margin-bottom: 4px;">
+              📅 Tanggal Bergabung / Mulai Periode (Evaluasi 3 Bulan):
+            </label>
+            <input type="date" id="editMitraJoinDate" required style="width: 100%; padding: 8px 12px; border: 1.5px solid #16a34a; border-radius: var(--radius-sm); font-family: var(--font-main); font-weight: 800; color: #166534; background: #ffffff;">
+            <span style="font-size: 0.72rem; color: #15803d; margin-top: 4px; display: block; line-height: 1.4;">
+              *Ubah tanggal ini jika mitra bergabung sejak tanggal lampau. Siklus evaluasi omset 3 bulan (90 hari) otomatis dihitung dan diperbarui dari tanggal ini.
+            </span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+            <div>
+              <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 4px;">No. WhatsApp Mitra:</label>
+              <input type="text" id="editMitraPhone" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: var(--font-main);">
+            </div>
+            <div>
+              <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 4px;">Kota Domisili:</label>
+              <input type="text" id="editMitraCity" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: var(--font-main);">
+            </div>
+          </div>
+
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; margin-bottom: 16px;">
+            <span style="font-size: 0.76rem; font-weight: 800; color: #1e293b; display: block; margin-bottom: 6px;">
+              💳 Rekening Bank / E-Wallet Mitra:
+            </span>
+            <div style="display: grid; grid-template-columns: 110px 1fr 1fr; gap: 8px;">
+              <select id="editMitraBankName" style="width: 100%; padding: 7px; border: 1px solid var(--border-subtle); border-radius: 4px; font-size: 0.78rem;">
+                <option value="BCA">BCA</option>
+                <option value="BRI">BRI</option>
+                <option value="Mandiri">Mandiri</option>
+                <option value="BNI">BNI</option>
+                <option value="BSI">BSI</option>
+                <option value="Dana">Dana</option>
+                <option value="GoPay">GoPay</option>
+                <option value="ShopeePay">ShopeePay</option>
+              </select>
+              <input type="text" id="editMitraBankAccount" placeholder="Nomor Rekening" style="width: 100%; padding: 7px; border: 1px solid var(--border-subtle); border-radius: 4px; font-size: 0.78rem;">
+              <input type="text" id="editMitraBankHolder" placeholder="Atas Nama" style="width: 100%; padding: 7px; border: 1px solid var(--border-subtle); border-radius: 4px; font-size: 0.78rem;">
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 8px; justify-content: flex-end;">
+            <button type="button" onclick="closeModal('modalEditMitra')" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 9px 16px; border-radius: 8px; font-weight: 700; font-size: 0.84rem; cursor: pointer;">
+              Batal
+            </button>
+            <button type="submit" style="background: linear-gradient(135deg, #059669, #047857); color: #ffffff; border: none; padding: 9px 20px; border-radius: 8px; font-weight: 800; font-size: 0.84rem; cursor: pointer; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.35);">
+              💾 Simpan Perubahan
+            </button>
+          </div>
         </form>
       </div>
     </div>
@@ -5100,9 +5192,9 @@
   <!-- SCRIPTS -->
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=7.5"></script>
-  <script src="js/data.js?v=7.5"></script>
-  <script src="js/app.js?v=7.5"></script>
-  <script src="js/olsera-suite.js?v=7.5"></script>
+  <script src="js/supabase-config.js?v=7.6"></script>
+  <script src="js/data.js?v=7.6"></script>
+  <script src="js/app.js?v=7.6"></script>
+  <script src="js/olsera-suite.js?v=7.6"></script>
 </body>
 </html>

@@ -30,37 +30,52 @@ const SR12_TIERS = {
     name: 'Reseller Resmi',
     label: 'Reseller (20%)',
     discountPct: 20,
-    minOrderNominal: 300000,
+    firstOrderNet: 400000,
+    firstOrderHet: 500000,
+    minOrderNominal: 400000,
+    maintenanceMonthly: 500000,
+    maintenance3Months: 1500000,
+    downgradeTier: 'marketer',
     minOrderPcs: 3,
     badgeColor: '#10b981',
-    description: 'Margin 20%, minimal belanja awal Rp 300.000 / 3 pcs'
+    description: 'Diskon 20%, First Order Rp 400.000 (Rp 500.000 HET), Pemeliharaan Omset Rp 1.500.000 / 3 Bulan'
   },
   sub_agen: {
     id: 'sub_agen',
     name: 'Sub Agen SR12',
     label: 'Sub Agen (30%)',
     discountPct: 30,
-    minOrderNominal: 1500000,
+    firstOrderNet: 3500000,
+    firstOrderHet: 5000000,
+    minOrderNominal: 3500000,
+    maintenanceMonthly: 4000000,
+    maintenance3Months: 12000000,
+    downgradeTier: 'reseller',
     minOrderPcs: 15,
     badgeColor: '#8b5cf6',
-    description: 'Margin 30%, minimal order Rp 1.500.000 / 15 pcs'
+    description: 'Diskon 30%, First Order Rp 3.500.000 (Rp 5.000.000 HET), Pemeliharaan Omset Rp 12.000.000 / 3 Bulan'
   },
   agen: {
     id: 'agen',
     name: 'Agen Resmi SR12',
     label: 'Agen (40%)',
     discountPct: 40,
-    minOrderNominal: 5000000,
+    firstOrderNet: 15000000,
+    firstOrderHet: 25000000,
+    minOrderNominal: 15000000,
+    maintenanceMonthly: 15000000,
+    maintenance3Months: 45000000,
+    downgradeTier: 'sub_agen',
     minOrderPcs: 50,
     badgeColor: '#f59e0b',
-    description: 'Margin 40%, minimal order kartonan / Rp 5.000.000'
+    description: 'Diskon 40%, First Order Rp 15.000.000 (Rp 25.000.000 HET), Pemeliharaan Omset Rp 45.000.000 / 3 Bulan'
   },
   distributor: {
     id: 'distributor',
     name: 'Distributor Utama',
     label: 'Distributor (50%)',
     discountPct: 50,
-    minOrderNominal: 15000000,
+    minOrderNominal: 25000000,
     minOrderPcs: 150,
     badgeColor: '#dc2626',
     description: 'Margin maksimal 50%, pemegang stok wilayah besar'
@@ -68,7 +83,7 @@ const SR12_TIERS = {
 };
 
 /**
- * JENJANG KARIR & SYARAT PROMOSI NAIK TINGKAT MITRA RESMI SR12
+ * JENJANG KARIR & SYARAT PROMOSI NAIK TINGKAT RESMI SR12 (2026 RULES KEMITRAAN)
  * Marketer -> Reseller -> Sub Agen -> Agen Resmi
  */
 const SR12_CAREER_PATH = {
@@ -77,11 +92,13 @@ const SR12_CAREER_PATH = {
     currentTierName: 'Marketer (15%)',
     nextTier: 'reseller',
     nextTierName: 'Reseller Resmi',
-    targetNominal: 300000, // Minimal belanja awal / omset penjualan awal Reseller (Rp 300.000)
+    targetNominal: 400000, // Minimal belanja First Order Net (Rp 400.000 / Rp 500.000 HET)
+    targetNominalHet: 500000,
+    targetOmsetMitra: 800000, // Jalur omset mitra: Rp 800.000 (omset pribadi min Rp 300.000/bln selama 3 bulan)
     minPcs: 3,
     newDiscountPct: 20,
     prefix: 'RS',
-    benefitText: 'Diskon 20% langsung setiap belanja, bisa stok barang sendiri',
+    benefitText: 'Diskon 20% langsung setiap belanja, hak stok mandiri',
     congratsTitle: '🌿 PROMOSI RESELLER RESMI SR12'
   },
   reseller: {
@@ -89,7 +106,9 @@ const SR12_CAREER_PATH = {
     currentTierName: 'Reseller (20%)',
     nextTier: 'sub_agen',
     nextTierName: 'Sub Agen SR12',
-    targetNominal: 1500000, // Syarat resmi belanja akumulasi Sub Agen SR12 (Rp 1.500.000)
+    targetNominal: 3500000, // Minimal belanja First Order Net (Rp 3.500.000 / Rp 5.000.000 HET)
+    targetNominalHet: 5000000,
+    targetOmsetMitra: 4000000, // Jalur omset kemitraan: Rp 4.000.000 (omset pribadi min Rp 3.000.000/bln selama 3 bulan)
     minPcs: 15,
     newDiscountPct: 30,
     prefix: 'SUB',
@@ -101,7 +120,9 @@ const SR12_CAREER_PATH = {
     currentTierName: 'Sub Agen (30%)',
     nextTier: 'agen',
     nextTierName: 'Agen Resmi SR12',
-    targetNominal: 5000000, // Syarat resmi Agen SR12 (Rp 5.000.000)
+    targetNominal: 15000000, // Minimal belanja First Order Net (Rp 15.000.000 / Rp 25.000.000 HET)
+    targetNominalHet: 25000000,
+    targetOmsetMitra: 15000000, // Jalur omset kemitraan: Rp 15.000.000 (omset pribadi min Rp 10.000.000/bln selama 3 bulan)
     minPcs: 50,
     newDiscountPct: 40,
     prefix: 'AG',
