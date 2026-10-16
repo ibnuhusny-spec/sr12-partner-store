@@ -67,6 +67,49 @@ const SR12_TIERS = {
   }
 };
 
+/**
+ * JENJANG KARIR & SYARAT PROMOSI NAIK TINGKAT MITRA RESMI SR12
+ * Marketer -> Reseller -> Sub Agen -> Agen Resmi
+ */
+const SR12_CAREER_PATH = {
+  marketer: {
+    currentTier: 'marketer',
+    currentTierName: 'Marketer (15%)',
+    nextTier: 'reseller',
+    nextTierName: 'Reseller Resmi',
+    targetNominal: 300000, // Minimal belanja awal / omset penjualan awal Reseller (Rp 300.000)
+    minPcs: 3,
+    newDiscountPct: 20,
+    prefix: 'RS',
+    benefitText: 'Diskon 20% langsung setiap belanja, bisa stok barang sendiri',
+    congratsTitle: '🌿 PROMOSI RESELLER RESMI SR12'
+  },
+  reseller: {
+    currentTier: 'reseller',
+    currentTierName: 'Reseller (20%)',
+    nextTier: 'sub_agen',
+    nextTierName: 'Sub Agen SR12',
+    targetNominal: 1500000, // Syarat resmi belanja akumulasi Sub Agen SR12 (Rp 1.500.000)
+    minPcs: 15,
+    newDiscountPct: 30,
+    prefix: 'SUB',
+    benefitText: 'Diskon meningkat jadi 30%, mulai bisa merekrut Reseller & Marketer',
+    congratsTitle: '🏢 PROMOSI SUB AGEN RESMI SR12'
+  },
+  sub_agen: {
+    currentTier: 'sub_agen',
+    currentTierName: 'Sub Agen (30%)',
+    nextTier: 'agen',
+    nextTierName: 'Agen Resmi SR12',
+    targetNominal: 5000000, // Syarat resmi Agen SR12 (Rp 5.000.000)
+    minPcs: 50,
+    newDiscountPct: 40,
+    prefix: 'AG',
+    benefitText: 'Diskon maksimal 40%, pemegang stok besar wilayah',
+    congratsTitle: '👑 PROMOSI AGEN RESMI SR12'
+  }
+};
+
 // Helper SVG Generator for distinct realistic herbal cosmetics products
 function makeProductIllustration(theme, icon, label, sub) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
@@ -3307,12 +3350,15 @@ if (typeof window !== 'undefined') {
   window.DEFAULT_SR12_REWARDS = DEFAULT_SR12_REWARDS;
   window.DEFAULT_MARKETING_KITS = DEFAULT_MARKETING_KITS;
   window.SR12_SHIPPING_PROVIDERS = SR12_SHIPPING_PROVIDERS;
+  window.SR12_TIERS = SR12_TIERS;
+  window.SR12_CAREER_PATH = SR12_CAREER_PATH;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { 
     DEFAULT_SR12_PRODUCTS, 
     SR12_TIERS, 
+    SR12_CAREER_PATH,
     SR12_SHIPPING_PROVIDERS, 
     getDailyRotatedProducts,
     SR12_OFFICIAL_WHITELIST,

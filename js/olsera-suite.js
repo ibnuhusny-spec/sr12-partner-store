@@ -883,6 +883,8 @@ function renderAbsensiStatusView() {
       statusBadge.style.background = '#dcfce7';
       statusBadge.style.color = '#166534';
       statusBadge.style.borderColor = '#86efac';
+      statusBadge.style.whiteSpace = 'nowrap';
+      statusBadge.style.flexShrink = '0';
       statusBadge.innerHTML = '<span class="badge-online-dot"></span> Sedang Bertugas';
     }
   }
@@ -1805,6 +1807,9 @@ function processPosCheckout(action = 'save') {
       if (targetM.tier === 'reseller' && targetM.accumulatedSpent90Days >= 500000) {
         targetM.status = 'active';
       }
+      if (typeof checkAndAutoUpgradeMitraIfEnabled === 'function') {
+        checkAndAutoUpgradeMitraIfEnabled(targetM, curPosStoreSlug);
+      }
       saveStoredMitra(appState.mitraList);
       if (typeof saveMitraToSupabase === 'function') {
         saveMitraToSupabase(targetM, curPosStoreSlug);
@@ -1836,6 +1841,22 @@ function processPosCheckout(action = 'save') {
     saveStoredMarketerSales(appState.marketerSales);
     if (typeof saveMarketerSaleToSupabase === 'function') {
       saveMarketerSaleToSupabase(mSale, curPosStoreSlug);
+    }
+
+    const mktPartner = (appState.mitraList || []).find(m => 
+      (m.store_slug || 'sr12-central') === curPosStoreSlug && 
+      (m.id === validMarketerId || (m.tier === 'marketer' && m.phone && customerPhone && m.phone.replace(/[^0-9]/g, '') === customerPhone.replace(/[^0-9]/g, '')))
+    );
+    if (mktPartner) {
+      mktPartner.accumulatedSpent90Days = (Number(mktPartner.accumulatedSpent90Days) || 0) + subtotalHet;
+      mktPartner.lastOrderDate = dateStr.split(' ')[0];
+      if (typeof checkAndAutoUpgradeMitraIfEnabled === 'function') {
+        checkAndAutoUpgradeMitraIfEnabled(mktPartner, curPosStoreSlug);
+      }
+      saveStoredMitra(appState.mitraList);
+      if (typeof saveMitraToSupabase === 'function') {
+        saveMitraToSupabase(mktPartner, curPosStoreSlug);
+      }
     }
   }
 
@@ -2952,7 +2973,7 @@ function renderReportsView() {
   }
 }
 
-function exportReportsToCSV() {
+async function exportReportsToCSV() {
   if (typeof appState === 'undefined') return;
   const trxs = appState.transactions || [];
 
@@ -2961,22 +2982,33 @@ function exportReportsToCSV() {
     return;
   }
 
-  let csv = 'No Transaksi,Tanggal,Nama Pelanggan,No WA,Tingkat Mitra,Subtotal HET,Diskon Mitra,Total Bayar,Metode,Status\n';
+  // Tambahkan \uFEFF (UTF-8 BOM) agar Microsoft Excel membaca karakter & angka Indonesia dengan sempurna
+  let csv = '\uFEFFNo Transaksi,Tanggal,Nama Pelanggan,No WA,Tingkat Mitra,Subtotal HET,Diskon Mitra,Total Bayar,Metode,Status\n';
 
   trxs.forEach(t => {
-    csv += `"${t.id}","${t.dateTime}","${t.customerName}","${t.customerPhone || ''}","${t.tierLabel}",${t.subtotalHet},${t.discountAmount},${t.grandTotal},"${t.paymentMethod}","${t.status}"\n`;
+    const safeName = String(t.customerName || 'Pelanggan').replace(/"/g, '""');
+    const safePhone = String(t.customerPhone || '').replace(/"/g, '""');
+    const safeTier = String(t.tierLabel || 'Retail').replace(/"/g, '""');
+    const safePay = String(t.paymentMethod || 'Tunai').replace(/"/g, '""');
+    const safeStat = String(t.status || 'Selesai').replace(/"/g, '""');
+    csv += `"${t.id}","${t.dateTime}","${safeName}","${safePhone}","${safeTier}",${t.subtotalHet || 0},${t.discountAmount || 0},${t.grandTotal || 0},"${safePay}","${safeStat}"\n`;
   });
 
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
-  const url = URL.createObjectURL(blob);
-  link.setAttribute('href', url);
-  link.setAttribute('download', `Laporan_Penjualan_SR12_${new Date().toISOString().split('T')[0]}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-
-  showToast('📥 Laporan Transaksi berhasil diunduh dalam format CSV / Excel!');
+  const filename = `Laporan_Penjualan_SR12_${new Date().toISOString().split('T')[0]}.csv`;
+  if (typeof downloadFileUniversal === 'function') {
+    await downloadFileUniversal(filename, csv, 'text/csv;charset=utf-8;');
+  } else {
+    const blob = new Blob([csv], { type: 'application/octet-stream' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.target = '_blank';
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => { document.body.removeChild(link); URL.revokeObjectURL(url); }, 1000);
+    showToast('📥 Laporan Transaksi berhasil diunduh dalam format CSV / Excel!');
+  }
 }
 
 // ==========================================
@@ -3376,6 +3408,10 @@ function handleSaveOlseraSettings(e) {
   } else {
     const manualUrl = document.getElementById('setOlseraLogoUrlInput')?.value.trim();
     if (manualUrl) {
+      if (typeof isSafeImageUrl === 'function' && !isSafeImageUrl(manualUrl)) {
+        alert('❌ URL Logo Toko ditolak demi keamanan!\n\nHarap gunakan link gambar HTTPS resmi (.jpg, .png, .webp) atau gunakan tombol upload foto langsung dari HP/komputer.');
+        return;
+      }
       appState.storeSettings.storeLogoUrl = manualUrl;
     }
   }

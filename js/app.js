@@ -1151,14 +1151,20 @@ async function syncMitraWithIndexedDB() {
     const idbMitra = await dbGetAllMitra();
     if (idbMitra && idbMitra.length > 0) {
       if (typeof appState !== 'undefined') {
-        const mitraMap = new Map((appState.mitraList || []).map(m => [m.id, m]));
+        const curStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+        const mitraMap = new Map();
+        (appState.mitraList || []).forEach(m => {
+          const compKey = `${m.store_slug || 'sr12-central'}_${(m.id || '').toUpperCase()}`;
+          mitraMap.set(compKey, m);
+        });
         idbMitra.forEach(m => {
-          if (!mitraMap.has(m.id)) {
-            mitraMap.set(m.id, m);
+          const compKey = `${m.store_slug || 'sr12-central'}_${(m.id || '').toUpperCase()}`;
+          if (!mitraMap.has(compKey)) {
+            mitraMap.set(compKey, m);
           }
         });
         appState.mitraList = Array.from(mitraMap.values());
-        appState.resellers = appState.mitraList;
+        appState.resellers = appState.mitraList.filter(m => (m.store_slug || 'sr12-central') === curStoreSlug);
         localStorage.setItem('sr12_distributor_mitra_v2', JSON.stringify(appState.mitraList));
         localStorage.setItem('sr12_distributor_resellers_v1', JSON.stringify(appState.mitraList));
         if (typeof renderResellers === 'function') renderResellers();
@@ -1545,16 +1551,79 @@ function deleteProduct(productId) {
 }
 window.deleteProduct = deleteProduct;
 
+/**
+ * UNIVERSAL SAFE FILE DOWNLOAD HELPER
+ * Mencegah navigasi layar putih di browser HP / Safari / Chrome Mobile.
+ * Menggunakan Web Share API pada HP jika didukung (bisa langsung simpan ke Drive/File/WA)
+ * dan Blob URL dengan application/octet-stream agar selalu memicu dialog unduhan (Save As).
+ */
+async function downloadFileUniversal(filename, content, mimeType = 'application/octet-stream') {
+  try {
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const blob = (content instanceof Blob) ? content : new Blob([content], { type: mimeType });
+
+    // 1. Pada HP / Tablet: Coba gunakan Web Share API (Fitur modern: Simpan ke File / Drive / WA)
+    if (isMobile && navigator.canShare && typeof File !== 'undefined') {
+      try {
+        const fileObj = new File([blob], filename, { type: mimeType });
+        if (navigator.canShare({ files: [fileObj] })) {
+          await navigator.share({
+            files: [fileObj],
+            title: filename,
+            text: `Backup Data SR12: ${filename}`
+          });
+          if (typeof showToast === 'function') {
+            showToast(`✅ File "${filename}" berhasil dibagikan / disimpan!`);
+          }
+          return true;
+        }
+      } catch (shareErr) {
+        if (shareErr.name === 'AbortError') return true; // Pengguna sengaja membatalkan share sheet
+      }
+    }
+
+    // 2. Download via programmatic <a> tag dengan octet-stream (Mencegah tampilan layar putih)
+    const blobOctet = (content instanceof Blob) ? content : new Blob([content], { type: 'application/octet-stream' });
+    const blobUrl = URL.createObjectURL(blobOctet);
+    const link = document.createElement('a');
+    link.style.display = 'none';
+    link.href = blobUrl;
+    link.setAttribute('download', filename);
+    // Jangan set target="_blank" pada mobile agar browser HP tidak membuka tab layar putih kosong
+    if (!isMobile) {
+      link.setAttribute('target', '_blank');
+    }
+    document.body.appendChild(link);
+    link.click();
+
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+    }, 1500);
+
+    if (typeof showToast === 'function') {
+      showToast(`📥 File "${filename}" berhasil diunduh!`);
+    }
+    return true;
+  } catch (err) {
+    console.error('downloadFileUniversal error:', err);
+    prompt('Salin teks cadangan di bawah ini untuk disimpan manual di Catatan / Google Keep:', typeof content === 'string' ? content : '');
+    return false;
+  }
+}
+window.downloadFileUniversal = downloadFileUniversal;
+
 // Fitur Backup & Restore Katalog Produk (Untuk Keamanan Cadangan Data Pengguna)
-function exportProductCatalogBackup() {
+async function exportProductCatalogBackup() {
   try {
     const list = (typeof appState !== 'undefined' && appState.products) ? appState.products : [];
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(list, null, 2));
-    const dlAnchorElem = document.createElement('a');
-    dlAnchorElem.setAttribute("href", dataStr);
-    dlAnchorElem.setAttribute("download", `katalog_produk_sr12_backup_${new Date().toISOString().slice(0, 10)}.json`);
-    dlAnchorElem.click();
-    showToast('💾 Berhasil mendownload backup katalog & foto produk!');
+    if (!list || list.length === 0) {
+      showToast('⚠️ Belum ada produk di katalog untuk dibackup!');
+      return;
+    }
+    const jsonStr = JSON.stringify(list, null, 2);
+    const filename = `katalog_produk_sr12_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    await downloadFileUniversal(filename, jsonStr, 'application/json;charset=utf-8');
   } catch (e) {
     alert('Gagal mendownload file backup: ' + e.message);
   }
@@ -1572,14 +1641,19 @@ function importProductCatalogBackup(event) {
         if (!confirm(`Pulihkan ${parsed.length} produk dari file backup? Foto dan data produk akan diperbarui.`)) {
           return;
         }
-        appState.products = parsed;
-        await dbSaveAllProducts(parsed);
-        saveStoredProducts(parsed);
+        const sanitizedProducts = parsed.map(p => ({
+          ...p,
+          name: escapeHtml(p.name || 'Produk SR12'),
+          image: (typeof sanitizeImageUrl === 'function') ? sanitizeImageUrl(p.image) : (p.image || 'assets/hero-banner.jpg')
+        }));
+        appState.products = sanitizedProducts;
+        await dbSaveAllProducts(sanitizedProducts);
+        saveStoredProducts(sanitizedProducts);
         renderProducts();
         if (typeof renderInventoryTable === 'function') renderInventoryTable();
         if (typeof renderPosProducts === 'function') renderPosProducts();
         updateCartUI();
-        showToast(`✅ Berhasil memulihkan ${parsed.length} produk dari file backup!`);
+        showToast(`✅ Berhasil memulihkan ${sanitizedProducts.length} produk aman dari file backup!`);
       } else {
         alert('File backup tidak valid atau kosong.');
       }
@@ -3114,6 +3188,76 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 }
+
+/**
+ * SISTEM KEAMANAN TINGKAT TINGGI: VALIDASI & SANITASI URL FOTO PRODUK
+ * Mencegah serangan XSS (Cross-Site Scripting), JavaScript injection, Phishing,
+ * dan penyusupan link berbahaya ke dalam katalog toko.
+ */
+function isSafeImageUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') return false;
+  const url = rawUrl.trim();
+  if (!url) return false;
+
+  // 1. BLOKIR KERAS skema berbahaya
+  const dangerousPatterns = /^(javascript|vbscript|data:text|data:application|file|ftp):/i;
+  if (dangerousPatterns.test(url)) {
+    return false;
+  }
+
+  // 2. BLOKIR injeksi tag HTML, quotes, spasi, atau karakter eksekusi script
+  if (/[<>"'`\s\\]/.test(url)) {
+    return false;
+  }
+
+  // 3. Izinkan aset gambar lokal internal toko (misal: 'assets/...' atau './assets/...')
+  if (/^(\.\/|\/)?assets\/[a-zA-Z0-9_\-\.\/]+$/i.test(url)) {
+    return true;
+  }
+
+  // 4. Izinkan Data URI HANYA jika berupa gambar aman (JPEG, PNG, WEBP)
+  if (/^data:image\/(jpeg|jpg|png|webp);base64,[A-Za-z0-9+/=]+$/i.test(url)) {
+    return true;
+  }
+
+  // 5. Untuk URL web eksternal: WAJIB HTTPS resmi
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') {
+      return false; // Tolak http biasa tanpa enkripsi atau protokol aneh
+    }
+    
+    // Pastikan ekstensi file di URL adalah format gambar yang valid atau berasal dari hosting gambar / Supabase storage
+    const pathname = parsed.pathname.toLowerCase();
+    const isImageExt = /\.(jpe?g|png|webp|gif|svg)$/i.test(pathname) || /\.(jpe?g|png|webp|gif|svg)(\?.*)?$/i.test(url);
+    const isTrustedImageHost = parsed.hostname.includes('supabase.co') || 
+                               parsed.hostname.includes('cloudinary.com') || 
+                               parsed.hostname.includes('imgur.com') ||
+                               parsed.hostname.includes('drive.google.com') ||
+                               parsed.hostname.includes('googleusercontent.com') ||
+                               parsed.hostname.includes('sr12.co.id') ||
+                               parsed.hostname.includes('bpom.go.id') ||
+                               parsed.hostname.includes('unsplash.com') ||
+                               parsed.hostname.includes('fbcdn.net') ||
+                               parsed.hostname.includes('cdninstagram.com');
+
+    return isImageExt || isTrustedImageHost;
+  } catch (err) {
+    return false;
+  }
+}
+
+function sanitizeImageUrl(rawUrl, fallback = 'assets/hero-banner.jpg') {
+  if (!rawUrl || typeof rawUrl !== 'string') return fallback;
+  const trimmed = rawUrl.trim();
+  if (isSafeImageUrl(trimmed)) {
+    return escapeHtml(trimmed);
+  }
+  return fallback;
+}
+
+window.isSafeImageUrl = isSafeImageUrl;
+window.sanitizeImageUrl = sanitizeImageUrl;
 
 let currentDocZoomScale = 1.0;
 let currentActiveDocUrl = '';
@@ -5066,8 +5210,19 @@ async function loadStoreDataFromBackend(slug) {
     if (typeof syncMitraFromSupabase === 'function') {
       const cloudMitra = await syncMitraFromSupabase(targetSlug);
       if (Array.isArray(cloudMitra) && cloudMitra.length > 0) {
-        appState.mitraList = cloudMitra;
-        appState.resellers = cloudMitra.filter(m => (m.store_slug || targetSlug) === targetSlug);
+        // Gabungkan secara cerdas & deduplikasi ketat
+        const curMap = new Map();
+        (appState.mitraList || []).forEach(m => {
+          const compKey = `${m.store_slug || targetSlug}_${(m.id || '').toUpperCase()}`;
+          curMap.set(compKey, m);
+        });
+        cloudMitra.forEach(cm => {
+          const compKey = `${cm.store_slug || targetSlug}_${(cm.id || '').toUpperCase()}`;
+          const existing = curMap.get(compKey);
+          curMap.set(compKey, Object.assign({}, existing || {}, cm));
+        });
+        appState.mitraList = Array.from(curMap.values());
+        appState.resellers = appState.mitraList.filter(m => (m.store_slug || targetSlug) === targetSlug);
         saveStoredMitra(appState.mitraList, false);
         if (typeof renderResellers === 'function') renderResellers();
       }
@@ -5741,6 +5896,44 @@ function initEventListeners() {
         }
       }
     });
+  }
+
+  // Validasi Real-time URL Gambar Produk (Cegah Injeksi Script & Link Berbahaya)
+  const editProdImgUrlInput = document.getElementById('editProdImgUrl');
+  const editProdImgUrlStatus = document.getElementById('editProdImgUrlStatus');
+  const editProdImgUrlWarning = document.getElementById('editProdImgUrlWarning');
+  const editProdImgPreview = document.getElementById('editProdImgPreview');
+
+  if (editProdImgUrlInput) {
+    const validateEditUrl = () => {
+      const val = editProdImgUrlInput.value.trim();
+      if (!val) {
+        if (editProdImgUrlStatus) editProdImgUrlStatus.style.display = 'none';
+        if (editProdImgUrlWarning) editProdImgUrlWarning.style.display = 'none';
+        editProdImgUrlInput.style.borderColor = 'var(--border-subtle)';
+        return;
+      }
+      if (typeof isSafeImageUrl === 'function' && isSafeImageUrl(val)) {
+        if (editProdImgUrlStatus) {
+          editProdImgUrlStatus.style.display = 'inline';
+          editProdImgUrlStatus.textContent = '🛡️ URL Aman';
+          editProdImgUrlStatus.style.color = '#059669';
+        }
+        if (editProdImgUrlWarning) editProdImgUrlWarning.style.display = 'none';
+        editProdImgUrlInput.style.borderColor = '#10b981';
+        appState.tempEditImageBase64 = null; // Prioritaskan URL aman yang baru diinput
+        if (editProdImgPreview) {
+          editProdImgPreview.src = val;
+          editProdImgPreview.style.display = 'block';
+        }
+      } else {
+        if (editProdImgUrlStatus) editProdImgUrlStatus.style.display = 'none';
+        if (editProdImgUrlWarning) editProdImgUrlWarning.style.display = 'block';
+        editProdImgUrlInput.style.borderColor = '#dc2626';
+      }
+    };
+    editProdImgUrlInput.addEventListener('input', validateEditUrl);
+    editProdImgUrlInput.addEventListener('change', validateEditUrl);
   }
 
   // Modals for Adding Products & Marketing
@@ -6982,7 +7175,7 @@ function renderProducts() {
     return `
       <div class="product-card" id="card-${prod.id}">
         <div class="product-thumb-box">
-          <img src="${prod.image || 'assets/hero-banner.jpg'}" alt="${prod.name}" loading="lazy" onerror="this.onerror=null; this.src='assets/hero-banner.jpg';" />
+          <img src="${(typeof sanitizeImageUrl === 'function') ? sanitizeImageUrl(prod.image) : (prod.image || 'assets/hero-banner.jpg')}" alt="${escapeHtml(prod.name)}" loading="lazy" onerror="this.onerror=null; this.src='assets/hero-banner.jpg';" />
           <span class="badge-bpom-clean">🌿 BPOM</span>
           ${isMarketer ? `<span class="badge-disc-clean" style="background: #0284c7; color: #fff;">💼 Komisi 15%</span>` : (!isRetail ? `<span class="badge-disc-clean">-${currentTier.discountPct}%</span>` : '')}
           <span class="badge-stock-clean ${(prod.stock ?? 85) <= 15 ? 'low' : ''}">Stok: ${prod.stock ?? 85}</span>
@@ -7134,9 +7327,9 @@ function updateCartUI() {
 
     return `
       <div class="cart-item-card">
-        <img src="${prod.image}" alt="${prod.name}">
+        <img src="${(typeof sanitizeImageUrl === 'function') ? sanitizeImageUrl(prod.image) : (prod.image || 'assets/hero-banner.jpg')}" alt="${escapeHtml(prod.name)}">
         <div class="cart-item-info">
-          <h5>${prod.name}</h5>
+          <h5>${escapeHtml(prod.name)}</h5>
           <div style="font-size: 0.72rem; color: #64748b; margin-bottom: 4px;">${prod.netto || prod.category || 'SR12 Herbal'}</div>
           
           <div class="cart-item-price" style="display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;">
@@ -7629,6 +7822,14 @@ function checkoutViaWhatsApp() {
       saveMarketerSaleToSupabase(newSale, currentStoreSlug);
     }
 
+    if (foundMitra) {
+      foundMitra.accumulatedSpent90Days = (foundMitra.accumulatedSpent90Days || 0) + subtotal;
+      foundMitra.lastOrderDate = nowIso;
+      if (typeof checkAndAutoUpgradeMitraIfEnabled === 'function') {
+        checkAndAutoUpgradeMitraIfEnabled(foundMitra, currentStoreSlug);
+      }
+    }
+
     crmNoticeText = `\n💼 *TIM MARKETER RESMI (PENJUALAN TANPA MODAL):*\n` +
       `• Marketer Penjual : ${marketerName} (${marketerCode})\n` +
       `• No. Rekening     : ${(foundMitra && foundMitra.bankName) || 'BCA'} - ${(foundMitra && foundMitra.bankAccount) || '-'}\n` +
@@ -7640,6 +7841,9 @@ function checkoutViaWhatsApp() {
     foundMitra.lastOrderDate = nowIso;
     if (foundMitra.tier === 'reseller' && foundMitra.accumulatedSpent90Days >= 500000) {
       foundMitra.status = 'active';
+    }
+    if (typeof checkAndAutoUpgradeMitraIfEnabled === 'function') {
+      checkAndAutoUpgradeMitraIfEnabled(foundMitra, currentStoreSlug);
     }
     saveStoredMitra(appState.mitraList);
     if (typeof saveMitraToSupabase === 'function') {
@@ -8497,9 +8701,25 @@ function openEditProductModal(productId) {
   }
   if (stockInput) stockInput.value = (typeof prod.stock !== 'undefined') ? prod.stock : 85;
   if (summaryInput) summaryInput.value = prod.summary || '';
-  if (imgUrlInput) imgUrlInput.value = prod.image && !prod.image.startsWith('data:') ? prod.image : '';
+  if (imgUrlInput) {
+    imgUrlInput.value = prod.image && !prod.image.startsWith('data:') ? prod.image : '';
+    imgUrlInput.style.borderColor = 'var(--border-subtle)';
+  }
+  const urlStatus = document.getElementById('editProdImgUrlStatus');
+  const urlWarning = document.getElementById('editProdImgUrlWarning');
+  if (urlStatus) {
+    if (prod.image && typeof isSafeImageUrl === 'function' && isSafeImageUrl(prod.image) && !prod.image.startsWith('data:')) {
+      urlStatus.style.display = 'inline';
+      urlStatus.textContent = '🛡️ URL Aman';
+      urlStatus.style.color = '#059669';
+    } else {
+      urlStatus.style.display = 'none';
+    }
+  }
+  if (urlWarning) urlWarning.style.display = 'none';
+
   if (imgPreview) {
-    imgPreview.src = prod.image || 'assets/hero-banner.jpg';
+    imgPreview.src = (typeof sanitizeImageUrl === 'function') ? sanitizeImageUrl(prod.image) : (prod.image || 'assets/hero-banner.jpg');
     imgPreview.style.display = 'block';
   }
 
@@ -8538,8 +8758,19 @@ async function handleEditProductSubmit(e) {
         finalImage = appState.tempEditImageBase64;
       }
     } else if (newImgUrl && newImgUrl !== prod.image) {
+      if (typeof isSafeImageUrl === 'function' && !isSafeImageUrl(newImgUrl)) {
+        alert('❌ URL FOTO DITOLAK DEMI KEAMANAN SISTEM!\n\nAlasan:\n• Link foto wajib menggunakan protokol HTTPS resmi (contoh: https://domain.com/foto.jpg) atau aset internal toko.\n• Dilarang menggunakan link mencurigakan, JavaScript, file eksekusi, atau protokol tidak aman.\n\nSilakan periksa kembali link atau gunakan tombol "Upload Foto Langsung" dari HP/komputer Anda.');
+        if (btnSubmit) {
+          btnSubmit.disabled = false;
+          btnSubmit.textContent = '💾 Simpan Perubahan Produk';
+        }
+        return;
+      }
       finalImage = newImgUrl;
     }
+
+    // Pastikan hasil akhir foto aman dan tersanitasi
+    finalImage = (typeof sanitizeImageUrl === 'function') ? sanitizeImageUrl(finalImage) : finalImage;
 
     prod.name = newName || prod.name;
     prod.category = newCat || prod.category;
@@ -12131,6 +12362,11 @@ function clearAllDummyData(silent = false) {
   appState.resellers = [];
   localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify([]));
   localStorage.setItem('sr12_resellers_v2', JSON.stringify([]));
+  localStorage.setItem('sr12_distributor_mitra_v2', JSON.stringify([]));
+  localStorage.setItem('sr12_distributor_resellers_v1', JSON.stringify([]));
+  if (typeof dbSaveAllMitra === 'function') {
+    dbSaveAllMitra([]);
+  }
 
   // 4. Bersihkan marketer sales
   appState.marketerSales = [];
@@ -12224,9 +12460,17 @@ function generateNextMitraId(tier) {
   const currentSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
   const list = (appState.mitraList || []).filter(m => (m.store_slug || 'sr12-central') === currentSlug);
   const prefix = tier === 'agen' ? 'AG' : (tier === 'sub_agen' ? 'SUB' : (tier === 'marketer' ? 'MKT' : 'RS'));
-  const sameTier = list.filter(m => (m.id || '').toUpperCase().startsWith(prefix + '-'));
-  const nextNum = sameTier.length + 1;
-  return `${prefix}-${String(nextNum).padStart(3, '0')}`;
+  let maxNum = 0;
+  list.forEach(m => {
+    const rawId = String(m.id || m.partner_code || '').trim().toUpperCase();
+    if (rawId.startsWith(prefix + '-')) {
+      const numPart = parseInt(rawId.replace(prefix + '-', ''), 10);
+      if (!isNaN(numPart) && numPart > maxNum) {
+        maxNum = numPart;
+      }
+    }
+  });
+  return `${prefix}-${String(maxNum + 1).padStart(3, '0')}`;
 }
 
 function getMitraStatus(m) {
@@ -12299,12 +12543,50 @@ function getMitraStatus(m) {
   };
 }
 
+/**
+ * EVALUASI KENAIKAN JENJANG KARIR MITRA RESMI SR12 (SMART TIER PROGRESSION)
+ * Marketer -> Reseller -> Sub Agen -> Agen Resmi
+ */
+function getMitraProgression(m) {
+  const currentTier = m.tier || 'reseller';
+  const careerConfig = (typeof SR12_CAREER_PATH !== 'undefined' && SR12_CAREER_PATH[currentTier]) ? SR12_CAREER_PATH[currentTier] : null;
+  if (!careerConfig) {
+    return { hasNextTier: false, isEligible: false };
+  }
+
+  const spent = Number(m.spent || m.accumulatedSpent90Days || 0);
+  const target = careerConfig.targetNominal;
+  const isEligible = spent >= target;
+  const progressPct = Math.min(100, Math.round((spent / target) * 100));
+  const deficit = Math.max(0, target - spent);
+
+  return {
+    hasNextTier: true,
+    currentTier,
+    currentTierName: careerConfig.currentTierName,
+    nextTier: careerConfig.nextTier,
+    nextTierName: careerConfig.nextTierName,
+    targetNominal: target,
+    newDiscountPct: careerConfig.newDiscountPct,
+    benefitText: careerConfig.benefitText,
+    congratsTitle: careerConfig.congratsTitle,
+    prefix: careerConfig.prefix,
+    spent,
+    progressPct,
+    deficit,
+    isEligible
+  };
+}
+window.getMitraProgression = getMitraProgression;
+
 function renderResellers() {
   const tbody = document.getElementById('crmResellersTableBody');
   const totalEl = document.getElementById('crmTotalResellers');
   const agenSubEl = document.getElementById('crmCountAgenSub');
   const activeEl = document.getElementById('crmActiveResellers');
   const marketerEl = document.getElementById('crmCountMarketer');
+  const readyUpgradeEl = document.getElementById('crmReadyForUpgradeCount');
+  const chipEligibleEl = document.getElementById('chipEligibleUpgradeCount');
   const counterTab = document.getElementById('resellersCountDisplay');
   const tabMarketerCounter = document.getElementById('marketerCountDisplay');
 
@@ -12312,14 +12594,22 @@ function renderResellers() {
     appState.mitraList = getStoredMitra();
   }
 
-  // ISOLASI DATA TOKO: Hanya tampilkan data mitra milik toko aktif saat ini
+  // ISOLASI DATA TOKO & DEDUPLIKASI KETAT: Hanya tampilkan data mitra milik toko aktif tanpa duplikat
   const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
-  const storeMitraList = (appState.mitraList || []).filter(m => (m.store_slug || 'sr12-central') === currentStoreSlug);
+  const seenCodes = new Set();
+  const storeMitraList = (appState.mitraList || []).filter(m => {
+    if ((m.store_slug || 'sr12-central') !== currentStoreSlug) return false;
+    const cleanCode = String(m.id || m.partner_code || '').trim().toUpperCase();
+    if (!cleanCode || seenCodes.has(cleanCode)) return false;
+    seenCodes.add(cleanCode);
+    return true;
+  });
   appState.resellers = storeMitraList;
 
   let countAgenSub = 0;
   let countResellerActive = 0;
   let countMarketer = 0;
+  let countEligibleUpgrade = 0;
 
   const evaluatedList = storeMitraList.map(m => {
     const mOrders = [];
@@ -12427,25 +12717,40 @@ function renderResellers() {
     m.totalOrdersCount = effectiveCount;
 
     const stat = getMitraStatus({ ...m, accumulatedSpent90Days: effectiveSpent });
+    const progression = getMitraProgression({ ...m, spent: effectiveSpent, accumulatedSpent90Days: effectiveSpent });
+
     if (m.tier === 'agen' || m.tier === 'sub_agen') countAgenSub++;
     if (m.tier === 'reseller' && stat.state === 'active') countResellerActive++;
     if (m.tier === 'marketer') countMarketer++;
-    return { ...m, ...stat, spent: effectiveSpent, totalOrdersCount: effectiveCount };
+    if (progression.isEligible) countEligibleUpgrade++;
+
+    return { ...m, ...stat, progression, spent: effectiveSpent, totalOrdersCount: effectiveCount };
   });
 
   if (totalEl) totalEl.textContent = `${storeMitraList.length}`;
   if (agenSubEl) agenSubEl.textContent = `${countAgenSub}`;
   if (activeEl) activeEl.textContent = `${countResellerActive}`;
   if (marketerEl) marketerEl.textContent = `${countMarketer}`;
+  if (readyUpgradeEl) readyUpgradeEl.textContent = `${countEligibleUpgrade}`;
+  if (chipEligibleEl) chipEligibleEl.textContent = `${countEligibleUpgrade}`;
   if (counterTab) counterTab.textContent = `${storeMitraList.length} Mitra`;
   if (tabMarketerCounter) tabMarketerCounter.textContent = `${countMarketer} Tim`;
   const olseraMitraBadgeEl = document.getElementById('olseraMitraBadge');
   if (olseraMitraBadgeEl) olseraMitraBadgeEl.textContent = `${storeMitraList.length}`;
 
+  const autoUpToggle = document.getElementById('toggleAutoUpgradeMitra');
+  if (autoUpToggle) {
+    autoUpToggle.checked = !!(appState.storeSettings && appState.storeSettings.autoTierUpgrade);
+  }
+
   const filtered = evaluatedList.filter(m => {
     let matchFilter = true;
     if (appState.selectedMitraFilter && appState.selectedMitraFilter !== 'all') {
-      matchFilter = m.tier === appState.selectedMitraFilter;
+      if (appState.selectedMitraFilter === 'eligible_upgrade') {
+        matchFilter = !!(m.progression && m.progression.isEligible);
+      } else {
+        matchFilter = m.tier === appState.selectedMitraFilter;
+      }
     }
     const q = (appState.resellerSearchQuery || '').toLowerCase();
     const matchQuery = !q ||
@@ -12471,8 +12776,8 @@ function renderResellers() {
 
   tbody.innerHTML = filtered.map(m => {
     const tierObj = SR12_TIERS[m.tier] || SR12_TIERS.reseller;
-    const progressPct = m.targetNominal > 0 ? Math.min(100, Math.round((m.spent / m.targetNominal) * 100)) : 100;
-    
+    const prog = m.progression || { hasNextTier: false, isEligible: false };
+
     // Tier badge color & label
     const tierBadgeStyle = m.tier === 'agen' ? 'background: #fef3c7; color: #92400e; border: 1px solid #fde68a;' :
                            m.tier === 'sub_agen' ? 'background: #ede9fe; color: #5b21b6; border: 1px solid #ddd6fe;' :
@@ -12490,15 +12795,21 @@ function renderResellers() {
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; flex-wrap: wrap;">
             <div style="display: flex; align-items: center; gap: 6px;">
               <span style="background: #0f172a; color: #38bdf8; padding: 2px 7px; border-radius: 4px; font-family: monospace; font-weight: 800; font-size: 0.74rem;">${m.id || 'MITRA'}</span>
-              <b style="font-size: 0.92rem; color: #0f172a;">${m.name}</b>
+              <b style="font-size: 0.92rem; color: #0f172a;">${escapeHtml(m.name)}</b>
             </div>
-            <div style="display: flex; align-items: center; gap: 4px;">
+            <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
               <span style="display: inline-block; padding: 2px 7px; border-radius: 4px; font-weight: 800; font-size: 0.7rem; ${tierBadgeStyle}">
                 ${tierBadgeText}
               </span>
-              <span class="badge-crm" style="background: ${m.state === 'active' ? '#dcfce7' : (m.state === 'warning' ? '#fef3c7' : '#fee2e2')}; color: ${m.state === 'active' ? '#15803d' : (m.state === 'warning' ? '#92400e' : '#b91c1c')}; padding: 2px 7px; font-size: 0.7rem;">
-                ${m.state === 'active' ? '🟢' : (m.state === 'warning' ? '🟡' : '🔴')} ${m.label}
-              </span>
+              ${prog.isEligible ? `
+                <span style="background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; border: 1px solid #f59e0b; padding: 2px 7px; border-radius: 4px; font-weight: 800; font-size: 0.68rem; display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; animation: pulse 2s infinite;">
+                  🎉 Siap Naik ${prog.nextTierName}
+                </span>
+              ` : `
+                <span class="badge-crm" style="background: ${m.state === 'active' ? '#dcfce7' : (m.state === 'warning' ? '#fef3c7' : '#fee2e2')}; color: ${m.state === 'active' ? '#15803d' : (m.state === 'warning' ? '#92400e' : '#b91c1c')}; padding: 2px 7px; font-size: 0.7rem;">
+                  ${m.state === 'active' ? '🟢' : (m.state === 'warning' ? '🟡' : '🔴')} ${m.label}
+                </span>
+              `}
             </div>
           </div>
           <div style="font-size: 0.75rem; color: #64748b; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
@@ -12508,9 +12819,16 @@ function renderResellers() {
           </div>
         </td>
         <td data-label="Tingkat">
-          <span style="display: inline-block; padding: 4px 9px; border-radius: 4px; font-weight: 800; font-size: 0.72rem; ${tierBadgeStyle}">
-            ${tierBadgeText}
-          </span>
+          <div style="display: flex; flex-direction: column; gap: 3px;">
+            <span style="display: inline-block; padding: 4px 9px; border-radius: 4px; font-weight: 800; font-size: 0.72rem; ${tierBadgeStyle}">
+              ${tierBadgeText}
+            </span>
+            ${prog.isEligible ? `
+              <span style="color: #7c3aed; font-size: 0.68rem; font-weight: 800; white-space: nowrap;">
+                ➔ Naik ke ${prog.nextTierName}
+              </span>
+            ` : ''}
+          </div>
         </td>
         <td data-label="Rekening Bank">
           <div class="crm-td-cell-wrapper" style="display: flex; flex-direction: column; align-items: flex-end; text-align: right; min-width: 0;">
@@ -12533,7 +12851,7 @@ function renderResellers() {
               </div>
             ` : `
               <div style="font-size: 0.75rem; color: #334155; white-space: nowrap;">
-                Gabung: <b style="white-space: nowrap; font-family: monospace;">${m.qualificationDate || '-'}</b>
+                Bergabung: <b style="white-space: nowrap; font-family: monospace;">${m.qualificationDate || '-'}</b>
               </div>
               ${m.tier === 'reseller' ? `
                 <div style="font-size: 0.72rem; color: ${m.daysLeft <= 30 && m.state !== 'active' ? '#dc2626' : '#059669'}; font-weight: 800; margin-top: 2px; white-space: nowrap;">
@@ -12548,24 +12866,33 @@ function renderResellers() {
           </div>
         </td>
         <td data-label="Akumulasi Belanja">
-          <div class="crm-td-cell-wrapper" style="display: flex; flex-direction: column; align-items: flex-end; text-align: right; width: 100%; max-width: 200px; min-width: 140px;">
-            ${m.tier === 'marketer' ? `
-              <div style="font-size: 0.82rem; font-weight: 800; color: #0369a1; white-space: nowrap;">
-                ${formatRupiah(m.accumulatedSpent90Days || 0)}
+          <div class="crm-td-cell-wrapper" style="display: flex; flex-direction: column; align-items: flex-end; text-align: right; width: 100%; max-width: 210px; min-width: 140px;">
+            <div style="display: flex; justify-content: flex-end; align-items: baseline; font-size: 0.78rem; margin-bottom: 3px; gap: 6px; width: 100%; flex-wrap: wrap;">
+              <b style="color: #0f172a; font-size: 0.82rem; white-space: nowrap;">${formatRupiah(m.spent)}</b>
+              ${prog.hasNextTier ? `
+                <span style="color: #64748b; font-size: 0.68rem; white-space: nowrap;">Ke ${prog.nextTierName}: ${formatRupiah(prog.targetNominal)}</span>
+              ` : `
+                <span style="color: #64748b; font-size: 0.68rem; white-space: nowrap;">Target RO: ${formatRupiah(m.targetNominal)}</span>
+              `}
+            </div>
+
+            ${prog.hasNextTier ? `
+              <div style="background: #e2e8f0; border-radius: 999px; height: 6px; width: 100%; max-width: 150px; overflow: hidden; margin: 2px 0;">
+                <div style="width: ${prog.progressPct}%; height: 100%; background: ${prog.isEligible ? 'linear-gradient(90deg, #10b981, #8b5cf6)' : '#0284c7'}; border-radius: 999px;"></div>
               </div>
-              <div style="font-size: 0.7rem; color: #64748b; margin-top: 2px; white-space: nowrap;">
-                ${m.totalOrdersCount || 0} Pesanan Terjual
+              <div style="font-size: 0.68rem; margin-top: 2px; font-weight: 700; white-space: nowrap;">
+                ${prog.isEligible ? `
+                  <span style="color: #7c3aed; font-weight: 800;">🎉 Syarat Tembus! Siap Promosi</span>
+                ` : `
+                  <span style="color: #64748b;">Kurang ${formatRupiah(prog.deficit)} lagi</span>
+                `}
               </div>
             ` : `
-              <div style="display: flex; justify-content: flex-end; align-items: baseline; font-size: 0.78rem; margin-bottom: 3px; gap: 6px; width: 100%; flex-wrap: wrap;">
-                <b style="color: #0f172a; font-size: 0.82rem; white-space: nowrap;">${formatRupiah(m.spent)}</b>
-                <span style="color: #64748b; font-size: 0.68rem; white-space: nowrap;">Target: ${formatRupiah(m.targetNominal)}</span>
-              </div>
               <div style="background: #e2e8f0; border-radius: 999px; height: 6px; width: 100%; max-width: 150px; overflow: hidden; margin: 2px 0;">
-                <div style="width: ${progressPct}%; height: 100%; background: ${m.state === 'active' ? '#10b981' : (m.state === 'warning' ? '#f59e0b' : '#ef4444')}; border-radius: 999px;"></div>
+                <div style="width: ${Math.min(100, Math.round((m.spent / (m.targetNominal || 1)) * 100))}%; height: 100%; background: #10b981; border-radius: 999px;"></div>
               </div>
-              <div style="font-size: 0.68rem; color: ${m.deficit > 0 ? '#b45309' : '#059669'}; margin-top: 2px; font-weight: 700; white-space: nowrap;">
-                ${m.deficit > 0 ? `Kurang ${formatRupiah(m.deficit)}` : '✨ Target RO Tercapai!'}
+              <div style="font-size: 0.68rem; color: #059669; margin-top: 2px; font-weight: 700; white-space: nowrap;">
+                ✨ Mitra Tingkat Tertinggi
               </div>
             `}
           </div>
@@ -12576,12 +12903,18 @@ function renderResellers() {
           </span>
         </td>
         <td data-label="Aksi" style="text-align: center;">
-          <div style="display: flex; gap: 6px; justify-content: flex-end;">
-            ${m.tier === 'reseller' && m.deficit > 0 ? `
+          <div style="display: flex; gap: 5px; justify-content: flex-end; align-items: center; flex-wrap: wrap;">
+            ${prog.isEligible ? `
+              <button onclick="openUpgradeMitraModal('${m.id}')" title="Promosikan ke ${prog.nextTierName}" style="background: linear-gradient(135deg, #059669, #047857); color: #ffffff; border: 1px solid #10b981; padding: 5px 9px; border-radius: 6px; font-size: 0.72rem; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(5,150,105,0.3); white-space: nowrap;">
+                <span>⬆️</span> Naikkan
+              </button>
+            ` : ''}
+
+            ${m.tier === 'reseller' && m.deficit > 0 && !prog.isEligible ? `
               <button onclick="sendResellerReminderWA('${m.phone}', '${m.name}', ${m.daysLeft}, ${m.deficit})" title="Kirim Pengingat RO ke WhatsApp" style="background: #25d366; color: #fff; border: none; padding: 5px 9px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;">
                 <span>📲</span> Ingatkan RO
               </button>
-            ` : (m.tier === 'marketer' ? `
+            ` : (m.tier === 'marketer' && !prog.isEligible ? `
               <button onclick="goToMarketerPayroll('${m.id}')" title="Lihat Rekap Gaji Marketer" style="background: #0284c7; color: #fff; border: none; padding: 5px 9px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;">
                 <span>💼</span> Gaji
               </button>
@@ -12647,6 +12980,7 @@ function filterMitra(tierFilter) {
   appState.selectedMitraFilter = tierFilter;
   const chipIds = {
     'all': 'btnFilterAllMitra',
+    'eligible_upgrade': 'btnFilterEligibleUpgrade',
     'agen': 'btnFilterAgen',
     'sub_agen': 'btnFilterSubAgen',
     'reseller': 'btnFilterReseller',
@@ -12664,6 +12998,289 @@ function filterMitra(tierFilter) {
 
   renderResellers();
 }
+
+/**
+ * MODAL PROMOSI JENJANG KARIR MITRA & EKSEKUSI KENAIKAN TINGKAT
+ */
+function openUpgradeMitraModal(mitraId) {
+  const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  const mitra = (appState.mitraList || []).find(m => m.id === mitraId && (m.store_slug || 'sr12-central') === currentStoreSlug);
+  if (!mitra) return;
+
+  const prog = getMitraProgression(mitra);
+  if (!prog.hasNextTier) {
+    showToast('Mitra ini sudah berada di tingkatan tertinggi.');
+    return;
+  }
+
+  const modal = document.getElementById('modalUpgradeMitra');
+  const card = document.getElementById('upgradeMitraDetailCard');
+  const idInput = document.getElementById('upgradeNewMitraId');
+  const hiddenId = document.getElementById('upgradeTargetMitraId');
+  const hiddenTier = document.getElementById('upgradeTargetNextTier');
+  const keepOldCheckbox = document.getElementById('upgradeKeepOldIdCheckbox');
+
+  if (hiddenId) hiddenId.value = mitra.id;
+  if (hiddenTier) hiddenTier.value = prog.nextTier;
+  if (keepOldCheckbox) keepOldCheckbox.checked = false;
+
+  // Generate ID baru otomatis sesuai tingkatan berikutnya
+  const nextId = generateNextMitraId(prog.nextTier);
+  if (idInput) {
+    idInput.value = nextId;
+    idInput.dataset.newId = nextId;
+    idInput.dataset.oldId = mitra.id;
+    idInput.readOnly = false;
+    idInput.style.background = '#ffffff';
+  }
+
+  if (card) {
+    const curTierObj = SR12_TIERS[mitra.tier] || SR12_TIERS.reseller;
+    const nextTierObj = SR12_TIERS[prog.nextTier] || SR12_TIERS.reseller;
+
+    card.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px dashed #bbf7d0; padding-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+        <div>
+          <b style="font-size: 1.05rem; color: #065f46;">${escapeHtml(mitra.name)}</b>
+          <div style="font-size: 0.76rem; color: #64748b; font-family: monospace;">ID Saat Ini: <b>${mitra.id}</b> • 📱 ${mitra.phone}</div>
+        </div>
+        <span style="background: #dcfce7; color: #166534; border: 1px solid #86efac; padding: 3px 10px; border-radius: 999px; font-size: 0.74rem; font-weight: 800;">
+          🎉 Memenuhi Syarat
+        </span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; margin-bottom: 14px; text-align: center;">
+        <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px;">
+          <span style="font-size: 0.7rem; color: #64748b; display: block; font-weight: 700;">Tingkat Saat Ini</span>
+          <b style="font-size: 0.88rem; color: #1e293b; display: block; margin: 2px 0;">${curTierObj.name}</b>
+          <span style="font-size: 0.72rem; color: #0284c7; font-weight: 800;">${curTierObj.discountPct > 0 ? `Diskon ${curTierObj.discountPct}%` : 'Komisi 15%'}</span>
+        </div>
+        <span style="font-size: 1.4rem; color: #059669; font-weight: 900;">➔</span>
+        <div style="background: linear-gradient(135deg, #ecfdf5, #d1fae5); border: 1.5px solid #10b981; border-radius: 8px; padding: 10px;">
+          <span style="font-size: 0.7rem; color: #065f46; display: block; font-weight: 700;">Tingkat Baru</span>
+          <b style="font-size: 0.92rem; color: #064e3b; display: block; margin: 2px 0;">${nextTierObj.name}</b>
+          <span style="font-size: 0.72rem; color: #047857; font-weight: 800;">Diskon ${nextTierObj.discountPct}% Langsung</span>
+        </div>
+      </div>
+
+      <div style="background: #ffffff; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px; font-size: 0.78rem; color: #166534; line-height: 1.5;">
+        <div>📊 <b>Akumulasi Belanja Riil:</b> <span style="font-weight: 800; color: #0f172a;">${formatRupiah(prog.spent)}</span> (Syarat Minimal: ${formatRupiah(prog.targetNominal)})</div>
+        <div style="margin-top: 3px;">🎁 <b>Keuntungan Baru:</b> ${prog.benefitText}</div>
+      </div>
+    `;
+  }
+
+  if (modal) modal.classList.add('open');
+}
+window.openUpgradeMitraModal = openUpgradeMitraModal;
+
+function toggleUpgradeKeepOldId(keepOld) {
+  const idInput = document.getElementById('upgradeNewMitraId');
+  if (!idInput) return;
+  if (keepOld) {
+    idInput.value = idInput.dataset.oldId || idInput.value;
+    idInput.readOnly = true;
+    idInput.style.background = '#f1f5f9';
+  } else {
+    idInput.value = idInput.dataset.newId || idInput.value;
+    idInput.readOnly = false;
+    idInput.style.background = '#ffffff';
+  }
+}
+window.toggleUpgradeKeepOldId = toggleUpgradeKeepOldId;
+
+async function handleConfirmMitraUpgrade(e) {
+  if (e) e.preventDefault();
+  const hiddenId = document.getElementById('upgradeTargetMitraId');
+  const hiddenTier = document.getElementById('upgradeTargetNextTier');
+  const idInput = document.getElementById('upgradeNewMitraId');
+  const sendWaCheckbox = document.getElementById('upgradeSendWaCongrats');
+
+  const oldId = hiddenId ? hiddenId.value : '';
+  const newTier = hiddenTier ? hiddenTier.value : '';
+  const newId = (idInput ? idInput.value : oldId).trim().toUpperCase();
+  const willSendWA = sendWaCheckbox ? sendWaCheckbox.checked : true;
+
+  if (!oldId || !newTier) return;
+
+  const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  const mitra = (appState.mitraList || []).find(m => m.id === oldId && (m.store_slug || 'sr12-central') === currentStoreSlug);
+  if (!mitra) return;
+
+  const oldTier = mitra.tier;
+  const oldName = mitra.name;
+
+  // Jika kode ID berubah (misal dari MKT-001 ke RS-002), hapus kode ID lama di Supabase agar tidak tertinggal data usang
+  if (newId !== oldId && typeof deleteMitraFromSupabase === 'function') {
+    deleteMitraFromSupabase(oldId, currentStoreSlug);
+    if (typeof dbDeleteMitra === 'function') {
+      dbDeleteMitra(oldId);
+    }
+  }
+
+  // Update properti mitra
+  mitra.id = newId;
+  mitra.partner_code = newId;
+  mitra.tier = newTier;
+  mitra.qualificationDate = new Date().toISOString().split('T')[0];
+  mitra.lastOrderDate = new Date().toISOString().split('T')[0];
+  mitra.status = 'active';
+
+  // Simpan ke storage lokal & IndexedDB
+  saveStoredMitra(appState.mitraList, false);
+  if (typeof dbSaveMitra === 'function') {
+    dbSaveMitra(mitra);
+  }
+
+  // Simpan ke Supabase Cloud
+  if (typeof saveMitraToSupabase === 'function') {
+    saveMitraToSupabase(mitra, currentStoreSlug);
+  }
+
+  closeModal('modalUpgradeMitra');
+  renderResellers();
+  updateViewModeUI();
+
+  showToast(`🎉 Selamat! Mitra "${oldName}" resmi dipromosikan ke tingkat ${SR12_TIERS[newTier]?.name || newTier}!`);
+
+  if (willSendWA) {
+    sendMitraUpgradeCongratsWA(mitra, oldTier, newTier, newId);
+  }
+}
+window.handleConfirmMitraUpgrade = handleConfirmMitraUpgrade;
+
+function sendMitraUpgradeCongratsWA(mitra, oldTier, newTier, newId) {
+  if (!mitra || !mitra.phone) return;
+  const cleanPhone = mitra.phone.replace(/[^0-9]/g, '');
+  const waTarget = cleanPhone.startsWith('0') ? '62' + cleanPhone.slice(1) : (cleanPhone.startsWith('62') ? cleanPhone : '62' + cleanPhone);
+
+  const oldTierName = SR12_TIERS[oldTier]?.name || oldTier;
+  const newTierName = SR12_TIERS[newTier]?.name || newTier;
+  const newDiscount = SR12_TIERS[newTier]?.discountPct || 20;
+  const storeName = appState.storeSettings?.storeName || 'SR12 Partner Store';
+
+  const msg = `🎉 *SURAT KETERANGAN RESMI KENAIKAN TINGKAT MITRA SR12* 🎉\n\n` +
+    `Yth. Kak *${mitra.name}*,\n\n` +
+    `Alhamdulillah, atas dedikasi dan performa luar biasa Kakak dalam mencatatkan penjualan & akumulasi belanja yang melampaui target, per hari ini *${storeName}* secara resmi memutuskan:\n\n` +
+    `✨ *MENAIKKAN TINGKAT KEMITRAAN KAKAK:* ✨\n` +
+    `• Dari Jenjang    : *${oldTierName}*\n` +
+    `• Naik Menjadi    : *${newTierName.toUpperCase()}* 👑\n` +
+    `• ID Kemitraan Baru: *${newId}*\n` +
+    `• Hak Keuntungan  : *Diskon ${newDiscount}% Langsung Setiap Pembelian*\n` +
+    `• Tanggal Promosi : *${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}*\n\n` +
+    `Sekarang Kakak sudah bisa berbelanja langsung di website toko kami dengan memasukkan ID *${newId}* atau nomor WhatsApp Kakak untuk menikmati diskon resmi ${newDiscount}%!\n\n` +
+    `Terima kasih atas sinergi luar biasa bersama kami. Semoga bisnis herbal SR12 Kakak semakin berkah, laris manis, dan segera menembus tingkat berikutnya! Aamiin. 🤲🍃\n\n` +
+    `Salam Sukses,\n` +
+    `*Manajemen ${storeName}*`;
+
+  const waUrl = `https://wa.me/${waTarget}?text=${encodeURIComponent(msg)}`;
+  window.open(waUrl, '_blank');
+}
+window.sendMitraUpgradeCongratsWA = sendMitraUpgradeCongratsWA;
+
+function toggleAutoUpgradeMitraSetting(enabled) {
+  if (!appState.storeSettings) appState.storeSettings = {};
+  appState.storeSettings.autoTierUpgrade = !!enabled;
+  saveStoredStoreSettings(appState.storeSettings);
+  if (enabled) {
+    showToast('⚡ Mode Promosi Otomatis AKTIF: Mitra yang tembus target otomatis naik tingkat!');
+    checkAllMitraForAutoUpgrade();
+  } else {
+    showToast('Mode Promosi Otomatis NONAKTIF: Kenaikan tingkat mitra menunggu persetujuan manual 1-klik.');
+  }
+}
+window.toggleAutoUpgradeMitraSetting = toggleAutoUpgradeMitraSetting;
+
+function checkAllMitraForAutoUpgrade() {
+  if (!appState.storeSettings || !appState.storeSettings.autoTierUpgrade) return;
+  const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  let upgradedCount = 0;
+
+  (appState.mitraList || []).forEach(m => {
+    if ((m.store_slug || 'sr12-central') !== currentStoreSlug) return;
+    const prog = getMitraProgression(m);
+    if (prog.hasNextTier && prog.isEligible) {
+      const oldId = m.id;
+      const oldTier = m.tier;
+      const newTier = prog.nextTier;
+      const newId = generateNextMitraId(newTier);
+
+      if (newId !== oldId && typeof deleteMitraFromSupabase === 'function') {
+        deleteMitraFromSupabase(oldId, currentStoreSlug);
+        if (typeof dbDeleteMitra === 'function') {
+          dbDeleteMitra(oldId);
+        }
+      }
+
+      m.tier = newTier;
+      m.id = newId;
+      m.partner_code = newId;
+      m.qualificationDate = new Date().toISOString().split('T')[0];
+      m.lastOrderDate = new Date().toISOString().split('T')[0];
+      m.status = 'active';
+      if (typeof saveMitraToSupabase === 'function') {
+        saveMitraToSupabase(m, currentStoreSlug);
+      }
+      upgradedCount++;
+    }
+  });
+
+  if (upgradedCount > 0) {
+    saveStoredMitra(appState.mitraList, false);
+    renderResellers();
+    updateViewModeUI();
+    showToast(`⚡ ${upgradedCount} mitra otomatis dipromosikan ke tingkat berikutnya!`);
+  }
+}
+window.checkAllMitraForAutoUpgrade = checkAllMitraForAutoUpgrade;
+
+function checkAndAutoUpgradeMitraIfEnabled(mitra, storeSlug = null) {
+  if (!mitra || !appState.storeSettings || !appState.storeSettings.autoTierUpgrade) return;
+  const currentStoreSlug = storeSlug || (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  const prog = getMitraProgression(mitra);
+  if (prog.hasNextTier && prog.isEligible) {
+    const oldId = mitra.id;
+    const oldTier = mitra.tier;
+    const oldName = mitra.name;
+    const newTier = prog.nextTier;
+    const nextTierObj = SR12_TIERS[newTier];
+    const newId = generateNextMitraId(newTier);
+
+    if (newId !== oldId && typeof deleteMitraFromSupabase === 'function') {
+      deleteMitraFromSupabase(oldId, currentStoreSlug);
+      if (typeof dbDeleteMitra === 'function') {
+        dbDeleteMitra(oldId);
+      }
+    }
+
+    mitra.id = newId;
+    mitra.partner_code = newId;
+    mitra.tier = newTier;
+    mitra.qualificationDate = new Date().toISOString().split('T')[0];
+    mitra.lastOrderDate = new Date().toISOString().split('T')[0];
+    mitra.status = 'active';
+
+    saveStoredMitra(appState.mitraList, false);
+    if (typeof dbSaveMitra === 'function') {
+      dbSaveMitra(mitra);
+    }
+    if (typeof saveMitraToSupabase === 'function') {
+      saveMitraToSupabase(mitra, currentStoreSlug);
+    }
+
+    if (typeof renderResellers === 'function') {
+      renderResellers();
+    }
+    if (typeof updateViewModeUI === 'function') {
+      updateViewModeUI();
+    }
+
+    if (typeof showToast === 'function') {
+      showToast(`⚡ AUTO-UPGRADE: Mitra "${oldName}" otomatis dipromosikan menjadi ${nextTierObj?.name || newTier}!`);
+    }
+  }
+}
+window.checkAndAutoUpgradeMitraIfEnabled = checkAndAutoUpgradeMitraIfEnabled;
 
 function filterResellers(filterType) {
   filterMitra(filterType);
@@ -12759,7 +13376,7 @@ function handleAddMitraSubmit(e) {
 
   appState.mitraList.unshift(newMitra);
   appState.resellers = appState.mitraList.filter(m => (m.store_slug || 'sr12-central') === currentStoreSlug);
-  saveStoredMitra(appState.mitraList);
+  saveStoredMitra(appState.mitraList, false); // Mencegah double call ke Supabase
   if (typeof saveMitraToSupabase === 'function') {
     saveMitraToSupabase(newMitra, currentStoreSlug);
   }
@@ -13789,7 +14406,13 @@ function handleAddMarketerSaleSubmit(e) {
     marketer.accumulatedSpent90Days = (marketer.accumulatedSpent90Days || 0) + omsetHet;
     marketer.totalOrdersCount = (marketer.totalOrdersCount || 0) + 1;
     marketer.lastOrderDate = orderDate;
+    if (typeof checkAndAutoUpgradeMitraIfEnabled === 'function') {
+      checkAndAutoUpgradeMitraIfEnabled(marketer, currentStoreSlug);
+    }
     saveStoredMitra(appState.mitraList);
+    if (typeof saveMitraToSupabase === 'function') {
+      saveMitraToSupabase(marketer, currentStoreSlug);
+    }
   }
 
   closeModal('modalAddMarketerSale');

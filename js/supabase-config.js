@@ -649,18 +649,18 @@ async function syncMitraFromSupabase(storeSlug = null) {
     const targetSlug = storeSlug || (typeof appState !== 'undefined' ? appState.currentStoreSlug : 'sr12-central');
     const token = getActiveSessionToken(targetSlug);
 
-    // 1. Prioritas Utama: Eksekusi PostgreSQL Stored Procedure Terotentikasi (rpc_get_store_downlines)
-    // Server memverifikasi token sesi toko di auth_sessions, menolak akses jika bukan pemilik sah
-    if (token) {
-      try {
-        const { data: rpcMitra, error: rpcErr } = await client.rpc('rpc_get_store_downlines', {
-          p_slug: targetSlug,
-          p_token: token
-        });
-        if (!rpcErr && Array.isArray(rpcMitra)) {
-          return rpcMitra.map(row => ({
+    const dedupMitraList = (rawRows) => {
+      if (!Array.isArray(rawRows)) return [];
+      const map = new Map();
+      rawRows.forEach(row => {
+        const pCode = String(row.partner_code || row.id || '').trim().toUpperCase();
+        const sSlug = String(row.store_slug || targetSlug).trim();
+        const compKey = `${sSlug}_${pCode}`;
+        if (!map.has(compKey)) {
+          map.set(compKey, {
             id: row.partner_code || row.id,
-            store_slug: row.store_slug || '',
+            partner_code: row.partner_code || row.id,
+            store_slug: row.store_slug || sSlug,
             name: row.name,
             phone: row.phone,
             city: row.city || '',
@@ -673,7 +673,22 @@ async function syncMitraFromSupabase(storeSlug = null) {
             accumulatedSpent90Days: Number(row.accumulated_spent_90_days) || 0,
             totalOrdersCount: Number(row.total_orders_count) || 0,
             status: row.status || 'active'
-          }));
+          });
+        }
+      });
+      return Array.from(map.values());
+    };
+
+    // 1. Prioritas Utama: Eksekusi PostgreSQL Stored Procedure Terotentikasi (rpc_get_store_downlines)
+    // Server memverifikasi token sesi toko di auth_sessions, menolak akses jika bukan pemilik sah
+    if (token) {
+      try {
+        const { data: rpcMitra, error: rpcErr } = await client.rpc('rpc_get_store_downlines', {
+          p_slug: targetSlug,
+          p_token: token
+        });
+        if (!rpcErr && Array.isArray(rpcMitra)) {
+          return dedupMitraList(rpcMitra);
         } else if (rpcErr) {
           console.warn('RPC rpc_get_store_downlines notice:', rpcErr.message || rpcErr);
         }
@@ -691,22 +706,7 @@ async function syncMitraFromSupabase(storeSlug = null) {
     if (error) {
       return null;
     }
-    return (data || []).map(row => ({
-      id: row.partner_code || row.id,
-      store_slug: row.store_slug || '',
-      name: row.name,
-      phone: row.phone,
-      city: row.city || '',
-      tier: row.tier || 'reseller',
-      bankName: row.bank_name || 'BCA',
-      bankAccount: row.bank_account || '-',
-      bankHolder: row.bank_holder || row.name,
-      qualificationDate: row.qualification_date || row.created_at,
-      lastOrderDate: row.last_order_date || row.created_at,
-      accumulatedSpent90Days: Number(row.accumulated_spent_90_days) || 0,
-      totalOrdersCount: Number(row.total_orders_count) || 0,
-      status: row.status || 'active'
-    }));
+    return dedupMitraList(data || []);
   } catch (e) {
     console.warn('Exception in syncMitraFromSupabase:', e);
     return null;

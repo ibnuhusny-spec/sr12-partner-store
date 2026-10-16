@@ -191,6 +191,7 @@ CREATE TABLE IF NOT EXISTS platform_ledger (
 CREATE INDEX IF NOT EXISTS idx_stores_slug ON stores(slug);
 CREATE INDEX IF NOT EXISTS idx_pending_stores_slug ON pending_stores(slug);
 CREATE INDEX IF NOT EXISTS idx_mitra_store_slug ON mitra_downlines(store_slug);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_mitra_store_partner_unique ON mitra_downlines(store_slug, UPPER(partner_code));
 CREATE INDEX IF NOT EXISTS idx_marketer_sales_store_month ON marketer_sales(store_slug, month_period);
 CREATE INDEX IF NOT EXISTS idx_orders_store_slug ON orders(store_slug);
 CREATE INDEX IF NOT EXISTS idx_products_store_slug ON products(store_slug);

@@ -7878,6 +7878,32 @@ body.olsera-portal-active #olseraAppNavbar {
   display: none !important;
 }
 
+@media (max-width: 640px) {
+  #modalAdminOrders {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+  #modalAdminOrders .modal-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 8px auto !important;
+    border-radius: 16px !important;
+  }
+  #modalAdminOrders .modal-header {
+    padding: 12px 14px !important;
+  }
+  .modal-orders-action-group {
+    gap: 4px !important;
+    padding-right: 0 !important;
+    margin-left: 4px !important;
+  }
+  .modal-orders-action-group button {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 0.85rem !important;
+  }
+}
+
 /* Fullscreen In-App Document Viewer */
 #modalDocFullscreenViewer.open {
   display: flex !important;
