@@ -92,7 +92,8 @@ const SR12_CAREER_PATH = {
     currentTierName: 'Marketer (15%)',
     nextTier: 'reseller',
     nextTierName: 'Reseller Resmi',
-    targetNominal: 400000, // Minimal belanja First Order Net (Rp 400.000 / Rp 500.000 HET)
+    targetNominal: 500000, // Minimal omset penjualan First Order HET (Rp 500.000 HET setara Net Rp 400.000)
+    targetNominalNet: 400000,
     targetNominalHet: 500000,
     targetOmsetMitra: 800000, // Jalur omset mitra: Rp 800.000 (omset pribadi min Rp 300.000/bln selama 3 bulan)
     minPcs: 3,

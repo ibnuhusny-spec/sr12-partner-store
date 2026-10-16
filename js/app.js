@@ -1208,27 +1208,17 @@ async function syncMitraWithIndexedDB() {
       const targetSlug = appState.isDevMasterLoggedIn ? 'all' : curSlug;
       const cloudMitra = await syncMitraFromSupabase(targetSlug);
       if (cloudMitra && cloudMitra.length > 0) {
-        // Gabungkan dengan key unik komposit: (store_slug + '_' + id) agar tidak saling menimpa antar toko
-        const curMap = new Map();
-        (appState.mitraList || []).forEach(m => {
-          const compKey = `${m.store_slug || 'sr12-central'}_${(m.id || '').toUpperCase()}`;
-          curMap.set(compKey, m);
-        });
-        let cloudAdded = false;
-        cloudMitra.forEach(cm => {
-          const compKey = `${cm.store_slug || 'sr12-central'}_${(cm.id || '').toUpperCase()}`;
-          const existing = curMap.get(compKey);
-          curMap.set(compKey, Object.assign({}, existing || {}, cm));
-          cloudAdded = true;
-        });
-        if (cloudAdded) {
-          appState.mitraList = Array.from(curMap.values());
-          appState.resellers = appState.mitraList.filter(m => (m.store_slug || 'sr12-central') === curSlug);
-          saveStoredMitra(appState.mitraList, false);
-          if (typeof renderResellers === 'function') renderResellers();
-          if (typeof updateViewModeUI === 'function') updateViewModeUI();
-          if (typeof updateDevPortalMetrics === 'function') updateDevPortalMetrics();
+        if (targetSlug !== 'all' && targetSlug !== 'global') {
+          const otherStoreMitra = (appState.mitraList || []).filter(m => (m.store_slug || 'sr12-central') !== curSlug);
+          appState.mitraList = [...otherStoreMitra, ...cloudMitra];
+        } else {
+          appState.mitraList = cloudMitra;
         }
+        appState.resellers = appState.mitraList.filter(m => (m.store_slug || 'sr12-central') === curSlug);
+        saveStoredMitra(appState.mitraList, false);
+        if (typeof renderResellers === 'function') renderResellers();
+        if (typeof updateViewModeUI === 'function') updateViewModeUI();
+        if (typeof updateDevPortalMetrics === 'function') updateDevPortalMetrics();
       }
     }
   } catch (err) {
@@ -5210,18 +5200,12 @@ async function loadStoreDataFromBackend(slug) {
     if (typeof syncMitraFromSupabase === 'function') {
       const cloudMitra = await syncMitraFromSupabase(targetSlug);
       if (Array.isArray(cloudMitra) && cloudMitra.length > 0) {
-        // Gabungkan secara cerdas & deduplikasi ketat
-        const curMap = new Map();
-        (appState.mitraList || []).forEach(m => {
-          const compKey = `${m.store_slug || targetSlug}_${(m.id || '').toUpperCase()}`;
-          curMap.set(compKey, m);
-        });
-        cloudMitra.forEach(cm => {
-          const compKey = `${cm.store_slug || targetSlug}_${(cm.id || '').toUpperCase()}`;
-          const existing = curMap.get(compKey);
-          curMap.set(compKey, Object.assign({}, existing || {}, cm));
-        });
-        appState.mitraList = Array.from(curMap.values());
+        if (targetSlug && targetSlug !== 'all' && targetSlug !== 'global') {
+          const otherStoreMitra = (appState.mitraList || []).filter(m => (m.store_slug || 'sr12-central') !== targetSlug);
+          appState.mitraList = [...otherStoreMitra, ...cloudMitra];
+        } else {
+          appState.mitraList = cloudMitra;
+        }
         appState.resellers = appState.mitraList.filter(m => (m.store_slug || targetSlug) === targetSlug);
         saveStoredMitra(appState.mitraList, false);
         if (typeof renderResellers === 'function') renderResellers();
@@ -12458,18 +12442,41 @@ function findMitraByIdOrPhone(query, targetStoreSlug = null) {
 
 function generateNextMitraId(tier) {
   const currentSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
-  const list = (appState.mitraList || []).filter(m => (m.store_slug || 'sr12-central') === currentSlug);
   const prefix = tier === 'agen' ? 'AG' : (tier === 'sub_agen' ? 'SUB' : (tier === 'marketer' ? 'MKT' : 'RS'));
   let maxNum = 0;
-  list.forEach(m => {
-    const rawId = String(m.id || m.partner_code || '').trim().toUpperCase();
-    if (rawId.startsWith(prefix + '-')) {
-      const numPart = parseInt(rawId.replace(prefix + '-', ''), 10);
+
+  const testIdCandidate = (rawId) => {
+    if (!rawId) return;
+    const clean = String(rawId).trim().toUpperCase();
+    if (clean.startsWith(prefix + '-')) {
+      const numPart = parseInt(clean.replace(prefix + '-', ''), 10);
       if (!isNaN(numPart) && numPart > maxNum) {
         maxNum = numPart;
       }
     }
+  };
+
+  // 1. Scan semua mitra toko aktif dan seluruh riwayat mitra
+  (appState.mitraList || []).forEach(m => {
+    testIdCandidate(m.id);
+    testIdCandidate(m.partner_code);
+    if (Array.isArray(m.previousIds)) {
+      m.previousIds.forEach(testIdCandidate);
+    }
   });
+
+  // 2. Scan semua riwayat transaksi toko agar kode lawas tidak pernah dipakai ulang
+  (appState.transactions || []).forEach(t => {
+    testIdCandidate(t.resellerId);
+    testIdCandidate(t.marketerId);
+    testIdCandidate(t.customerPhone);
+  });
+
+  // 3. Scan semua penjualan marketer
+  (appState.marketerSales || []).forEach(s => {
+    testIdCandidate(s.marketerId);
+  });
+
   return `${prefix}-${String(maxNum + 1).padStart(3, '0')}`;
 }
 
@@ -12699,11 +12706,24 @@ function renderResellers() {
         const tName = String(t.customerName || '').trim().toLowerCase();
         const tLabel = String(t.tierLabel || '').toLowerCase();
 
-        const isExactId = (tResellerId && (tResellerId === mCleanId || tResellerId === String(m.id).toUpperCase()));
+        // VALIDASI KEPEMILIKAN KETAT: Jika transaksi ini secara jelas milik mitra binaan lain, abaikan
+        const belongsToOtherMitra = storeMitraList.some(other => {
+          if (other === m) return false;
+          const oPhone = String(other.phone || '').replace(/[^0-9]/g, '');
+          const oName = String(other.name || '').trim().toLowerCase();
+          const oCleanId = String(other.id || other.partner_code || '').trim().toUpperCase();
+          if (oPhone && oPhone.length >= 8 && tPhoneDigits && (tPhoneDigits === oPhone || tPhoneDigits.endsWith(oPhone.slice(-8)) || oPhone.endsWith(tPhoneDigits.slice(-8)))) return true;
+          if (oName && tName && (tName === oName || (tName.length >= 4 && oName.includes(tName)))) return true;
+          if (oCleanId && tResellerId && tResellerId === oCleanId) return true;
+          return false;
+        });
+        if (belongsToOtherMitra) return;
+
+        const isExactId = (tResellerId && (tResellerId === mCleanId || tResellerId === String(m.id).toUpperCase() || (m.previousIds && m.previousIds.includes(tResellerId))));
         const isCodePhone = (tPhoneRaw === mCleanId || tPhoneRaw === String(m.id).toUpperCase());
-        const isExactPhoneTier = (t.tier === m.tier && mPhoneClean.length >= 8 && tPhoneDigits.length >= 8 && (tPhoneDigits === mPhoneClean || tPhoneDigits.endsWith(mPhoneClean.slice(-8)) || mPhoneClean.endsWith(tPhoneDigits.slice(-8))));
-        const isExactNameTier = (t.tier === m.tier && tName && (tName === mNameClean || mNameClean.includes(tName)));
-        const isLabelMatch = (t.tier === m.tier && (tLabel.includes(mCleanId.toLowerCase()) || (mNameClean && tLabel.includes(mNameClean))));
+        const isExactPhoneTier = (mPhoneClean.length >= 8 && tPhoneDigits.length >= 8 && (tPhoneDigits === mPhoneClean || tPhoneDigits.endsWith(mPhoneClean.slice(-8)) || mPhoneClean.endsWith(tPhoneDigits.slice(-8))));
+        const isExactNameTier = (tName && (tName === mNameClean || mNameClean.includes(tName) || tName.includes(mNameClean)));
+        const isLabelMatch = (tLabel.includes(mCleanId.toLowerCase()) || (mNameClean && tLabel.includes(mNameClean)));
 
         if ((isExactId || isCodePhone || isExactPhoneTier || isExactNameTier || isLabelMatch) && !seenIds.has(tid)) {
           seenIds.add(tid);
@@ -12719,9 +12739,11 @@ function renderResellers() {
     const dynamicTotalAmount = mOrders.reduce((sum, o) => sum + o.amount, 0);
     const dynamicOrdersCount = mOrders.length;
 
-    // Nilai riil transaksi aktual adalah sumber kebenaran (source of truth)
-    const effectiveSpent = dynamicTotalAmount;
-    const effectiveCount = dynamicOrdersCount;
+    // Nilai riil transaksi aktual adalah sumber kebenaran (source of truth). Jika pesanan belum termuat di memori, gunakan saldo tersimpan resmi dari database cloud
+    const serverSpent = Number(m.accumulatedSpent90Days || m.accumulated_spent_90_days) || 0;
+    const serverCount = Number(m.totalOrdersCount || m.total_orders_count) || 0;
+    const effectiveSpent = (dynamicTotalAmount > 0 || mOrders.length > 0) ? dynamicTotalAmount : serverSpent;
+    const effectiveCount = (dynamicOrdersCount > 0 || mOrders.length > 0) ? dynamicOrdersCount : serverCount;
 
     m.accumulatedSpent90Days = effectiveSpent;
     m.totalOrdersCount = effectiveCount;
