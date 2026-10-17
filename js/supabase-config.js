@@ -239,6 +239,14 @@ async function deleteStoreFromSupabase(slug) {
 
     // 2. Fallback Penghapusan Langsung dari seluruh tabel relasi
     try {
+      await client.from('stores').update({
+        slug: 'deleted_' + slug + '_' + Date.now(),
+        store_tagline: '__deleted__',
+        store_name: '__deleted__'
+      }).eq('slug', slug);
+    } catch(upErr) {}
+
+    try {
       await client.from('stores').delete().eq('slug', slug);
     } catch(sErr) {
       console.warn('Supabase delete store fallback warning:', sErr);

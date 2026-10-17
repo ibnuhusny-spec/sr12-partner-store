@@ -1963,15 +1963,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     localStorage.setItem('sr12_clean_sim_reset_v7_1', 'ready');
   }
 
-  // Sesi Simulasi Bersih Baru: hanya bersihkan jika belum pernah diinisialisasi DAN belum ada toko buatan user
-  if (localStorage.getItem('sr12_clean_slate_sim_v5') !== 'ready') {
-    const customStores = getStoredPartnerStores().filter(s => s.slug !== 'sr12-central');
-    if (customStores.length === 0) {
-      clearAllDummyData(true);
-    }
-    localStorage.setItem('sr12_clean_slate_sim_v5', 'ready');
+  // PEMBERSIHAN TOTAL UNTUK PRODUKSI PROFESIONAL RESMI (Clean Slate):
+  if (localStorage.getItem('sr12_clean_slate_production_v1') !== 'ready') {
+    const freshCentral = Object.assign({}, DEFAULT_PARTNER_STORES[0]);
+    appState.partnerStores = [freshCentral];
+    saveStoredPartnerStores([freshCentral]);
+    localStorage.removeItem('sr12_pending_store_apps_v2');
+    appState.pendingStoreApps = [];
+    localStorage.removeItem('sr12_deleted_store_slugs');
+    localStorage.removeItem('sr12_pos_transactions_v1');
+    localStorage.removeItem('sr12_customer_orders');
+    localStorage.removeItem('sr12_cashflow_records_v1');
+    localStorage.removeItem('sr12_stock_mutations_v1');
+    localStorage.removeItem('sr12_distributor_session');
+    localStorage.removeItem('sr12_active_cashier_shift_v1');
+    appState.transactions = [];
+    appState.cashflow = [];
+    appState.cart = [];
+    appState.posCart = [];
+    appState.mitraList = [];
+    appState.resellers = [];
+    localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify([]));
+    localStorage.setItem('sr12_resellers_v2', JSON.stringify([]));
+    localStorage.setItem('sr12_distributor_mitra_v2', JSON.stringify([]));
+    localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify([]));
+    localStorage.setItem('sr12_clean_slate_production_v1', 'ready');
   }
-  appState.partnerStores = getStoredPartnerStores().filter(s => s && s.slug && s.slug !== 'toko-supa-distributor' && !s.slug.startsWith('deleted_') && !s.slug.includes('toko-supa'));
+  appState.partnerStores = getStoredPartnerStores().filter(s => s && s.slug && s.slug !== 'toko-supa-distributor' && !s.slug.startsWith('deleted_') && !s.slug.includes('toko-supa') && s.slug !== 'simulasi-distributor');
   saveStoredPartnerStores(appState.partnerStores);
 
   // Bersihkan data mitra jaringan milik toko yang sudah dihapus sebelumnya
@@ -5002,7 +5020,7 @@ async function handleDistributorLoginSubmit(e) {
   if (!password) {
     if (err) {
       err.style.display = 'block';
-      err.textContent = '❌ Masukkan Password Toko atau PIN Toko (Default: 1234)!';
+      err.textContent = '❌ Masukkan Password Toko atau PIN Toko!';
     }
     return;
   }
@@ -5064,12 +5082,12 @@ async function handleDistributorLoginSubmit(e) {
     if (failInfo.isLocked) {
       if (err) {
         err.style.display = 'block';
-        err.innerHTML = '❌ Akses dibekukan 60 detik. Gunakan PIN Toko standar (Default: <b>1234</b>) untuk masuk.';
+        err.innerHTML = '❌ Akses dibekukan 60 detik karena beberapa kali salah password. Silakan coba kembali nanti atau gunakan menu bantuan pemulihan akses.';
       }
     } else {
       if (err) {
         err.style.display = 'block';
-        err.textContent = `❌ Password atau PIN salah! Gunakan PIN Toko (Default: 1234) atau Password terdaftar. (Sisa: ${5 - failInfo.fails})`;
+        err.textContent = `❌ Password atau PIN salah! Periksa kembali password atau PIN toko Anda. (Sisa: ${5 - failInfo.fails})`;
       }
     }
   }
@@ -6258,7 +6276,7 @@ async function verifyDevPinSubmit(e) {
   if (!password) {
     if (pinError) {
       pinError.style.display = 'block';
-      pinError.textContent = '❌ Masukkan Password Master Developer atau Master PIN (8899)!';
+      pinError.textContent = '❌ Masukkan Password Master Developer atau Master PIN!';
     }
     return;
   }
@@ -6317,12 +6335,12 @@ async function verifyDevPinSubmit(e) {
     if (failInfo.isLocked) {
       if (pinError) {
         pinError.style.display = 'block';
-        pinError.innerHTML = '❌ Akses dibekukan 60 detik karena salah password. Gunakan Master PIN: <b>8899</b> untuk masuk darurat.';
+        pinError.innerHTML = '❌ Akses dibekukan 60 detik karena beberapa kali salah password. Silakan coba kembali beberapa saat lagi.';
       }
     } else {
       if (pinError) {
         pinError.style.display = 'block';
-        pinError.textContent = `❌ Password Master salah! Gunakan Master PIN (Default: 8899) atau Password Cloud Anda. (Sisa: ${5 - failInfo.fails})`;
+        pinError.textContent = `❌ Password Master salah! Periksa kembali Password atau Master PIN Anda. (Sisa: ${5 - failInfo.fails})`;
       }
     }
   }
@@ -16085,9 +16103,9 @@ function handleVerifyAndResetStorePin() {
   if (passInput) passInput.value = '1234';
 
   if (typeof showToast === 'function') {
-    showToast('✅ Nomor WhatsApp terverifikasi! PIN Toko telah dipulihkan ke PIN Default: 1234. Silakan login.');
+    showToast('✅ Nomor WhatsApp terverifikasi! Akses login toko Anda telah dipulihkan. Silakan masuk.');
   } else {
-    alert('✅ Nomor WhatsApp terverifikasi!\n\nPIN Toko Anda telah berhasil dipulihkan ke PIN Default: 1234.\nSilakan masuk menggunakan PIN 1234.');
+    alert('✅ Nomor WhatsApp terverifikasi!\n\nAkses login toko Anda telah berhasil dipulihkan. Silakan masuk ke dashboard.');
   }
 }
 window.handleVerifyAndResetStorePin = handleVerifyAndResetStorePin;
@@ -16151,12 +16169,12 @@ function useEmergencyMasterDevPin() {
       showDeveloperWorkspaceView(true);
     }
     if (typeof showToast === 'function') {
-      showToast('🔓 Akses Developer Berhasil Dipulihkan via Master Emergency Key (8899)!');
+      showToast('🔓 Akses Developer Berhasil Dipulihkan!');
     }
   } else {
     if (err) {
       err.style.display = 'block';
-      err.textContent = '❌ Master Emergency Key salah! Gunakan key resmi 8899 atau hubungi WhatsApp Technical Lead.';
+      err.textContent = '❌ Master Emergency Key salah! Hubungi WhatsApp Technical Lead jika Anda lupa key resmi.';
     }
   }
 }

@@ -1181,7 +1181,7 @@
     </div>
 
     <div class="dev-nav-actions" style="display: flex; align-items: center; gap: 8px;">
-      <span id="devConsoleMasterPin" style="display: none;">8899</span>
+      <span id="devConsoleMasterPin" style="display: none;">••••</span>
       <button type="button" class="btn-dev-nav-link" id="devNavPendingBtn" onclick="switchDevPortalTab('pending')" style="display: none; background: #78350f; color: #fde68a; border: 1px solid #f59e0b; padding: 6px 12px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer; align-items: center; gap: 5px;" title="Pengajuan Toko Baru">
         <span>⏳</span><span class="desktop-only-label"> Pengajuan</span> <b id="devNavPendingBadge" style="background: #ef4444; color: #fff; padding: 1px 6px; border-radius: 999px; font-size: 0.68rem;">0</b>
       </button>
@@ -3798,10 +3798,10 @@
 
           <div style="margin-bottom: 14px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-              <label style="font-size: 0.76rem; font-weight: 700; color: var(--dark-800); margin: 0;">Password / PIN Toko (Default PIN: 1234):</label>
+              <label style="font-size: 0.76rem; font-weight: 700; color: var(--dark-800); margin: 0;">Password / PIN Toko:</label>
             </div>
             <div style="position: relative; display: flex; align-items: center;">
-              <input type="password" id="distributorLoginPassword" placeholder="Masukkan password toko atau PIN 1234..." required autocomplete="current-password" style="width: 100%; padding: 11px 42px 11px 12px; border: 1.5px solid #10b981; border-radius: var(--radius-sm); font-size: 0.95rem; font-weight: 600;">
+              <input type="password" id="distributorLoginPassword" placeholder="Masukkan password toko atau PIN keamanan..." required autocomplete="current-password" style="width: 100%; padding: 11px 42px 11px 12px; border: 1.5px solid #10b981; border-radius: var(--radius-sm); font-size: 0.95rem; font-weight: 600;">
               <button type="button" onclick="togglePinVisibility('distributorLoginPassword', this)" style="position: absolute; right: 10px; background: none; border: none; color: #64748b; cursor: pointer; font-size: 1rem; padding: 4px;" title="Lihat/Sembunyikan Password">👁️</button>
             </div>
             <div id="distributorLoginError" style="display: none; color: #ef4444; font-size: 0.78rem; margin-top: 6px; font-weight: 600; padding: 6px 10px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px;"></div>
@@ -3810,7 +3810,7 @@
           <!-- Secure Cloud Notice -->
           <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 9px 12px; font-size: 0.74rem; color: #475569; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
             <span style="font-size: 1rem;">🛡️</span>
-            <div>Bisa masuk langsung dengan <b>PIN Toko (Default: 1234)</b> atau Password Cloud terdaftar.</div>
+            <div>Masuk menggunakan <b>PIN Toko</b> atau Password Akun terdaftar.</div>
           </div>
 
           <div style="display: flex; gap: 10px;">
@@ -3918,7 +3918,7 @@
 
         <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 16px;">
           <button type="button" id="btnVerifyStoreWa" onclick="handleVerifyAndResetStorePin()" style="background: #059669; color: #fff; border: none; padding: 12px; border-radius: 8px; font-weight: 800; font-size: 0.88rem; cursor: pointer; box-shadow: 0 4px 12px rgba(5,150,105,0.3);">
-            ⚡ Verifikasi &amp; Pulihkan ke PIN Default (1234)
+            ⚡ Verifikasi &amp; Pulihkan Akses Toko
           </button>
           <button type="button" onclick="sendStorePinResetRequestToDevWA()" style="background: #25d366; color: #fff; border: none; padding: 10px; border-radius: 8px; font-weight: 700; font-size: 0.82rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
             <span>💬</span> Bantuan Reset via WhatsApp Developer Pusat
@@ -3971,10 +3971,10 @@
 
           <div style="margin-bottom: 14px;">
             <label style="font-size: 0.78rem; font-weight: 700; color: #e2e8f0; display: block; margin-bottom: 4px;">
-              Password Master Developer / PIN (Default PIN: 8899):
+              Password Master Developer / PIN:
             </label>
             <div style="position: relative; display: flex; align-items: center;">
-              <input type="password" id="devLoginPassword" placeholder="Masukkan password master atau PIN 8899..." required autocomplete="current-password" style="width: 100%; padding: 11px 42px 11px 12px; background: #1e293b; border: 1px solid #0284c7; border-radius: var(--radius-sm); color: #fff; font-size: 0.95rem; font-weight: 600;">
+              <input type="password" id="devLoginPassword" placeholder="Masukkan password master atau PIN..." required autocomplete="current-password" style="width: 100%; padding: 11px 42px 11px 12px; background: #1e293b; border: 1px solid #0284c7; border-radius: var(--radius-sm); color: #fff; font-size: 0.95rem; font-weight: 600;">
               <button type="button" onclick="togglePinVisibility('devLoginPassword', this)" style="position: absolute; right: 10px; background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1rem; padding: 4px;" title="Lihat/Sembunyikan Password">👁️</button>
             </div>
             <div id="devPinError" style="display: none; color: #f87171; font-size: 0.78rem; margin-top: 6px; font-weight: 600; padding: 6px 10px; background: rgba(239,68,68,0.15); border: 1px solid #ef4444; border-radius: 6px;"></div>
@@ -3982,7 +3982,7 @@
 
           <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; padding: 9px 12px; font-size: 0.74rem; color: #bae6fd; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
             <span style="font-size: 1rem;">🛡️</span>
-            <div>Bisa masuk langsung dengan <b>Master PIN Developer (Default: 8899)</b> atau Password Cloud terdaftar.</div>
+            <div>Autentikasi aman menggunakan <b>Master PIN Developer</b> atau Password Akun terdaftar.</div>
           </div>
 
           <div style="display: flex; gap: 10px;">
@@ -4064,15 +4064,15 @@
       <div class="modal-body" style="padding: 22px;">
         <div style="background: rgba(2, 132, 199, 0.12); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; font-size: 0.82rem; color: #bae6fd; line-height: 1.5;">
           <b>Kunci Pemulihan Darurat Sistem (Safety Net):</b>
-          <br>Developer Console dilengkapi Master Emergency Bypass Key <b><code>8899</code></b> yang selalu aktif untuk mencegah pengembang terkunci di sistem sendiri.
+          <br>Developer Console dilengkapi Master Emergency Key khusus untuk pemulihan akses pengembang resmi.
         </div>
 
         <div style="margin-bottom: 16px;">
           <label style="font-size: 0.78rem; font-weight: 700; color: #e2e8f0; display: block; margin-bottom: 6px;">
-            Masukkan Master Emergency Key (Default: 8899):
+            Masukkan Master Emergency Key:
           </label>
           <div style="position: relative; display: flex; align-items: center;">
-            <input type="password" id="devEmergencyKeyInput" placeholder="Ketik 8899..." maxlength="16" style="width: 100%; padding: 11px 40px 11px 12px; background: #1e293b; border: 1.5px solid #0284c7; border-radius: 8px; color: #fff; font-size: 1rem; letter-spacing: 2px; font-family: monospace;">
+            <input type="password" id="devEmergencyKeyInput" placeholder="Ketik Master Emergency Key..." maxlength="16" style="width: 100%; padding: 11px 40px 11px 12px; background: #1e293b; border: 1.5px solid #0284c7; border-radius: 8px; color: #fff; font-size: 1rem; letter-spacing: 2px; font-family: monospace;">
             <button type="button" onclick="togglePinVisibility('devEmergencyKeyInput', this)" style="position: absolute; right: 10px; background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1rem; padding: 4px;">👁️</button>
           </div>
           <div id="devEmergencyError" style="display: none; color: #f87171; font-size: 0.78rem; margin-top: 6px; font-weight: 600; padding: 6px 10px; background: rgba(239,68,68,0.15); border: 1px solid #ef4444; border-radius: 6px;"></div>
@@ -5316,9 +5316,9 @@
   <!-- SCRIPTS -->
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=12.0"></script>
-  <script src="js/data.js?v=12.0"></script>
-  <script src="js/app.js?v=12.0"></script>
-  <script src="js/olsera-suite.js?v=12.0"></script>
+  <script src="js/supabase-config.js?v=13.0"></script>
+  <script src="js/data.js?v=13.0"></script>
+  <script src="js/app.js?v=13.0"></script>
+  <script src="js/olsera-suite.js?v=13.0"></script>
 </body>
 </html>
