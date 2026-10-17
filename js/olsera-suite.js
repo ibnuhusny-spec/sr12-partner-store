@@ -3451,15 +3451,14 @@ function handleSaveOlseraSettings(e) {
     appState.partnerStores[curIdx] = Object.assign({}, appState.storeSettings);
   }
 
-  // Simpan Biaya Layanan Sistem
-  const feeAmountVal = parseInt(document.getElementById('setOlseraPlatformFeeAmount')?.value, 10) || 1500;
+  // Simpan Biaya Layanan Sistem (Penanggung biaya bisa diatur, tarif fee selalu tersinkron dari Master Developer)
+  const globalFeeVal = parseInt(localStorage.getItem('sr12_platform_fee_amount') || appState.platformFee || 1500, 10);
   const feePayerVal = document.getElementById('setOlseraFeePayer')?.value || 'buyer';
-  appState.storeSettings.platformFeeAmount = feeAmountVal;
+  appState.storeSettings.platformFeeAmount = globalFeeVal;
   appState.storeSettings.feePayer = feePayerVal;
-  appState.platformFee = feeAmountVal;
+  appState.platformFee = globalFeeVal;
 
   try {
-    localStorage.setItem('sr12_platform_fee_amount', String(feeAmountVal));
     localStorage.setItem('sr12_store_settings_v4', JSON.stringify(appState.storeSettings));
   } catch (eFee) {
     console.warn('Gagal simpan fee amount ke localStorage:', eFee);

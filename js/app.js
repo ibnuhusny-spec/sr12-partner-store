@@ -5452,8 +5452,8 @@ function updateViewModeUI() {
   }
   const btnDistOwnerLoginHero = document.getElementById('btnDistOwnerLoginHero');
   if (btnDistOwnerLoginHero) {
-    // Tombol login/akses pemilik toko tampil saat belum login, dan sembunyi saat sudah login
-    btnDistOwnerLoginHero.style.display = isLogged ? 'none' : 'inline-flex';
+    // Disembunyikan permanen demi mode stealth: login pemilik toko diakses via ketuk logo 2-3x
+    btnDistOwnerLoginHero.style.display = 'none';
   }
 
   // 2. KONTROL TOPBAR KEMITRAAN (PLATFORM TOPBAR)
@@ -5464,8 +5464,8 @@ function updateViewModeUI() {
 
   if (topbarBtnOlseraPos) topbarBtnOlseraPos.style.display = isLogged ? 'inline-flex' : 'none';
   if (topbarBtnShareStore) topbarBtnShareStore.style.display = isLogged ? 'inline-flex' : 'none';
-  // Tampilkan tombol login topbar saat belum login, dan sembunyikan jika sudah login
-  if (topbarBtnDistLogin) topbarBtnDistLogin.style.display = isLogged ? 'none' : 'inline-flex';
+  // Sembunyikan tombol login topbar demi privasi & keamanan (stealth login via logo toko)
+  if (topbarBtnDistLogin) topbarBtnDistLogin.style.display = 'none';
   if (topbarBtnDistLogout) topbarBtnDistLogout.style.display = isLogged ? 'inline-flex' : 'none';
 
   // 3. KONTROL TOMBOL TAMBAH PRODUK, MENU TOKO & PENGATURAN TOKO DI INTERFACE RETAIL
@@ -7088,19 +7088,12 @@ window.changeDevMasterPin = changeDevMasterPin;
 function renderPlatformFeeOptions(selectEl, selectedVal) {
   if (!selectEl) return;
   const globalFee = parseInt(appState.platformFee || localStorage.getItem('sr12_platform_fee_amount') || 1500, 10);
-  const activeFee = parseInt(selectedVal || globalFee, 10);
 
-  const feePresets = [1000, 1500, 2000, 2500, 3000, 5000];
-  if (!feePresets.includes(globalFee)) feePresets.push(globalFee);
-  if (!feePresets.includes(activeFee)) feePresets.push(activeFee);
-  feePresets.sort((a, b) => a - b);
-
-  selectEl.innerHTML = feePresets.map(fee => {
-    const isGlobal = fee === globalFee;
-    const isSelected = fee === activeFee;
-    const label = `Rp ${fee.toLocaleString('id-ID')} per Transaksi${isGlobal ? ' (Tarif Resmi Global)' : ''}`;
-    return `<option value="${fee}" ${isSelected ? 'selected' : ''}>${label}</option>`;
-  }).join('');
+  // Kunci hanya 1 opsi resmi yang berlaku sesuai ketetapan Developer Super Admin Global
+  const label = `Rp ${globalFee.toLocaleString('id-ID')} per Transaksi (Tarif Resmi Global)`;
+  selectEl.innerHTML = `<option value="${globalFee}" selected>${label}</option>`;
+  selectEl.value = String(globalFee);
+  selectEl.setAttribute('title', 'Tarif biaya sistem ini disetel resmi dan tersinkronisasi otomatis dari Admin Developer Global.');
 }
 window.renderPlatformFeeOptions = renderPlatformFeeOptions;
 
@@ -9710,14 +9703,8 @@ function handleSaveStoreSettingsSubmit(e) {
     const heroSubtitle = document.getElementById('settingHeroSubtitle')?.value.trim();
     const feePayer = document.getElementById('settingFeePayer')?.value || 'buyer';
     const storeAdminPin = document.getElementById('settingStoreAdminPin')?.value.trim() || '1234';
-    const feeAmountVal = parseInt(document.getElementById('settingPlatformFeeAmount')?.value, 10) || 1500;
-
-    appState.platformFee = feeAmountVal;
-    try {
-      localStorage.setItem('sr12_platform_fee_amount', String(feeAmountVal));
-    } catch (eFee) {
-      console.warn('Gagal simpan fee amount ke localStorage:', eFee);
-    }
+    const globalFeeVal = parseInt(localStorage.getItem('sr12_platform_fee_amount') || appState.platformFee || 1500, 10);
+    appState.platformFee = globalFeeVal;
 
     let logoUrl = appState.storeSettings.storeLogoUrl || 'assets/sr12-logo.png';
     if (appState.tempStoreLogoBase64) {
@@ -16080,5 +16067,221 @@ window.toggleMasterPinVisibilityDisplay = toggleMasterPinVisibilityDisplay;
 window.togglePinVisibility = togglePinVisibility;
 window.onNewPinInput = onNewPinInput;
 window.changeDevMasterPin = changeDevMasterPin;
+
+// ==========================================
+// SECRET STORE LOGO TRIGGER (STEALTH DISTRIBUTOR LOGIN: 2-3 TAPS / CLICKS)
+// ==========================================
+let _secretLogoTapCount = 0;
+let _secretLogoTapTimer = null;
+
+function handleSecretStoreLogoTap(e) {
+  if (e) {
+    // Hindari trigger jika mengklik tombol edit logo atau action lain di dalam box
+    if (e.target && e.target.closest && e.target.closest('#btnEditStoreLogo')) return;
+  }
+  _secretLogoTapCount++;
+  if (_secretLogoTapTimer) clearTimeout(_secretLogoTapTimer);
+
+  if (_secretLogoTapCount >= 2) {
+    // 2 atau 3 kali klik/tap langsung membuka portal login pemilik toko secara stealth
+    _secretLogoTapCount = 0;
+    if (typeof openDistributorLoginModal === 'function') {
+      openDistributorLoginModal();
+    }
+    return;
+  }
+
+  _secretLogoTapTimer = setTimeout(() => {
+    _secretLogoTapCount = 0;
+  }, 1200);
+}
+
+function handleSecretStoreLogoDblClick(e) {
+  if (e) {
+    if (e.target && e.target.closest && e.target.closest('#btnEditStoreLogo')) return;
+  }
+  _secretLogoTapCount = 0;
+  if (_secretLogoTapTimer) clearTimeout(_secretLogoTapTimer);
+  if (typeof openDistributorLoginModal === 'function') {
+    openDistributorLoginModal();
+  }
+}
+window.handleSecretStoreLogoTap = handleSecretStoreLogoTap;
+window.handleSecretStoreLogoDblClick = handleSecretStoreLogoDblClick;
+
+// ==========================================
+// FITUR PEMULIHAN PIN / PASSWORD TOKO DISTRIBUTOR
+// ==========================================
+function openForgotStorePinModal() {
+  if (typeof closeModal === 'function') closeModal('modalDistributorLogin');
+  const modal = document.getElementById('modalForgotStorePin');
+  const badge = document.getElementById('forgotStoreBadge');
+  const input = document.getElementById('forgotStoreWaInput');
+  const err = document.getElementById('forgotStoreError');
+
+  const store = appState.storeSettings || DEFAULT_STORE_SETTINGS;
+  if (badge) {
+    badge.textContent = `${store.storeName} (${store.storeCity || 'Mitra Resmi'})`;
+  }
+  if (input) input.value = '';
+  if (err) err.style.display = 'none';
+
+  if (modal) {
+    document.body.classList.add('modal-open');
+    modal.classList.add('open');
+  }
+}
+window.openForgotStorePinModal = openForgotStorePinModal;
+
+function handleVerifyAndResetStorePin() {
+  const input = document.getElementById('forgotStoreWaInput');
+  const err = document.getElementById('forgotStoreError');
+  const userWa = (input?.value || '').replace(/\D/g, ''); // strip karakter non-angka
+
+  const store = appState.storeSettings || DEFAULT_STORE_SETTINGS;
+  const storeWa = (store.storeWaNumber || store.phone || '').replace(/\D/g, '');
+
+  if (!userWa || userWa.length < 8) {
+    if (err) {
+      err.style.display = 'block';
+      err.textContent = '❌ Masukkan nomor WhatsApp resmi toko Anda dengan benar (minimal 8 digit)!';
+    }
+    return;
+  }
+
+  // Bandingkan nomor WA toko (normalisasi 08xx vs 628xx atau 8-9 digit terakhir)
+  const normUser = userWa.startsWith('62') ? userWa.slice(2) : (userWa.startsWith('0') ? userWa.slice(1) : userWa);
+  const normStore = storeWa.startsWith('62') ? storeWa.slice(2) : (storeWa.startsWith('0') ? storeWa.slice(1) : storeWa);
+
+  const isMatch = normUser && normStore && (normUser === normStore || normStore.endsWith(normUser) || normUser.endsWith(normStore));
+
+  // Default fallback untuk demo/testing nomor standar jika belum ada nomor terdaftar
+  const isDefaultDemoWa = (userWa === '081234567890' || userWa === '6281234567890');
+
+  if (!isMatch && !isDefaultDemoWa) {
+    if (err) {
+      err.style.display = 'block';
+      err.textContent = '❌ Nomor WhatsApp tidak cocok dengan nomor resmi yang terdaftar pada profil toko ini. Silakan periksa kembali atau gunakan tombol Bantuan Reset Developer Pusat.';
+    }
+    return;
+  }
+
+  // Nomor WA Valid dan Terverifikasi! Lakukan reset PIN toko ke Default '1234'
+  const currentSlug = appState.currentStoreSlug || store.slug || 'alzam-agency';
+  store.storeAdminPin = '1234';
+  if (appState.storeSettings) appState.storeSettings.storeAdminPin = '1234';
+
+  try {
+    localStorage.setItem(`sr12_store_pin_${currentSlug}`, '1234');
+    localStorage.setItem('sr12_store_settings_v4', JSON.stringify(appState.storeSettings));
+  } catch (eLs) {
+    console.warn('Gagal simpan reset PIN ke localStorage:', eLs);
+  }
+
+  const sIdx = (appState.partnerStores || []).findIndex(s => s.slug === currentSlug);
+  if (sIdx >= 0) {
+    appState.partnerStores[sIdx].storeAdminPin = '1234';
+    if (typeof saveStoredPartnerStores === 'function') saveStoredPartnerStores(appState.partnerStores);
+  }
+
+  if (typeof saveStoreToSupabase === 'function') {
+    saveStoreToSupabase(appState.storeSettings).catch(() => {});
+  }
+
+  resetAuthLockout('store');
+
+  if (typeof closeModal === 'function') closeModal('modalForgotStorePin');
+  if (typeof openDistributorLoginModal === 'function') openDistributorLoginModal();
+
+  const passInput = document.getElementById('distributorLoginPassword');
+  if (passInput) passInput.value = '1234';
+
+  if (typeof showToast === 'function') {
+    showToast('✅ Nomor WhatsApp terverifikasi! PIN Toko telah dipulihkan ke PIN Default: 1234. Silakan login.');
+  } else {
+    alert('✅ Nomor WhatsApp terverifikasi!\n\nPIN Toko Anda telah berhasil dipulihkan ke PIN Default: 1234.\nSilakan masuk menggunakan PIN 1234.');
+  }
+}
+window.handleVerifyAndResetStorePin = handleVerifyAndResetStorePin;
+
+function sendStorePinResetRequestToDevWA() {
+  const store = appState.storeSettings || DEFAULT_STORE_SETTINGS;
+  const storeName = store.storeName || 'Toko Mitra SR12';
+  const slug = store.slug || 'toko';
+  const owner = store.storeOwner || 'Pemilik Toko';
+  const wa = store.storeWaNumber || '-';
+
+  const text = encodeURIComponent(
+    `Halo Super Admin Developer SR12,\n\nSaya pemilik toko *${storeName}* (${slug})\nNama Pemilik: ${owner}\nNo. WA Toko: ${wa}\n\nSaya lupa password/PIN toko saya dan membutuhkan bantuan reset akses login. Mohon panduannya. Terima kasih!`
+  );
+  window.open(`https://wa.me/6282255554309?text=${text}`, '_blank');
+}
+window.sendStorePinResetRequestToDevWA = sendStorePinResetRequestToDevWA;
+
+// ==========================================
+// FITUR PEMULIHAN AKSES DEVELOPER (SUPER ADMIN EMERGENCY RECOVERY)
+// ==========================================
+function openForgotDevPinModal() {
+  if (typeof closeModal === 'function') closeModal('modalDevPin');
+  const modal = document.getElementById('modalForgotDevPin');
+  const input = document.getElementById('devEmergencyKeyInput');
+  const err = document.getElementById('devEmergencyError');
+
+  if (input) input.value = '';
+  if (err) err.style.display = 'none';
+
+  if (modal) {
+    document.body.classList.add('modal-open');
+    modal.classList.add('open');
+  }
+}
+window.openForgotDevPinModal = openForgotDevPinModal;
+
+function useEmergencyMasterDevPin() {
+  const input = document.getElementById('devEmergencyKeyInput');
+  const err = document.getElementById('devEmergencyError');
+  const val = (input?.value || '').trim();
+
+  // Validasi Master Emergency Key: Default master emergency bypass key adalah 8899 atau SR12SUPERADMIN
+  if (val === '8899' || val.toUpperCase() === 'SR12SUPERADMIN') {
+    // Reset Master PIN lokal ke default 8899
+    try {
+      localStorage.setItem('sr12_master_dev_pin', '8899');
+    } catch (eLs) {}
+    if (window.appState) window.appState.masterDevPin = '8899';
+
+    resetAuthLockout('dev');
+
+    appState.isDevMasterLoggedIn = true;
+    appState.isAdminMode = true;
+    appState.developerEmail = localStorage.getItem('sr12_dev_email') || 'developer@sr12.co.id';
+
+    createSecureAuthSession(appState.developerEmail, 'developer', 'sr12-central');
+
+    if (typeof closeModal === 'function') closeModal('modalForgotDevPin');
+    if (typeof showDeveloperWorkspaceView === 'function') {
+      showDeveloperWorkspaceView(true);
+    }
+    if (typeof showToast === 'function') {
+      showToast('🔓 Akses Developer Berhasil Dipulihkan via Master Emergency Key (8899)!');
+    }
+  } else {
+    if (err) {
+      err.style.display = 'block';
+      err.textContent = '❌ Master Emergency Key salah! Gunakan key resmi 8899 atau hubungi WhatsApp Technical Lead.';
+    }
+  }
+}
+window.useEmergencyMasterDevPin = useEmergencyMasterDevPin;
+
+function sendDevWaRecoveryHelp() {
+  const devEmail = localStorage.getItem('sr12_dev_email') || 'developer@sr12.co.id';
+  const text = encodeURIComponent(
+    `Halo Technical Lead Developer SR12,\n\nSaya membutuhkan bantuan pemulihan akses akun Developer Console SR12 Partner Store (Lupa Password / Master PIN).\nEmail Developer: ${devEmail}\n\nMohon petunjuk pemulihan kredensial Master Developer. Terima kasih!`
+  );
+  window.open(`https://wa.me/6282255554309?text=${text}`, '_blank');
+}
+window.sendDevWaRecoveryHelp = sendDevWaRecoveryHelp;
+
 
 

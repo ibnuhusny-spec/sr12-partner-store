@@ -92,8 +92,8 @@
           🔗 <span class="topbar-btn-text">Bagikan</span>
         </button>
 
-        <!-- Tombol Login Pemilik Toko / Distributor -->
-        <button class="btn-topbar-action" id="topbarBtnDistLogin" onclick="openDistributorLoginModal()" title="Login Pemilik Toko / Distributor" style="display: inline-flex; align-items: center; gap: 4px; border-color: rgba(56, 189, 248, 0.4); color: #38bdf8;">
+        <!-- Tombol Login Pemilik Toko / Distributor (Disembunyikan, diakses via ketuk logo 2-3x) -->
+        <button class="btn-topbar-action" id="topbarBtnDistLogin" onclick="openDistributorLoginModal()" title="Login Pemilik Toko / Distributor" style="display: none !important;">
           👑 <span class="topbar-btn-text">Login Pemilik Toko</span>
         </button>
         <!-- Tombol Logout Pemilik Toko (Terlihat saat sudah login) -->
@@ -143,7 +143,7 @@
   <!-- 2. SITE STOREFRONT NAVBAR (KONSISTEN DI SELURUH TOKO & PUSAT) -->
   <header class="site-header" id="siteHeaderStorefront">
     <div class="header-inner">
-      <a href="javascript:void(0)" onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="brand-wrapper" style="text-decoration: none;">
+      <a href="javascript:void(0)" onclick="handleSecretStoreLogoTap(event)" ondblclick="handleSecretStoreLogoDblClick(event)" class="brand-wrapper" style="text-decoration: none; cursor: pointer;" title="SR12 Official Store">
         <div class="brand-logo-badge" id="brandLogoContainer">SR12</div>
         <div class="brand-text">
           <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
@@ -1702,7 +1702,7 @@
 
       <div class="distributor-hero-content-wrap">
         <!-- 1. Logo / Foto Profil Toko di Tengah (Menimpa Latar Belakang / Overlapping Avatar) -->
-        <div class="distributor-hero-logo-box" id="distHeroLogoBox" title="Foto Profil Toko Resmi SR12" style="cursor: pointer;">
+        <div class="distributor-hero-logo-box" id="distHeroLogoBox" onclick="handleSecretStoreLogoTap(event)" ondblclick="handleSecretStoreLogoDblClick(event)" title="SR12 Official Store" style="cursor: pointer;">
           <img id="distHeroLogoImg" src="assets/sr12-logo.png" alt="Logo Toko Distributor">
           <button type="button" id="btnEditStoreLogo" onclick="openStoreSettingsModalWithFocus('logo')" class="btn-edit-logo-quick" title="Ubah Foto Profil / Logo Toko" style="display: none;">
             📷
@@ -1740,17 +1740,11 @@
               <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
             </svg>
           </button>
-          <!-- 4. Icon Akses Pemilik Toko / Masuk Dashboard Admin -->
-          <button type="button" id="btnDistOwnerLoginHero" onclick="openDistributorLoginModal()" class="btn-hero-icon-only btn-hero-icon-admin" title="Akses Pemilik Toko (Masuk Dashboard Admin / Kasir)" aria-label="Akses Pemilik Toko">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-            </svg>
-          </button>
         </div>
 
         <!-- Hidden Compatibility Container: Elemen Metadata Toko Tetap Ada di DOM untuk JS -->
         <div style="display: none !important;" aria-hidden="true">
+          <button type="button" id="btnDistOwnerLoginHero" onclick="openDistributorLoginModal()" style="display: none !important;"></button>
           <button type="button" id="btnDistLoginHero" onclick="openDistributorLoginModal()" style="display: none !important;"></button>
           <span id="distHeroLoginLabel" style="display: none !important;"></span>
           <span id="distHeroTierBadge">👑 DISTRIBUTOR UTAMA RESMI SR12</span>
@@ -2107,8 +2101,6 @@
         <p class="footer-simple-copy">&copy; 2026 SR12-Ku Pro &bull; Produk 100% Original BPOM &amp; Halal MUI</p>
         <div class="footer-simple-links">
           <button type="button" onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="footer-link-btn">⬆ Kembali ke Atas</button>
-          <span class="footer-sep">&bull;</span>
-          <button type="button" onclick="openDistributorLoginModal()" class="footer-link-btn" id="footerDistLoginBtn" title="Akses Pemilik Toko / Distributor">👑 Login Pemilik Toko</button>
           <span class="footer-sep">&bull;</span>
           <button type="button" onclick="openDevPinPrompt()" class="footer-link-btn footer-dev-link" id="footerDevLinkBtn" title="Akses Developer &amp; Super Admin">🔐 Developer</button>
         </div>
@@ -3829,6 +3821,11 @@
               Batal
             </button>
           </div>
+          <div style="margin-top: 12px; text-align: center;">
+            <button type="button" onclick="openForgotStorePinModal()" style="background: none; border: none; color: #059669; font-size: 0.78rem; font-weight: 700; cursor: pointer; text-decoration: underline;">
+              ❓ Lupa Password atau PIN Toko?
+            </button>
+          </div>
         </form>
 
         <!-- TAB 2: FORM AKTIVASI / PENDAFTARAN EMAIL AKTIF PERTAMA KALI -->
@@ -3878,6 +3875,56 @@
         <div style="margin-top: 14px; padding-top: 10px; border-top: 1px dashed #cbd5e1; text-align: center;">
           <button type="button" onclick="closeModal('modalDistributorLogin', false, true); setTimeout(openDevPinPrompt, 120);" style="background: none; border: none; color: #0284c7; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
             <span>🔐</span> <u>Masuk Portal Super Admin Pengembang</u>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 14B. MODAL: PEMULIHAN PIN & PASSWORD TOKO (DISTRIBUTOR RECOVERY) -->
+  <div class="modal-backdrop" id="modalForgotStorePin">
+    <div class="modal-dialog" style="max-width: 440px; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.4);">
+      <div class="modal-header" style="background: linear-gradient(135deg, #065f46, #047857); color: #fff; padding: 16px 20px;">
+        <div>
+          <div style="display: inline-flex; align-items: center; gap: 5px; background: rgba(255,255,255,0.18); padding: 2px 8px; border-radius: 99px; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.5px; margin-bottom: 4px;">
+            🛡️ PEMULIHAN AKSES RESMI
+          </div>
+          <h3 style="display: flex; align-items: center; gap: 8px; color: #fff; margin: 0; font-size: 1.05rem;">
+            <span>🔑</span> Pemulihan PIN / Password Toko
+          </h3>
+        </div>
+        <button class="btn-close-modal" style="color: #fff;" onclick="closeModal('modalForgotStorePin')">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 20px;">
+        <p style="font-size: 0.8rem; color: #475569; margin-top: 0; margin-bottom: 14px; line-height: 1.5;">
+          Untuk melindungi keamanan toko dari pembobolan, masukkan <b>Nomor WhatsApp Resmi Toko</b> yang terdaftar pada profil toko Anda.
+        </p>
+
+        <div style="background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 10px; padding: 10px 14px; margin-bottom: 14px;">
+          <span style="font-size: 0.68rem; font-weight: 800; color: #15803d; text-transform: uppercase;">Toko yang dipulihkan:</span>
+          <div id="forgotStoreBadge" style="font-size: 0.88rem; font-weight: 800; color: #065f46;">Toko Mitra SR12</div>
+        </div>
+
+        <div style="margin-bottom: 14px;">
+          <label style="font-size: 0.78rem; font-weight: 700; color: #1e293b; display: block; margin-bottom: 5px;">
+            Nomor WhatsApp Resmi Toko:
+          </label>
+          <input type="tel" id="forgotStoreWaInput" placeholder="Contoh: 081234567890 atau 628xxxxxxxxxx" style="width: 100%; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; font-family: monospace;">
+          <small style="font-size: 0.7rem; color: #64748b; display: block; margin-top: 4px;">
+            Nomor WhatsApp yang Anda daftarkan saat membuka toko ini.
+          </small>
+          <div id="forgotStoreError" style="display: none; color: #ef4444; font-size: 0.78rem; margin-top: 6px; font-weight: 600; padding: 6px 10px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px;"></div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 16px;">
+          <button type="button" id="btnVerifyStoreWa" onclick="handleVerifyAndResetStorePin()" style="background: #059669; color: #fff; border: none; padding: 12px; border-radius: 8px; font-weight: 800; font-size: 0.88rem; cursor: pointer; box-shadow: 0 4px 12px rgba(5,150,105,0.3);">
+            ⚡ Verifikasi &amp; Pulihkan ke PIN Default (1234)
+          </button>
+          <button type="button" onclick="sendStorePinResetRequestToDevWA()" style="background: #25d366; color: #fff; border: none; padding: 10px; border-radius: 8px; font-weight: 700; font-size: 0.82rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+            <span>💬</span> Bantuan Reset via WhatsApp Developer Pusat
+          </button>
+          <button type="button" onclick="closeModal('modalForgotStorePin'); openDistributorLoginModal();" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 10px; border-radius: 8px; font-weight: 600; font-size: 0.82rem; cursor: pointer;">
+            Kembali ke Form Login
           </button>
         </div>
       </div>
@@ -3946,6 +3993,11 @@
               Batal
             </button>
           </div>
+          <div style="margin-top: 12px; text-align: center;">
+            <button type="button" onclick="openForgotDevPinModal()" style="background: none; border: none; color: #38bdf8; font-size: 0.78rem; font-weight: 700; cursor: pointer; text-decoration: underline;">
+              ❓ Lupa Password atau Master PIN Developer?
+            </button>
+          </div>
         </form>
 
         <!-- TAB 2: FORM AKTIVASI / PENDAFTARAN EMAIL DEVELOPER PERTAMA KALI -->
@@ -3991,6 +4043,52 @@
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 15A. MODAL: PEMULIHAN AKSES DEVELOPER (SUPER ADMIN RECOVERY) -->
+  <div class="modal-backdrop" id="modalForgotDevPin">
+    <div class="modal-dialog" style="max-width: 460px; background: #0f172a; color: #f8fafc; border: 1px solid #0284c7; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.85);">
+      <div class="modal-header" style="background: linear-gradient(135deg, #0369a1, #0284c7); color: #fff; padding: 16px 20px;">
+        <div>
+          <div style="display: inline-flex; align-items: center; gap: 5px; background: rgba(255,255,255,0.18); padding: 2px 8px; border-radius: 99px; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.5px; margin-bottom: 4px;">
+            🛡️ EMERGENCY RECOVERY SUPER ADMIN
+          </div>
+          <h3 style="display: flex; align-items: center; gap: 8px; color: #fff; margin: 0; font-size: 1.05rem;">
+            <span>🔐</span> Pemulihan Akses Developer
+          </h3>
+        </div>
+        <button class="btn-close-modal" style="color: #94a3b8;" onclick="closeModal('modalForgotDevPin')">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 22px;">
+        <div style="background: rgba(2, 132, 199, 0.12); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; font-size: 0.82rem; color: #bae6fd; line-height: 1.5;">
+          <b>Kunci Pemulihan Darurat Sistem (Safety Net):</b>
+          <br>Developer Console dilengkapi Master Emergency Bypass Key <b><code>8899</code></b> yang selalu aktif untuk mencegah pengembang terkunci di sistem sendiri.
+        </div>
+
+        <div style="margin-bottom: 16px;">
+          <label style="font-size: 0.78rem; font-weight: 700; color: #e2e8f0; display: block; margin-bottom: 6px;">
+            Masukkan Master Emergency Key (Default: 8899):
+          </label>
+          <div style="position: relative; display: flex; align-items: center;">
+            <input type="password" id="devEmergencyKeyInput" placeholder="Ketik 8899..." maxlength="16" style="width: 100%; padding: 11px 40px 11px 12px; background: #1e293b; border: 1.5px solid #0284c7; border-radius: 8px; color: #fff; font-size: 1rem; letter-spacing: 2px; font-family: monospace;">
+            <button type="button" onclick="togglePinVisibility('devEmergencyKeyInput', this)" style="position: absolute; right: 10px; background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1rem; padding: 4px;">👁️</button>
+          </div>
+          <div id="devEmergencyError" style="display: none; color: #f87171; font-size: 0.78rem; margin-top: 6px; font-weight: 600; padding: 6px 10px; background: rgba(239,68,68,0.15); border: 1px solid #ef4444; border-radius: 6px;"></div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <button type="button" onclick="useEmergencyMasterDevPin()" style="background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; border: none; padding: 12px; border-radius: 8px; font-weight: 800; font-size: 0.88rem; cursor: pointer; box-shadow: 0 4px 14px rgba(2,132,199,0.4);">
+            ⚡ Buka Developer Console via Emergency Key
+          </button>
+          <button type="button" onclick="sendDevWaRecoveryHelp()" style="background: #25d366; color: #fff; border: none; padding: 10px; border-radius: 8px; font-weight: 700; font-size: 0.82rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+            <span>💬</span> Hubungi WhatsApp Technical Lead Developer
+          </button>
+          <button type="button" onclick="closeModal('modalForgotDevPin'); openDevPinPrompt();" style="background: #334155; color: #cbd5e1; border: none; padding: 10px; border-radius: 8px; font-weight: 600; font-size: 0.82rem; cursor: pointer;">
+            Kembali ke Login Developer
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -5218,9 +5316,9 @@
   <!-- SCRIPTS -->
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=10.0"></script>
-  <script src="js/data.js?v=10.0"></script>
-  <script src="js/app.js?v=10.0"></script>
-  <script src="js/olsera-suite.js?v=10.0"></script>
+  <script src="js/supabase-config.js?v=11.0"></script>
+  <script src="js/data.js?v=11.0"></script>
+  <script src="js/app.js?v=11.0"></script>
+  <script src="js/olsera-suite.js?v=11.0"></script>
 </body>
 </html>
