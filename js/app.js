@@ -2572,9 +2572,6 @@ function loadStoreBySlug(slug) {
   if (typeof updateOlseraHeaderMeta === 'function') {
     updateOlseraHeaderMeta();
   }
-  if (found.slug !== 'sr12-central' && typeof handleDirectProductDeepLink === 'function') {
-    handleDirectProductDeepLink();
-  }
 }
 
 function switchPartnerStore(slug, pushHistory = true) {
@@ -2600,12 +2597,10 @@ function switchPartnerStore(slug, pushHistory = true) {
     appState.isDistributorLoggedIn = false;
   }
 
-  // Tutup modal administratif umum tetapi jangan paksa tutup modal detail produk, keranjang, atau modal PIN otentikasi
+  // Tutup SEMUA modal etalase termasuk modal detail produk dan share promo saat berpindah toko
   document.querySelectorAll('.modal-backdrop.open').forEach(m => {
     if (
-      m.id !== 'modalProductDetail' &&
       m.id !== 'cartDrawer' &&
-      m.id !== 'modalProductPromoShare' &&
       m.id !== 'modalDistributorLogin' &&
       m.id !== 'modalDevPin' &&
       m.id !== 'modalOlseraLock' &&
@@ -2614,6 +2609,7 @@ function switchPartnerStore(slug, pushHistory = true) {
       m.classList.remove('open');
     }
   });
+  appState.activeDetailProductId = null;
   if (typeof ensureScrollUnlocked === 'function') ensureScrollUnlocked();
 
   loadStoreBySlug(slug);
@@ -2625,6 +2621,11 @@ function switchPartnerStore(slug, pushHistory = true) {
     } else {
       switchParams.set('store', slug);
     }
+    // Hapus parameter deep-link produk dari URL agar berpindah toko selalu membuka etalase toko secara bersih
+    switchParams.delete('product');
+    switchParams.delete('p');
+    switchParams.delete('prod');
+    switchParams.delete('id');
     const queryString = switchParams.toString();
     const newUrl = window.location.pathname + (queryString ? '?' + queryString : '');
     window.history.pushState({ store: slug }, '', newUrl);
@@ -4393,7 +4394,7 @@ function renderOfficialDistributorDirectory(filter = currentDirectoryFilter, sea
 
           <!-- 5. Tombol Aksi Masuk Toko / Kontak -->
           <div class="dist-card-actions">
-            <button type="button" onclick="switchPartnerStore('${store.slug}'); window.scrollTo({top: 0, behavior: 'smooth'});" class="btn-card-enter-store">
+            <button type="button" onclick="if(typeof closeModal==='function') closeModal('modalProductDetail'); switchPartnerStore('${store.slug}'); window.scrollTo({top: 0, behavior: 'smooth'});" class="btn-card-enter-store">
               <span>🛍️</span> Belanja di Toko Ini
             </button>
             <div class="dist-card-sub-actions">
@@ -5525,13 +5526,23 @@ function initEventListeners() {
       document.body.classList.add('modal-open');
     }
     if (cartBackdrop) cartBackdrop.classList.add('open');
+
+    // Muat data profil pelanggan yang tersimpan sebelumnya (Nama, WA, Alamat)
+    if (typeof loadSavedCustomerProfileToCart === 'function') {
+      loadSavedCustomerProfileToCart();
+    }
+
     const nameIn = document.getElementById('cartBuyerNameInput');
     const phoneIn = document.getElementById('cartBuyerPhoneField');
+    const addrIn = document.getElementById('cartBuyerAddressInput');
     if (nameIn && !nameIn.value && appState.buyerDetails?.name) {
       nameIn.value = appState.buyerDetails.name;
     }
     if (phoneIn && !phoneIn.value && appState.buyerDetails?.phone) {
       phoneIn.value = appState.buyerDetails.phone;
+    }
+    if (addrIn && !addrIn.value && appState.buyerDetails?.address) {
+      addrIn.value = appState.buyerDetails.address;
     }
     const activeRef = appState.activeReferralMarketer || sessionStorage.getItem('sr12_active_referral_marketer') || localStorage.getItem('sr12_active_referral_marketer');
     const cartNotice = document.getElementById('cartAffiliateReferralNotice');
@@ -6957,6 +6968,60 @@ function changeDevMasterPin() {
 }
 window.changeDevMasterPin = changeDevMasterPin;
 
+function renderPlatformFeeOptions(selectEl, selectedVal) {
+  if (!selectEl) return;
+  const globalFee = parseInt(appState.platformFee || localStorage.getItem('sr12_platform_fee_amount') || 1500, 10);
+  const activeFee = parseInt(selectedVal || globalFee, 10);
+
+  const feePresets = [1000, 1500, 2000, 2500, 3000, 5000];
+  if (!feePresets.includes(globalFee)) feePresets.push(globalFee);
+  if (!feePresets.includes(activeFee)) feePresets.push(activeFee);
+  feePresets.sort((a, b) => a - b);
+
+  selectEl.innerHTML = feePresets.map(fee => {
+    const isGlobal = fee === globalFee;
+    const isSelected = fee === activeFee;
+    const label = `Rp ${fee.toLocaleString('id-ID')} per Transaksi${isGlobal ? ' (Tarif Resmi Global)' : ''}`;
+    return `<option value="${fee}" ${isSelected ? 'selected' : ''}>${label}</option>`;
+  }).join('');
+}
+window.renderPlatformFeeOptions = renderPlatformFeeOptions;
+
+function syncPlatformFeeInputsToAllSettings(fee) {
+  const numFee = parseInt(fee, 10) || 1500;
+  appState.platformFee = numFee;
+  if (appState.storeSettings) {
+    appState.storeSettings.platformFeeAmount = numFee;
+  }
+  if (Array.isArray(appState.partnerStores)) {
+    appState.partnerStores.forEach(s => { s.platformFeeAmount = numFee; });
+    if (typeof saveStoredPartnerStores === 'function') {
+      saveStoredPartnerStores(appState.partnerStores);
+    }
+  }
+
+  const devInp = document.getElementById('inputDevGlobalFeeAmount');
+  if (devInp) devInp.value = numFee;
+
+  const olseraSelect = document.getElementById('setOlseraPlatformFeeAmount');
+  if (olseraSelect) {
+    renderPlatformFeeOptions(olseraSelect, numFee);
+    olseraSelect.value = String(numFee);
+  }
+
+  const modalSelect = document.getElementById('settingPlatformFeeAmount');
+  if (modalSelect) {
+    renderPlatformFeeOptions(modalSelect, numFee);
+    modalSelect.value = String(numFee);
+    if (typeof updateFeePayerLabels === 'function') updateFeePayerLabels();
+  }
+
+  if (typeof updateTopupPackageCardsUI === 'function') {
+    updateTopupPackageCardsUI();
+  }
+}
+window.syncPlatformFeeInputsToAllSettings = syncPlatformFeeInputsToAllSettings;
+
 // Simpan Tarif Biaya Admin Sistem Global oleh Developer
 async function saveDevGlobalPlatformFee() {
   const inp = document.getElementById('inputDevGlobalFeeAmount');
@@ -6970,6 +7035,10 @@ async function saveDevGlobalPlatformFee() {
   appState.platformFee = val;
   try {
     localStorage.setItem('sr12_platform_fee_amount', String(val));
+    if (appState.storeSettings) {
+      appState.storeSettings.platformFeeAmount = val;
+      localStorage.setItem('sr12_store_settings_v4', JSON.stringify(appState.storeSettings));
+    }
   } catch(e) {}
 
   // Update Supabase jika terhubung (simpan ke tabel stores baris sr12-central sebagai acuan platform master)
@@ -6997,11 +7066,9 @@ async function saveDevGlobalPlatformFee() {
     }
   }
 
-  showToast(`✅ Tarif Biaya Admin Sistem Global berhasil diubah menjadi ${formatRupiah(val)} per transaksi!`);
+  syncPlatformFeeInputsToAllSettings(val);
+  showToast(`✅ Tarif Biaya Admin Sistem Global berhasil disinkronkan ke seluruh toko: ${formatRupiah(val)} per transaksi!`);
   updateDevPortalMetrics();
-  if (typeof updateTopupPackageCardsUI === 'function') {
-    updateTopupPackageCardsUI();
-  }
 }
 window.saveDevGlobalPlatformFee = saveDevGlobalPlatformFee;
 
@@ -7687,11 +7754,66 @@ function checkoutViaWhatsApp() {
   // Update atau Kualifikasi Mitra / Reseller / Marketer di Database Distributor
   // Input ID mitra HANYA diambil dari kolom verifikasi kemitraan resmi (bukan nomor telepon pembeli umum)
   const inputPartnerQuery = (document.getElementById('buyerMitraIdInput')?.value || '').trim();
-  const inputBuyerName = (document.getElementById('cartBuyerNameInput')?.value || '').trim();
-  const inputBuyerPhone = (document.getElementById('cartBuyerPhoneInput')?.value || document.getElementById('cartBuyerPhoneField')?.value || '').trim();
+  const inputBuyerName = (document.getElementById('cartBuyerNameInput')?.value || appState.buyerDetails.name || '').trim();
+  const inputBuyerPhone = (document.getElementById('cartBuyerPhoneField')?.value || document.getElementById('cartBuyerPhoneInput')?.value || appState.buyerDetails.phone || '').trim();
+  const inputBuyerAddress = (document.getElementById('cartBuyerAddressInput')?.value || appState.buyerDetails.address || '').trim();
+
+  // Validasi Kelengkapan Data Pembeli (Nama, WhatsApp, Alamat Pengiriman)
+  if (!inputBuyerName) {
+    alert('⚠️ Mohon isi Nama Lengkap Anda terlebih dahulu untuk data pesanan & pengiriman!');
+    const nameEl = document.getElementById('cartBuyerNameInput');
+    if (nameEl) {
+      nameEl.focus();
+      nameEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    return;
+  }
+
+  if (!inputBuyerPhone || inputBuyerPhone.length < 8) {
+    alert('⚠️ Mohon isi Nomor WhatsApp aktif Anda agar toko dan kurir dapat menghubungi saat pengiriman!');
+    const phoneEl = document.getElementById('cartBuyerPhoneField') || document.getElementById('cartBuyerPhoneInput');
+    if (phoneEl) {
+      phoneEl.focus();
+      phoneEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    return;
+  }
+
+  if (courier.id !== 'pickup' && (!inputBuyerAddress || inputBuyerAddress.length < 8)) {
+    alert('⚠️ Mohon lengkapi Alamat Lengkap Pengiriman Anda (nama jalan, RT/RW, kelurahan, kecamatan, kota, kode pos) agar paket langsung dipacking dan dikirim tanpa perlu toko menanyakan lagi!');
+    const addrEl = document.getElementById('cartBuyerAddressInput');
+    if (addrEl) {
+      addrEl.focus();
+      addrEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    return;
+  }
 
   if (inputBuyerName) appState.buyerDetails.name = inputBuyerName;
   if (inputBuyerPhone) appState.buyerDetails.phone = inputBuyerPhone;
+  if (inputBuyerAddress) appState.buyerDetails.address = inputBuyerAddress;
+
+  const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+
+  // Simpan profil pelanggan ke penyimpanan lokal client dan database pelanggan toko (CRM Retail)
+  try {
+    const custProfile = {
+      name: inputBuyerName,
+      phone: inputBuyerPhone,
+      address: inputBuyerAddress,
+      updatedAt: new Date().toISOString()
+    };
+    localStorage.setItem('sr12_customer_profile', JSON.stringify(custProfile));
+  } catch(e) {}
+
+  if (typeof saveStoreCustomer === 'function') {
+    saveStoreCustomer(currentStoreSlug, {
+      name: inputBuyerName,
+      phone: inputBuyerPhone,
+      address: inputBuyerAddress,
+      totalSpent: grandTotal
+    });
+  }
 
   const buyerPhone = appState.buyerDetails.phone || inputBuyerPhone || '-';
   const now = new Date();
@@ -7701,7 +7823,6 @@ function checkoutViaWhatsApp() {
   if (!appState.mitraList) {
     appState.mitraList = getStoredMitra();
   }
-  const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
   if (!appState.marketerSales) {
     appState.marketerSales = (typeof getStoredMarketerSales === 'function') ? getStoredMarketerSales(currentStoreSlug) : [];
   }
@@ -7929,10 +8050,10 @@ function checkoutViaWhatsApp() {
         `• No. WhatsApp           : ${buyerPhone || appState.buyerDetails.phone || '-'}\n` +
         `• Lokasi Ambil Barang    : Gudang Resmi SR12 ${storeName} (${appState.storeSettings.storeCity || 'Kota Toko'})\n` +
         `• Status Pengambilan     : Diambil Mandiri oleh Pembeli / Mitra\n`
-      : `👤 *DATA PENERIMA:*\n` +
-        `• Nama   : ${appState.buyerDetails.name || 'Pelanggan'}\n` +
-        `• No HP  : ${buyerPhone || appState.buyerDetails.phone || '-'}\n` +
-        `• Alamat : ${appState.buyerDetails.address || '-'}\n`
+      : `👤 *DATA PENERIMA & ALAMAT PENGIRIMAN:*\n` +
+        `• Nama Lengkap   : ${appState.buyerDetails.name || 'Pelanggan'}\n` +
+        `• No. WhatsApp   : ${buyerPhone || appState.buyerDetails.phone || '-'}\n` +
+        `• Alamat Lengkap : ${appState.buyerDetails.address || '-'}\n`
     ) +
     dropshipText +
     `----------------------------------------\n` +
@@ -8191,6 +8312,22 @@ function closeModal(modalId, isFromPopstate = false, skipHistoryBack = false) {
       dialog.style.opacity = '';
       dialog.style.transition = '';
     }
+  }
+
+  // Jika modal produk ditutup, bersihkan ID aktif dan query URL produk jika masih tersisa
+  if (modalId === 'modalProductDetail' || modalId === 'modalProductPromoShare') {
+    if (typeof appState !== 'undefined') appState.activeDetailProductId = null;
+    try {
+      const curP = new URLSearchParams(window.location.search);
+      if (curP.has('product') || curP.has('p') || curP.has('prod')) {
+        curP.delete('product');
+        curP.delete('p');
+        curP.delete('prod');
+        const qStr = curP.toString();
+        const nUrl = window.location.pathname + (qStr ? '?' + qStr : '') + window.location.hash;
+        window.history.replaceState(window.history.state, '', nUrl);
+      }
+    } catch(e) {}
   }
 
   // Jika ditutup bukan via popstate dan bukan skipHistoryBack dan history state tercatat modal umum
@@ -8868,8 +9005,9 @@ function openStoreSettingsModal() {
   if (heroSubtitleInput) heroSubtitleInput.value = cfg.heroSubtitle || DEFAULT_STORE_SETTINGS.heroSubtitle;
   if (feePayerSelect) feePayerSelect.value = cfg.feePayer || 'buyer';
   if (feeAmountSelect) {
-    const curFee = String(cfg.platformFeeAmount || appState.platformFee || localStorage.getItem('sr12_platform_fee_amount') || 1500);
-    feeAmountSelect.value = (curFee === '2000') ? '2000' : '1500';
+    const curFee = parseInt(cfg.platformFeeAmount || appState.platformFee || localStorage.getItem('sr12_platform_fee_amount') || 1500, 10);
+    renderPlatformFeeOptions(feeAmountSelect, curFee);
+    feeAmountSelect.value = String(curFee);
   }
   updateFeePayerLabels();
 
@@ -12446,6 +12584,156 @@ function findMitraByIdOrPhone(query, targetStoreSlug = null) {
   return allList.find(matcher) || null;
 }
 
+// ==========================================
+// DATABASE PELANGGAN TOKO (CRM RETAIL NON-MITRA)
+// ==========================================
+function getStoreCustomers(storeSlug) {
+  const slug = storeSlug || (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  const raw = localStorage.getItem(`sr12_customers_${slug}`);
+  let list = [];
+  if (raw) {
+    try {
+      list = JSON.parse(raw);
+    } catch (e) {
+      list = [];
+    }
+  }
+  if (!Array.isArray(list)) list = [];
+
+  // Sinkronkan juga dari riwayat transaksi aktif toko jika ada pelanggan retail
+  const activeTx = (appState.transactions || []).filter(t => {
+    if (!t || t.status === 'Dihapus' || t.status === 'deleted') return false;
+    const tSlug = t.store_slug || slug;
+    return tSlug === slug && t.customerName && t.customerPhone && (t.tier === 'konsumen' || !t.tier);
+  });
+
+  const cMap = new Map();
+  list.forEach(c => {
+    if (!c || !c.phone) return;
+    const cleanP = String(c.phone).replace(/[^0-9]/g, '');
+    if (cleanP) cMap.set(cleanP, c);
+  });
+
+  activeTx.forEach(t => {
+    const cleanP = String(t.customerPhone || '').replace(/[^0-9]/g, '');
+    if (!cleanP || cleanP.length < 8) return;
+    if (!cMap.has(cleanP)) {
+      cMap.set(cleanP, {
+        id: `CUST-${cleanP.slice(-4)}`,
+        name: t.customerName,
+        phone: t.customerPhone,
+        address: t.customerAddress || '-',
+        city: (t.customerAddress || '').split(',')[0] || '-',
+        totalOrders: 1,
+        totalSpent: Number(t.total || t.grandTotal) || 0,
+        lastOrderDate: (t.date || t.dateTime || '').split(' ')[0] || new Date().toISOString().split('T')[0],
+        storeSlug: slug
+      });
+    } else {
+      const existing = cMap.get(cleanP);
+      if (t.customerAddress && t.customerAddress !== '-' && (!existing.address || existing.address === '-')) {
+        existing.address = t.customerAddress;
+      }
+    }
+  });
+
+  return Array.from(cMap.values());
+}
+window.getStoreCustomers = getStoreCustomers;
+
+function saveStoreCustomer(storeSlug, customerData) {
+  if (!customerData || !customerData.phone) return;
+  const slug = storeSlug || (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  const cleanPhone = String(customerData.phone).replace(/[^0-9]/g, '');
+  if (!cleanPhone || cleanPhone.length < 8) return;
+
+  const list = getStoreCustomers(slug);
+  const nowIso = new Date().toISOString().split('T')[0];
+  const idx = list.findIndex(c => String(c.phone || '').replace(/[^0-9]/g, '') === cleanPhone);
+
+  if (idx >= 0) {
+    const c = list[idx];
+    c.name = customerData.name || c.name;
+    if (customerData.address && customerData.address !== '-') c.address = customerData.address;
+    c.totalOrders = (c.totalOrders || 1) + 1;
+    c.totalSpent = (c.totalSpent || 0) + (customerData.totalSpent || 0);
+    c.lastOrderDate = nowIso;
+  } else {
+    list.unshift({
+      id: `CUST-${cleanPhone.slice(-4)}`,
+      name: customerData.name || 'Pelanggan Baru',
+      phone: customerData.phone,
+      address: customerData.address || '-',
+      city: (customerData.address || '').split(',')[0] || '-',
+      totalOrders: 1,
+      totalSpent: customerData.totalSpent || 0,
+      lastOrderDate: nowIso,
+      firstOrderDate: nowIso,
+      storeSlug: slug
+    });
+  }
+
+  try {
+    localStorage.setItem(`sr12_customers_${slug}`, JSON.stringify(list));
+  } catch (e) {}
+
+  return list;
+}
+window.saveStoreCustomer = saveStoreCustomer;
+
+function findStoreCustomer(query, storeSlug) {
+  if (!query) return null;
+  const qClean = String(query).trim().toLowerCase();
+  const qNum = String(query).replace(/[^0-9]/g, '');
+  const slug = storeSlug || (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  const list = getStoreCustomers(slug);
+
+  return list.find(c => {
+    const cPhone = String(c.phone || '').replace(/[^0-9]/g, '');
+    if (qNum && qNum.length >= 8 && cPhone && (cPhone === qNum || cPhone.endsWith(qNum) || qNum.endsWith(cPhone))) {
+      return true;
+    }
+    const cName = String(c.name || '').toLowerCase();
+    if (qClean.length >= 3 && cName && cName.includes(qClean)) {
+      return true;
+    }
+    return false;
+  }) || null;
+}
+window.findStoreCustomer = findStoreCustomer;
+
+function loadSavedCustomerProfileToCart() {
+  const nameIn = document.getElementById('cartBuyerNameInput');
+  const phoneIn = document.getElementById('cartBuyerPhoneField');
+  const addrIn = document.getElementById('cartBuyerAddressInput');
+  const savedBadge = document.getElementById('cartCustomerSavedBadge');
+
+  const savedProfileJson = localStorage.getItem('sr12_customer_profile');
+  if (savedProfileJson) {
+    try {
+      const p = JSON.parse(savedProfileJson);
+      if (p && typeof p === 'object') {
+        if (nameIn && !nameIn.value && p.name) {
+          nameIn.value = p.name;
+          appState.buyerDetails.name = p.name;
+        }
+        if (phoneIn && !phoneIn.value && p.phone) {
+          phoneIn.value = p.phone;
+          appState.buyerDetails.phone = p.phone;
+        }
+        if (addrIn && !addrIn.value && p.address) {
+          addrIn.value = p.address;
+          appState.buyerDetails.address = p.address;
+        }
+        if (savedBadge && p.name) {
+          savedBadge.style.display = 'inline-block';
+        }
+      }
+    } catch (e) {}
+  }
+}
+window.loadSavedCustomerProfileToCart = loadSavedCustomerProfileToCart;
+
 function generateNextMitraId(tier) {
   const currentSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
   const prefix = tier === 'agen' ? 'AG' : (tier === 'sub_agen' ? 'SUB' : (tier === 'marketer' ? 'MKT' : 'RS'));
@@ -12776,30 +13064,96 @@ function renderResellers() {
   const olseraMitraBadgeEl = document.getElementById('olseraMitraBadge');
   if (olseraMitraBadgeEl) olseraMitraBadgeEl.textContent = `${storeMitraList.length}`;
 
+  const chipCustEl = document.getElementById('chipCustomerCount');
+  const storeCustomers = (typeof getStoreCustomers === 'function') ? getStoreCustomers(currentStoreSlug) : [];
+  if (chipCustEl) chipCustEl.textContent = `${storeCustomers.length}`;
+
   const autoUpToggle = document.getElementById('toggleAutoUpgradeMitra');
   if (autoUpToggle) {
     autoUpToggle.checked = !!(appState.storeSettings && appState.storeSettings.autoTierUpgrade);
   }
 
-  const filtered = evaluatedList.filter(m => {
-    let matchFilter = true;
-    if (appState.selectedMitraFilter && appState.selectedMitraFilter !== 'all') {
-      if (appState.selectedMitraFilter === 'eligible_upgrade') {
-        matchFilter = !!(m.progression && m.progression.isEligible);
-      } else {
-        matchFilter = m.tier === appState.selectedMitraFilter;
-      }
-    }
-    const q = (appState.resellerSearchQuery || '').toLowerCase();
-    const matchQuery = !q ||
-      (m.id && m.id.toLowerCase().includes(q)) ||
-      m.name.toLowerCase().includes(q) ||
-      m.phone.includes(q) ||
-      (m.city || '').toLowerCase().includes(q);
-    return matchFilter && matchQuery;
-  });
-
   if (!tbody) return;
+
+  // JIKA TAB PELANGGAN RETAIL (NON-MITRA) AKTIF:
+  if (appState.selectedMitraFilter === 'customer') {
+    const q = (appState.resellerSearchQuery || '').toLowerCase();
+    const filteredCustomers = storeCustomers.filter(c => {
+      if (!q) return true;
+      return (c.name && c.name.toLowerCase().includes(q)) ||
+             (c.phone && c.phone.includes(q)) ||
+             (c.address && c.address.toLowerCase().includes(q));
+    });
+
+    if (filteredCustomers.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" style="text-align: center; padding: 36px 16px; color: #64748b;">
+            <div style="font-size: 2.2rem; margin-bottom: 8px;">👤</div>
+            <div style="font-weight: 800; color: #0f172a; font-size: 1rem;">Belum Ada Pelanggan Retail (Non-Mitra) Tersimpan</div>
+            <div style="font-size: 0.8rem; color: #64748b; max-width: 520px; margin: 4px auto 0 auto; line-height: 1.5;">
+              Setiap kali pembeli retail (non-mitra) berbelanja di website atau kasir toko Anda, Nama, Nomor WhatsApp, dan Alamat Lengkap mereka otomatis terdaftar dan tersimpan permanen di sini.
+            </div>
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = filteredCustomers.map((c, idx) => `
+      <tr>
+        <td data-label="ID & Nama Pelanggan">
+          <div style="font-weight: 800; color: #0f172a; font-size: 0.9rem;">
+            ${escapeHtml(c.name)}
+          </div>
+          <div style="font-size: 0.72rem; color: #059669; font-weight: 700; margin-top: 2px;">
+            ID: <span style="font-family: monospace;">${escapeHtml(c.id || `CUST-${idx+1}`)}</span> &bull; 👤 Konsumen Retail
+          </div>
+        </td>
+        <td data-label="Kontak WhatsApp">
+          <div>
+            <a href="https://wa.me/${c.phone.replace(/[^0-9]/g, '')}" target="_blank" style="color: #0284c7; text-decoration: none; font-weight: 800; font-family: monospace; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 4px;">
+              <span>💬</span> ${escapeHtml(c.phone)}
+            </a>
+          </div>
+        </td>
+        <td data-label="Alamat Lengkap Pengiriman" colspan="2">
+          <div style="font-size: 0.8rem; color: #334155; line-height: 1.4; max-width: 380px;">
+            📍 ${escapeHtml(c.address || '-')}
+          </div>
+        </td>
+        <td data-label="Total Belanja">
+          <div class="crm-td-cell-wrapper" style="display: flex; flex-direction: column; align-items: flex-end; text-align: right;">
+            <div style="font-weight: 800; color: #0f172a; font-size: 0.85rem;">
+              ${formatRupiah(c.totalSpent || 0)}
+            </div>
+            <div style="font-size: 0.72rem; color: #64748b; margin-top: 2px;">
+              ${c.totalOrders || 1}x Pesanan Selesai
+            </div>
+          </div>
+        </td>
+        <td data-label="Status Pelanggan">
+          <span style="display: inline-block; padding: 4px 8px; border-radius: 4px; font-weight: 800; font-size: 0.72rem; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0;">
+            ✓ Pelanggan Aktif
+          </span>
+          <div style="font-size: 0.68rem; color: #64748b; margin-top: 2px;">
+            Terakhir: ${escapeHtml(c.lastOrderDate || '-')}
+          </div>
+        </td>
+        <td data-label="Aksi" style="text-align: center;">
+          <div style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;">
+            <a href="https://wa.me/${c.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Halo Kak ${c.name}, terima kasih telah berbelanja di ${appState.storeSettings?.storeName || 'toko kami'}!`)}" target="_blank" class="btn-action-sm" style="background: #22c55e; color: #fff; text-decoration: none; border-radius: 4px; padding: 5px 9px; font-size: 0.74rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;" title="Chat WhatsApp Pelanggan">
+              <span>💬</span> Hubungi
+            </a>
+            <button type="button" onclick="navigator.clipboard.writeText('${escapeHtml(c.name)}\\n${escapeHtml(c.phone)}\\n${escapeHtml(c.address || '-')}'); showToast('📋 Alamat pelanggan berhasil disalin!');" class="btn-action-sm" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 4px; padding: 5px 9px; font-size: 0.74rem; font-weight: 700; cursor: pointer;" title="Salin Info Pengiriman">
+              📋 Salin
+            </button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+    return;
+  }
 
   if (filtered.length === 0) {
     tbody.innerHTML = `
@@ -13022,7 +13376,8 @@ function filterMitra(tierFilter) {
     'agen': 'btnFilterAgen',
     'sub_agen': 'btnFilterSubAgen',
     'reseller': 'btnFilterReseller',
-    'marketer': 'btnFilterMarketer'
+    'marketer': 'btnFilterMarketer',
+    'customer': 'btnFilterCustomer'
   };
 
   Object.values(chipIds).forEach(id => {
@@ -14899,6 +15254,31 @@ function applyBuyerMitraVerification(found, query) {
     }
   } else {
     appState.verifiedMitra = null;
+    const currentStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+    const existingCust = (typeof findStoreCustomer === 'function') ? findStoreCustomer(query, currentStoreSlug) : null;
+    if (existingCust) {
+      const nameField = document.getElementById('cartBuyerNameInput');
+      const phoneField = document.getElementById('cartBuyerPhoneField');
+      const addrField = document.getElementById('cartBuyerAddressInput');
+      if (nameField && !nameField.value) nameField.value = existingCust.name;
+      if (phoneField && !phoneField.value) phoneField.value = existingCust.phone;
+      if (addrField && (!addrField.value || addrField.value === '-')) addrField.value = existingCust.address || '';
+      appState.buyerDetails.name = existingCust.name;
+      appState.buyerDetails.phone = existingCust.phone;
+      if (existingCust.address && existingCust.address !== '-') {
+        appState.buyerDetails.address = existingCust.address;
+      }
+      const savedBadge = document.getElementById('cartCustomerSavedBadge');
+      if (savedBadge) savedBadge.style.display = 'inline-block';
+
+      notice.style.display = 'block';
+      notice.style.background = '#ecfdf5';
+      notice.style.color = '#065f46';
+      notice.style.border = '1px solid #a7f3d0';
+      notice.innerHTML = `✨ <b>Pelanggan Retail Dikenali: ${escapeHtml(existingCust.name)}!</b><br>Alamat pengiriman dan kontak WhatsApp otomatis terisi untuk kemudahan pemesanan Anda.`;
+      updateCartSummary();
+      return;
+    }
     // Belum terdaftar
     if (subtotalHet >= 500000) {
       notice.style.display = 'block';
@@ -15431,7 +15811,7 @@ window.downloadProductPromoImage = downloadProductPromoImage;
 // ==========================================
 function handleDirectProductDeepLink(retryCount = 0) {
   const params = new URLSearchParams(window.location.search);
-  const rawParam = params.get('product') || params.get('p') || params.get('prod') || params.get('id');
+  const rawParam = params.get('product') || params.get('p') || params.get('prod');
   if (!rawParam) return;
 
   // Tunggu jika daftar produk masih dalam proses loading async dari IndexedDB / data.js
@@ -15515,6 +15895,19 @@ function handleDirectProductDeepLink(retryCount = 0) {
 
   // Buka modal detail produk langsung
   openProductDetailModal(prod.id);
+
+  // Bersihkan query string produk agar tidak membuka ulang pop-up saat reload atau navigasi internal berikutnya
+  try {
+    const curP = new URLSearchParams(window.location.search);
+    if (curP.has('product') || curP.has('p') || curP.has('prod')) {
+      curP.delete('product');
+      curP.delete('p');
+      curP.delete('prod');
+      const qStr = curP.toString();
+      const nUrl = window.location.pathname + (qStr ? '?' + qStr : '') + window.location.hash;
+      window.history.replaceState(window.history.state, '', nUrl);
+    }
+  } catch(e) {}
 
   // Safeguard ganda agar modal tetap terbuka dan tidak tertutup event lain
   setTimeout(() => {

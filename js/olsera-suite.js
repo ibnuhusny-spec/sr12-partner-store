@@ -3072,9 +3072,14 @@ function populateOlseraSettingsForm() {
   setEl('setOlseraCity', store.storeCity);
   setEl('setOlseraTagline', store.storeTagline);
   setEl('setOlseraBankName', store.bankName || 'BCA');
-  setEl('setOlseraBankAccount', store.bankAccount || '1234567890');
-  const curFee = String(store.platformFeeAmount || (typeof appState !== 'undefined' && appState.platformFee) || localStorage.getItem('sr12_platform_fee_amount') || 1500);
-  setEl('setOlseraPlatformFeeAmount', (curFee === '2000') ? '2000' : '1500');
+  const curFee = parseInt(store.platformFeeAmount || (typeof appState !== 'undefined' && appState.platformFee) || localStorage.getItem('sr12_platform_fee_amount') || 1500, 10);
+  const olseraFeeSelect = document.getElementById('setOlseraPlatformFeeAmount');
+  if (olseraFeeSelect) {
+    if (typeof renderPlatformFeeOptions === 'function') {
+      renderPlatformFeeOptions(olseraFeeSelect, curFee);
+    }
+    olseraFeeSelect.value = String(curFee);
+  }
   setEl('setOlseraFeePayer', store.feePayer || 'buyer');
 
   // Inisialisasi preview logo
@@ -3485,7 +3490,10 @@ function handleSaveOlseraSettings(e) {
 
 function syncOlseraPlatformFeeToModal(val) {
   const storeModalSelect = document.getElementById('settingPlatformFeeAmount');
-  if (storeModalSelect) storeModalSelect.value = val;
+  if (storeModalSelect) {
+    if (typeof renderPlatformFeeOptions === 'function') renderPlatformFeeOptions(storeModalSelect, val);
+    storeModalSelect.value = val;
+  }
   if (typeof updateFeePayerLabels === 'function') updateFeePayerLabels();
 }
 window.syncOlseraPlatformFeeToModal = syncOlseraPlatformFeeToModal;
