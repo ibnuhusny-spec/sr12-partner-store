@@ -6140,7 +6140,7 @@ function openDevPinPrompt(callbackOnSuccess = null) {
   const passInput = document.getElementById('devLoginPassword');
   const pinError = document.getElementById('devPinError');
 
-  const knownEmail = localStorage.getItem('sr12_dev_email') || 'developer@sr12.co.id';
+  const knownEmail = localStorage.getItem('sr12_dev_email') || 'ibnuhusny91@gmail.com';
   if (emailInput) emailInput.value = knownEmail;
   if (passInput) passInput.value = '';
   if (pinError) pinError.style.display = 'none';
@@ -6408,7 +6408,12 @@ async function handleDeveloperEmailRegisterSubmit(e) {
   } else {
     if (err) {
       err.style.display = 'block';
-      err.textContent = `❌ ${regResult?.message || 'Gagal mendaftarkan email Developer ke Cloud.'}`;
+      const msg = regResult?.message || 'Gagal mendaftarkan email Developer ke Cloud.';
+      if (msg.includes('sudah terkunci')) {
+        err.innerHTML = `❌ ${msg}<br><div style="margin-top: 8px;"><button type="button" onclick="switchDevLoginTab('auth'); const em = document.getElementById('devLoginEmail'); if (em) em.value='${email}'; const pw = document.getElementById('devLoginPassword'); if (pw) { pw.value='${password}'; pw.focus(); }" style="background: #0284c7; color: #fff; border: none; padding: 7px 14px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; cursor: pointer;">👉 Langsung Masuk di Tab "Masuk Email Developer"</button></div>`;
+      } else {
+        err.textContent = `❌ ${msg}`;
+      }
     }
   }
 }
