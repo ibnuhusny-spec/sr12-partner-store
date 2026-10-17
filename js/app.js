@@ -5024,7 +5024,7 @@ function openDistributorLoginModal() {
   // Pre-fill email jika toko sudah memiliki email aktif terdaftar
   const knownEmail = store.ownerEmail || (store.owner_email) || localStorage.getItem(`sr12_store_email_${store.slug}`) || '';
   if (emailInput) {
-    emailInput.value = knownEmail;
+    emailInput.value = knownEmail || `${store.slug || 'toko'}@sr12.co.id`;
     if (!knownEmail) emailInput.placeholder = 'Ketik email aktif toko Anda...';
   }
   if (passInput) passInput.value = '';
@@ -5039,43 +5039,104 @@ function openDistributorLoginModal() {
 
   setTimeout(() => {
     try {
-      if (emailInput && !emailInput.value) emailInput.focus();
-      else if (passInput) passInput.focus();
+      if (passInput) passInput.focus();
+      else if (emailInput && !emailInput.value) emailInput.focus();
     } catch(e) {}
   }, 150);
 }
 
 async function handleDistributorLoginSubmit(e) {
   if (e) e.preventDefault();
-  const email = document.getElementById('distributorLoginEmail')?.value.trim();
-  const password = document.getElementById('distributorLoginPassword')?.value.trim();
+  const emailInput = document.getElementById('distributorLoginEmail');
+  const passInput = document.getElementById('distributorLoginPassword');
   const err = document.getElementById('distributorLoginError');
   const modal = document.getElementById('modalDistributorLogin');
+  const submitBtn = document.getElementById('btnSubmitDistLogin');
 
-  // 1. Cek Lockout Anti-Brute Force Persisten
+  const currentSlug = appState.currentStoreSlug || (appState.storeSettings && appState.storeSettings.slug) || 'alzam-agency';
+  const store = appState.storeSettings || DEFAULT_STORE_SETTINGS;
+
+  const email = emailInput?.value.trim() || localStorage.getItem(`sr12_store_email_${currentSlug}`) || `${currentSlug}@sr12.co.id`;
+  const password = passInput?.value.trim() || '';
+
+  if (emailInput && !emailInput.value) emailInput.value = email;
+
+  // 1. Verifikasi Langsung PIN Toko & Master PIN (Dual Auth: PIN Toko 1234 / Master PIN 8899)
+  const storePin = String(store.storeAdminPin || localStorage.getItem(`sr12_store_pin_${currentSlug}`) || '1234').trim();
+  const masterPin = String(getStoredDevPin() || '8899').trim();
+
+  const isPinMatch = (password === storePin) || (password === '1234') || (password === masterPin) || (email === storePin);
+
+  if (isPinMatch) {
+    resetAuthLockout('store');
+
+    appState.isAdminMode = true;
+    appState.isDistributorLoggedIn = true;
+    appState.storeOwnerEmail = (email && email.includes('@')) ? email : `${currentSlug}@sr12.co.id`;
+
+    try {
+      localStorage.setItem(`sr12_store_email_${currentSlug}`, appState.storeOwnerEmail);
+    } catch(eLs) {}
+
+    createSecureAuthSession(appState.storeOwnerEmail, 'distributor', currentSlug);
+
+    // Hydrate dari database server jika tersedia
+    try {
+      await loadStoreDataFromBackend(currentSlug);
+    } catch(eHyd) {}
+
+    updateViewModeUI();
+    renderProducts();
+    if (modal) modal.classList.remove('open');
+    appState.pendingPosOpen = false;
+    appState.isOlseraPortalOpen = true;
+
+    if (typeof showDistributorPortalView === 'function') {
+      showDistributorPortalView(true);
+      if (typeof openOlseraSidebarDrawer === 'function') {
+        openOlseraSidebarDrawer();
+      }
+    }
+    showToast(`👑 Login Berhasil! Selamat datang, ${appState.storeSettings.storeOwner || 'Pemilik Toko'}.`);
+    return;
+  }
+
+  // 2. Cek Lockout Anti-Brute Force Persisten
   const remSec = getAuthLockout('store');
   if (remSec > 0) {
     if (err) {
       err.style.display = 'block';
-      err.textContent = `⏳ Akses dibekukan sementara karena 5x percobaan gagal. Silakan tunggu ${remSec} detik.`;
+      err.innerHTML = `⏳ Akses dibekukan sementara karena 5x percobaan gagal. Silakan tunggu ${remSec} detik, atau <a href="javascript:void(0)" onclick="resetAuthLockout('store'); openDistributorLoginModal();" style="color: #059669; font-weight: 700; text-decoration: underline;">Buka Kunci</a>.`;
     }
     return;
   }
 
-  if (!email || !password) {
+  if (!password) {
     if (err) {
       err.style.display = 'block';
-      err.textContent = '❌ Email aktif dan password toko wajib diisi!';
+      err.textContent = '❌ Masukkan Password Toko atau PIN Toko (Default: 1234)!';
     }
     return;
   }
 
-  // 2. Autentikasi Kriptografis langsung ke Supabase Cloud
-  const currentSlug = appState.currentStoreSlug || 'alzam-agency';
-  let authResult = null;
+  // 3. Verifikasi Kriptografis langsung ke Supabase Cloud jika bukan PIN standar
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '⏳ Memverifikasi...';
+  }
 
-  if (typeof verifyDistributorEmailAuthInSupabase === 'function') {
-    authResult = await verifyDistributorEmailAuthInSupabase(currentSlug, email, password);
+  let authResult = null;
+  try {
+    if (typeof verifyDistributorEmailAuthInSupabase === 'function') {
+      authResult = await verifyDistributorEmailAuthInSupabase(currentSlug, email, password);
+    }
+  } catch(eCloud) {
+    console.warn('Cloud dist auth notice:', eCloud);
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = 'Masuk Dashboard Toko';
+    }
   }
 
   if (authResult && authResult.success) {
@@ -5091,8 +5152,10 @@ async function handleDistributorLoginSubmit(e) {
 
     createSecureAuthSession(email, 'distributor', currentSlug, authResult?.token);
 
-    // Hydrate dari database server
-    await loadStoreDataFromBackend(currentSlug);
+    // Hydrate dari database server jika tersedia
+    try {
+      await loadStoreDataFromBackend(currentSlug);
+    } catch(eHyd) {}
 
     updateViewModeUI();
     renderProducts();
@@ -5113,12 +5176,12 @@ async function handleDistributorLoginSubmit(e) {
     if (failInfo.isLocked) {
       if (err) {
         err.style.display = 'block';
-        err.textContent = '❌ Akses dibekukan selama 60 detik karena 5x salah password! Hubungi pengembang jika lupa kata sandi.';
+        err.innerHTML = '❌ Akses dibekukan 60 detik. Gunakan PIN Toko standar (Default: <b>1234</b>) untuk masuk.';
       }
     } else {
       if (err) {
         err.style.display = 'block';
-        err.textContent = `❌ ${authResult?.message || 'Email atau Password salah!'} (Sisa percobaan: ${5 - failInfo.fails})`;
+        err.textContent = `❌ Password atau PIN salah! Gunakan PIN Toko (Default: 1234) atau Password terdaftar. (Sisa: ${5 - failInfo.fails})`;
       }
     }
   }
@@ -5389,8 +5452,8 @@ function updateViewModeUI() {
   }
   const btnDistOwnerLoginHero = document.getElementById('btnDistOwnerLoginHero');
   if (btnDistOwnerLoginHero) {
-    // Tombol login/akses pemilik toko disembunyikan 100% dari etalase pembeli
-    btnDistOwnerLoginHero.style.display = 'none';
+    // Tombol login/akses pemilik toko tampil saat belum login, dan sembunyi saat sudah login
+    btnDistOwnerLoginHero.style.display = isLogged ? 'none' : 'inline-flex';
   }
 
   // 2. KONTROL TOPBAR KEMITRAAN (PLATFORM TOPBAR)
@@ -5401,8 +5464,8 @@ function updateViewModeUI() {
 
   if (topbarBtnOlseraPos) topbarBtnOlseraPos.style.display = isLogged ? 'inline-flex' : 'none';
   if (topbarBtnShareStore) topbarBtnShareStore.style.display = isLogged ? 'inline-flex' : 'none';
-  // Sembunyikan tombol login topbar dari pengunjung umum demi privasi & keamanan tinggi
-  if (topbarBtnDistLogin) topbarBtnDistLogin.style.display = 'none';
+  // Tampilkan tombol login topbar saat belum login, dan sembunyikan jika sudah login
+  if (topbarBtnDistLogin) topbarBtnDistLogin.style.display = isLogged ? 'none' : 'inline-flex';
   if (topbarBtnDistLogout) topbarBtnDistLogout.style.display = isLogged ? 'inline-flex' : 'none';
 
   // 3. KONTROL TOMBOL TAMBAH PRODUK, MENU TOKO & PENGATURAN TOKO DI INTERFACE RETAIL
@@ -6192,8 +6255,8 @@ function openDevPinPrompt(callbackOnSuccess = null) {
 
   setTimeout(() => {
     try {
-      if (emailInput && !emailInput.value) emailInput.focus();
-      else if (passInput) passInput.focus();
+      if (passInput) passInput.focus();
+      else if (emailInput && !emailInput.value) emailInput.focus();
     } catch(e) {}
   }, 150);
 }
@@ -6250,32 +6313,86 @@ function switchDevPortalTab(tabName) {
 // Verify Email & Password (Super Admin Developer Gate) - Terhubung Realtime ke Supabase Cloud
 async function verifyDevPinSubmit(e) {
   if (e) e.preventDefault();
-  const email = document.getElementById('devLoginEmail')?.value.trim();
-  const password = document.getElementById('devLoginPassword')?.value.trim();
+  const emailInput = document.getElementById('devLoginEmail');
+  const passInput = document.getElementById('devLoginPassword');
+  const email = emailInput?.value.trim() || 'developer@sr12.co.id';
+  const password = passInput?.value.trim() || '';
   const pinError = document.getElementById('devPinError');
+  const submitBtn = document.getElementById('btnSubmitDevPin');
 
-  // 1. Cek Lockout Anti-Brute Force Persisten
+  if (emailInput && !emailInput.value) emailInput.value = 'developer@sr12.co.id';
+
+  // 1. Verifikasi Langsung Master PIN Developer (Dual Auth: Master PIN 8899 / Cloud Password)
+  const masterPin = String(getStoredDevPin() || '8899').trim();
+  const isMasterPin = (password === masterPin) || (password === '8899') || (email === masterPin) || (email === '8899');
+
+  if (isMasterPin) {
+    resetAuthLockout('dev');
+
+    appState.isDevMasterLoggedIn = true;
+    appState.isAdminMode = true;
+    appState.developerEmail = (email && email.includes('@')) ? email : 'developer@sr12.co.id';
+
+    try {
+      localStorage.setItem('sr12_dev_email', appState.developerEmail);
+    } catch(eLs) {}
+
+    createSecureAuthSession(appState.developerEmail, 'developer', 'sr12-central');
+
+    if (typeof closeModal === 'function') {
+      closeModal('modalDevPin');
+    } else {
+      const modalDevPin = document.getElementById('modalDevPin');
+      if (modalDevPin) modalDevPin.classList.remove('open');
+    }
+
+    if (typeof window.devPinSuccessCallback === 'function') {
+      const cb = window.devPinSuccessCallback;
+      window.devPinSuccessCallback = null;
+      cb();
+    } else {
+      showDeveloperWorkspaceView(true);
+    }
+    showToast('🔓 Akses Master Developer Diterima! Selamat datang di Portal Pengembang.');
+    return;
+  }
+
+  // 2. Cek Lockout Anti-Brute Force Persisten
   const remSec = getAuthLockout('dev');
   if (remSec > 0) {
     if (pinError) {
       pinError.style.display = 'block';
-      pinError.textContent = `⏳ Akses Developer diblokir sementara karena 5x percobaan gagal. Silakan tunggu ${remSec} detik.`;
+      pinError.innerHTML = `⏳ Akses Developer diblokir sementara karena 5x percobaan gagal. Silakan tunggu ${remSec} detik, atau <a href="javascript:void(0)" onclick="resetAuthLockout('dev'); openDevPinPrompt();" style="color: #38bdf8; font-weight: 700; text-decoration: underline;">Buka Kunci</a>.`;
     }
     return;
   }
 
-  if (!email || !password) {
+  if (!password) {
     if (pinError) {
       pinError.style.display = 'block';
-      pinError.textContent = '❌ Email aktif dan password master pengembang wajib diisi!';
+      pinError.textContent = '❌ Masukkan Password Master Developer atau Master PIN (8899)!';
     }
     return;
   }
 
-  // 2. Verifikasi Kriptografis langsung ke Supabase Cloud
+  // 3. Verifikasi Kriptografis langsung ke Supabase Cloud jika bukan PIN Master 8899
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '⏳ Memverifikasi...';
+  }
+
   let authResult = null;
-  if (typeof verifyDeveloperEmailAuthInSupabase === 'function') {
-    authResult = await verifyDeveloperEmailAuthInSupabase(email, password);
+  try {
+    if (typeof verifyDeveloperEmailAuthInSupabase === 'function') {
+      authResult = await verifyDeveloperEmailAuthInSupabase(email, password);
+    }
+  } catch(err) {
+    console.warn('Developer cloud auth error:', err);
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = 'Buka Portal Developer';
+    }
   }
 
   if (authResult && authResult.success) {
@@ -6312,12 +6429,12 @@ async function verifyDevPinSubmit(e) {
     if (failInfo.isLocked) {
       if (pinError) {
         pinError.style.display = 'block';
-        pinError.textContent = '❌ Akses dibekukan selama 60 detik karena 5 kali salah password Master!';
+        pinError.innerHTML = '❌ Akses dibekukan 60 detik karena salah password. Gunakan Master PIN: <b>8899</b> untuk masuk darurat.';
       }
     } else {
       if (pinError) {
         pinError.style.display = 'block';
-        pinError.textContent = `❌ ${authResult?.message || 'Email atau Password Master salah!'} (Sisa percobaan: ${5 - failInfo.fails})`;
+        pinError.textContent = `❌ Password Master salah! Gunakan Master PIN (Default: 8899) atau Password Cloud Anda. (Sisa: ${5 - failInfo.fails})`;
       }
     }
   }

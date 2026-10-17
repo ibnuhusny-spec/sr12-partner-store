@@ -92,9 +92,9 @@
           🔗 <span class="topbar-btn-text">Bagikan</span>
         </button>
 
-        <!-- Tombol Login Pemilik Toko (Disembunyikan demi keamanan privasi etalase pembeli ala Shopee) -->
-        <button class="btn-topbar-action" id="topbarBtnDistLogin" onclick="openDistributorLoginModal()" title="Login Pemilik Toko / Distributor" style="display: none;">
-          🔐 <span class="topbar-btn-text">Login Pemilik Toko</span>
+        <!-- Tombol Login Pemilik Toko / Distributor -->
+        <button class="btn-topbar-action" id="topbarBtnDistLogin" onclick="openDistributorLoginModal()" title="Login Pemilik Toko / Distributor" style="display: inline-flex; align-items: center; gap: 4px; border-color: rgba(56, 189, 248, 0.4); color: #38bdf8;">
+          👑 <span class="topbar-btn-text">Login Pemilik Toko</span>
         </button>
         <!-- Tombol Logout Pemilik Toko (Terlihat saat sudah login) -->
         <button class="btn-topbar-action" id="topbarBtnDistLogout" onclick="logoutDistributor()" title="Keluar dari Akun Pemilik Toko" style="display: none; color: #f87171; border-color: rgba(239, 68, 68, 0.4);">
@@ -1740,11 +1740,17 @@
               <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
             </svg>
           </button>
+          <!-- 4. Icon Akses Pemilik Toko / Masuk Dashboard Admin -->
+          <button type="button" id="btnDistOwnerLoginHero" onclick="openDistributorLoginModal()" class="btn-hero-icon-only btn-hero-icon-admin" title="Akses Pemilik Toko (Masuk Dashboard Admin / Kasir)" aria-label="Akses Pemilik Toko">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          </button>
         </div>
 
         <!-- Hidden Compatibility Container: Elemen Metadata Toko Tetap Ada di DOM untuk JS -->
         <div style="display: none !important;" aria-hidden="true">
-          <button type="button" id="btnDistOwnerLoginHero" onclick="openDistributorLoginModal()" style="display: none !important;"></button>
           <button type="button" id="btnDistLoginHero" onclick="openDistributorLoginModal()" style="display: none !important;"></button>
           <span id="distHeroLoginLabel" style="display: none !important;"></span>
           <span id="distHeroTierBadge">👑 DISTRIBUTOR UTAMA RESMI SR12</span>
@@ -2101,6 +2107,8 @@
         <p class="footer-simple-copy">&copy; 2026 SR12-Ku Pro &bull; Produk 100% Original BPOM &amp; Halal MUI</p>
         <div class="footer-simple-links">
           <button type="button" onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="footer-link-btn">⬆ Kembali ke Atas</button>
+          <span class="footer-sep">&bull;</span>
+          <button type="button" onclick="openDistributorLoginModal()" class="footer-link-btn" id="footerDistLoginBtn" title="Akses Pemilik Toko / Distributor">👑 Login Pemilik Toko</button>
           <span class="footer-sep">&bull;</span>
           <button type="button" onclick="openDevPinPrompt()" class="footer-link-btn footer-dev-link" id="footerDevLinkBtn" title="Akses Developer &amp; Super Admin">🔐 Developer</button>
         </div>
@@ -3798,10 +3806,10 @@
 
           <div style="margin-bottom: 14px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-              <label style="font-size: 0.76rem; font-weight: 700; color: var(--dark-800); margin: 0;">Password / Kata Sandi:</label>
+              <label style="font-size: 0.76rem; font-weight: 700; color: var(--dark-800); margin: 0;">Password / PIN Toko (Default PIN: 1234):</label>
             </div>
             <div style="position: relative; display: flex; align-items: center;">
-              <input type="password" id="distributorLoginPassword" placeholder="Masukkan password akun toko..." required autocomplete="current-password" style="width: 100%; padding: 11px 42px 11px 12px; border: 1.5px solid #10b981; border-radius: var(--radius-sm); font-size: 0.95rem; font-weight: 600;">
+              <input type="password" id="distributorLoginPassword" placeholder="Masukkan password toko atau PIN 1234..." required autocomplete="current-password" style="width: 100%; padding: 11px 42px 11px 12px; border: 1.5px solid #10b981; border-radius: var(--radius-sm); font-size: 0.95rem; font-weight: 600;">
               <button type="button" onclick="togglePinVisibility('distributorLoginPassword', this)" style="position: absolute; right: 10px; background: none; border: none; color: #64748b; cursor: pointer; font-size: 1rem; padding: 4px;" title="Lihat/Sembunyikan Password">👁️</button>
             </div>
             <div id="distributorLoginError" style="display: none; color: #ef4444; font-size: 0.78rem; margin-top: 6px; font-weight: 600; padding: 6px 10px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px;"></div>
@@ -3810,7 +3818,7 @@
           <!-- Secure Cloud Notice -->
           <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 9px 12px; font-size: 0.74rem; color: #475569; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
             <span style="font-size: 1rem;">🛡️</span>
-            <div>Terlindungi enkripsi SHA-256 cloud. Hanya pemilik email aktif terdaftar yang dapat masuk.</div>
+            <div>Bisa masuk langsung dengan <b>PIN Toko (Default: 1234)</b> atau Password Cloud terdaftar.</div>
           </div>
 
           <div style="display: flex; gap: 10px;">
@@ -3916,10 +3924,10 @@
 
           <div style="margin-bottom: 14px;">
             <label style="font-size: 0.78rem; font-weight: 700; color: #e2e8f0; display: block; margin-bottom: 4px;">
-              Password Master Pengembang:
+              Password Master Developer / PIN (Default PIN: 8899):
             </label>
             <div style="position: relative; display: flex; align-items: center;">
-              <input type="password" id="devLoginPassword" placeholder="Masukkan password master..." required autocomplete="current-password" style="width: 100%; padding: 11px 42px 11px 12px; background: #1e293b; border: 1px solid #0284c7; border-radius: var(--radius-sm); color: #fff; font-size: 0.95rem; font-weight: 600;">
+              <input type="password" id="devLoginPassword" placeholder="Masukkan password master atau PIN 8899..." required autocomplete="current-password" style="width: 100%; padding: 11px 42px 11px 12px; background: #1e293b; border: 1px solid #0284c7; border-radius: var(--radius-sm); color: #fff; font-size: 0.95rem; font-weight: 600;">
               <button type="button" onclick="togglePinVisibility('devLoginPassword', this)" style="position: absolute; right: 10px; background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1rem; padding: 4px;" title="Lihat/Sembunyikan Password">👁️</button>
             </div>
             <div id="devPinError" style="display: none; color: #f87171; font-size: 0.78rem; margin-top: 6px; font-weight: 600; padding: 6px 10px; background: rgba(239,68,68,0.15); border: 1px solid #ef4444; border-radius: 6px;"></div>
@@ -3927,7 +3935,7 @@
 
           <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; padding: 9px 12px; font-size: 0.74rem; color: #bae6fd; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
             <span style="font-size: 1rem;">🛡️</span>
-            <div>Portal Developer dilindungi autentikasi cloud. Pembobolan otomatis diblokir sistem.</div>
+            <div>Bisa masuk langsung dengan <b>Master PIN Developer (Default: 8899)</b> atau Password Cloud terdaftar.</div>
           </div>
 
           <div style="display: flex; gap: 10px;">
@@ -5210,9 +5218,9 @@
   <!-- SCRIPTS -->
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=9.0"></script>
-  <script src="js/data.js?v=9.0"></script>
-  <script src="js/app.js?v=9.0"></script>
-  <script src="js/olsera-suite.js?v=9.0"></script>
+  <script src="js/supabase-config.js?v=10.0"></script>
+  <script src="js/data.js?v=10.0"></script>
+  <script src="js/app.js?v=10.0"></script>
+  <script src="js/olsera-suite.js?v=10.0"></script>
 </body>
 </html>
