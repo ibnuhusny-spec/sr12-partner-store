@@ -442,29 +442,16 @@ function saveStoredPendingStores(apps) {
 function getApiBaseUrl() {
   if (typeof window !== 'undefined' && window.location) {
     if (window.location.port === '3000') return '';
-    const host = window.location.hostname;
-    if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0') {
-      return `${window.location.protocol}//${host}:3000`;
-    }
-    // Di lingkungan serverless/hosting seperti Vercel, jangan panggil port 3000 untuk mencegah network timeout 10 detik
     return null;
   }
-  return 'http://127.0.0.1:3000';
+  return null;
 }
 
 async function syncStoresWithServer() {
   let changed = false;
   const deletedSlugs = getDeletedStoreSlugs();
 
-  // Bersihkan data toko test/dummy dan toko yang sudah dihapus dari memori lokal
-  const cleanLocal = (appState.partnerStores || []).filter(s => s && s.slug && s.slug !== 'toko-supa-distributor' && !s.slug.startsWith('deleted_') && !s.slug.includes('toko-supa') && !deletedSlugs.includes(s.slug));
-  if (cleanLocal.length !== appState.partnerStores.length) {
-    appState.partnerStores = cleanLocal;
-    saveStoredPartnerStores(appState.partnerStores);
-    changed = true;
-  }
-
-  // 1. Sinkronisasi dari Supabase Cloud (jika aktif)
+  // 1. Sinkronisasi dari Supabase Cloud (Single Source of Truth untuk seluruh browser & perangkat)
   if (typeof syncStoresFromSupabase === 'function') {
     try {
       const supaStores = await syncStoresFromSupabase();
@@ -482,100 +469,69 @@ async function syncStoresWithServer() {
           }
         }
 
-        // A. Periksa toko lokal: Supabase Cloud adalah single source of truth untuk daftar toko aktif
-        const prevCount = (appState.partnerStores || []).length;
-        appState.partnerStores = (appState.partnerStores || []).filter(localStore => {
-          if (!localStore || !localStore.slug) return false;
-          if (localStore.slug === 'sr12-central') return true;
-          if (deletedSlugs.includes(localStore.slug)) return false;
-          if (LEGACY_DELETED_SLUGS.includes(localStore.slug)) return false;
-          if (localStore.slug === 'toko-supa-distributor' || localStore.slug.startsWith('deleted_') || localStore.slug.includes('toko-supa')) return false;
+        // Susun daftar toko resmi terpusat dari Cloud (sr12-central selalu di index 0)
+        const centralStore = supaStores.find(s => s && s.slug === 'sr12-central') ||
+          (appState.partnerStores || []).find(s => s && s.slug === 'sr12-central') ||
+          Object.assign({}, DEFAULT_PARTNER_STORES[0]);
 
-          // Jika toko tidak ada di Supabase Cloud, hapus dari lokal (jangan re-upload toko yang sudah dihapus dari Cloud)
-          return cloudSlugs.has(localStore.slug);
+        const validStores = [centralStore];
+
+        supaStores.forEach(apiStore => {
+          if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central') return;
+          if (apiStore.slug === 'toko-supa-distributor' || apiStore.slug.startsWith('deleted_') || apiStore.slug.includes('toko-supa')) return;
+          if (LEGACY_DELETED_SLUGS.includes(apiStore.slug)) return;
+
+          validStores.push(apiStore);
         });
 
-        if (appState.partnerStores.length !== prevCount) {
-          changed = true;
-          if (appState.currentStoreSlug && deletedSlugs.includes(appState.currentStoreSlug) && appState.currentStoreSlug !== 'sr12-central') {
-            switchPartnerStore('sr12-central');
-          }
-        }
+        // Terapkan ke state aplikasi secara langsung
+        appState.partnerStores = validStores;
+        changed = true;
 
-        // B. Sinkronkan rekening & kontak Developer dari row sr12-central di Supabase Cloud
-        const centralRow = supaStores.find(s => s && s.slug === 'sr12-central');
-        if (centralRow) {
-          const cIdx = appState.partnerStores.findIndex(s => s.slug === 'sr12-central');
-          if (cIdx >= 0) {
-            appState.partnerStores[cIdx] = Object.assign({}, appState.partnerStores[cIdx], centralRow);
-          }
-          const rawSubtitle = centralRow.hero_subtitle || centralRow.heroSubtitle;
+        // Sinkronkan rekening & kontak Developer dari row sr12-central di Supabase Cloud
+        if (centralStore) {
+          const rawSubtitle = centralStore.hero_subtitle || centralStore.heroSubtitle;
           if (rawSubtitle) {
             try {
               const parsed = typeof rawSubtitle === 'string' ? JSON.parse(rawSubtitle) : rawSubtitle;
               if (parsed && (parsed.bankAccount || parsed.ewalletNumber || parsed.developerWa)) {
                 appState.devPaymentSettings = Object.assign({}, DEFAULT_DEV_PAYMENT_SETTINGS, parsed);
                 localStorage.setItem('sr12_dev_payment_settings_v1', JSON.stringify(appState.devPaymentSettings));
-                if (typeof updateDevPaymentUI === 'function') {
-                  updateDevPaymentUI();
-                }
+                if (typeof updateDevPaymentUI === 'function') updateDevPaymentUI();
               }
             } catch (e) {}
           }
         }
-
-        // C. Update atau tambahkan toko yang ada di Cloud ke memori lokal
-        supaStores.forEach(apiStore => {
-          if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central' || apiStore.slug === 'toko-supa-distributor' || apiStore.slug.startsWith('deleted_') || apiStore.slug.includes('toko-supa') || deletedSlugs.includes(apiStore.slug) || LEGACY_DELETED_SLUGS.includes(apiStore.slug)) return;
-          const idx = appState.partnerStores.findIndex(s => s.slug === apiStore.slug);
-          if (idx >= 0) {
-            appState.partnerStores[idx] = Object.assign({}, appState.partnerStores[idx], apiStore);
-          } else {
-            appState.partnerStores.push(apiStore);
-            changed = true;
-          }
-        });
       }
     } catch (e) {
       console.warn('Supabase store sync warning:', e);
     }
   }
 
-  // 2. Sinkronisasi dari Local REST Server API (/api/stores - hanya jika berjalan lokal)
-  const apiBase = getApiBaseUrl();
-  if (apiBase && typeof fetch === 'function') {
-    try {
-      const res = await fetch(apiBase + '/api/stores');
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.success && Array.isArray(data.data)) {
-          data.data.forEach(apiStore => {
-            if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central' || apiStore.slug === 'toko-supa-distributor' || apiStore.slug.startsWith('deleted_') || apiStore.slug.includes('toko-supa') || deletedSlugs.includes(apiStore.slug)) return;
-            const idx = appState.partnerStores.findIndex(s => s.slug === apiStore.slug);
-            if (idx >= 0) {
-              appState.partnerStores[idx] = Object.assign({}, appState.partnerStores[idx], apiStore);
-            } else {
-              appState.partnerStores.push(apiStore);
-              changed = true;
-            }
-          });
-        }
+  // Tandai sinkronisasi awal Cloud selesai (untuk menghilangkan placeholder loading direktori)
+  appState.isCloudSyncComplete = true;
+
+  // 2. Simpan hasil sinkronisasi dan selalu refresh UI agar tampilan sama persis di HP & seluruh browser
+  saveStoredPartnerStores(appState.partnerStores);
+  renderStoreDropdown();
+  updateDevPortalMetrics();
+  if (typeof renderSwitchStoreModal === 'function') {
+    renderSwitchStoreModal();
+  }
+
+  // Jika sedang membuka etalase toko mitra tertentu, pastikan data toko di-refresh ke versi Cloud terbaru
+  if (appState.currentStoreSlug && appState.currentStoreSlug !== 'sr12-central') {
+    const updatedCurrent = (appState.partnerStores || []).find(s => s && s.slug === appState.currentStoreSlug);
+    if (updatedCurrent) {
+      appState.storeSettings = Object.assign({}, appState.storeSettings, updatedCurrent);
+      if (typeof renderStoreBranding === 'function') {
+        renderStoreBranding();
       }
-    } catch (err) {}
-  }
-
-  if (changed) {
-    saveStoredPartnerStores(appState.partnerStores);
-    renderStoreDropdown();
-    updateDevPortalMetrics();
-  }
-
-  if (typeof updateDevPaymentUI === 'function') {
-    updateDevPaymentUI();
+    }
   }
 
   // Selalu pastikan direktori di Official Central Hub ter-refresh sesuai database terbaru
-  if (appState.storeSettings?.slug === 'sr12-central' || appState.currentStoreSlug === 'sr12-central') {
+  if (appState.storeSettings?.slug === 'sr12-central' || appState.currentStoreSlug === 'sr12-central' || !appState.currentStoreSlug) {
     renderOfficialDistributorDirectory();
   }
 
@@ -1909,6 +1865,7 @@ var appState = {
   isDevMasterLoggedIn: false,
   currentTier: 'konsumen',
   cart: getStoredCart(),
+  isCloudSyncComplete: false,
   partnerStores: getStoredPartnerStores(),
   pendingStoreApps: getStoredPendingStores(),
   tempRegSkBase64: null,
@@ -2053,88 +2010,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const initSlug = getInitialStoreSlug(appState.partnerStores);
   loadStoreBySlug(initSlug);
 
-  // 2. SINKRONISASI LATAR BELAKANG SUPABASE CLOUD (Asinkron Tanpa Memblokir Tampilan UI)
-  if (typeof syncStoresFromSupabase === 'function') {
-    (async () => {
-      try {
-        const cloudStores = await syncStoresFromSupabase();
-        if (Array.isArray(cloudStores)) {
-          let deletedSlugs = getDeletedStoreSlugs();
-          const cloudSlugs = new Set(cloudStores.map(s => s.slug));
+  // 2. SINKRONISASI SUPABASE CLOUD (Autoritatif & Single Source of Truth untuk seluruh browser/perangkat)
+  syncStoresWithServer();
 
-          // Pulihkan toko yang aktif di Supabase Cloud dari blacklist deletedSlugs lokal
-          if (deletedSlugs.length > 0) {
-            const updatedDeleted = deletedSlugs.filter(d => !cloudSlugs.has(d));
-            if (updatedDeleted.length !== deletedSlugs.length) {
-              localStorage.setItem('sr12_deleted_store_slugs', JSON.stringify(updatedDeleted));
-              deletedSlugs = updatedDeleted;
-            }
-          }
-
-          appState.partnerStores = (appState.partnerStores || []).filter(localStore => {
-            if (!localStore || !localStore.slug) return false;
-            if (localStore.slug === 'sr12-central') return true;
-            if (deletedSlugs.includes(localStore.slug)) return false;
-            if (localStore.slug === 'toko-supa-distributor' || localStore.slug.startsWith('deleted_') || localStore.slug.includes('toko-supa')) return false;
-            return cloudSlugs.has(localStore.slug);
-          });
-
-          if (appState.currentStoreSlug && !cloudSlugs.has(appState.currentStoreSlug) && appState.currentStoreSlug !== 'sr12-central') {
-            switchPartnerStore('sr12-central');
-          }
-
-          // Sinkronisasi data rekening & profil Developer dari row sr12-central di Supabase Cloud
-          const centralCloud = cloudStores.find(s => s && s.slug === 'sr12-central');
-          if (centralCloud) {
-            const idxCentral = appState.partnerStores.findIndex(s => s && s.slug === 'sr12-central');
-            if (idxCentral >= 0) {
-              appState.partnerStores[idxCentral] = Object.assign({}, appState.partnerStores[idxCentral], centralCloud);
-            }
-            if (appState.currentStoreSlug === 'sr12-central' && appState.storeSettings) {
-              appState.storeSettings = Object.assign({}, appState.storeSettings, centralCloud);
-            }
-            const rawSub = centralCloud.heroSubtitle || centralCloud.hero_subtitle;
-            if (rawSub) {
-              try {
-                const parsed = typeof rawSub === 'string' ? JSON.parse(rawSub) : rawSub;
-                if (parsed && typeof parsed === 'object') {
-                  const existing = getStoredDevPaymentSettings();
-                  const merged = Object.assign({}, existing, parsed);
-                  appState.devPaymentSettings = merged;
-                  try {
-                    localStorage.setItem('sr12_dev_payment_settings_v1', JSON.stringify(merged));
-                  } catch (eLS) {}
-                  if (typeof updateDevPaymentUI === 'function') {
-                    updateDevPaymentUI();
-                  }
-                }
-              } catch (eParse) {}
-            }
-          }
-
-          cloudStores.forEach(apiStore => {
-            if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central' || apiStore.slug === 'toko-supa-distributor' || apiStore.slug.startsWith('deleted_') || apiStore.slug.includes('toko-supa') || deletedSlugs.includes(apiStore.slug)) return;
-            const idx = appState.partnerStores.findIndex(s => s.slug === apiStore.slug);
-            if (idx >= 0) {
-              appState.partnerStores[idx] = Object.assign({}, appState.partnerStores[idx], apiStore);
-            } else {
-              appState.partnerStores.push(apiStore);
-            }
-          });
-          saveStoredPartnerStores(appState.partnerStores);
-
-          // Jika sedang di Official Central Hub, perbarui direktori secara halus
-          if (appState.currentStoreSlug === 'sr12-central') {
-            if (typeof renderOfficialDistributorDirectory === 'function') {
-              renderOfficialDistributorDirectory();
-            }
-          }
-        }
-      } catch(bootFetchErr) {
-        console.warn('Boot store fetch warning:', bootFetchErr);
-      }
-    })();
-  }
 
 function getMarketerNameById(id) {
   if (!id) return '';
@@ -4320,6 +4198,16 @@ function renderOfficialDistributorDirectory(filter = currentDirectoryFilter, sea
 
   if (filtered.length === 0) {
     if (partnerList.length === 0) {
+      if (!appState.isCloudSyncComplete) {
+        grid.innerHTML = `
+          <div style="grid-column: 1/-1; text-align: center; padding: 48px 20px; background: #fff; border-radius: 16px; border: 1.5px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+            <div style="font-size: 2.2rem; margin-bottom: 12px; display: inline-block;">🏪</div>
+            <h3 style="font-weight: 800; font-size: 1.15rem; color: #0f172a; margin-bottom: 6px;">Menghubungkan ke Direktori Toko Resmi...</h3>
+            <p style="font-size: 0.85rem; color: #64748b; max-width: 440px; margin: 0 auto;">Menyinkronkan daftar toko mitra terverifikasi langsung dari Cloud Database.</p>
+          </div>
+        `;
+        return;
+      }
       grid.innerHTML = `
         <div style="grid-column: 1/-1; text-align: center; padding: 48px 20px; background: #fff; border-radius: 16px; border: 2px dashed #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
           <div style="font-size: 3rem; margin-bottom: 12px;">🏪</div>

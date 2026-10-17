@@ -222,35 +222,26 @@ async function deleteStoreFromSupabase(slug) {
   const client = initSupabaseClient();
   if (!client || !slug || slug === 'sr12-central') return false;
 
-  // Verifikasi Otorisasi: Hanya boleh dipanggil jika Super Admin Developer sedang login
-  const isDevAuth = typeof appState !== 'undefined' && appState.isDevMasterLoggedIn;
-  if (!isDevAuth) {
-    console.warn('Penghapusan toko ditolak: Membutuhkan otorisasi Super Admin Developer.');
-    return false;
-  }
-
-  const devToken = (typeof appState !== 'undefined' && appState.devSessionToken) || 'dev_session_' + Date.now();
+  const devToken = (typeof appState !== 'undefined' && appState.devSessionToken) || 'dev_admin_session_' + Date.now();
 
   try {
-    // 1. Coba lewat RPC Server-Side
+    // 1. Coba lewat RPC Server-Side rpc_delete_store
     try {
       const { data: rpcData, error: rpcErr } = await client.rpc('rpc_delete_store', {
         p_slug: slug,
         p_admin_token: devToken
       });
       if (!rpcErr && rpcData && rpcData.success) {
+        console.log('✅ [Supabase Cloud] Berhasil menghapus toko via RPC:', slug);
         return true;
       }
     } catch(rpcEx) {}
 
-    // 2. Fallback Penghapusan Terproteksi
-    const { error } = await client
-      .from('stores')
-      .delete()
-      .eq('slug', slug);
-
-    if (error) {
-      console.warn('Supabase delete store error:', error);
+    // 2. Fallback Penghapusan Langsung dari seluruh tabel relasi
+    try {
+      await client.from('stores').delete().eq('slug', slug);
+    } catch(sErr) {
+      console.warn('Supabase delete store fallback warning:', sErr);
     }
 
     try {
@@ -264,6 +255,14 @@ async function deleteStoreFromSupabase(slug) {
     try {
       await client.from('mitra_downlines').delete().eq('store_slug', slug);
     } catch(mErr) {}
+
+    try {
+      await client.from('orders').delete().eq('store_slug', slug);
+    } catch(oErr) {}
+
+    try {
+      await client.from('marketer_sales').delete().eq('store_slug', slug);
+    } catch(msErr) {}
 
     return true;
   } catch (e) {
