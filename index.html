@@ -20,7 +20,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <link rel="stylesheet" href="css/style.css?v=16.5">
+  <link rel="stylesheet" href="css/style.css?v=16.6">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
 </head>
 <body>
@@ -46,19 +46,25 @@
 
   <!-- 0.1 PREVIEW MODE STRIP (HANYA MUNCUL KETIKA DISTRIBUTOR MENINJAU TOKO PEMBELI / CUSTOMER FACING DISPLAY) -->
   <aside id="distributorPreviewStrip" class="distributor-preview-strip" style="display: none;">
-    <div class="preview-strip-info">
-      <span class="preview-tag">👑 CUSTOMER FACING DISPLAY</span>
-      <span class="preview-user-text">Toko: <b id="previewStripDistName" style="color: #bae6fd;">Toko Mitra</b></span>
+    <div class="preview-strip-left">
+      <button type="button" class="btn-olsera-static-menu" onclick="showDistributorPortalView(true); openOlseraSidebarDrawer();" title="Buka Menu Toko" aria-label="Menu Toko">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        <span>Menu Toko</span>
+      </button>
+      <div class="olsera-static-store-info">
+        <b id="previewStripDistName" class="olsera-static-store-title">Alzam Agency</b>
+        <span class="olsera-static-store-sub">Distributor Resmi SR12</span>
+      </div>
     </div>
     <div class="preview-strip-actions">
-      <button type="button" class="btn-preview-icon" onclick="showDistributorPortalView(true); openOlseraSidebarDrawer();" title="Buka Dashboard Admin &amp; Kasir Olsera">
-        <span>🛒</span><span class="preview-btn-label"> Menu Toko &amp; Kasir</span>
+      <button type="button" class="btn-topbar-action-pos" onclick="showDistributorPortalView(true)" title="Kembali ke Kasir Olsera">
+        <span>🛒</span> <span>Kasir Olsera</span>
       </button>
-      <button type="button" class="btn-preview-icon" onclick="openStoreSettingsModal()" title="Pengaturan Toko">
-        <span>⚙️</span><span class="preview-btn-label"> Pengaturan Toko</span>
+      <button type="button" class="btn-topbar-action-settings" onclick="openStoreSettingsModal()" title="Pengaturan Toko">
+        <span>⚙️</span> <span>Pengaturan</span>
       </button>
-      <button type="button" class="btn-preview-icon btn-preview-logout" onclick="handleDistributorLogout()" title="Keluar / Logout">
-        <span>🚪</span><span class="preview-btn-label"> Logout</span>
+      <button type="button" class="btn-topbar-action-logout" onclick="handleDistributorLogout()" title="Keluar / Logout Akun Distributor">
+        <span>🚪</span> <span>Logout</span>
       </button>
     </div>
   </aside>
@@ -4562,13 +4568,14 @@
   </div>
 
   <!-- 14. MODAL: TAMBAH MITRA RESMI BARU (AGEN, SUB AGEN, RESELLER, MARKETER) -->
-  <div class="modal-backdrop" id="modalAddMitra">
-    <div class="modal-dialog" style="max-width: 540px;">
-      <div class="modal-header">
+  <!-- 14. MODAL: TAMBAH MITRA RESMI BARU (AGEN, SUB AGEN, RESELLER, MARKETER) -->
+  <div class="modal-backdrop" id="modalAddMitra" style="align-items: flex-start; overflow-y: auto; padding: 20px 12px 60px 12px;">
+    <div class="modal-dialog" style="max-width: 560px; max-height: calc(100vh - 60px); display: flex; flex-direction: column; overflow: hidden; margin: 15px auto 40px auto; border-radius: 16px; box-shadow: 0 25px 65px rgba(0,0,0,0.4);">
+      <div class="modal-header" style="flex-shrink: 0;">
         <h3>👥 Daftarkan Mitra Baru ke Database Distributor</h3>
         <button class="btn-close-modal" onclick="closeModal('modalAddMitra')">&times;</button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body" style="overflow-y: auto; flex: 1 1 auto; padding: 18px 20px 30px 20px;">
         <p style="font-size: 0.85rem; color: var(--dark-500); margin-bottom: 14px;">
           Distributor memberikan Nomor ID Kemitraan unik untuk setiap mitra binaannya. ID atau No. WhatsApp ini akan langsung terbaca otomatis saat mereka belanja atau order via website.
         </p>
@@ -4643,22 +4650,24 @@
             <input type="number" id="newMitraInitialSpend" value="500000" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: var(--font-main);">
           </div>
 
-          <button type="submit" style="width: 100%; background: var(--primary-700); color: #fff; border: none; padding: 11px; border-radius: var(--radius-md); font-weight: 700; font-size: 0.9rem; cursor: pointer;">
-            Simpan ke Database Distributor
-          </button>
+          <div style="margin-top: 16px; padding-bottom: 18px;">
+            <button type="submit" id="btnSubmitAddMitra" style="width: 100%; background: var(--primary-700); color: #fff; border: none; padding: 13px; border-radius: var(--radius-md); font-weight: 800; font-size: 0.95rem; cursor: pointer; box-shadow: 0 4px 12px rgba(5,150,105,0.3);">
+              💾 Simpan ke Database Distributor
+            </button>
+          </div>
         </form>
       </div>
     </div>
   </div>
 
   <!-- MODAL: EDIT DATA MITRA & TANGGAL BERGABUNG -->
-  <div class="modal-backdrop" id="modalEditMitra">
-    <div class="modal-dialog" style="max-width: 540px;">
-      <div class="modal-header" style="background: linear-gradient(135deg, #0f172a, #1e293b); color: #ffffff;">
+  <div class="modal-backdrop" id="modalEditMitra" style="align-items: flex-start; overflow-y: auto; padding: 20px 12px 60px 12px;">
+    <div class="modal-dialog" style="max-width: 560px; max-height: calc(100vh - 60px); display: flex; flex-direction: column; overflow: hidden; margin: 15px auto 40px auto; border-radius: 16px; box-shadow: 0 25px 65px rgba(0,0,0,0.4);">
+      <div class="modal-header" style="flex-shrink: 0; background: linear-gradient(135deg, #0f172a, #1e293b); color: #ffffff;">
         <h3 style="color: #ffffff; margin: 0; font-size: 1.05rem;">✏️ Edit Data & Tanggal Bergabung Mitra</h3>
         <button class="btn-close-modal" onclick="closeModal('modalEditMitra')" style="color: #ffffff;">&times;</button>
       </div>
-      <div class="modal-body" style="padding: 20px;">
+      <div class="modal-body" style="overflow-y: auto; flex: 1 1 auto; padding: 18px 20px 30px 20px;">
         <form onsubmit="handleEditMitraSubmit(event)">
           <input type="hidden" id="editMitraOriginalId">
 
@@ -5313,9 +5322,9 @@
 
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=16.5"></script>
-  <script src="js/data.js?v=16.5"></script>
-  <script src="js/app.js?v=16.5"></script>
-  <script src="js/olsera-suite.js?v=16.5"></script>
+  <script src="js/supabase-config.js?v=16.6"></script>
+  <script src="js/data.js?v=16.6"></script>
+  <script src="js/app.js?v=16.6"></script>
+  <script src="js/olsera-suite.js?v=16.6"></script>
 </body>
 </html>

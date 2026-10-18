@@ -5583,48 +5583,134 @@ body.modal-open {
   color: #ffffff;
 }
 
-/* Distributor Preview Strip (Storefront Mode) */
+/* Distributor Preview Strip (Customer Facing Display Mode) */
 .distributor-preview-strip {
-  background: linear-gradient(135deg, #075985, #0369a1);
-  color: #ffffff;
-  padding: 8px 18px;
-  font-size: 0.82rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px;
-  border-bottom: 2px solid #0284c7;
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
-  width: 100%;
-  box-sizing: border-box;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  padding: 10px 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  flex-wrap: wrap !important;
+  gap: 12px !important;
+  border-bottom: 1.5px solid #e2e8f0 !important;
+  position: static !important; /* Statis, tidak melayang, tidak menutupi elemen apa pun */
+  width: 100% !important;
+  box-sizing: border-box !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
 }
 
-.preview-strip-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
+.preview-strip-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  min-width: 0 !important;
 }
 
 .preview-strip-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-shrink: 0 !important;
 }
 
-.distributor-preview-strip .preview-tag {
-  background: #0284c7;
-  color: #ffffff;
-  padding: 3px 8px;
-  border-radius: var(--radius-full);
-  font-weight: 800;
-  font-size: 0.72rem;
-  white-space: nowrap;
+.btn-topbar-action-pos {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+  border: none !important;
+  padding: 7px 14px !important;
+  border-radius: 9999px !important;
+  font-weight: 700 !important;
+  font-size: 0.8rem !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25) !important;
+  transition: all 0.2s ease !important;
+}
+.btn-topbar-action-pos:hover {
+  background: #0369a1 !important;
+  transform: translateY(-1px) !important;
+}
+
+.btn-topbar-action-settings {
+  background: #ffffff !important;
+  color: #334155 !important;
+  border: 1px solid #cbd5e1 !important;
+  padding: 7px 12px !important;
+  border-radius: 9999px !important;
+  font-weight: 700 !important;
+  font-size: 0.78rem !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  transition: all 0.2s ease !important;
+}
+.btn-topbar-action-settings:hover {
+  background: #f8fafc !important;
+  border-color: #94a3b8 !important;
+}
+
+.btn-topbar-action-logout {
+  background: #fef2f2 !important;
+  color: #dc2626 !important;
+  border: 1px solid #fecaca !important;
+  padding: 7px 12px !important;
+  border-radius: 9999px !important;
+  font-weight: 700 !important;
+  font-size: 0.78rem !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  transition: all 0.2s ease !important;
+}
+.btn-topbar-action-logout:hover {
+  background: #fee2e2 !important;
+}
+
+/* Tombol Pena / Edit Produk Khusus Distributor (Sky Blue Kapsul Menarik) */
+.btn-product-capsule-edit {
+  background: #e0f2fe !important;
+  color: #0369a1 !important;
+  border: 1.5px solid #38bdf8 !important;
+  box-shadow: 0 1px 4px rgba(2, 132, 199, 0.18) !important;
+}
+.btn-product-capsule-edit:hover {
+  background: linear-gradient(135deg, #0284c7, #0369a1) !important;
+  color: #ffffff !important;
+  border-color: #0284c7 !important;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.4) !important;
+}
+
+/* Mencegah Modal Tambah/Edit Mitra dan Edit Produk Terpotong di Bagian Bawah */
+#modalAddMitra,
+#modalEditMitra,
+#modalEditProduct {
+  align-items: flex-start !important;
+  overflow-y: auto !important;
+  padding: max(24px, env(safe-area-inset-top, 20px)) 12px 60px 12px !important;
+}
+
+#modalAddMitra .modal-dialog,
+#modalEditMitra .modal-dialog,
+#modalEditProduct .modal-dialog {
+  max-height: calc(100vh - 70px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  margin: 16px auto 40px auto !important;
+}
+
+#modalAddMitra .modal-body,
+#modalEditMitra .modal-body,
+#modalEditProduct .modal-body {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  flex: 1 1 auto !important;
+  padding-bottom: 30px !important;
 }
 
 .btn-preview-icon {

@@ -7483,9 +7483,18 @@ function renderProducts() {
             <button type="button" class="btn-product-capsule btn-product-capsule-cart" onclick="addToCart('${prod.id}')" title="Tambah ${prod.name} ke Keranjang" aria-label="Beli">
               <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
             </button>
-            <button type="button" class="btn-product-capsule btn-product-capsule-detail" onclick="openProductDetailModal('${prod.id}')" title="Lihat Detail Produk" aria-label="Detail">
-              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            </button>
+            ${canManage ? `
+              <button type="button" class="btn-product-capsule btn-product-capsule-edit" onclick="openEditProductModal('${prod.id}')" title="Edit Foto &amp; Produk (${escapeHtml(prod.name)})" aria-label="Edit Produk">
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                  <path d="M12 20h9"/>
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                </svg>
+              </button>
+            ` : `
+              <button type="button" class="btn-product-capsule btn-product-capsule-detail" onclick="openProductDetailModal('${prod.id}')" title="Lihat Detail Produk" aria-label="Detail">
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            `}
             <button type="button" class="btn-product-capsule btn-product-capsule-share" onclick="openProductPromoShareModal('${prod.id}')" title="Bagikan &amp; Promosikan Produk Ini" aria-label="Bagikan">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M15 8l5 4-5 4"/>
@@ -9000,8 +9009,10 @@ function openProductDetailModal(productId) {
     const canManageProd = !!(appState.isAdminMode || appState.isDistributorLoggedIn || appState.isDevMasterLoggedIn);
     btnEdit.style.display = canManageProd ? 'inline-flex' : 'none';
     btnEdit.onclick = () => {
-      closeModal('modalProductDetail');
-      openEditProductModal(prod.id);
+      closeModal('modalProductDetail', false, true);
+      setTimeout(() => {
+        openEditProductModal(prod.id);
+      }, 50);
     };
   }
 
