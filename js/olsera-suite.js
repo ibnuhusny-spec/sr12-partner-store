@@ -259,8 +259,8 @@ function showDistributorPortalView(showPortal) {
     if (previewStrip) previewStrip.style.display = 'none';
     if (devStrip) devStrip.style.display = (typeof appState !== 'undefined' && appState.isDevMasterLoggedIn) ? 'flex' : 'none';
 
-    // Tampilkan tombol melayang Menu Toko hanya jika distributor sedang login
-    const isLoggedDistributor = (typeof appState !== 'undefined') && !!appState.isAdminMode && !!appState.isDistributorLoggedIn;
+    // Tampilkan tombol melayang Menu Toko jika distributor atau dev master sedang login
+    const isLoggedDistributor = (typeof appState !== 'undefined') && (!!appState.isAdminMode || !!appState.isDistributorLoggedIn || !!appState.isDevMasterLoggedIn);
     const btnFloat = document.getElementById('btnFloatingAdminMenu');
     if (btnFloat) btnFloat.style.display = isLoggedDistributor ? 'inline-flex' : 'none';
 
@@ -1268,8 +1268,11 @@ function renderPosProducts(category = 'all', query = '') {
   const cat = category || appState.posSelectedCategory || 'all';
 
   const filtered = (appState.products || []).filter(p => {
-    const matchCat = (cat === 'all') || (p.category && p.category.toLowerCase().includes(cat.toLowerCase()));
-    const matchQ = !q || p.name.toLowerCase().includes(q) || (p.category && p.category.toLowerCase().includes(q));
+    if (!p) return false;
+    const pCat = (p.category || '').toLowerCase().trim();
+    const targetCat = (cat || 'all').toLowerCase().trim();
+    const matchCat = (targetCat === 'all') || (pCat === targetCat) || pCat.includes(targetCat);
+    const matchQ = !q || (p.name || '').toLowerCase().includes(q) || pCat.includes(q);
     return matchCat && matchQ;
   });
 

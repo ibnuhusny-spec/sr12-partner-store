@@ -3208,15 +3208,15 @@ function isSafeImageUrl(rawUrl) {
   const url = rawUrl.trim();
   if (!url) return false;
 
-  // 1. BLOKIR KERAS skema berbahaya
+  // 1. BLOKIR KERAS skema script berbahaya
   const dangerousPatterns = /^(javascript|vbscript|data:text|data:application|file|ftp):/i;
   if (dangerousPatterns.test(url)) {
     return false;
   }
 
-  // 2. BLOKIR injeksi tag HTML, quotes, spasi, atau karakter eksekusi script
-  if (/[<>"'`\s\\]/.test(url)) {
-    return false;
+  // 2. Izinkan Data URI HANYA jika berupa gambar aman (JPEG, PNG, WEBP, GIF, SVG)
+  if (/^data:image\/(jpeg|jpg|png|webp|gif|svg\+xml)/i.test(url)) {
+    return true;
   }
 
   // 3. Izinkan aset gambar lokal internal toko (misal: 'assets/...' atau './assets/...')
@@ -3224,43 +3224,35 @@ function isSafeImageUrl(rawUrl) {
     return true;
   }
 
-  // 4. Izinkan Data URI HANYA jika berupa gambar aman (JPEG, PNG, WEBP)
-  if (/^data:image\/(jpeg|jpg|png|webp);base64,[A-Za-z0-9+/=]+$/i.test(url)) {
-    return true;
+  let checkUrl = url;
+  if (checkUrl.startsWith('//')) {
+    checkUrl = 'https:' + checkUrl;
+  } else if (/^www\./i.test(checkUrl)) {
+    checkUrl = 'https://' + checkUrl;
   }
 
-  // 5. Untuk URL web eksternal: WAJIB HTTPS resmi
+  // 4. Untuk URL web eksternal: Izinkan HTTPS dan HTTP resmi
   try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== 'https:') {
-      return false; // Tolak http biasa tanpa enkripsi atau protokol aneh
+    const parsed = new URL(checkUrl);
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+      return true;
     }
-    
-    // Pastikan ekstensi file di URL adalah format gambar yang valid atau berasal dari hosting gambar / Supabase storage
-    const pathname = parsed.pathname.toLowerCase();
-    const isImageExt = /\.(jpe?g|png|webp|gif|svg)$/i.test(pathname) || /\.(jpe?g|png|webp|gif|svg)(\?.*)?$/i.test(url);
-    const isTrustedImageHost = parsed.hostname.includes('supabase.co') || 
-                               parsed.hostname.includes('cloudinary.com') || 
-                               parsed.hostname.includes('imgur.com') ||
-                               parsed.hostname.includes('drive.google.com') ||
-                               parsed.hostname.includes('googleusercontent.com') ||
-                               parsed.hostname.includes('sr12.co.id') ||
-                               parsed.hostname.includes('bpom.go.id') ||
-                               parsed.hostname.includes('unsplash.com') ||
-                               parsed.hostname.includes('fbcdn.net') ||
-                               parsed.hostname.includes('cdninstagram.com');
-
-    return isImageExt || isTrustedImageHost;
   } catch (err) {
     return false;
   }
+  return false;
 }
 
 function sanitizeImageUrl(rawUrl, fallback = 'assets/hero-banner.jpg') {
   if (!rawUrl || typeof rawUrl !== 'string') return fallback;
-  const trimmed = rawUrl.trim();
+  let trimmed = rawUrl.trim();
+  if (trimmed.startsWith('//')) {
+    trimmed = 'https:' + trimmed;
+  } else if (/^www\./i.test(trimmed)) {
+    trimmed = 'https://' + trimmed;
+  }
   if (isSafeImageUrl(trimmed)) {
-    return escapeHtml(trimmed);
+    return trimmed;
   }
   return fallback;
 }
@@ -5582,13 +5574,19 @@ function initEventListeners() {
     });
   }
 
-  const categoryChips = document.querySelectorAll('.chip-btn:not(.theme-swatch-btn)');
+  const categoryChips = document.querySelectorAll('.catalog-toolbar .category-chips .chip-btn');
   categoryChips.forEach(chip => {
-    chip.addEventListener('click', () => {
-      categoryChips.forEach(c => c.classList.remove('active'));
-      chip.classList.add('active');
-      appState.selectedCategory = chip.dataset.category;
-      renderProducts();
+    chip.addEventListener('click', (e) => {
+      e.preventDefault();
+      const cat = chip.dataset.category || 'all';
+      if (typeof filterCatalogCategory === 'function') {
+        filterCatalogCategory(cat, chip);
+      } else {
+        categoryChips.forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        appState.selectedCategory = cat;
+        renderProducts();
+      }
     });
   });
 
@@ -5707,12 +5705,12 @@ function initEventListeners() {
     btnCloseStoreSettings.addEventListener('click', () => modalStoreSettings.classList.remove('open'));
   }
 
-  // Helper Validator Format File Gambar Ketat (Hanya JPG & PNG Resmi)
+  // Helper Validator Format File Gambar Ketat (Mendukung JPG, PNG, WEBP, GIF, SVG)
   function isStrictImageFile(file) {
     if (!file) return false;
-    const validMimes = ['image/jpeg', 'image/png'];
-    const validExts = /\.(jpe?g|png)$/i;
-    return validMimes.includes(file.type) || validExts.test(file.name);
+    if (file.type && file.type.startsWith('image/')) return true;
+    const validExts = /\.(jpe?g|png|webp|gif|svg|bmp|jfif)$/i;
+    return validExts.test(file.name || '');
   }
 
   // Store Logo Upload
@@ -5722,7 +5720,7 @@ function initEventListeners() {
       const file = e.target.files[0];
       if (file) {
         if (!isStrictImageFile(file)) {
-          alert('Format file tidak didukung! Demi keamanan sistem, hanya diperbolehkan mengupload foto format JPG atau PNG.');
+          alert('Format file tidak didukung! Demi keamanan sistem, hanya diperbolehkan mengupload foto format JPG, PNG, atau WEBP.');
           e.target.value = '';
           return;
         }
@@ -5991,7 +5989,7 @@ function initEventListeners() {
       const file = e.target.files[0];
       if (file) {
         if (!isStrictImageFile(file)) {
-          alert('Format foto produk tidak didukung! Hanya menerima gambar format JPG atau PNG.');
+          alert('Format foto produk tidak didukung! Hanya menerima gambar format JPG, PNG, atau WEBP.');
           e.target.value = '';
           return;
         }
@@ -7347,6 +7345,23 @@ function renderTierQuickBanner() {
   }
 }
 
+// Filter Kategori Etalase Katalog Produk (Storefront & Customer Facing Display)
+function filterCatalogCategory(category = 'all', btn = null) {
+  if (typeof appState !== 'undefined') {
+    appState.selectedCategory = category || 'all';
+  }
+  const buttons = document.querySelectorAll('.catalog-toolbar .category-chips .chip-btn');
+  buttons.forEach(b => b.classList.remove('active'));
+  if (btn) {
+    btn.classList.add('active');
+  } else {
+    const target = document.querySelector(`.catalog-toolbar .category-chips .chip-btn[data-category="${category}"]`);
+    if (target) target.classList.add('active');
+  }
+  renderProducts();
+}
+window.filterCatalogCategory = filterCatalogCategory;
+
 // Render Products Catalog
 function renderProducts() {
   const container = document.getElementById('productGrid');
@@ -7370,11 +7385,19 @@ function renderProducts() {
     ? getDailyRotatedProducts(appState.products || [])
     : (appState.products || []);
 
+  const selectedCat = (appState.selectedCategory || 'all').trim().toLowerCase();
+  const queryStr = (appState.searchQuery || '').trim().toLowerCase();
+
   const filtered = baseProducts.filter(prod => {
-    const matchCat = appState.selectedCategory === 'all' || prod.category.toLowerCase().includes(appState.selectedCategory.toLowerCase());
-    const matchSearch = prod.name.toLowerCase().includes(appState.searchQuery) ||
-                        prod.sku.toLowerCase().includes(appState.searchQuery) ||
-                        prod.category.toLowerCase().includes(appState.searchQuery);
+    if (!prod) return false;
+    const prodCat = (prod.category || '').trim().toLowerCase();
+    const matchCat = (selectedCat === 'all') || (prodCat === selectedCat) || prodCat.includes(selectedCat);
+    const prodName = (prod.name || '').toLowerCase();
+    const prodSku = (prod.sku || '').toLowerCase();
+    const matchSearch = !queryStr ||
+                        prodName.includes(queryStr) ||
+                        prodSku.includes(queryStr) ||
+                        prodCat.includes(queryStr);
     return matchCat && matchSearch;
   });
 
@@ -7390,7 +7413,8 @@ function renderProducts() {
     return;
   }
 
-  const currentTier = SR12_TIERS[appState.currentTier];
+  const currentTier = SR12_TIERS[appState.currentTier] || SR12_TIERS.konsumen;
+  const canManage = !!(appState.isAdminMode || appState.isDistributorLoggedIn || appState.isDevMasterLoggedIn);
 
   container.innerHTML = filtered.map(prod => {
     const tierPrice = getProductTierPrice(prod, appState.currentTier);
@@ -7406,8 +7430,8 @@ function renderProducts() {
           ${isMarketer ? `<span class="badge-disc-clean" style="background: #0284c7; color: #fff;">💼 Komisi 15%</span>` : (!isRetail ? `<span class="badge-disc-clean">-${currentTier.discountPct}%</span>` : '')}
           <span class="badge-stock-clean ${(prod.stock ?? 85) <= 15 ? 'low' : ''}">Stok: ${prod.stock ?? 85}</span>
 
-          ${appState.isAdminMode ? `
-            <button class="btn-quick-edit-image" title="Ubah Gambar atau Detail Produk" onclick="openEditProductModal('${prod.id}')">
+          ${canManage ? `
+            <button type="button" class="btn-quick-edit-image" title="Ubah Gambar atau Detail Produk" onclick="openEditProductModal('${prod.id}')">
               <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
               Ganti Foto
             </button>
@@ -7420,8 +7444,8 @@ function renderProducts() {
             <span class="product-rating">★ ${prod.rating || '4.9'}</span>
           </div>
 
-          <h4 class="product-title" onclick="openProductDetailModal('${prod.id}')">${prod.name}</h4>
-          <p class="product-summary-text">${prod.summary}</p>
+          <h4 class="product-title" onclick="${canManage ? `openEditProductModal('${prod.id}')` : `openProductDetailModal('${prod.id}')`}" style="cursor: pointer;">${prod.name}</h4>
+          <p class="product-summary-text">${prod.summary || ''}</p>
 
           <div class="price-block">
             <div class="price-main-row">
@@ -7445,8 +7469,8 @@ function renderProducts() {
             <button type="button" class="btn-product-capsule btn-product-capsule-cart" onclick="addToCart('${prod.id}')" title="Tambah ${prod.name} ke Keranjang" aria-label="Beli">
               <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
             </button>
-            <button type="button" class="btn-product-capsule btn-product-capsule-detail" onclick="${appState.isAdminMode ? `openEditProductModal('${prod.id}')` : `openProductDetailModal('${prod.id}')`}" title="${appState.isAdminMode ? 'Ubah Detail / Foto Produk' : 'Lihat Detail Produk'}" aria-label="Detail">
-              ${appState.isAdminMode ? `
+            <button type="button" class="btn-product-capsule btn-product-capsule-detail" onclick="${canManage ? `openEditProductModal('${prod.id}')` : `openProductDetailModal('${prod.id}')`}" title="${canManage ? 'Ubah Detail / Foto Produk' : 'Lihat Detail Produk'}" aria-label="Detail">
+              ${canManage ? `
                 <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
               ` : `
                 <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -8950,7 +8974,8 @@ function openProductDetailModal(productId) {
     };
   }
   if (btnEdit) {
-    btnEdit.style.display = appState.isAdminMode ? 'block' : 'none';
+    const canManageProd = !!(appState.isAdminMode || appState.isDistributorLoggedIn || appState.isDevMasterLoggedIn);
+    btnEdit.style.display = canManageProd ? 'block' : 'none';
     btnEdit.onclick = () => {
       modal.classList.remove('open');
       openEditProductModal(prod.id);
@@ -9054,15 +9079,19 @@ async function handleEditProductSubmit(e) {
         finalImage = appState.tempEditImageBase64;
       }
     } else if (newImgUrl && newImgUrl !== prod.image) {
-      if (typeof isSafeImageUrl === 'function' && !isSafeImageUrl(newImgUrl)) {
-        alert('❌ URL FOTO DITOLAK DEMI KEAMANAN SISTEM!\n\nAlasan:\n• Link foto wajib menggunakan protokol HTTPS resmi (contoh: https://domain.com/foto.jpg) atau aset internal toko.\n• Dilarang menggunakan link mencurigakan, JavaScript, file eksekusi, atau protokol tidak aman.\n\nSilakan periksa kembali link atau gunakan tombol "Upload Foto Langsung" dari HP/komputer Anda.');
+      let formattedUrl = newImgUrl;
+      if (formattedUrl.startsWith('//')) formattedUrl = 'https:' + formattedUrl;
+      else if (/^www\./i.test(formattedUrl)) formattedUrl = 'https://' + formattedUrl;
+
+      if (typeof isSafeImageUrl === 'function' && !isSafeImageUrl(formattedUrl)) {
+        alert('❌ URL FOTO DITOLAK DEMI KEAMANAN SISTEM!\n\nAlasan:\n• Link foto wajib menggunakan protokol resmi (https:// atau http://) atau berupa file gambar yang valid.\n• Silakan gunakan tombol "Upload Foto Langsung" dari HP/komputer Anda untuk hasil terbaik.');
         if (btnSubmit) {
           btnSubmit.disabled = false;
           btnSubmit.textContent = '💾 Simpan Perubahan Produk';
         }
         return;
       }
-      finalImage = newImgUrl;
+      finalImage = formattedUrl;
     }
 
     // Pastikan hasil akhir foto aman dan tersanitasi
@@ -9079,7 +9108,7 @@ async function handleEditProductSubmit(e) {
     prod.image = finalImage;
     prod.customEdited = true;
 
-    const activeStoreSlug = appState.currentStoreSlug || (appState.storeSettings && appState.storeSettings.slug) || 'alzam-agency';
+    const activeStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
 
     // 1. Simpan override terisolasi khusus untuk toko ini (LocalStorage terisolasi)
     saveStoreProductOverride(activeStoreSlug, prod);
@@ -9129,6 +9158,9 @@ function setEditImagePreset(presetType) {
   }
   showToast(`🖼️ Foto kemasan produk dipilih: ${presetType}`);
 }
+window.openEditProductModal = openEditProductModal;
+window.handleEditProductSubmit = handleEditProductSubmit;
+window.setEditImagePreset = setEditImagePreset;
 
 function updateFeePayerLabels() {
   const feeSelect = document.getElementById('settingPlatformFeeAmount');

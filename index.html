@@ -557,20 +557,20 @@
             <div class="pos-toolbar">
               <input type="text" id="posSearchInput" oninput="handlePosSearch(this.value)" class="pos-search-input" placeholder="🔍 Cari nama produk (GoMilku, VCO, Deodorant, dll)...">
               <div class="category-chips" style="margin-bottom: 0;">
-                <button class="chip-btn active" onclick="filterPosCategory('all', this)">Semua</button>
-                <button class="chip-btn" onclick="filterPosCategory('Acne Series', this)">Acne Series</button>
-                <button class="chip-btn" onclick="filterPosCategory('Face Care', this)">Face Care</button>
-                <button class="chip-btn" onclick="filterPosCategory('Face Wash', this)">Face Wash</button>
-                <button class="chip-btn" onclick="filterPosCategory('Face Mask', this)">Face Mask</button>
-                <button class="chip-btn" onclick="filterPosCategory('Herbal', this)">Herbal</button>
-                <button class="chip-btn" onclick="filterPosCategory('Body Care', this)">Body Care</button>
-                <button class="chip-btn" onclick="filterPosCategory('Hair Care', this)">Hair Care</button>
-                <button class="chip-btn" onclick="filterPosCategory('Beauty Drink', this)">Beauty Drink</button>
-                <button class="chip-btn" onclick="filterPosCategory('Personal Care', this)">Personal Care</button>
-                <button class="chip-btn" onclick="filterPosCategory('Parfum', this)">Parfum</button>
-                <button class="chip-btn" onclick="filterPosCategory('Toothpaste', this)">Toothpaste</button>
-                <button class="chip-btn" onclick="filterPosCategory('SR Kiddos', this)">SR Kiddos</button>
-                <button class="chip-btn" onclick="filterPosCategory('Skinsane', this)">Skinsane</button>
+                <button type="button" class="chip-btn active" data-category="all" onclick="filterPosCategory('all', this)">Semua</button>
+                <button type="button" class="chip-btn" data-category="Acne Series" onclick="filterPosCategory('Acne Series', this)">Acne Series</button>
+                <button type="button" class="chip-btn" data-category="Face Care" onclick="filterPosCategory('Face Care', this)">Face Care</button>
+                <button type="button" class="chip-btn" data-category="Face Wash" onclick="filterPosCategory('Face Wash', this)">Face Wash</button>
+                <button type="button" class="chip-btn" data-category="Face Mask" onclick="filterPosCategory('Face Mask', this)">Face Mask</button>
+                <button type="button" class="chip-btn" data-category="Herbal" onclick="filterPosCategory('Herbal', this)">Herbal</button>
+                <button type="button" class="chip-btn" data-category="Body Care" onclick="filterPosCategory('Body Care', this)">Body Care</button>
+                <button type="button" class="chip-btn" data-category="Hair Care" onclick="filterPosCategory('Hair Care', this)">Hair Care</button>
+                <button type="button" class="chip-btn" data-category="Beauty Drink" onclick="filterPosCategory('Beauty Drink', this)">Beauty Drink</button>
+                <button type="button" class="chip-btn" data-category="Personal Care" onclick="filterPosCategory('Personal Care', this)">Personal Care</button>
+                <button type="button" class="chip-btn" data-category="Parfum" onclick="filterPosCategory('Parfum', this)">Parfum</button>
+                <button type="button" class="chip-btn" data-category="Toothpaste" onclick="filterPosCategory('Toothpaste', this)">Toothpaste</button>
+                <button type="button" class="chip-btn" data-category="SR Kiddos" onclick="filterPosCategory('SR Kiddos', this)">SR Kiddos</button>
+                <button type="button" class="chip-btn" data-category="Skinsane" onclick="filterPosCategory('Skinsane', this)">Skinsane</button>
               </div>
             </div>
 
@@ -1816,20 +1816,20 @@
         </div>
 
         <div class="category-chips">
-          <button class="chip-btn active" data-category="all">Semua Produk</button>
-          <button class="chip-btn" data-category="Acne Series">Acne Series</button>
-          <button class="chip-btn" data-category="Face Care">Face Care</button>
-          <button class="chip-btn" data-category="Face Wash">Face Wash</button>
-          <button class="chip-btn" data-category="Face Mask">Face Mask</button>
-          <button class="chip-btn" data-category="Herbal">Herbal</button>
-          <button class="chip-btn" data-category="Body Care">Body Care</button>
-          <button class="chip-btn" data-category="Hair Care">Hair Care</button>
-          <button class="chip-btn" data-category="Beauty Drink">Beauty Drink</button>
-          <button class="chip-btn" data-category="Personal Care">Personal Care</button>
-          <button class="chip-btn" data-category="Parfum">Parfum</button>
-          <button class="chip-btn" data-category="Toothpaste">Toothpaste</button>
-          <button class="chip-btn" data-category="SR Kiddos">SR Kiddos</button>
-          <button class="chip-btn" data-category="Skinsane">Skinsane</button>
+          <button type="button" class="chip-btn active" data-category="all" onclick="filterCatalogCategory('all', this)">Semua Produk</button>
+          <button type="button" class="chip-btn" data-category="Acne Series" onclick="filterCatalogCategory('Acne Series', this)">Acne Series</button>
+          <button type="button" class="chip-btn" data-category="Face Care" onclick="filterCatalogCategory('Face Care', this)">Face Care</button>
+          <button type="button" class="chip-btn" data-category="Face Wash" onclick="filterCatalogCategory('Face Wash', this)">Face Wash</button>
+          <button type="button" class="chip-btn" data-category="Face Mask" onclick="filterCatalogCategory('Face Mask', this)">Face Mask</button>
+          <button type="button" class="chip-btn" data-category="Herbal" onclick="filterCatalogCategory('Herbal', this)">Herbal</button>
+          <button type="button" class="chip-btn" data-category="Body Care" onclick="filterCatalogCategory('Body Care', this)">Body Care</button>
+          <button type="button" class="chip-btn" data-category="Hair Care" onclick="filterCatalogCategory('Hair Care', this)">Hair Care</button>
+          <button type="button" class="chip-btn" data-category="Beauty Drink" onclick="filterCatalogCategory('Beauty Drink', this)">Beauty Drink</button>
+          <button type="button" class="chip-btn" data-category="Personal Care" onclick="filterCatalogCategory('Personal Care', this)">Personal Care</button>
+          <button type="button" class="chip-btn" data-category="Parfum" onclick="filterCatalogCategory('Parfum', this)">Parfum</button>
+          <button type="button" class="chip-btn" data-category="Toothpaste" onclick="filterCatalogCategory('Toothpaste', this)">Toothpaste</button>
+          <button type="button" class="chip-btn" data-category="SR Kiddos" onclick="filterCatalogCategory('SR Kiddos', this)">SR Kiddos</button>
+          <button type="button" class="chip-btn" data-category="Skinsane" onclick="filterCatalogCategory('Skinsane', this)">Skinsane</button>
         </div>
 
         <div class="catalog-tier-selector-wrap" style="display: inline-flex; align-items: center; gap: 6px; background: #f8fafc; border: 1.5px solid var(--border-subtle); padding: 5px 12px; border-radius: 9999px;">
@@ -2552,8 +2552,8 @@
           </div>
 
           <div style="margin-bottom: 8px;">
-            <label style="font-size: 0.75rem; color: var(--dark-700); font-weight: 600; display: block; margin-bottom: 3px;">Upload Foto Langsung Dari Komputer/HP (JPG / PNG):</label>
-            <input type="file" id="editProdFileInput" accept="image/jpeg,image/png" style="font-size: 0.8rem; width: 100%;">
+            <label style="font-size: 0.75rem; color: var(--dark-700); font-weight: 600; display: block; margin-bottom: 3px;">Upload Foto Langsung Dari Komputer/HP (JPG, PNG, WEBP):</label>
+            <input type="file" id="editProdFileInput" accept="image/*" style="font-size: 0.8rem; width: 100%;">
           </div>
 
           <div>
@@ -5319,9 +5319,9 @@
 
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=16.2"></script>
-  <script src="js/data.js?v=16.2"></script>
-  <script src="js/app.js?v=16.2"></script>
-  <script src="js/olsera-suite.js?v=16.2"></script>
+  <script src="js/supabase-config.js?v=16.3"></script>
+  <script src="js/data.js?v=16.3"></script>
+  <script src="js/app.js?v=16.3"></script>
+  <script src="js/olsera-suite.js?v=16.3"></script>
 </body>
 </html>
