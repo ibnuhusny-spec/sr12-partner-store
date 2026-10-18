@@ -3016,19 +3016,19 @@ body.theme-dark .distributor-hero-cover-wrap { background: linear-gradient(135de
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08) !important;
 }
 
-/* 3. Tombol Tanda Panah / Share (Warm Orange Kapsul) */
+/* 3. Tombol Tanda Panah / Share (Herbal Emerald Kapsul Khas SR12) */
 .btn-product-capsule-share {
-  background: #fff7ed !important;
-  color: #ea580c !important;
-  border: 1.5px solid #fed7aa !important;
-  box-shadow: 0 2px 7px rgba(234, 88, 12, 0.15) !important;
+  background: var(--primary-50, #ecfdf5) !important;
+  color: var(--primary-700, #047857) !important;
+  border: 1.5px solid var(--primary-100, #a7f3d0) !important;
+  box-shadow: 0 2px 7px rgba(5, 150, 105, 0.15) !important;
 }
 
 .btn-product-capsule-share:hover {
-  background: linear-gradient(135deg, #ea580c, #c2410c) !important;
+  background: linear-gradient(135deg, var(--primary-700, #047857), var(--primary-600, #059669)) !important;
   color: #ffffff !important;
-  border-color: #c2410c !important;
-  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.35) !important;
+  border-color: var(--primary-700, #047857) !important;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.35) !important;
 }
 
 /* Backward compatibility */
@@ -3089,14 +3089,14 @@ body.theme-dark .distributor-hero-cover-wrap { background: linear-gradient(135de
 }
 
 .btn-promo-copy {
-  background: linear-gradient(135deg, #ea580c, #c2410c) !important;
+  background: linear-gradient(135deg, var(--primary-700, #047857), var(--primary-600, #059669)) !important;
   color: #ffffff !important;
-  box-shadow: 0 3px 12px rgba(234, 88, 12, 0.35) !important;
+  box-shadow: 0 3px 12px rgba(5, 150, 105, 0.35) !important;
 }
 
 .btn-promo-copy:hover {
-  background: linear-gradient(135deg, #c2410c, #9a3412) !important;
-  box-shadow: 0 6px 18px rgba(234, 88, 12, 0.45) !important;
+  background: linear-gradient(135deg, var(--primary-800, #065f46), var(--primary-700, #047857)) !important;
+  box-shadow: 0 6px 18px rgba(5, 150, 105, 0.45) !important;
 }
 
 .btn-promo-share {
