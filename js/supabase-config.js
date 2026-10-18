@@ -135,20 +135,57 @@ async function uploadProductImageToSupabase(fileObj, storeSlug = 'global') {
  */
 async function syncStoresFromSupabase() {
   const client = initSupabaseClient();
-  if (!client) return null;
-  try {
-    // KEAMANAN TINGKAT TINGGI: Hanya pilih kolom publik yang aman untuk etalase
-    // JANGAN PERNAH mengambil password_hash atau store_admin_pin secara publik!
-    const { data, error } = await client
-      .from('stores')
-      .select('id, slug, store_name, store_tagline, store_theme, hero_title, hero_subtitle, hero_banner_url, store_logo_text, store_logo_url, store_wa_number, store_city, store_owner, partner_tier, recommender_distributor, recommender_wa, recommender_slug, recommendation_code, fee_payer, order_quota, wallet_balance, total_topup_paid, total_tx, verified_sk_number, approved_at, created_at');
+  let data = null;
 
-    if (error) {
-      console.warn('Supabase fetch stores error:', error);
-      return null;
+  // 1. Coba lewat Supabase Client SDK jika tersedia (dengan timeout 4 detik agar tidak hang)
+  if (client) {
+    try {
+      const sdkPromise = client
+        .from('stores')
+        .select('id, slug, store_name, store_tagline, store_theme, hero_title, hero_subtitle, hero_banner_url, store_logo_text, store_logo_url, store_wa_number, store_city, store_owner, partner_tier, recommender_distributor, recommender_wa, recommender_slug, recommendation_code, fee_payer, order_quota, wallet_balance, total_topup_paid, total_tx, verified_sk_number, approved_at, created_at');
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('SDK query timeout 4s')), 4000)
+      );
+
+      const res = await Promise.race([sdkPromise, timeoutPromise]);
+      if (res && !res.error && Array.isArray(res.data)) {
+        data = res.data;
+      } else if (res && res.error) {
+        console.warn('Supabase fetch stores SDK warning:', res.error);
+      }
+    } catch (sdkErr) {
+      console.warn('Supabase SDK query timed out or failed, using direct REST fallback:', sdkErr);
     }
+  }
 
-    const centralRow = (data || []).find(row => row && row.slug === 'sr12-central');
+  // 2. Fallback Langsung lewat HTTPS REST API (Bekerja 100% pada semua browser & jaringan tanpa SDK)
+  if (!data && typeof fetch === 'function') {
+    try {
+      const restColumns = 'id,slug,store_name,store_tagline,store_theme,hero_title,hero_subtitle,hero_banner_url,store_logo_text,store_logo_url,store_wa_number,store_city,store_owner,partner_tier,recommender_distributor,recommender_wa,recommender_slug,recommendation_code,fee_payer,order_quota,wallet_balance,total_topup_paid,total_tx,verified_sk_number,approved_at,created_at';
+      const restUrl = `${SUPABASE_URL}/rest/v1/stores?select=${encodeURIComponent(restColumns)}`;
+      const restRes = await fetch(restUrl, {
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+        }
+      });
+      if (restRes.ok) {
+        const json = await restRes.json();
+        if (Array.isArray(json)) {
+          data = json;
+          console.log('⚡ Direct REST fetch Supabase stores sukses:', data.length, 'toko');
+        }
+      }
+    } catch (restErr) {
+      console.warn('Direct REST fetch Supabase stores failed:', restErr);
+    }
+  }
+
+  if (!Array.isArray(data)) return null;
+
+  try {
+    const centralRow = data.find(row => row && row.slug === 'sr12-central');
 
     if (centralRow && centralRow.platform_fee_amount) {
       const cloudFee = parseInt(centralRow.platform_fee_amount, 10);
@@ -180,7 +217,7 @@ async function syncStoresFromSupabase() {
       } catch (eJson) {}
     }
 
-    return (data || [])
+    return data
       .filter(row => row && row.slug && row.slug !== 'toko-supa-distributor' && !row.slug.startsWith('deleted_') && !row.slug.includes('toko-supa') && row.store_tagline !== '__deleted__')
       .map(row => ({
       slug: row.slug,
@@ -210,7 +247,7 @@ async function syncStoresFromSupabase() {
       approvedAt: row.approved_at || row.created_at
     }));
   } catch (e) {
-    console.warn('Exception fetching stores from Supabase:', e);
+    console.warn('Exception processing stores from Supabase:', e);
     return null;
   }
 }

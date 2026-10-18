@@ -24,6 +24,29 @@ const DEFAULT_PARTNER_STORES = [
     walletBalance: 500000,
     totalTopupPaid: 0,
     totalTx: 0
+  },
+  {
+    slug: 'iyoutique',
+    storeName: 'Iyoutique',
+    storeTagline: 'Mitra Resmi SR12 Makassar',
+    storeTheme: 'emerald',
+    heroTitle: 'Katalog Resmi SR12 Iyoutique',
+    heroSubtitle: 'Solusi perawatan herbal alami berlisensi resmi BPOM. Belanja aman, diskon otomatis, dan cepat sampai.',
+    heroBannerUrl: 'assets/hero-banner.jpg',
+    storeLogoText: 'I',
+    storeLogoUrl: '',
+    storeWaNumber: '6285342743763',
+    storeCity: 'Makassar',
+    storeOwner: 'Ibnu Husny',
+    partnerTier: 'distributor',
+    feePayer: 'buyer',
+    storeAdminPin: '••••',
+    orderQuota: 15,
+    walletBalance: 10000,
+    totalTopupPaid: 0,
+    totalTx: 0,
+    verifiedSkNumber: 'SK-DIST-SR12-0001',
+    approvedAt: '2026-10-18T12:40:38.240776+00:00'
   }
 ];
 
@@ -69,12 +92,21 @@ function getStoredPartnerStores() {
     }
   }
 
-  // Jika belum ada data tersimpan, gunakan template default (hanya sr12-central sebagai platform hub)
+  // Jika belum ada data tersimpan, gunakan template default
   if (stores.length === 0) {
     stores = DEFAULT_PARTNER_STORES.map(s => Object.assign({}, s));
     saveStoredPartnerStores(stores);
     return stores;
   }
+
+  // Gabungkan toko mitra terverifikasi dari DEFAULT_PARTNER_STORES yang belum tersimpan di cache lokal
+  DEFAULT_PARTNER_STORES.forEach(defStore => {
+    if (defStore.slug !== 'sr12-central' && !deletedSlugs.includes(defStore.slug)) {
+      if (!stores.some(s => s && s.slug === defStore.slug)) {
+        stores.push(Object.assign({}, defStore));
+      }
+    }
+  });
 
   // Pastikan SR12-Ku Pro (sr12-central) selalu ada di index 0 sebagai platform hub
   let centralIdx = stores.findIndex(s => s.slug === 'sr12-central');
@@ -527,7 +559,13 @@ async function syncStoresWithServer() {
   // 2. Simpan hasil sinkronisasi dan selalu refresh UI agar tampilan sama persis di HP & seluruh browser
   saveStoredPartnerStores(appState.partnerStores);
   renderStoreDropdown();
-  updateDevPortalMetrics();
+  try {
+    if (typeof updateDevPortalMetrics === 'function') {
+      updateDevPortalMetrics();
+    }
+  } catch (errMetrics) {
+    console.warn('Update dev portal metrics warning:', errMetrics);
+  }
   if (typeof renderSwitchStoreModal === 'function') {
     renderSwitchStoreModal();
   }
@@ -544,7 +582,7 @@ async function syncStoresWithServer() {
   }
 
   // Selalu pastikan direktori di Official Central Hub ter-refresh sesuai database terbaru
-  if (appState.storeSettings?.slug === 'sr12-central' || appState.currentStoreSlug === 'sr12-central' || !appState.currentStoreSlug) {
+  if (typeof renderOfficialDistributorDirectory === 'function') {
     renderOfficialDistributorDirectory();
   }
 
@@ -2394,6 +2432,13 @@ window.mergeCloudOrdersIntoLocal = mergeCloudOrdersIntoLocal;
   if (typeof updateCloudStatusUI === 'function') {
     updateCloudStatusUI();
   }
+
+  // Safety timer: Pastikan direktori distributor resmi dirender ulang setelah inisialisasi selesai
+  setTimeout(() => {
+    if (typeof renderOfficialDistributorDirectory === 'function') {
+      renderOfficialDistributorDirectory();
+    }
+  }, 1000);
 });
 
 function loadStoreBySlug(slug) {
@@ -4301,6 +4346,12 @@ function renderOfficialDistributorDirectory(filter = currentDirectoryFilter, sea
             <p style="font-size: 0.85rem; color: #64748b; max-width: 440px; margin: 0 auto;">Menyinkronkan daftar toko mitra terverifikasi langsung dari Cloud Database.</p>
           </div>
         `;
+        if (!window._cloudSyncDirectoryTimeout) {
+          window._cloudSyncDirectoryTimeout = setTimeout(() => {
+            appState.isCloudSyncComplete = true;
+            renderOfficialDistributorDirectory();
+          }, 2000);
+        }
         return;
       }
       grid.innerHTML = `
