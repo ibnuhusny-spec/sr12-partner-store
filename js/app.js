@@ -27,16 +27,30 @@ const DEFAULT_PARTNER_STORES = [
   }
 ];
 
-const LEGACY_DELETED_SLUGS = ['toko-supa-distributor', 'agung', 'adini', 'iyoutique'];
+const LEGACY_DELETED_SLUGS = ['toko-supa-distributor', 'simulasi-distributor'];
+
+// Pemulihan otomatis jika slug toko resmi sempat tersimpan di blacklist lokal
+try {
+  const rawDel = localStorage.getItem('sr12_deleted_store_slugs');
+  if (rawDel) {
+    const parsedDel = JSON.parse(rawDel);
+    if (Array.isArray(parsedDel) && parsedDel.includes('iyoutique')) {
+      const cleaned = parsedDel.filter(s => s !== 'iyoutique' && s !== 'sr12-central');
+      localStorage.setItem('sr12_deleted_store_slugs', JSON.stringify(cleaned));
+    }
+  }
+} catch(e) {}
 
 function getDeletedStoreSlugs() {
   try {
     const raw = localStorage.getItem('sr12_deleted_store_slugs');
     const parsed = raw ? JSON.parse(raw) : [];
     const list = Array.isArray(parsed) ? parsed : [];
-    return Array.from(new Set([...list, ...LEGACY_DELETED_SLUGS]));
+    // Jangan pernah memblokir platform central hub atau toko resmi aktif
+    return Array.from(new Set([...list, ...LEGACY_DELETED_SLUGS]))
+      .filter(slug => slug && slug !== 'sr12-central' && slug !== 'iyoutique');
   } catch(e) {
-    return [...LEGACY_DELETED_SLUGS];
+    return [...LEGACY_DELETED_SLUGS].filter(slug => slug && slug !== 'sr12-central' && slug !== 'iyoutique');
   }
 }
 
@@ -478,8 +492,7 @@ async function syncStoresWithServer() {
 
         supaStores.forEach(apiStore => {
           if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central') return;
-          if (apiStore.slug === 'toko-supa-distributor' || apiStore.slug.startsWith('deleted_') || apiStore.slug.includes('toko-supa')) return;
-          if (LEGACY_DELETED_SLUGS.includes(apiStore.slug)) return;
+          if (apiStore.slug === 'toko-supa-distributor' || apiStore.slug.startsWith('deleted_') || apiStore.slug.includes('toko-supa') || apiStore.slug === 'simulasi-distributor' || apiStore.storeTagline === '__deleted__' || apiStore.storeName === '__deleted__') return;
 
           validStores.push(apiStore);
         });
