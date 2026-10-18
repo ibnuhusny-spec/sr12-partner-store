@@ -2757,18 +2757,6 @@ function openRegisterStoreModal() {
   const honeypotInput = document.getElementById('regSecurityHoneypot');
   if (honeypotInput) honeypotInput.value = '';
 
-  // Render Cloudflare Turnstile anti-bot widget jika tersedia
-  try {
-    const turnstileContainer = document.getElementById('cfTurnstileRegWidget');
-    if (turnstileContainer && window.turnstile && typeof window.turnstile.render === 'function') {
-      turnstileContainer.innerHTML = '';
-      window.cfTurnstileWidgetId = window.turnstile.render(turnstileContainer, {
-        sitekey: '1x00000000000000000000AA',
-        theme: 'light'
-      });
-    }
-  } catch(eTurn) {}
-
   const tierSelect = document.getElementById('regStoreTier');
   if (tierSelect) {
     tierSelect.value = 'distributor';
