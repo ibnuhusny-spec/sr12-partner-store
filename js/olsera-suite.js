@@ -238,9 +238,25 @@ function showDistributorPortalView(showPortal) {
       ensureScrollUnlocked();
     }
 
+    const isLoggedDistributor = (typeof appState !== 'undefined') && (!!appState.isAdminMode || !!appState.isDistributorLoggedIn || !!appState.isDevMasterLoggedIn);
+
+    // Jika distributor login dan slug masih sr12-central atau kosong, alihkan otomatis ke toko mitra aktif miliknya
+    if (isLoggedDistributor && (!appState.storeSettings?.slug || appState.storeSettings.slug === 'sr12-central')) {
+      const fallbackPartner = localStorage.getItem('sr12_last_active_partner_store') || 
+                              localStorage.getItem('sr12_logged_store_slug') || 
+                              'alzam-agency';
+      if (typeof switchPartnerStore === 'function') {
+        switchPartnerStore(fallbackPartner);
+      }
+    }
+
+    const currentIsCentral = (typeof appState !== 'undefined' && appState.storeSettings) 
+      ? (!appState.storeSettings.slug || appState.storeSettings.slug === 'sr12-central')
+      : false;
+
     document.body.classList.remove('olsera-portal-active');
-    document.body.classList.toggle('is-central-hub', isCentral);
-    document.body.classList.toggle('is-partner-store', !isCentral);
+    document.body.classList.toggle('is-central-hub', currentIsCentral);
+    document.body.classList.toggle('is-partner-store', !currentIsCentral);
 
     if (portal) portal.style.display = 'none';
     if (olseraNav) olseraNav.style.display = 'none';
@@ -251,22 +267,79 @@ function showDistributorPortalView(showPortal) {
     }
 
     if (storefront) storefront.style.display = 'block';
-    if (siteHeader) siteHeader.style.display = isCentral ? 'block' : 'none';
+    if (siteHeader) siteHeader.style.display = 'block';
     if (tierBanner) tierBanner.style.display = 'none';
-    if (platformTopbar) platformTopbar.style.display = isCentral ? 'block' : 'none';
+    if (platformTopbar) platformTopbar.style.display = 'none';
 
-    // Sembunyikan semua strip/tab hitam atas agar toko online pembeli benar-benar bersih
-    if (previewStrip) previewStrip.style.display = 'none';
+    // Preview Strip untuk distributor saat meninjau etalase Customer Facing Display
+    if (previewStrip) {
+      previewStrip.style.display = isLoggedDistributor ? 'flex' : 'none';
+      const nameEl = document.getElementById('previewStripDistName');
+      if (nameEl) {
+        nameEl.textContent = (appState.storeSettings && appState.storeSettings.storeName) || 'Toko Mitra';
+      }
+    }
     if (devStrip) devStrip.style.display = (typeof appState !== 'undefined' && appState.isDevMasterLoggedIn) ? 'flex' : 'none';
 
-    // Tampilkan tombol melayang Menu Toko jika distributor atau dev master sedang login
-    const isLoggedDistributor = (typeof appState !== 'undefined') && (!!appState.isAdminMode || !!appState.isDistributorLoggedIn || !!appState.isDevMasterLoggedIn);
+    // Matikan tombol floating & header menu agar TIDAK TERJADI TOMBOL GANDA (sudah ada di previewStrip dan toolbar)
     const btnFloat = document.getElementById('btnFloatingAdminMenu');
-    if (btnFloat) btnFloat.style.display = isLoggedDistributor ? 'inline-flex' : 'none';
+    if (btnFloat) btnFloat.style.display = 'none';
+    const btnHeaderMenu = document.getElementById('btnHeaderAdminMenu');
+    if (btnHeaderMenu) btnHeaderMenu.style.display = 'none';
+
+    // Pastikan tombol Menu Toko di toolbar katalog & hadiah muncul untuk distributor
+    const btnCatMenu = document.getElementById('btnOpenDashboardFromCatalog');
+    if (btnCatMenu) btnCatMenu.style.display = isLoggedDistributor ? 'inline-flex' : 'none';
+    const btnRewardMenu = document.getElementById('btnOpenDashboardFromRewards');
+    if (btnRewardMenu) btnRewardMenu.style.display = isLoggedDistributor ? 'inline-flex' : 'none';
+
+    // Pastikan etalase katalog toko pembeli langsung tampil
+    const commerceWrapper = document.getElementById('distributorCommerceWrapper');
+    if (commerceWrapper) commerceWrapper.style.display = 'block';
+    const catSec = document.getElementById('catalogSection');
+    if (catSec && appState.activeTab !== 'rewards') catSec.style.display = 'block';
+    const centralHero = document.getElementById('officialCentralHubHero');
+    if (centralHero) centralHero.style.display = 'none';
+    const directorySection = document.getElementById('officialDistributorDirectorySection');
+    if (directorySection) directorySection.style.display = 'none';
 
     if (typeof renderProducts === 'function') renderProducts();
   }
 }
+
+function openCustomerFacingDisplay() {
+  if (typeof closeOlseraSidebarDrawer === 'function') {
+    closeOlseraSidebarDrawer();
+  }
+
+  let currentSlug = (typeof appState !== 'undefined' && appState.storeSettings && appState.storeSettings.slug) || 
+                    (typeof appState !== 'undefined' ? appState.currentStoreSlug : null);
+
+  if (!currentSlug || currentSlug === 'sr12-central') {
+    const savedStore = localStorage.getItem('sr12_last_active_partner_store') || 
+                       localStorage.getItem('sr12_logged_store_slug') || 
+                       'alzam-agency';
+    if (typeof switchPartnerStore === 'function') {
+      switchPartnerStore(savedStore);
+    }
+  }
+
+  showDistributorPortalView(false);
+
+  setTimeout(() => {
+    const commerceWrapper = document.getElementById('distributorCommerceWrapper');
+    if (commerceWrapper) commerceWrapper.style.display = 'block';
+    const catSec = document.getElementById('catalogSection');
+    if (catSec && (!appState || appState.activeTab !== 'rewards')) catSec.style.display = 'block';
+    const centralHero = document.getElementById('officialCentralHubHero');
+    if (centralHero) centralHero.style.display = 'none';
+    const directorySection = document.getElementById('officialDistributorDirectorySection');
+    if (directorySection) directorySection.style.display = 'none';
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, 60);
+}
+window.openCustomerFacingDisplay = openCustomerFacingDisplay;
 
 function updateOlseraHeaderMeta() {
   const store = (typeof appState !== 'undefined' && appState.storeSettings) || {};

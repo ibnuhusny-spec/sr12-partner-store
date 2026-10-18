@@ -20,7 +20,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <link rel="stylesheet" href="css/style.css?v=15.0">
+  <link rel="stylesheet" href="css/style.css?v=16.5">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
 </head>
 <body>
@@ -44,23 +44,20 @@
     </div>
   </aside>
 
-  <!-- 0.1 PREVIEW MODE STRIP (HANYA MUNCUL KETIKA DISTRIBUTOR MENINJAU TOKO PEMBELI) -->
+  <!-- 0.1 PREVIEW MODE STRIP (HANYA MUNCUL KETIKA DISTRIBUTOR MENINJAU TOKO PEMBELI / CUSTOMER FACING DISPLAY) -->
   <aside id="distributorPreviewStrip" class="distributor-preview-strip" style="display: none;">
     <div class="preview-strip-info">
-      <span class="preview-tag">👑 Tinjau Toko</span>
-      <span class="preview-user-text">Toko: <b id="previewStripDistName">Ibu Aisyah</b></span>
+      <span class="preview-tag">👑 CUSTOMER FACING DISPLAY</span>
+      <span class="preview-user-text">Toko: <b id="previewStripDistName" style="color: #bae6fd;">Toko Mitra</b></span>
     </div>
     <div class="preview-strip-actions">
-      <button type="button" class="btn-preview-icon" onclick="showDistributorPortalView(true)" title="Kembali ke Kasir Olsera" aria-label="Kasir">
-        <span>🛒</span><span class="preview-btn-label"> Kasir</span>
+      <button type="button" class="btn-preview-icon" onclick="showDistributorPortalView(true); openOlseraSidebarDrawer();" title="Buka Dashboard Admin &amp; Kasir Olsera">
+        <span>🛒</span><span class="preview-btn-label"> Menu Toko &amp; Kasir</span>
       </button>
-      <button type="button" class="btn-preview-icon" onclick="openStoreSettingsModal()" title="Pengaturan Toko" aria-label="Pengaturan">
-        <span>⚙️</span><span class="preview-btn-label"> Pengaturan</span>
+      <button type="button" class="btn-preview-icon" onclick="openStoreSettingsModal()" title="Pengaturan Toko">
+        <span>⚙️</span><span class="preview-btn-label"> Pengaturan Toko</span>
       </button>
-      <button type="button" class="btn-preview-icon" onclick="openChangeSecurityPinModal('store')" title="Ganti PIN Keamanan Toko" aria-label="Ganti PIN">
-        <span>🔑</span><span class="preview-btn-label"> Ganti PIN</span>
-      </button>
-      <button type="button" class="btn-preview-icon btn-preview-logout" onclick="handleDistributorLogout()" title="Keluar / Logout" aria-label="Logout">
+      <button type="button" class="btn-preview-icon btn-preview-logout" onclick="handleDistributorLogout()" title="Keluar / Logout">
         <span>🚪</span><span class="preview-btn-label"> Logout</span>
       </button>
     </div>
@@ -277,7 +274,7 @@
       </button>
 
       <!-- 5. Tinjau Toko Pembeli (Desktop Only - di HP sudah ada di Drawer Menu agar layar rapi) -->
-      <button type="button" class="btn-switch-storefront desktop-only-btn" onclick="closeOlseraSidebarDrawer(); showDistributorPortalView(false);" title="Tinjau tampilan web toko dari sudut pandang pembeli / customer">
+      <button type="button" class="btn-switch-storefront desktop-only-btn" onclick="openCustomerFacingDisplay()" title="Tinjau tampilan web toko dari sudut pandang pembeli / customer">
         <span>🌐</span> Tinjau Toko Pembeli
       </button>
 
@@ -374,7 +371,7 @@
           </a>
         </li>
         <li>
-          <a class="olsera-menu-item" id="menuItemCustomerDisplay" onclick="closeOlseraSidebarDrawer(); showDistributorPortalView(false);">
+          <a class="olsera-menu-item" id="menuItemCustomerDisplay" onclick="openCustomerFacingDisplay()">
             <span class="olsera-menu-icon">
               <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><circle cx="12" cy="18" r="1"/></svg>
             </span>
@@ -473,8 +470,8 @@
 
       <!-- Sidebar Footer -->
       <div class="olsera-sidebar-footer">
-        <button type="button" onclick="closeOlseraSidebarDrawer(); showDistributorPortalView(false);" style="width: 100%; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 8px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 6px;">
-          <span>🌐</span> Lihat Toko Online
+        <button type="button" onclick="openCustomerFacingDisplay()" style="width: 100%; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 8px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <span>🌐</span> Customer Facing Display
         </button>
         <button type="button" onclick="handleDistributorLogout()" style="width: 100%; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 8px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
           <span>🚪</span> Logout Distributor
@@ -497,20 +494,12 @@
             <span class="olsera-static-store-sub" id="olseraStaticStoreRole">SR12 Official Central Hub</span>
           </div>
         </div>
-        <div class="olsera-static-topbar-right" style="display: none !important;" aria-hidden="true">
-          <button type="button" onclick="openTopupQuotaModal()" class="btn-olsera-static-quota" title="Sisa Kuota Order: Klik untuk Top Up">
-            <span>⚡</span>
-            <span><b id="olseraStaticQuotaDisplay">15</b> Kuota</span>
-          </button>
-          <button type="button" class="btn-olsera-static-cashier" onclick="openOlseraAbsensiModal()" title="Shift &amp; Kasir Aktif">
-            <span>👤</span>
-            <span id="olseraStaticCashierLabel">Kasir Toko</span>
-          </button>
-          <button type="button" class="btn-olsera-static-cfd" onclick="closeOlseraSidebarDrawer(); showDistributorPortalView(false);" title="Tinjau Tampilan Pembeli (Etalase Toko)">
+        <div class="olsera-static-topbar-right" style="display: flex; align-items: center; gap: 8px;">
+          <button type="button" class="btn-olsera-static-cfd" onclick="openCustomerFacingDisplay();" title="Buka Tampilan Pembeli (Customer Facing Display)" style="background: #0284c7; color: #fff; border: none; padding: 7px 14px; border-radius: 9999px; font-weight: 800; font-size: 0.8rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(2,132,199,0.3);">
             <span>🌐</span>
-            <span>Lihat Toko</span>
+            <span>Customer Facing Display</span>
           </button>
-          <button type="button" onclick="handleDistributorLogout()" class="btn-olsera-static-logout" title="Keluar / Logout Akun Distributor">
+          <button type="button" onclick="handleDistributorLogout()" class="btn-olsera-static-logout" title="Keluar / Logout Akun Distributor" style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; padding: 7px 12px; border-radius: 9999px; font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
             <span>🚪</span>
             <span>Logout</span>
           </button>
@@ -1872,6 +1861,12 @@
           <button type="button" class="chip-btn reward-scope-chip" data-scope="toko">🎁 Promo Toko</button>
         </div>
 
+        <!-- Tombol Menu Toko di Katalog Hadiah (Hanya Muncul untuk Pemilik Toko / Admin) -->
+        <button id="btnOpenDashboardFromRewards" type="button" onclick="showDistributorPortalView(true); openOlseraSidebarDrawer();" style="display: none; background: #065f46; color: #fff; border: none; padding: 7px 14px; border-radius: var(--radius-md); font-weight: 700; font-size: 0.8rem; cursor: pointer; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(6,95,70,0.25);" title="Buka Dashboard Admin &amp; Menu Toko">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          <span>Menu Toko</span>
+        </button>
+
         <!-- Tombol Buat Promo Toko Baru (Hanya Muncul untuk Pemilik Toko / Admin) -->
         <button id="btnOpenAddPromo" type="button" class="btn-create-promo-header" onclick="openAddPromoModal()" style="display: none;">
           <span>➕</span> <span>Buat Promo Toko Baru</span>
@@ -3005,11 +3000,13 @@
           <h4 style="font-size: 0.9rem; color: var(--dark-900); margin-bottom: 6px;">Cara Pemakaian:</h4>
           <p id="modalProdHowTo" style="font-size: 0.85rem; color: var(--dark-700); line-height: 1.5;"></p>
         </div>
-        <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">
-          <button id="modalBtnAddCart" style="background: var(--primary-700); color: #fff; border: none; padding: 12px; border-radius: var(--radius-md); font-weight: 700; font-size: 0.95rem; cursor: pointer; width: 100%;">
+        <div style="display: flex; gap: 10px; width: 100%;">
+          <button id="modalBtnAddCart" style="flex: 1; background: var(--primary-700); color: #fff; border: none; padding: 12px; border-radius: var(--radius-md); font-weight: 700; font-size: 0.95rem; cursor: pointer;">
             + Masukkan Keranjang
           </button>
-          <button id="modalBtnEditProd" style="display: none !important;" aria-hidden="true"></button>
+          <button id="modalBtnEditProd" style="display: none; background: #f1f5f9; color: #0284c7; border: 1.5px solid #cbd5e1; padding: 12px 18px; border-radius: var(--radius-md); font-weight: 800; font-size: 0.88rem; cursor: pointer; align-items: center; gap: 6px; white-space: nowrap;">
+            ✏️ Edit Foto &amp; Produk
+          </button>
         </div>
       </div>
     </div>
@@ -5316,9 +5313,9 @@
 
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=16.4"></script>
-  <script src="js/data.js?v=16.4"></script>
-  <script src="js/app.js?v=16.4"></script>
-  <script src="js/olsera-suite.js?v=16.4"></script>
+  <script src="js/supabase-config.js?v=16.5"></script>
+  <script src="js/data.js?v=16.5"></script>
+  <script src="js/app.js?v=16.5"></script>
+  <script src="js/olsera-suite.js?v=16.5"></script>
 </body>
 </html>

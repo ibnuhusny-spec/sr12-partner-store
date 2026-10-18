@@ -5530,17 +5530,27 @@ function updateViewModeUI() {
   const btnStoreSettings = document.getElementById('btnOpenStoreSettings');
   const btnHeaderAdminMenu = document.getElementById('btnHeaderAdminMenu');
   const btnCatalogAdminMenu = document.getElementById('btnOpenDashboardFromCatalog');
+  const btnRewardsAdminMenu = document.getElementById('btnOpenDashboardFromRewards');
   const btnFloatingAdminMenu = document.getElementById('btnFloatingAdminMenu');
   const btnAddProduct = document.getElementById('btnOpenAddProduct');
   const btnAddPromo = document.getElementById('btnOpenAddPromo');
   const btnAddMkit = document.getElementById('btnOpenAddMkit');
+  const previewStrip = document.getElementById('distributorPreviewStrip');
+
+  const isPortalOpen = (typeof appState !== 'undefined') && !!appState.isOlseraPortalOpen;
 
   if (btnStoreSettings) btnStoreSettings.style.display = (isLogged && !isCentral) ? 'inline-flex' : 'none';
-  if (btnHeaderAdminMenu) btnHeaderAdminMenu.style.display = isLogged ? 'inline-flex' : 'none';
-  if (btnCatalogAdminMenu) btnCatalogAdminMenu.style.display = isLogged ? 'inline-flex' : 'none';
-  if (btnFloatingAdminMenu) {
-    const isPortalOpen = (typeof appState !== 'undefined') && !!appState.isOlseraPortalOpen;
-    btnFloatingAdminMenu.style.display = (isLogged && !isPortalOpen) ? 'inline-flex' : 'none';
+  // Sembunyikan tombol header menu & floating menu agar TIDAK TERJADI TOMBOL GANDA (sudah ada di previewStrip dan toolbar)
+  if (btnHeaderAdminMenu) btnHeaderAdminMenu.style.display = 'none';
+  if (btnFloatingAdminMenu) btnFloatingAdminMenu.style.display = 'none';
+  if (btnCatalogAdminMenu) btnCatalogAdminMenu.style.display = (isLogged && !isPortalOpen) ? 'inline-flex' : 'none';
+  if (btnRewardsAdminMenu) btnRewardsAdminMenu.style.display = (isLogged && !isPortalOpen) ? 'inline-flex' : 'none';
+  if (previewStrip) {
+    previewStrip.style.display = (isLogged && !isPortalOpen) ? 'flex' : 'none';
+    const pName = document.getElementById('previewStripDistName');
+    if (pName) {
+      pName.textContent = (appState.storeSettings && appState.storeSettings.storeName) || 'Toko Mitra';
+    }
   }
   if (btnAddProduct) btnAddProduct.style.display = isLogged ? 'inline-flex' : 'none';
   if (btnAddPromo) btnAddPromo.style.display = isLogged ? 'inline-flex' : 'none';
@@ -7419,6 +7429,7 @@ function renderProducts() {
   }
 
   const currentTier = SR12_TIERS[appState.currentTier] || SR12_TIERS.konsumen;
+  const canManage = !!(appState.isAdminMode || appState.isDistributorLoggedIn || appState.isDevMasterLoggedIn);
 
   container.innerHTML = filtered.map(prod => {
     const tierPrice = getProductTierPrice(prod, appState.currentTier);
@@ -7433,6 +7444,12 @@ function renderProducts() {
           <span class="badge-bpom-clean">🌿 BPOM</span>
           ${isMarketer ? `<span class="badge-disc-clean" style="background: #0284c7; color: #fff;">💼 Komisi 15%</span>` : (!isRetail ? `<span class="badge-disc-clean">-${currentTier.discountPct}%</span>` : '')}
           <span class="badge-stock-clean ${(prod.stock ?? 85) <= 15 ? 'low' : ''}">Stok: ${prod.stock ?? 85}</span>
+          ${canManage ? `
+            <button type="button" class="btn-quick-edit-image" title="Ubah Foto / Data Produk" onclick="openEditProductModal('${prod.id}')">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+              Ganti Foto
+            </button>
+          ` : ''}
         </div>
 
         <div class="product-body">
@@ -8980,7 +8997,12 @@ function openProductDetailModal(productId) {
     };
   }
   if (btnEdit) {
-    btnEdit.style.display = 'none';
+    const canManageProd = !!(appState.isAdminMode || appState.isDistributorLoggedIn || appState.isDevMasterLoggedIn);
+    btnEdit.style.display = canManageProd ? 'inline-flex' : 'none';
+    btnEdit.onclick = () => {
+      closeModal('modalProductDetail');
+      openEditProductModal(prod.id);
+    };
   }
 
   if (typeof openModal === 'function') {
@@ -10249,6 +10271,7 @@ function switchTab(tabId) {
     const rSec = document.getElementById('rewardsSection');
     if (rSec) rSec.style.display = 'block';
     if (typeof renderRewards === 'function') renderRewards();
+    if (typeof updateViewModeUI === 'function') updateViewModeUI();
   } else if (tabId === 'marketing') {
     const mSec = document.getElementById('marketingKitSection');
     if (mSec) mSec.style.display = 'block';

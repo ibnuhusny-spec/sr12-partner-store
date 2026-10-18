@@ -767,9 +767,22 @@ body.dev-mode-active #genericStoreHeroBanner {
 #platformTopbar,
 .tier-quick-banner,
 #devPreviewStrip,
-#distributorPreviewStrip,
 .admin-mode-banner,
 #adminModeBanner {
+  display: none !important;
+}
+
+/* Pastikan di dalam Portal Olsera (Kasir, Transaksi, Pengaturan Toko), semua strip & tombol menu etalase publik 100% mati agar tidak ada tombol hijau ganda */
+body.olsera-portal-active #distributorPreviewStrip,
+body.olsera-portal-active #btnFloatingAdminMenu,
+body.olsera-portal-active #btnHeaderAdminMenu,
+body.olsera-portal-active #btnOpenDashboardFromCatalog,
+body.olsera-portal-active #btnOpenDashboardFromRewards {
+  display: none !important;
+}
+
+/* Sembunyikan tombol floating admin menu secara menyeluruh agar tidak bertumpuk dengan Menu Toko */
+#btnFloatingAdminMenu {
   display: none !important;
 }
 
