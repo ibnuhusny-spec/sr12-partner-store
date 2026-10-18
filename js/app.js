@@ -5649,10 +5649,10 @@ function initEventListeners() {
     });
   }
 
-  // Registration Store Logo Upload
+  // Registration Store Logo Upload (Otomatis Kompresi Ukuran Hemat Kuota)
   const regLogoFileInput = document.getElementById('regLogoFileInput');
   if (regLogoFileInput) {
-    regLogoFileInput.addEventListener('change', (e) => {
+    regLogoFileInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (file) {
         if (!isStrictImageFile(file)) {
@@ -5660,23 +5660,28 @@ function initEventListeners() {
           e.target.value = '';
           return;
         }
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          appState.tempRegLogoBase64 = event.target.result;
-          const previewBox = document.getElementById('regLogoPreviewBox');
-          const previewImg = document.getElementById('regLogoPreviewImg');
-          if (previewImg) previewImg.src = event.target.result;
-          if (previewBox) previewBox.style.display = 'flex';
-        };
-        reader.readAsDataURL(file);
+        try {
+          const compressed = typeof compressImageSource === 'function' 
+            ? await compressImageSource(file, 240, 0.82) 
+            : null;
+          if (compressed) {
+            appState.tempRegLogoBase64 = compressed;
+            const previewBox = document.getElementById('regLogoPreviewBox');
+            const previewImg = document.getElementById('regLogoPreviewImg');
+            if (previewImg) previewImg.src = compressed;
+            if (previewBox) previewBox.style.display = 'flex';
+          }
+        } catch (err) {
+          console.warn('Gagal memproses logo:', err);
+        }
       }
     });
   }
 
-  // Registration Store KTP Upload (Verifikasi KTP & NIK)
+  // Registration Store KTP Upload (Verifikasi KTP & NIK dengan Kompresi Ringan Hemat Kuota)
   const regKtpFileInput = document.getElementById('regKtpFileInput');
   if (regKtpFileInput) {
-    regKtpFileInput.addEventListener('change', (e) => {
+    regKtpFileInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (file) {
         if (!isStrictImageFile(file)) {
@@ -5685,28 +5690,33 @@ function initEventListeners() {
           return;
         }
         appState.tempRegKtpDocName = file.name;
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          appState.tempRegKtpBase64 = event.target.result;
-          const previewBox = document.getElementById('regKtpPreviewBox');
-          const previewImg = document.getElementById('regKtpPreviewImg');
-          const docNameSpan = document.getElementById('regKtpDocName');
-          if (docNameSpan) docNameSpan.textContent = `🪪 ${file.name} (${Math.round(file.size / 1024)} KB)`;
-          if (previewImg) {
-            previewImg.src = event.target.result;
-            previewImg.style.display = 'inline-block';
+        try {
+          const compressed = typeof compressImageSource === 'function'
+            ? await compressImageSource(file, 900, 0.72)
+            : null;
+          if (compressed) {
+            appState.tempRegKtpBase64 = compressed;
+            const previewBox = document.getElementById('regKtpPreviewBox');
+            const previewImg = document.getElementById('regKtpPreviewImg');
+            const docNameSpan = document.getElementById('regKtpDocName');
+            if (docNameSpan) docNameSpan.textContent = `🪪 ${file.name} (Terkirim Aman & Hemat Kuota)`;
+            if (previewImg) {
+              previewImg.src = compressed;
+              previewImg.style.display = 'inline-block';
+            }
+            if (previewBox) previewBox.style.display = 'flex';
           }
-          if (previewBox) previewBox.style.display = 'flex';
-        };
-        reader.readAsDataURL(file);
+        } catch (err) {
+          console.warn('Gagal memproses dokumen KTP:', err);
+        }
       }
     });
   }
 
-  // Registration Store SK Document Upload (Verifikasi Dokumen Resmi)
+  // Registration Store SK Document Upload (Verifikasi Dokumen Resmi dengan Kompresi Cerdas)
   const regSkFileInput = document.getElementById('regSkFileInput');
   if (regSkFileInput) {
-    regSkFileInput.addEventListener('change', (e) => {
+    regSkFileInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (file) {
         if (!isStrictImageFile(file)) {
@@ -5715,28 +5725,33 @@ function initEventListeners() {
           return;
         }
         appState.tempRegSkDocName = file.name;
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          appState.tempRegSkBase64 = event.target.result;
-          const previewBox = document.getElementById('regSkPreviewBox');
-          const previewImg = document.getElementById('regSkPreviewImg');
-          const docNameSpan = document.getElementById('regSkDocName');
-          if (docNameSpan) docNameSpan.textContent = `📎 ${file.name} (${Math.round(file.size / 1024)} KB)`;
-          if (previewImg) {
-            previewImg.src = event.target.result;
-            previewImg.style.display = 'inline-block';
+        try {
+          const compressed = typeof compressImageSource === 'function'
+            ? await compressImageSource(file, 900, 0.72)
+            : null;
+          if (compressed) {
+            appState.tempRegSkBase64 = compressed;
+            const previewBox = document.getElementById('regSkPreviewBox');
+            const previewImg = document.getElementById('regSkPreviewImg');
+            const docNameSpan = document.getElementById('regSkDocName');
+            if (docNameSpan) docNameSpan.textContent = `📎 ${file.name} (Terkirim Aman & Hemat Kuota)`;
+            if (previewImg) {
+              previewImg.src = compressed;
+              previewImg.style.display = 'inline-block';
+            }
+            if (previewBox) previewBox.style.display = 'flex';
           }
-          if (previewBox) previewBox.style.display = 'flex';
-        };
-        reader.readAsDataURL(file);
+        } catch (err) {
+          console.warn('Gagal memproses berkas SK:', err);
+        }
       }
     });
   }
 
-  // Registration Store Recommendation Document Upload
+  // Registration Store Recommendation Document Upload (Kompresi Ringan Hemat Kuota)
   const regRecommendationFileInput = document.getElementById('regRecommendationFileInput');
   if (regRecommendationFileInput) {
-    regRecommendationFileInput.addEventListener('change', (e) => {
+    regRecommendationFileInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (file) {
         if (!isStrictImageFile(file)) {
@@ -5745,20 +5760,25 @@ function initEventListeners() {
           return;
         }
         appState.tempRegRecDocName = file.name;
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          appState.tempRegRecBase64 = event.target.result;
-          const previewBox = document.getElementById('regRecommendationPreviewBox');
-          const previewImg = document.getElementById('regRecommendationPreviewImg');
-          const docNameSpan = document.getElementById('regRecommendationDocName');
-          if (docNameSpan) docNameSpan.textContent = `👑 ${file.name} (${Math.round(file.size / 1024)} KB)`;
-          if (previewImg) {
-            previewImg.src = event.target.result;
-            previewImg.style.display = 'inline-block';
+        try {
+          const compressed = typeof compressImageSource === 'function'
+            ? await compressImageSource(file, 900, 0.72)
+            : null;
+          if (compressed) {
+            appState.tempRegRecBase64 = compressed;
+            const previewBox = document.getElementById('regRecommendationPreviewBox');
+            const previewImg = document.getElementById('regRecommendationPreviewImg');
+            const docNameSpan = document.getElementById('regRecommendationDocName');
+            if (docNameSpan) docNameSpan.textContent = `👑 ${file.name} (Terkirim Aman & Hemat Kuota)`;
+            if (previewImg) {
+              previewImg.src = compressed;
+              previewImg.style.display = 'inline-block';
+            }
+            if (previewBox) previewBox.style.display = 'flex';
           }
-          if (previewBox) previewBox.style.display = 'flex';
-        };
-        reader.readAsDataURL(file);
+        } catch (err) {
+          console.warn('Gagal memproses berkas rekomendasi:', err);
+        }
       }
     });
   }
@@ -10982,6 +11002,11 @@ async function handleRealtimeCloudOrderUpdate(payload) {
   const newRow = payload.new;
   if (newRow.store_slug && newRow.store_slug !== currentSlug && currentSlug !== 'sr12-central') {
     return; // Pesanan ditujukan untuk toko mitra lain
+  }
+
+  // ISOLASI AKSES: Pengunjung biasa/katalog publik tidak perlu mengunduh data riwayat pesanan toko
+  if (!appState.isAdminMode && !appState.isDistributorLoggedIn && !appState.isDevMasterLoggedIn) {
+    return;
   }
 
   if (typeof syncOrdersFromSupabase === 'function') {
