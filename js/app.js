@@ -3010,9 +3010,18 @@ async function handleRegisterStoreSubmit(e) {
     }).catch(e => console.warn('Could not POST /api/pending-stores:', e));
   }
 
+  // Sinkronisasi ke Supabase Cloud (dengan proteksi await dan pelaporan status)
+  let cloudSuccess = false;
   if (typeof savePendingStoreToSupabase === 'function') {
-    savePendingStoreToSupabase(newApp);
+    try {
+      const supaRes = await savePendingStoreToSupabase(newApp);
+      cloudSuccess = !!(supaRes && supaRes.success);
+    } catch (eSupa) {
+      console.warn('savePendingStoreToSupabase error:', eSupa);
+    }
   }
+
+  newApp.cloudSynced = cloudSuccess;
 
   // Tutup modal form pendaftaran langsung
   closeModal('modalRegisterStore');
@@ -3023,7 +3032,9 @@ async function handleRegisterStoreSubmit(e) {
   // Update notification counter & developer portal
   updateDevPortalMetrics();
 
-  showToast(`✅ Berkas Toko #${newApp.id} Berhasil Diajukan!`);
+  showToast(cloudSuccess 
+    ? `✅ Berkas #${newApp.id} Berhasil Dikirim ke Cloud Server!` 
+    : `✅ Berkas #${newApp.id} Tersimpan! Silakan Konfirmasi ke WhatsApp Admin.`);
 }
 
 function openStoreAppPendingSuccessModal(app) {
@@ -3031,6 +3042,8 @@ function openStoreAppPendingSuccessModal(app) {
   const nameEl = document.getElementById('pendingAppStoreName');
   const ownerEl = document.getElementById('pendingAppOwner');
   const tierEl = document.getElementById('pendingAppTier');
+  const cloudStatusEl = document.getElementById('pendingAppCloudStatus');
+  const waBtn = document.getElementById('btnPendingAppWaConfirm');
 
   const tierObj = SR12_TIERS[app.partnerTier] || SR12_TIERS.distributor;
 
@@ -3038,6 +3051,45 @@ function openStoreAppPendingSuccessModal(app) {
   if (nameEl) nameEl.textContent = app.storeName;
   if (ownerEl) ownerEl.textContent = `${app.storeOwner} (${app.storeCity})`;
   if (tierEl) tierEl.textContent = `${tierObj.name} (Diskon ${tierObj.discountPct}%)`;
+
+  if (cloudStatusEl) {
+    if (app.cloudSynced) {
+      cloudStatusEl.textContent = '🟢 TERKIRIM KE CLOUD SERVER (SIAP DIVERIFIKASI)';
+      cloudStatusEl.style.background = '#dcfce7';
+      cloudStatusEl.style.color = '#047857';
+      cloudStatusEl.style.borderColor = '#86efac';
+    } else {
+      cloudStatusEl.textContent = '🟡 DALAM ANTREAN (KONFIRMASI KE WA ADMIN)';
+      cloudStatusEl.style.background = '#fef3c7';
+      cloudStatusEl.style.color = '#b45309';
+      cloudStatusEl.style.borderColor = '#fde68a';
+    }
+  }
+
+  // Siapkan tautan WhatsApp Konfirmasi Resmi
+  if (waBtn) {
+    let targetWa = app.recommenderWa;
+    if (!targetWa || targetWa.length < 9) {
+      const centralStore = (appState.partnerStores || []).find(s => s.slug === 'sr12-central' || s.partnerTier === 'distributor');
+      targetWa = centralStore?.storeWaNumber || '6282211223344';
+    }
+    const cleanTargetWa = String(targetWa).replace(/\D/g, '').replace(/^0/, '62');
+    
+    const waMessage = 
+      `Halo Admin & Tim Pembina SR12,\n\n` +
+      `Saya baru saja mengajukan pendaftaran toko online mitra resmi SR12:\n` +
+      `📌 *ID Tiket:* #${app.id}\n` +
+      `🏪 *Nama Toko:* ${app.storeName}\n` +
+      `👤 *Calon Pemilik:* ${app.storeOwner}\n` +
+      `📍 *Kota:* ${app.storeCity}\n` +
+      `🏅 *Jenjang Kemitraan:* ${tierObj.name}\n` +
+      `📞 *No. WhatsApp:* ${app.storeWaNumber}\n` +
+      (app.ownerEmail ? `📧 *Email Akun:* ${app.ownerEmail}\n` : '') +
+      (app.skNumber ? `📜 *No. SK/Kontrak:* ${app.skNumber}\n` : '') +
+      `\nMohon dibantu verifikasi dan aktivasi akun toko saya. Terima kasih! 🙏`;
+
+    waBtn.href = `https://wa.me/${cleanTargetWa}?text=${encodeURIComponent(waMessage)}`;
+  }
 
   appState.lastSubmittedPendingAppId = app.id;
 
@@ -3053,6 +3105,30 @@ function openStoreAppPendingSuccessModal(app) {
 
   openModal('modalStoreAppPendingSuccess');
 }
+
+function copyPendingAppTicket() {
+  const ticketId = appState.lastSubmittedPendingAppId;
+  if (!ticketId) return;
+  const fullText = '#' + ticketId;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(fullText).then(() => {
+      showToast(`📋 ID Tiket ${fullText} berhasil disalin!`);
+      const textEl = document.getElementById('btnCopyPendingTicketText');
+      const iconEl = document.getElementById('btnCopyPendingTicketIcon');
+      if (textEl) textEl.textContent = 'Tersalin ke Clipboard!';
+      if (iconEl) iconEl.textContent = '✓';
+      setTimeout(() => {
+        if (textEl) textEl.textContent = 'Salin ID Tiket Pengajuan';
+        if (iconEl) iconEl.textContent = '📋';
+      }, 2500);
+    }).catch(() => {
+      prompt('Salin ID Tiket Pengajuan Anda:', fullText);
+    });
+  } else {
+    prompt('Salin ID Tiket Pengajuan Anda:', fullText);
+  }
+}
+window.copyPendingAppTicket = copyPendingAppTicket;
 
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';

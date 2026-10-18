@@ -247,21 +247,24 @@ CREATE POLICY "Allow Update Stores" ON stores
   WITH CHECK (true);
 
 -- 2. TABEL PENDING_STORES:
--- Calon mitra boleh mendaftarkan toko baru (INSERT) dan sistem boleh memperbarui/menghapus tiket saat approval
+-- Berikan izin DML pada pending_stores untuk pendaftaran publik (anon) dan pengoperasian dashboard
+GRANT INSERT, SELECT, UPDATE, DELETE ON pending_stores TO anon, authenticated, service_role;
+
 DROP POLICY IF EXISTS "Public Submit Store Application" ON pending_stores;
-CREATE POLICY "Public Submit Store Application" ON pending_stores 
-  FOR INSERT 
+DROP POLICY IF EXISTS "Allow Public Insert Pending Stores" ON pending_stores;
+CREATE POLICY "Allow Public Insert Pending Stores" ON pending_stores 
+  FOR INSERT TO anon, authenticated, service_role
   WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Public Update Store Application" ON pending_stores;
 CREATE POLICY "Public Update Store Application" ON pending_stores 
-  FOR UPDATE 
+  FOR UPDATE TO anon, authenticated, service_role
   USING (true) 
   WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Public Delete Store Application" ON pending_stores;
 CREATE POLICY "Public Delete Store Application" ON pending_stores 
-  FOR DELETE 
+  FOR DELETE TO anon, authenticated, service_role
   USING (true);
 
 -- 3. TABEL PRODUCTS:
@@ -552,6 +555,106 @@ BEGIN
   );
 END;
 $$;
+
+-- 4B. RPC: Simpan Pengajuan Pendaftaran Toko Baru (Security Definer - Anti RLS Block)
+CREATE OR REPLACE FUNCTION rpc_submit_store_application(
+  p_application JSONB
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions
+AS $$
+DECLARE
+  v_id VARCHAR(50);
+  v_slug VARCHAR(80);
+  v_name VARCHAR(150);
+  v_owner VARCHAR(120);
+  v_wa VARCHAR(30);
+  v_city VARCHAR(100);
+  v_tier VARCHAR(30);
+BEGIN
+  -- 1. Ekstrak data wajib calon mitra
+  v_id := COALESCE(NULLIF(TRIM(p_application->>'id'), ''), 'APP-' || TO_CHAR(NOW(), 'YYMMDDHH24MISS') || '-' || SUBSTRING(MD5(RANDOM()::TEXT), 1, 4));
+  v_slug := LOWER(TRIM(COALESCE(p_application->>'slug', '')));
+  v_name := TRIM(COALESCE(p_application->>'storeName', p_application->>'store_name', ''));
+  v_owner := TRIM(COALESCE(p_application->>'storeOwner', p_application->>'store_owner', ''));
+  v_wa := TRIM(COALESCE(p_application->>'storeWaNumber', p_application->>'store_wa_number', ''));
+  v_city := TRIM(COALESCE(p_application->>'storeCity', p_application->>'store_city', ''));
+  v_tier := LOWER(TRIM(COALESCE(p_application->>'partnerTier', p_application->>'partner_tier', 'reseller')));
+
+  IF v_name = '' OR v_owner = '' OR v_wa = '' THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Nama Toko, Nama Pemilik, dan Nomor WhatsApp wajib diisi.');
+  END IF;
+
+  IF v_slug = '' THEN
+    v_slug := LOWER(REGEXP_REPLACE(v_name, '[^a-zA-Z0-9]+', '-', 'g'));
+  END IF;
+
+  -- 2. Bersihkan duplikasi jika ID atau Slug sudah pernah diajukan sebelumnya dalam status pending
+  DELETE FROM pending_stores WHERE id = v_id OR (slug = v_slug AND status = 'pending');
+
+  -- 3. Masukkan ke tabel pending_stores dengan aman
+  INSERT INTO pending_stores (
+    id, slug, store_name, store_tagline, store_theme, hero_title, hero_subtitle, hero_banner_url,
+    store_logo_text, store_logo_url, store_wa_number, store_city, store_owner, partner_tier,
+    store_admin_pin, nik_number, ktp_doc_url, ktp_doc_name, sk_number, sk_doc_url, sk_doc_name,
+    selfie_doc_url, selfie_doc_name, recommender_distributor, recommender_wa, recommender_slug,
+    recommendation_code, recommendation_doc_url, recommendation_doc_name, notes,
+    owner_email, password_hash, submitted_at, status
+  ) VALUES (
+    v_id,
+    v_slug,
+    v_name,
+    COALESCE(p_application->>'storeTagline', p_application->>'store_tagline', 'Mitra Resmi SR12 ' || v_city),
+    COALESCE(p_application->>'storeTheme', p_application->>'store_theme', 'emerald'),
+    COALESCE(p_application->>'heroTitle', p_application->>'hero_title', 'Katalog Resmi SR12 ' || v_name),
+    COALESCE(p_application->>'heroSubtitle', p_application->>'hero_subtitle', ''),
+    COALESCE(p_application->>'heroBannerUrl', p_application->>'hero_banner_url', ''),
+    COALESCE(p_application->>'storeLogoText', p_application->>'store_logo_text', 'SR12'),
+    COALESCE(p_application->>'storeLogoUrl', p_application->>'store_logo_url', ''),
+    v_wa,
+    v_city,
+    v_owner,
+    v_tier,
+    COALESCE(p_application->>'storeAdminPin', p_application->>'store_admin_pin', '1234'),
+    COALESCE(p_application->>'nikNumber', p_application->>'nik_number', ''),
+    COALESCE(p_application->>'ktpDocUrl', p_application->>'ktp_doc_url', ''),
+    COALESCE(p_application->>'ktpDocName', p_application->>'ktp_doc_name', ''),
+    COALESCE(p_application->>'skNumber', p_application->>'sk_number', ''),
+    COALESCE(p_application->>'skDocUrl', p_application->>'sk_doc_url', ''),
+    COALESCE(p_application->>'skDocName', p_application->>'sk_doc_name', ''),
+    COALESCE(p_application->>'selfieDocUrl', p_application->>'selfie_doc_url', ''),
+    COALESCE(p_application->>'selfieDocName', p_application->>'selfie_doc_name', ''),
+    COALESCE(p_application->>'recommenderDistributor', p_application->>'recommender_distributor', ''),
+    COALESCE(p_application->>'recommenderWa', p_application->>'recommender_wa', ''),
+    COALESCE(p_application->>'recommenderSlug', p_application->>'recommender_slug', ''),
+    COALESCE(p_application->>'recommendationCode', p_application->>'recommendation_code', ''),
+    COALESCE(p_application->>'recommendationDocUrl', p_application->>'recommendation_doc_url', ''),
+    COALESCE(p_application->>'recommendationDocName', p_application->>'recommendation_doc_name', ''),
+    COALESCE(p_application->>'notes', p_application->>'notes', ''),
+    LOWER(TRIM(COALESCE(p_application->>'ownerEmail', p_application->>'owner_email'))),
+    COALESCE(p_application->>'passwordHash', p_application->>'password_hash'),
+    NOW(),
+    'pending'
+  );
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'id', v_id,
+    'slug', v_slug,
+    'message', 'Pengajuan pendaftaran toko berhasil diterima dan masuk ke antrean verifikasi cloud.'
+  );
+EXCEPTION WHEN OTHERS THEN
+  RETURN jsonb_build_object(
+    'success', false,
+    'error', SQLERRM,
+    'message', 'Gagal memproses pengajuan pendaftaran di database server: ' || SQLERRM
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION rpc_submit_store_application(JSONB) TO anon, authenticated, service_role;
 
 -- 5. RPC: Ambil Daftar Antrean Toko (Hanya untuk Admin Terotentikasi)
 CREATE OR REPLACE FUNCTION rpc_get_pending_stores(

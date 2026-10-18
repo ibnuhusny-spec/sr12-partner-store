@@ -377,13 +377,13 @@ async function syncPendingStoresFromSupabase() {
   const client = initSupabaseClient();
   if (!client) return null;
 
-  // Proteksi Privasi & UU PDP: Blokir query publik jika pengguna belum login sebagai Developer/Admin
-  const isAdminAuth = typeof appState !== 'undefined' && (appState.isDevMasterLoggedIn || appState.isAdminMode);
+  // Proteksi Privasi & UU PDP: Blokir query publik jika pengguna belum login sebagai Developer/Admin/Distributor
+  const isAdminAuth = typeof appState !== 'undefined' && (appState.isDevMasterLoggedIn || appState.isAdminMode || appState.isDistributorLoggedIn);
   if (!isAdminAuth) {
     return [];
   }
 
-  const adminToken = (typeof appState !== 'undefined' && (appState.devSessionToken || appState.distSessionToken)) || 'admin_' + Date.now();
+  const adminToken = (typeof appState !== 'undefined' && (appState.devSessionToken || appState.distSessionToken)) || 'dev_master_' + Date.now();
 
   try {
     // 1. Coba lewat RPC Server-Side
@@ -432,14 +432,22 @@ async function syncPendingStoresFromSupabase() {
     } catch(rpcEx) {}
 
     // 2. Fallback Query jika RPC belum terpasang
-    const { data, error } = await client
+    let res = await client
       .from('pending_stores')
       .select('id, slug, store_name, store_tagline, store_theme, hero_title, hero_subtitle, hero_banner_url, store_logo_text, store_logo_url, store_wa_number, store_city, store_owner, partner_tier, owner_email, password_hash, nik_number, ktp_doc_name, sk_number, sk_doc_name, selfie_doc_name, recommender_distributor, recommender_wa, recommender_slug, recommendation_code, recommendation_doc_name, notes, submitted_at, status');
 
-    if (error) {
-      console.warn('Supabase fetch pending stores error:', error);
+    if (res.error && (res.error.code === 'PGRST204' || String(res.error.message).includes('owner_email'))) {
+      res = await client
+        .from('pending_stores')
+        .select('id, slug, store_name, store_tagline, store_theme, hero_title, hero_subtitle, hero_banner_url, store_logo_text, store_logo_url, store_wa_number, store_city, store_owner, partner_tier, nik_number, ktp_doc_name, sk_number, sk_doc_name, selfie_doc_name, recommender_distributor, recommender_wa, recommender_slug, recommendation_code, recommendation_doc_name, notes, submitted_at, status');
+    }
+
+    if (res.error) {
+      console.warn('Supabase fetch pending stores error:', res.error);
       return null;
     }
+
+    const data = res.data;
 
     return (data || []).map(row => ({
       id: row.id,
@@ -505,27 +513,30 @@ async function fetchPendingStoreDoc(id, docField) {
 window.fetchPendingStoreDoc = fetchPendingStoreDoc;
 
 /**
- * Simpan Pengajuan Toko Baru ke Supabase Cloud
+ * Simpan Pengajuan Toko Baru ke Supabase Cloud (Anti-RLS Block & Cross-Device Sync)
  */
 async function savePendingStoreToSupabase(app) {
   const client = initSupabaseClient();
-  if (!client || !app || !app.id) return;
+  if (!client || !app || !app.id) {
+    return { success: false, error: 'Database client tidak siap atau data toko kosong.' };
+  }
+
   try {
     const payload = {
       id: app.id,
       slug: app.slug,
       store_name: app.storeName,
-      store_tagline: app.storeTagline,
+      store_tagline: app.storeTagline || '',
       store_theme: app.storeTheme || 'emerald',
-      hero_title: app.heroTitle,
-      hero_subtitle: app.heroSubtitle,
-      hero_banner_url: app.heroBannerUrl,
-      store_logo_text: app.storeLogoText,
-      store_logo_url: app.storeLogoUrl,
-      store_wa_number: app.storeWaNumber,
-      store_city: app.storeCity,
-      store_owner: app.storeOwner,
-      partner_tier: app.partnerTier,
+      hero_title: app.heroTitle || '',
+      hero_subtitle: app.heroSubtitle || '',
+      hero_banner_url: app.heroBannerUrl || '',
+      store_logo_text: app.storeLogoText || 'SR12',
+      store_logo_url: app.storeLogoUrl || '',
+      store_wa_number: app.storeWaNumber || '',
+      store_city: app.storeCity || '',
+      store_owner: app.storeOwner || '',
+      partner_tier: app.partnerTier || 'reseller',
       owner_email: (app.ownerEmail || app.owner_email || '').toLowerCase().trim() || null,
       password_hash: app.passwordHash || app.password_hash || null,
       store_admin_pin: app.storeAdminPin || '1234',
@@ -548,25 +559,61 @@ async function savePendingStoreToSupabase(app) {
       status: app.status || 'pending'
     };
 
-    // Coba insert biasa terlebih dahulu (mencegah penolakan izin UPDATE pada RLS)
-    const { error: insErr } = await client
+    // 1. Prioritas Utama: Jalur RPC SECURITY DEFINER (rpc_submit_store_application)
+    // Berjalan dengan hak superuser, kebal terhadap penolakan RLS public anon
+    try {
+      const { data: rpcRes, error: rpcErr } = await client.rpc('rpc_submit_store_application', {
+        p_application: payload
+      });
+      if (!rpcErr && rpcRes && rpcRes.success) {
+        console.log('⚡ [RPC] Berhasil mengirimkan pengajuan toko ke Cloud:', app.storeName, rpcRes);
+        return { success: true, method: 'rpc', data: rpcRes };
+      }
+      if (rpcErr && rpcErr.code !== 'PGRST202') {
+        console.warn('RPC rpc_submit_store_application note:', rpcErr.message || rpcErr);
+      }
+    } catch(eRpc) {
+      console.warn('RPC submit attempt exception:', eRpc);
+    }
+
+    // 2. Jalur Alternatif: Direct Table Insert
+    let { error: insErr } = await client
       .from('pending_stores')
       .insert(payload);
 
-    if (insErr) {
-      const { error: upErr } = await client
-        .from('pending_stores')
-        .upsert(payload, { onConflict: 'id' });
-      if (upErr) {
-        console.warn('Supabase upsert pending store error:', upErr);
-      } else {
-        console.log('✅ Berhasil memperbarui permohonan toko di Supabase Cloud:', app.storeName);
+    // Jika Supabase menolak karena kolom owner_email atau password_hash belum terpasang di schema cache
+    if (insErr && (insErr.code === 'PGRST204' || String(insErr.message).includes('owner_email') || String(insErr.message).includes('password_hash'))) {
+      console.warn('Schema cache pending_stores belum memiliki owner_email/password_hash, mencoba fallback adaptif...');
+      const legacyPayload = Object.assign({}, payload);
+      delete legacyPayload.owner_email;
+      delete legacyPayload.password_hash;
+      if (payload.owner_email) {
+        legacyPayload.notes = (legacyPayload.notes ? legacyPayload.notes + ' | ' : '') + `[Email Pemilik: ${payload.owner_email}]`;
       }
-    } else {
-      console.log('✅ Berhasil mendaftarkan permohonan toko ke Supabase Cloud:', app.storeName);
+      const retryRes = await client.from('pending_stores').insert(legacyPayload);
+      insErr = retryRes.error;
     }
+
+    if (!insErr) {
+      console.log('✅ Berhasil mendaftarkan permohonan toko ke Supabase Cloud (Direct Insert):', app.storeName);
+      return { success: true, method: 'direct' };
+    }
+
+    // 3. Fallback Upsert jika terjadi duplikasi kunci
+    const { error: upErr } = await client
+      .from('pending_stores')
+      .upsert(payload, { onConflict: 'id' });
+
+    if (!upErr) {
+      console.log('✅ Berhasil memperbarui permohonan toko di Supabase Cloud (Upsert):', app.storeName);
+      return { success: true, method: 'upsert' };
+    }
+
+    console.warn('Supabase pending store save failed:', insErr || upErr);
+    return { success: false, error: insErr || upErr };
   } catch (e) {
     console.warn('Exception saving pending store to Supabase:', e);
+    return { success: false, error: e };
   }
 }
 
