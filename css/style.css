@@ -2822,28 +2822,34 @@ body.theme-dark .distributor-hero-cover-wrap { background: linear-gradient(135de
   color: #fff;
 }
 
-/* Quick Edit Button (HANYA MUNCUL DI MODE ADMIN) */
+/* Quick Edit Button (HANYA MUNCUL DI MODE ADMIN DISTRIBUTOR) */
 .btn-quick-edit-image {
-  position: absolute;
-  bottom: 8px;
-  right: 8px;
-  background: #ffffff;
-  color: var(--dark-900);
-  border: 1px solid var(--border-subtle);
-  padding: 3px 8px;
-  border-radius: var(--radius-full);
-  font-size: 0.68rem;
-  font-weight: 700;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  position: absolute !important;
+  bottom: 8px !important;
+  left: 8px !important;
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  padding: 0 !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  color: #0284c7 !important;
+  border: 1.5px solid #7dd3fc !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12) !important;
+  backdrop-filter: blur(4px) !important;
+  z-index: 5 !important;
+  transition: all 0.2s ease !important;
 }
 
 .btn-quick-edit-image:hover {
-  background: var(--primary-700);
-  color: #fff;
+  background: #0284c7 !important;
+  color: #ffffff !important;
+  border-color: #0284c7 !important;
+  transform: scale(1.1) !important;
 }
 
 .product-body {

@@ -20,7 +20,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <link rel="stylesheet" href="css/style.css?v=16.6">
+  <link rel="stylesheet" href="css/style.css?v=16.7">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
 </head>
 <body>
@@ -57,9 +57,6 @@
       </div>
     </div>
     <div class="preview-strip-actions">
-      <button type="button" class="btn-topbar-action-pos" onclick="showDistributorPortalView(true)" title="Kembali ke Kasir Olsera">
-        <span>🛒</span> <span>Kasir Olsera</span>
-      </button>
       <button type="button" class="btn-topbar-action-settings" onclick="openStoreSettingsModal()" title="Pengaturan Toko">
         <span>⚙️</span> <span>Pengaturan</span>
       </button>
@@ -88,7 +85,7 @@
           <span class="cloud-status-text">Cloud Aktif</span>
         </button>
         <!-- Tombol Admin Distributor (Hanya Muncul Jika Sudah Login) -->
-        <button class="btn-topbar-olsera" id="topbarBtnOlseraPos" onclick="openOlseraPosDirect()" title="Buka Aplikasi Olsera POS Kasir & Backoffice" aria-label="Olsera POS" style="display: none;">
+        <button class="btn-topbar-olsera" id="topbarBtnOlseraPos" onclick="openOlseraPosDirect()" title="Buka Aplikasi Olsera POS Kasir & Backoffice" aria-label="Olsera POS" style="display: none !important;">
           🛒 <span class="topbar-btn-text">Olsera POS</span>
         </button>
         <button class="btn-topbar-action" id="topbarBtnShareStore" onclick="openShareStoreModal()" title="Salin link toko ini untuk disebarkan ke pembeli" aria-label="Bagikan Link Toko" style="display: none;">
@@ -5322,9 +5319,9 @@
 
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=16.6"></script>
-  <script src="js/data.js?v=16.6"></script>
-  <script src="js/app.js?v=16.6"></script>
-  <script src="js/olsera-suite.js?v=16.6"></script>
+  <script src="js/supabase-config.js?v=16.7"></script>
+  <script src="js/data.js?v=16.7"></script>
+  <script src="js/app.js?v=16.7"></script>
+  <script src="js/olsera-suite.js?v=16.7"></script>
 </body>
 </html>

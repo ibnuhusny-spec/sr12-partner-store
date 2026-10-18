@@ -240,13 +240,13 @@ function showDistributorPortalView(showPortal) {
 
     const isLoggedDistributor = (typeof appState !== 'undefined') && (!!appState.isAdminMode || !!appState.isDistributorLoggedIn || !!appState.isDevMasterLoggedIn);
 
-    // Jika distributor login dan slug masih sr12-central atau kosong, alihkan otomatis ke toko mitra aktif miliknya
+    // Jika distributor login dan slug masih sr12-central atau kosong, muat toko mitra aktif miliknya
     if (isLoggedDistributor && (!appState.storeSettings?.slug || appState.storeSettings.slug === 'sr12-central')) {
       const fallbackPartner = localStorage.getItem('sr12_last_active_partner_store') || 
                               localStorage.getItem('sr12_logged_store_slug') || 
                               'alzam-agency';
-      if (typeof switchPartnerStore === 'function') {
-        switchPartnerStore(fallbackPartner);
+      if (typeof loadStoreBySlug === 'function') {
+        loadStoreBySlug(fallbackPartner);
       }
     }
 
@@ -267,13 +267,13 @@ function showDistributorPortalView(showPortal) {
     }
 
     if (storefront) storefront.style.display = 'block';
-    if (siteHeader) siteHeader.style.display = 'block';
+    if (siteHeader) siteHeader.style.display = currentIsCentral ? 'block' : 'none';
     if (tierBanner) tierBanner.style.display = 'none';
-    if (platformTopbar) platformTopbar.style.display = 'none';
+    if (platformTopbar) platformTopbar.style.display = currentIsCentral ? 'block' : 'none';
 
-    // Preview Strip untuk distributor saat meninjau etalase Customer Facing Display
+    // Preview Strip untuk distributor saat meninjau etalase Customer Facing Display (HANYA MUNCUL DI TOKO DISTRIBUTOR, TIDAK DI CENTRAL HUB)
     if (previewStrip) {
-      previewStrip.style.display = isLoggedDistributor ? 'flex' : 'none';
+      previewStrip.style.display = (isLoggedDistributor && !currentIsCentral) ? 'flex' : 'none';
       const nameEl = document.getElementById('previewStripDistName');
       if (nameEl) {
         nameEl.textContent = (appState.storeSettings && appState.storeSettings.storeName) || 'Toko Mitra';
@@ -289,19 +289,23 @@ function showDistributorPortalView(showPortal) {
 
     // Pastikan tombol Menu Toko di toolbar katalog & hadiah muncul untuk distributor
     const btnCatMenu = document.getElementById('btnOpenDashboardFromCatalog');
-    if (btnCatMenu) btnCatMenu.style.display = isLoggedDistributor ? 'inline-flex' : 'none';
+    if (btnCatMenu) btnCatMenu.style.display = (isLoggedDistributor && !currentIsCentral) ? 'inline-flex' : 'none';
     const btnRewardMenu = document.getElementById('btnOpenDashboardFromRewards');
-    if (btnRewardMenu) btnRewardMenu.style.display = isLoggedDistributor ? 'inline-flex' : 'none';
+    if (btnRewardMenu) btnRewardMenu.style.display = (isLoggedDistributor && !currentIsCentral) ? 'inline-flex' : 'none';
 
-    // Pastikan etalase katalog toko pembeli langsung tampil
-    const commerceWrapper = document.getElementById('distributorCommerceWrapper');
-    if (commerceWrapper) commerceWrapper.style.display = 'block';
-    const catSec = document.getElementById('catalogSection');
-    if (catSec && appState.activeTab !== 'rewards') catSec.style.display = 'block';
-    const centralHero = document.getElementById('officialCentralHubHero');
-    if (centralHero) centralHero.style.display = 'none';
-    const directorySection = document.getElementById('officialDistributorDirectorySection');
-    if (directorySection) directorySection.style.display = 'none';
+    // Pastikan etalase katalog toko pembeli langsung tampil di toko distributor
+    if (!currentIsCentral) {
+      const commerceWrapper = document.getElementById('distributorCommerceWrapper');
+      if (commerceWrapper) commerceWrapper.style.display = 'block';
+      const catSec = document.getElementById('catalogSection');
+      if (catSec && (!appState || appState.activeTab !== 'rewards')) catSec.style.display = 'block';
+      const distHero = document.getElementById('distributorStoreHeroCard');
+      if (distHero) distHero.style.display = 'block';
+      const centralHero = document.getElementById('officialCentralHubHero');
+      if (centralHero) centralHero.style.display = 'none';
+      const directorySection = document.getElementById('officialDistributorDirectorySection');
+      if (directorySection) directorySection.style.display = 'none';
+    }
 
     if (typeof renderProducts === 'function') renderProducts();
   }
@@ -312,32 +316,65 @@ function openCustomerFacingDisplay() {
     closeOlseraSidebarDrawer();
   }
 
-  let currentSlug = (typeof appState !== 'undefined' && appState.storeSettings && appState.storeSettings.slug) || 
-                    (typeof appState !== 'undefined' ? appState.currentStoreSlug : null);
+  // Tentukan slug toko mitra aktif distributor
+  let targetSlug = (typeof appState !== 'undefined' && appState.storeSettings && appState.storeSettings.slug && appState.storeSettings.slug !== 'sr12-central')
+    ? appState.storeSettings.slug
+    : ((typeof appState !== 'undefined' && appState.currentStoreSlug && appState.currentStoreSlug !== 'sr12-central')
+        ? appState.currentStoreSlug
+        : (localStorage.getItem('sr12_last_active_partner_store') || localStorage.getItem('sr12_logged_store_slug') || 'alzam-agency'));
 
-  if (!currentSlug || currentSlug === 'sr12-central') {
-    const savedStore = localStorage.getItem('sr12_last_active_partner_store') || 
-                       localStorage.getItem('sr12_logged_store_slug') || 
-                       'alzam-agency';
-    if (typeof switchPartnerStore === 'function') {
-      switchPartnerStore(savedStore);
-    }
+  if (typeof loadStoreBySlug === 'function' && (!appState.storeSettings || appState.storeSettings.slug !== targetSlug)) {
+    loadStoreBySlug(targetSlug);
+  }
+
+  if (typeof appState !== 'undefined') {
+    appState.isDistributorLoggedIn = true;
+    appState.isAdminMode = true;
+    appState.isOlseraPortalOpen = false;
   }
 
   showDistributorPortalView(false);
 
   setTimeout(() => {
+    document.body.classList.remove('olsera-portal-active');
+    document.body.classList.remove('is-central-hub');
+    document.body.classList.add('is-partner-store');
+
+    const storefront = document.getElementById('publicStorefrontMain');
+    if (storefront) storefront.style.display = 'block';
+
     const commerceWrapper = document.getElementById('distributorCommerceWrapper');
     if (commerceWrapper) commerceWrapper.style.display = 'block';
+
     const catSec = document.getElementById('catalogSection');
     if (catSec && (!appState || appState.activeTab !== 'rewards')) catSec.style.display = 'block';
+
+    const distHero = document.getElementById('distributorStoreHeroCard');
+    if (distHero) distHero.style.display = 'block';
+
     const centralHero = document.getElementById('officialCentralHubHero');
     if (centralHero) centralHero.style.display = 'none';
+
     const directorySection = document.getElementById('officialDistributorDirectorySection');
     if (directorySection) directorySection.style.display = 'none';
 
+    const portal = document.getElementById('distributorOlseraPortal');
+    if (portal) portal.style.display = 'none';
+
+    const previewStrip = document.getElementById('distributorPreviewStrip');
+    if (previewStrip) {
+      previewStrip.style.display = 'flex';
+      const nameEl = document.getElementById('previewStripDistName');
+      if (nameEl) {
+        nameEl.textContent = (appState.storeSettings && appState.storeSettings.storeName) || 'Toko Mitra';
+      }
+    }
+
+    if (typeof updateViewModeUI === 'function') updateViewModeUI();
+    if (typeof renderProducts === 'function') renderProducts();
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, 60);
+  }, 50);
 }
 window.openCustomerFacingDisplay = openCustomerFacingDisplay;
 
