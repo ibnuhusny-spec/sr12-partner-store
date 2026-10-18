@@ -1287,8 +1287,37 @@ async function loadStoreProducts(storeSlug) {
   // 1. Clone produk dasar dari master catalog (murni, bersih dari edit toko lain)
   const baseProducts = masterList.map(mp => Object.assign({}, mp));
 
-  // 2. Terapkan override lokal khusus untuk toko ini
+  // 2. Terapkan override lokal khusus untuk toko ini (LocalStorage & IndexedDB)
   const overrides = getStoreProductOverrides(storeSlug);
+
+  // Ambil juga override yang tersimpan di IndexedDB agar tahan banting & tidak hilang
+  if (typeof dbGetAllProducts === 'function') {
+    try {
+      const idbList = await dbGetAllProducts();
+      if (Array.isArray(idbList)) {
+        idbList.forEach(ip => {
+          if (!ip) return;
+          const isThisStore = (ip.store_slug === storeSlug) || (ip.id && ip.id.startsWith(storeSlug + '___'));
+          if (isThisStore) {
+            const rawId = ip.originalId || (ip.id ? ip.id.replace(storeSlug + '___', '') : ip.id);
+            if (!overrides[rawId]) {
+              overrides[rawId] = {
+                image: ip.image,
+                name: ip.name,
+                category: ip.category,
+                het: ip.het || ip.price,
+                stock: ip.stock,
+                summary: ip.summary,
+                customEdited: true
+              };
+            } else if (ip.image && (!overrides[rawId].image || overrides[rawId].image.startsWith('data:image/svg+xml'))) {
+              overrides[rawId].image = ip.image;
+            }
+          }
+        });
+      }
+    } catch(eIdb) {}
+  }
 
   // Jika ini toko alzam-agency dan belum ada overrides khusus, migrasikan edit lama jika ada di cache
   if (storeSlug === 'alzam-agency' && Object.keys(overrides).length === 0) {
@@ -1358,7 +1387,8 @@ async function loadStoreProducts(storeSlug) {
           if (!sp) return;
           const target = findBestProductMatch(appState.products, sp.id || sp.name);
           if (target) {
-            if (sp.image && !sp.image.startsWith('data:image/svg+xml')) {
+            // Jangan biarkan sp.image hero-banner default menimpa foto custom lokal yang sudah ada
+            if (sp.image && !sp.image.startsWith('data:image/svg+xml') && (sp.image !== 'assets/hero-banner.jpg' || !target.customEdited)) {
               target.image = sp.image;
               target.customEdited = true;
             }
@@ -1469,7 +1499,9 @@ function compressImageSource(srcOrFile, maxDim = 500, quality = 0.76) {
 
     if (typeof srcOrFile === 'string') {
       const img = new Image();
-      img.crossOrigin = 'anonymous';
+      if (!srcOrFile.startsWith('data:')) {
+        img.crossOrigin = 'anonymous';
+      }
       img.onload = () => processImage(img);
       img.onerror = () => resolve(srcOrFile);
       img.src = srcOrFile;
@@ -5982,74 +6014,47 @@ function initEventListeners() {
     });
   }
 
-  // Product Image Upload dengan kompresi client-side otomatis
+  // Product Image Upload dengan kompresi client-side otomatis dan fallback aman
   const editProdFileInput = document.getElementById('editProdFileInput');
   if (editProdFileInput) {
     editProdFileInput.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
+      const file = e.target.files && e.target.files[0];
       if (file) {
         if (!isStrictImageFile(file)) {
           alert('Format foto produk tidak didukung! Hanya menerima gambar format JPG, PNG, atau WEBP.');
           e.target.value = '';
           return;
         }
-        showToast('⏳ Memproses & mengoptimasi foto produk...');
+        showToast('⏳ Memproses foto kemasan produk...');
+        const applyImage = (dataUri) => {
+          appState.tempEditImageBase64 = dataUri;
+          const previewImg = document.getElementById('editProdImgPreview');
+          if (previewImg) {
+            previewImg.src = dataUri;
+            previewImg.style.display = 'block';
+          }
+          showToast('📷 Foto produk berhasil dimuat!');
+        };
+
         try {
-          const compressed = await compressImageSource(file, 500, 0.76);
-          if (compressed) {
-            appState.tempEditImageBase64 = compressed;
-            const previewImg = document.getElementById('editProdImgPreview');
-            if (previewImg) {
-              previewImg.src = compressed;
-              previewImg.style.display = 'block';
-            }
-            const urlInput = document.getElementById('editProdImgUrl');
-            if (urlInput) urlInput.value = '';
-            showToast(`📷 Foto produk siap! Ukuran dioptimasi hemat memori.`);
+          const compressed = await compressImageSource(file, 500, 0.78);
+          if (compressed && compressed.length > 50) {
+            applyImage(compressed);
+          } else {
+            throw new Error('Hasil kompresi kosong');
           }
         } catch (err) {
-          console.error('Gagal kompres foto:', err);
+          console.warn('Kompresi canvas dialihkan ke FileReader:', err);
+          const reader = new FileReader();
+          reader.onload = (re) => {
+            if (re.target && re.target.result) {
+              applyImage(re.target.result);
+            }
+          };
+          reader.readAsDataURL(file);
         }
       }
     });
-  }
-
-  // Validasi Real-time URL Gambar Produk (Cegah Injeksi Script & Link Berbahaya)
-  const editProdImgUrlInput = document.getElementById('editProdImgUrl');
-  const editProdImgUrlStatus = document.getElementById('editProdImgUrlStatus');
-  const editProdImgUrlWarning = document.getElementById('editProdImgUrlWarning');
-  const editProdImgPreview = document.getElementById('editProdImgPreview');
-
-  if (editProdImgUrlInput) {
-    const validateEditUrl = () => {
-      const val = editProdImgUrlInput.value.trim();
-      if (!val) {
-        if (editProdImgUrlStatus) editProdImgUrlStatus.style.display = 'none';
-        if (editProdImgUrlWarning) editProdImgUrlWarning.style.display = 'none';
-        editProdImgUrlInput.style.borderColor = 'var(--border-subtle)';
-        return;
-      }
-      if (typeof isSafeImageUrl === 'function' && isSafeImageUrl(val)) {
-        if (editProdImgUrlStatus) {
-          editProdImgUrlStatus.style.display = 'inline';
-          editProdImgUrlStatus.textContent = '🛡️ URL Aman';
-          editProdImgUrlStatus.style.color = '#059669';
-        }
-        if (editProdImgUrlWarning) editProdImgUrlWarning.style.display = 'none';
-        editProdImgUrlInput.style.borderColor = '#10b981';
-        appState.tempEditImageBase64 = null; // Prioritaskan URL aman yang baru diinput
-        if (editProdImgPreview) {
-          editProdImgPreview.src = val;
-          editProdImgPreview.style.display = 'block';
-        }
-      } else {
-        if (editProdImgUrlStatus) editProdImgUrlStatus.style.display = 'none';
-        if (editProdImgUrlWarning) editProdImgUrlWarning.style.display = 'block';
-        editProdImgUrlInput.style.borderColor = '#dc2626';
-      }
-    };
-    editProdImgUrlInput.addEventListener('input', validateEditUrl);
-    editProdImgUrlInput.addEventListener('change', validateEditUrl);
   }
 
   // Modals for Adding Products & Marketing
@@ -7414,7 +7419,6 @@ function renderProducts() {
   }
 
   const currentTier = SR12_TIERS[appState.currentTier] || SR12_TIERS.konsumen;
-  const canManage = !!(appState.isAdminMode || appState.isDistributorLoggedIn || appState.isDevMasterLoggedIn);
 
   container.innerHTML = filtered.map(prod => {
     const tierPrice = getProductTierPrice(prod, appState.currentTier);
@@ -7429,13 +7433,6 @@ function renderProducts() {
           <span class="badge-bpom-clean">🌿 BPOM</span>
           ${isMarketer ? `<span class="badge-disc-clean" style="background: #0284c7; color: #fff;">💼 Komisi 15%</span>` : (!isRetail ? `<span class="badge-disc-clean">-${currentTier.discountPct}%</span>` : '')}
           <span class="badge-stock-clean ${(prod.stock ?? 85) <= 15 ? 'low' : ''}">Stok: ${prod.stock ?? 85}</span>
-
-          ${canManage ? `
-            <button type="button" class="btn-quick-edit-image" title="Ubah Gambar atau Detail Produk" onclick="openEditProductModal('${prod.id}')">
-              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
-              Ganti Foto
-            </button>
-          ` : ''}
         </div>
 
         <div class="product-body">
@@ -7444,7 +7441,7 @@ function renderProducts() {
             <span class="product-rating">★ ${prod.rating || '4.9'}</span>
           </div>
 
-          <h4 class="product-title" onclick="${canManage ? `openEditProductModal('${prod.id}')` : `openProductDetailModal('${prod.id}')`}" style="cursor: pointer;">${prod.name}</h4>
+          <h4 class="product-title" onclick="openProductDetailModal('${prod.id}')" style="cursor: pointer;">${prod.name}</h4>
           <p class="product-summary-text">${prod.summary || ''}</p>
 
           <div class="price-block">
@@ -7469,12 +7466,8 @@ function renderProducts() {
             <button type="button" class="btn-product-capsule btn-product-capsule-cart" onclick="addToCart('${prod.id}')" title="Tambah ${prod.name} ke Keranjang" aria-label="Beli">
               <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
             </button>
-            <button type="button" class="btn-product-capsule btn-product-capsule-detail" onclick="${canManage ? `openEditProductModal('${prod.id}')` : `openProductDetailModal('${prod.id}')`}" title="${canManage ? 'Ubah Detail / Foto Produk' : 'Lihat Detail Produk'}" aria-label="Detail">
-              ${canManage ? `
-                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
-              ` : `
-                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              `}
+            <button type="button" class="btn-product-capsule btn-product-capsule-detail" onclick="openProductDetailModal('${prod.id}')" title="Lihat Detail Produk" aria-label="Detail">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
             <button type="button" class="btn-product-capsule btn-product-capsule-share" onclick="openProductPromoShareModal('${prod.id}')" title="Bagikan &amp; Promosikan Produk Ini" aria-label="Bagikan">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
@@ -8455,9 +8448,10 @@ function openModal(modalId) {
   if (!modal) return;
 
   document.body.classList.add('modal-open');
+  modal.style.display = 'flex';
   modal.classList.add('open');
 
-  const dialog = modal.querySelector('.modal-dialog');
+  const dialog = modal.querySelector('.modal-dialog') || modal.querySelector('.modal-container');
   if (dialog) {
     dialog.style.transform = '';
     dialog.style.opacity = '';
@@ -8499,7 +8493,8 @@ function closeModal(modalId, isFromPopstate = false, skipHistoryBack = false) {
   const modal = document.getElementById(modalId);
   if (modal) {
     modal.classList.remove('open');
-    const dialog = modal.querySelector('.modal-dialog');
+    modal.style.display = 'none';
+    const dialog = modal.querySelector('.modal-dialog') || modal.querySelector('.modal-container');
     if (dialog) {
       dialog.style.transform = '';
       dialog.style.opacity = '';
@@ -8545,6 +8540,17 @@ function closeModal(modalId, isFromPopstate = false, skipHistoryBack = false) {
   }
 }
 window.closeModal = closeModal;
+
+// Listener Delegasi Global: Memastikan SEMUA tombol X / .btn-close-modal selalu menutup modalnya tanpa terkecuali
+document.addEventListener('click', (e) => {
+  const closeBtn = e.target.closest('.btn-close-modal');
+  if (closeBtn) {
+    const parentModal = closeBtn.closest('.modal-backdrop');
+    if (parentModal && parentModal.id) {
+      closeModal(parentModal.id);
+    }
+  }
+});
 
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
@@ -8974,12 +8980,7 @@ function openProductDetailModal(productId) {
     };
   }
   if (btnEdit) {
-    const canManageProd = !!(appState.isAdminMode || appState.isDistributorLoggedIn || appState.isDevMasterLoggedIn);
-    btnEdit.style.display = canManageProd ? 'block' : 'none';
-    btnEdit.onclick = () => {
-      modal.classList.remove('open');
-      openEditProductModal(prod.id);
-    };
+    btnEdit.style.display = 'none';
   }
 
   if (typeof openModal === 'function') {
@@ -8990,7 +8991,7 @@ function openProductDetailModal(productId) {
 }
 
 function openEditProductModal(productId) {
-  const prod = appState.products.find(p => p.id === productId);
+  const prod = (appState.products || []).find(p => p.id === productId);
   if (!prod) return;
 
   const bBar = document.getElementById('posMobileBottomBar');
@@ -8998,7 +8999,6 @@ function openEditProductModal(productId) {
     bBar.classList.remove('active');
     bBar.style.display = 'none';
   }
-  document.body.classList.add('modal-open');
 
   appState.activeEditingProductId = productId;
   appState.tempEditImageBase64 = prod.image;
@@ -9009,7 +9009,6 @@ function openEditProductModal(productId) {
   const hetInput = document.getElementById('editProdHet');
   const stockInput = document.getElementById('editProdStock');
   const summaryInput = document.getElementById('editProdSummary');
-  const imgUrlInput = document.getElementById('editProdImgUrl');
   const imgPreview = document.getElementById('editProdImgPreview');
   const fileInput = document.getElementById('editProdFileInput');
 
@@ -9022,36 +9021,20 @@ function openEditProductModal(productId) {
   }
   if (stockInput) stockInput.value = (typeof prod.stock !== 'undefined') ? prod.stock : 85;
   if (summaryInput) summaryInput.value = prod.summary || '';
-  if (imgUrlInput) {
-    imgUrlInput.value = prod.image && !prod.image.startsWith('data:') ? prod.image : '';
-    imgUrlInput.style.borderColor = 'var(--border-subtle)';
-  }
-  const urlStatus = document.getElementById('editProdImgUrlStatus');
-  const urlWarning = document.getElementById('editProdImgUrlWarning');
-  if (urlStatus) {
-    if (prod.image && typeof isSafeImageUrl === 'function' && isSafeImageUrl(prod.image) && !prod.image.startsWith('data:')) {
-      urlStatus.style.display = 'inline';
-      urlStatus.textContent = '🛡️ URL Aman';
-      urlStatus.style.color = '#059669';
-    } else {
-      urlStatus.style.display = 'none';
-    }
-  }
-  if (urlWarning) urlWarning.style.display = 'none';
 
   if (imgPreview) {
     imgPreview.src = (typeof sanitizeImageUrl === 'function') ? sanitizeImageUrl(prod.image) : (prod.image || 'assets/hero-banner.jpg');
     imgPreview.style.display = 'block';
   }
 
-  if (modal) modal.classList.add('open');
+  openModal('modalEditProduct');
 }
 
 async function handleEditProductSubmit(e) {
   if (e) e.preventDefault();
 
   const prodId = appState.activeEditingProductId;
-  const prod = appState.products.find(p => p.id === prodId);
+  const prod = (appState.products || []).find(p => p.id === prodId);
   if (!prod) return;
 
   const btnSubmit = document.getElementById('btnSubmitEditProduct');
@@ -9067,35 +9050,9 @@ async function handleEditProductSubmit(e) {
     const stockRaw = document.getElementById('editProdStock')?.value;
     const newStock = (stockRaw !== '' && !isNaN(Number(stockRaw))) ? Math.max(0, parseInt(stockRaw, 10)) : (typeof prod.stock !== 'undefined' ? prod.stock : 85);
     const newSummary = document.getElementById('editProdSummary')?.value.trim();
-    const newImgUrl = document.getElementById('editProdImgUrl')?.value.trim();
 
-    // Pilih gambar baru jika ada unggahan/preset atau jika input URL diisi baru
-    let finalImage = prod.image;
-    if (appState.tempEditImageBase64 && appState.tempEditImageBase64 !== prod.image) {
-      // Pastikan foto terkompresi sebelum disimpan agar ringan & cepat
-      if (appState.tempEditImageBase64.startsWith('data:') && appState.tempEditImageBase64.length > 30000) {
-        finalImage = await compressImageSource(appState.tempEditImageBase64, 500, 0.76);
-      } else {
-        finalImage = appState.tempEditImageBase64;
-      }
-    } else if (newImgUrl && newImgUrl !== prod.image) {
-      let formattedUrl = newImgUrl;
-      if (formattedUrl.startsWith('//')) formattedUrl = 'https:' + formattedUrl;
-      else if (/^www\./i.test(formattedUrl)) formattedUrl = 'https://' + formattedUrl;
-
-      if (typeof isSafeImageUrl === 'function' && !isSafeImageUrl(formattedUrl)) {
-        alert('❌ URL FOTO DITOLAK DEMI KEAMANAN SISTEM!\n\nAlasan:\n• Link foto wajib menggunakan protokol resmi (https:// atau http://) atau berupa file gambar yang valid.\n• Silakan gunakan tombol "Upload Foto Langsung" dari HP/komputer Anda untuk hasil terbaik.');
-        if (btnSubmit) {
-          btnSubmit.disabled = false;
-          btnSubmit.textContent = '💾 Simpan Perubahan Produk';
-        }
-        return;
-      }
-      finalImage = formattedUrl;
-    }
-
-    // Pastikan hasil akhir foto aman dan tersanitasi
-    finalImage = (typeof sanitizeImageUrl === 'function') ? sanitizeImageUrl(finalImage) : finalImage;
+    // Ambil gambar terpilih (hasil upload langsung atau preset)
+    const finalImage = appState.tempEditImageBase64 || prod.image || 'assets/hero-banner.jpg';
 
     prod.name = newName || prod.name;
     prod.category = newCat || prod.category;
@@ -9113,9 +9070,14 @@ async function handleEditProductSubmit(e) {
     // 1. Simpan override terisolasi khusus untuk toko ini (LocalStorage terisolasi)
     saveStoreProductOverride(activeStoreSlug, prod);
 
-    // 2. Simpan ke IndexedDB dengan key unik per toko
+    // 2. Simpan ke IndexedDB dengan key unik per toko & global ID
     if (typeof dbSaveProduct === 'function') {
-      await dbSaveProduct({ ...prod, id: `${activeStoreSlug}___${prod.id}`, originalId: prod.id, store_slug: activeStoreSlug });
+      try {
+        await dbSaveProduct({ ...prod, id: `${activeStoreSlug}___${prod.id}`, originalId: prod.id, store_slug: activeStoreSlug });
+        await dbSaveProduct({ ...prod, id: prod.id, store_slug: activeStoreSlug });
+      } catch (eIdb) {
+        console.warn('IndexedDB product save notice:', eIdb);
+      }
     }
 
     renderProducts();
@@ -9123,9 +9085,11 @@ async function handleEditProductSubmit(e) {
     if (typeof renderInventoryTable === 'function') renderInventoryTable();
     if (typeof renderPosProducts === 'function') renderPosProducts();
 
-    // 3. Simpan juga ke Supabase Cloud dengan store_slug spesifik toko ini
+    // 3. Simpan juga ke Supabase Cloud secara asinkron
     if (typeof saveProductToSupabase === 'function') {
-      saveProductToSupabase(prod, activeStoreSlug);
+      saveProductToSupabase(prod, activeStoreSlug).catch(errSupa => {
+        console.warn('Supabase product save notice:', errSupa);
+      });
     }
 
     closeModal('modalEditProduct');
@@ -9142,16 +9106,22 @@ async function handleEditProductSubmit(e) {
 }
 
 function setEditImagePreset(presetType) {
+  const prodId = appState.activeEditingProductId;
   const imgPreview = document.getElementById('editProdImgPreview');
-  const imgUrlInput = document.getElementById('editProdImgUrl');
   let selectedImg = 'assets/hero-banner.jpg';
 
-  if (presetType === 'deodorant') selectedImg = 'assets/deodorant-spray.jpg';
-  else if (presetType === 'banner') selectedImg = 'assets/hero-banner.jpg';
-  else if (presetType === 'gold') selectedImg = 'assets/reward-gold.jpg';
+  if (presetType === 'deodorant') {
+    selectedImg = 'assets/deodorant-spray.jpg';
+  } else if (presetType === 'banner') {
+    selectedImg = 'assets/hero-banner.jpg';
+  } else if (presetType === 'gold') {
+    selectedImg = 'assets/reward-gold.jpg';
+  } else if (presetType === 'reset') {
+    const orig = (typeof DEFAULT_SR12_PRODUCTS !== 'undefined') ? DEFAULT_SR12_PRODUCTS.find(p => p.id === prodId) : null;
+    selectedImg = (orig && orig.image) ? orig.image : 'assets/hero-banner.jpg';
+  }
 
   appState.tempEditImageBase64 = selectedImg;
-  if (imgUrlInput) imgUrlInput.value = selectedImg;
   if (imgPreview) {
     imgPreview.src = selectedImg;
     imgPreview.style.display = 'block';

@@ -2175,7 +2175,7 @@
         <button id="btnClearCart" onclick="clearCart()" title="Kosongkan semua produk dalam keranjang" style="background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); color: #fecaca; font-size: 0.72rem; font-weight: 700; padding: 4px 8px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.2s ease;">
           🗑️ Kosongkan
         </button>
-        <button class="btn-close-modal" id="btnCloseCart" style="color: #fff;">&times;</button>
+        <button class="btn-close-modal" id="btnCloseCart" style="color: #fff;" onclick="closeCartDrawer()">&times;</button>
       </div>
     </div>
 
@@ -2347,7 +2347,7 @@
     <div class="modal-dialog">
       <div class="modal-header">
         <h3>🎨 Kustomisasi Tampilan & Identitas Toko Anda</h3>
-        <button class="btn-close-modal" id="btnCloseStoreSettings">&times;</button>
+        <button class="btn-close-modal" id="btnCloseStoreSettings" onclick="closeModal('modalStoreSettings')">&times;</button>
       </div>
       <div class="modal-body">
         <p style="font-size: 0.85rem; color: var(--dark-500); margin-bottom: 16px;">
@@ -2539,34 +2539,32 @@
           Ubah nama, harga, dan ganti foto kemasan produk dengan foto terbaru dari HP atau komputer Anda.
         </p>
 
-        <div class="modal-img-preview-box">
-          <img id="editProdImgPreview" src="" alt="Foto Produk">
-        </div>
-
-        <div style="background: var(--dark-50); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 12px; margin-bottom: 14px;">
-          <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 6px;">Pilih Sumber Foto Kemasan:</label>
-          <div style="display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;">
-            <button type="button" class="chip-btn" onclick="setEditImagePreset('deodorant')">Foto Deodorant</button>
-            <button type="button" class="chip-btn" onclick="setEditImagePreset('banner')">Foto Kombo SR12</button>
-            <button type="button" class="chip-btn" onclick="setEditImagePreset('gold')">Foto Gold / Luxury</button>
-          </div>
-
-          <div style="margin-bottom: 8px;">
-            <label style="font-size: 0.75rem; color: var(--dark-700); font-weight: 600; display: block; margin-bottom: 3px;">Upload Foto Langsung Dari Komputer/HP (JPG, PNG, WEBP):</label>
-            <input type="file" id="editProdFileInput" accept="image/*" style="font-size: 0.8rem; width: 100%;">
-          </div>
-
-          <div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
-              <label style="font-size: 0.75rem; color: var(--dark-700); font-weight: 600;">Atau Tuliskan Link/URL Foto Resmi (HTTPS):</label>
-              <span id="editProdImgUrlStatus" style="font-size: 0.68rem; font-weight: 700; color: #059669; display: none;">🛡️ URL Aman</span>
-            </div>
-            <input type="url" id="editProdImgUrl" placeholder="https://domain.com/foto.jpg atau assets/..." autocomplete="off" style="width: 100%; padding: 7px 10px; border: 1.5px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 0.82rem; transition: border-color 0.2s;">
-            <small id="editProdImgUrlWarning" style="color: #dc2626; font-size: 0.72rem; display: none; margin-top: 3px; font-weight: 700; line-height: 1.3;">⚠️ Link tidak aman! Hanya menerima URL HTTPS resmi (.jpg, .png, .webp) atau aset internal. Script berbahaya otomatis diblokir.</small>
-          </div>
-        </div>
-
         <form onsubmit="handleEditProductSubmit(event)">
+          <div class="modal-img-preview-box" style="position: relative; border-radius: 12px; overflow: hidden; border: 2px solid #e2e8f0; background: #f8fafc; height: 200px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px;">
+            <img id="editProdImgPreview" src="" alt="Foto Produk" style="width: 100%; height: 100%; object-fit: contain;">
+          </div>
+
+          <div style="background: #f8fafc; border: 1.5px solid var(--border-subtle); border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px;">
+            <label style="font-size: 0.82rem; font-weight: 700; color: var(--dark-800); display: block; margin-bottom: 8px;">📸 Ganti Foto Produk:</label>
+            
+            <!-- Upload Foto Langsung Bebas Resiko Keamanan URL -->
+            <input type="file" id="editProdFileInput" accept="image/jpeg,image/png,image/webp,image/*" style="display: none;">
+            <button type="button" onclick="document.getElementById('editProdFileInput').click()" style="width: 100%; background: #ecfdf5; border: 2px dashed #10b981; color: #047857; padding: 12px 16px; border-radius: 8px; font-weight: 700; font-size: 0.88rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s;">
+              <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              Upload Foto dari HP / Komputer (Kamera / Galeri)
+            </button>
+            <div style="font-size: 0.72rem; color: #64748b; margin-top: 5px; text-align: center;">Mendukung JPG, PNG, WEBP (Otomatis dioptimasi hemat memori & bebas resiko link berbahaya)</div>
+
+            <div style="margin-top: 12px;">
+              <span style="font-size: 0.75rem; font-weight: 700; color: #475569; display: block; margin-bottom: 6px;">Atau Pilih Foto Kemasan Resmi SR12:</span>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                <button type="button" class="chip-btn" onclick="setEditImagePreset('deodorant')">🌿 Deodorant</button>
+                <button type="button" class="chip-btn" onclick="setEditImagePreset('banner')">✨ Paket Kombo</button>
+                <button type="button" class="chip-btn" onclick="setEditImagePreset('gold')">🥇 Reward Gold</button>
+                <button type="button" class="chip-btn" onclick="setEditImagePreset('reset')">↺ Foto Asli</button>
+              </div>
+            </div>
+          </div>
           <div style="margin-bottom: 12px;">
             <label style="font-size: 0.8rem; font-weight: 700; display: block; margin-bottom: 4px;">Nama Produk:</label>
             <input type="text" id="editProdName" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: var(--font-main);">
@@ -2649,7 +2647,7 @@
     <div class="modal-dialog">
       <div class="modal-header">
         <h3>🌿 Tambah Produk Baru ke Etalase Toko</h3>
-        <button class="btn-close-modal" id="btnCloseAddProduct">&times;</button>
+        <button class="btn-close-modal" id="btnCloseAddProduct" onclick="closeModal('modalAddProduct')">&times;</button>
       </div>
       <div class="modal-body">
         <p style="font-size: 0.85rem; color: var(--dark-500); margin-bottom: 14px;">
@@ -2760,7 +2758,7 @@
     <div class="modal-dialog">
       <div class="modal-header">
         <h3>📝 Tambah Bahan Promosi / Copywriting WhatsApp</h3>
-        <button class="btn-close-modal" id="btnCloseAddMkit">&times;</button>
+        <button class="btn-close-modal" id="btnCloseAddMkit" onclick="closeModal('modalAddMkit')">&times;</button>
       </div>
       <div class="modal-body">
         <form onsubmit="handleAddMarketingKitSubmit(event)">
@@ -2793,7 +2791,7 @@
     <div class="modal-dialog">
       <div class="modal-header">
         <h3>🎁 Buat Promo / Bonus Insidental Toko Sendiri</h3>
-        <button class="btn-close-modal" id="btnCloseAddPromo">&times;</button>
+        <button class="btn-close-modal" id="btnCloseAddPromo" onclick="closeModal('modalAddPromo')">&times;</button>
       </div>
       <div class="modal-body">
         <form onsubmit="handleAddCustomPromoSubmit(event)">
@@ -3007,13 +3005,11 @@
           <h4 style="font-size: 0.9rem; color: var(--dark-900); margin-bottom: 6px;">Cara Pemakaian:</h4>
           <p id="modalProdHowTo" style="font-size: 0.85rem; color: var(--dark-700); line-height: 1.5;"></p>
         </div>
-        <div style="display: grid; grid-template-columns: 1fr auto; gap: 10px;">
-          <button id="modalBtnAddCart" style="background: var(--primary-700); color: #fff; border: none; padding: 11px; border-radius: var(--radius-md); font-weight: 700; cursor: pointer;">
+        <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">
+          <button id="modalBtnAddCart" style="background: var(--primary-700); color: #fff; border: none; padding: 12px; border-radius: var(--radius-md); font-weight: 700; font-size: 0.95rem; cursor: pointer; width: 100%;">
             + Masukkan Keranjang
           </button>
-          <button id="modalBtnEditProd" style="background: var(--dark-100); color: var(--dark-800); border: 1px solid var(--border-subtle); padding: 11px 18px; border-radius: var(--radius-md); font-weight: 700; cursor: pointer; display: none;">
-            ✏️ Edit
-          </button>
+          <button id="modalBtnEditProd" style="display: none !important;" aria-hidden="true"></button>
         </div>
       </div>
     </div>
@@ -3739,7 +3735,8 @@
 
   <!-- MODAL KUNCI LAYAR POS (PIN LOCK) -->
   <div class="modal-backdrop" id="modalOlseraLock">
-    <div class="modal-dialog" style="max-width: 380px; text-align: center;">
+    <div class="modal-dialog" style="max-width: 380px; text-align: center; position: relative;">
+      <button type="button" class="btn-close-modal" onclick="closeModal('modalOlseraLock')" style="position: absolute; top: 12px; right: 14px; color: #94a3b8; font-size: 1.5rem; background: none; border: none; cursor: pointer;" title="Tutup">&times;</button>
       <div class="modal-body" style="padding: 30px 22px;">
         <div style="font-size: 3.2rem; margin-bottom: 12px;">🔒</div>
         <h3 style="font-size: 1.25rem; font-weight: 800; color: #0f172a; margin: 0 0 6px 0;">Layar POS Terkunci</h3>
@@ -4556,7 +4553,7 @@
           <button type="button" id="btnDocFullscreenDownload" style="background: #0284c7; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
             📥 Download
           </button>
-          <button type="button" onclick="closeModal('modalDocFullscreenViewer')" style="background: #dc2626; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+          <button type="button" class="btn-close-modal" onclick="closeModal('modalDocFullscreenViewer')" style="background: #dc2626; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
             ✕ Tutup
           </button>
         </div>
@@ -5111,7 +5108,7 @@
   </div>
 
   <!-- 17.5. MODAL: RESTOCK / KULAKAN PRODUK DARI PUSAT SR12 -->
-  <div class="modal-backdrop" id="modalRestockProduct" style="display: none;">
+  <div class="modal-backdrop" id="modalRestockProduct">
     <div class="modal-dialog" style="max-width: 500px;">
       <div class="modal-header" style="background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff;">
         <h3 style="color: #fff; margin: 0; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
@@ -5176,7 +5173,7 @@
   </div>
 
   <!-- 17.6. MODAL: KARTU RIWAYAT MUTASI STOK GUDANG -->
-  <div class="modal-backdrop" id="modalStockMutations" style="display: none;">
+  <div class="modal-backdrop" id="modalStockMutations">
     <div class="modal-dialog" style="max-width: 760px; max-height: 90vh; display: flex; flex-direction: column;">
       <div class="modal-header" style="background: #0f172a; color: #fff;">
         <div>
@@ -5319,9 +5316,9 @@
 
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=16.3"></script>
-  <script src="js/data.js?v=16.3"></script>
-  <script src="js/app.js?v=16.3"></script>
-  <script src="js/olsera-suite.js?v=16.3"></script>
+  <script src="js/supabase-config.js?v=16.4"></script>
+  <script src="js/data.js?v=16.4"></script>
+  <script src="js/app.js?v=16.4"></script>
+  <script src="js/olsera-suite.js?v=16.4"></script>
 </body>
 </html>
