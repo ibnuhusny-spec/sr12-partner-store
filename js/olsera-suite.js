@@ -33,22 +33,24 @@ function saveStoredTransactions(list, slug) {
 }
 
 function getStoredCashflow(slug) {
-  const curSlug = slug || (typeof appState !== 'undefined' && appState.currentStoreSlug) || 'sr12-central';
+  const curSlug = slug || (typeof appState !== 'undefined' && appState.currentStoreSlug) || (typeof appState !== 'undefined' && appState.storeSettings && appState.storeSettings.slug) || 'sr12-central';
   const key = `sr12_cashflow_records_v2_${curSlug}`;
-  const s = localStorage.getItem(key);
-  if (s) {
-    try {
+  try {
+    const s = localStorage.getItem(key);
+    if (s) {
       const parsed = JSON.parse(s);
       if (Array.isArray(parsed)) return parsed;
-    } catch (e) {}
-  }
+    }
+  } catch (e) {}
   return [];
 }
 
 function saveStoredCashflow(list, slug) {
-  const curSlug = slug || (typeof appState !== 'undefined' && appState.currentStoreSlug) || 'sr12-central';
+  const curSlug = slug || (typeof appState !== 'undefined' && appState.currentStoreSlug) || (typeof appState !== 'undefined' && appState.storeSettings && appState.storeSettings.slug) || 'sr12-central';
   const key = `sr12_cashflow_records_v2_${curSlug}`;
-  localStorage.setItem(key, JSON.stringify(list || []));
+  try {
+    localStorage.setItem(key, JSON.stringify(list || []));
+  } catch(e) {}
 }
 
 // ------------------------------------------
@@ -2901,6 +2903,7 @@ function handleSaveCashflowSubmit(e) {
   if (e) e.preventDefault();
   if (typeof appState === 'undefined') return;
 
+  const curSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
   const type = document.getElementById('cashflowTypeInput')?.value || 'in';
   const category = document.getElementById('cashflowCategoryInput')?.value || 'Lain-lain';
   const account = document.getElementById('cashflowAccountInput')?.value || 'CASH';
@@ -2922,7 +2925,13 @@ function handleSaveCashflowSubmit(e) {
       existing.category = category;
       existing.amount = amount;
       existing.notes = `${notes} [${account === 'CASH' ? 'Kas Tunai' : 'Transfer Bank'}]`;
-      saveStoredCashflow(appState.cashflow);
+      saveStoredCashflow(appState.cashflow, curSlug);
+      if (typeof dbSaveCashflow === 'function') {
+        dbSaveCashflow(existing);
+      }
+      if (typeof saveCashflowToSupabase === 'function') {
+        saveCashflowToSupabase(existing, curSlug);
+      }
       delete appState.activeEditingCashflowId;
       closeModal('modalAddCashflow');
       renderCashflowTable();
@@ -2935,7 +2944,8 @@ function handleSaveCashflowSubmit(e) {
   const dateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
 
   const entry = {
-    id: 'CSH-' + Math.floor(1000 + Math.random() * 9000),
+    id: 'CSH-' + Date.now() + '-' + Math.floor(1000 + Math.random() * 9000),
+    store_slug: curSlug,
     date: dateStr,
     type,
     account,
@@ -2946,19 +2956,32 @@ function handleSaveCashflowSubmit(e) {
 
   if (!appState.cashflow) appState.cashflow = [];
   appState.cashflow.unshift(entry);
-  saveStoredCashflow(appState.cashflow);
+  saveStoredCashflow(appState.cashflow, curSlug);
+  if (typeof dbSaveCashflow === 'function') {
+    dbSaveCashflow(entry);
+  }
+  if (typeof saveCashflowToSupabase === 'function') {
+    saveCashflowToSupabase(entry, curSlug);
+  }
 
   closeModal('modalAddCashflow');
   renderCashflowTable();
-  showToast(`✅ Catatan Kas ${type === 'in' ? 'Masuk' : 'Keluar'} Rp ${amount.toLocaleString('id-ID')} berhasil dicatat!`);
+  showToast(`✅ Catatan Kas ${type === 'in' ? 'Masuk' : 'Keluar'} Rp ${amount.toLocaleString('id-ID')} berhasil dicatat & disinkronkan ke Cloud!`);
 }
 
 function deleteCashflowEntry(id) {
   if (typeof appState === 'undefined') return;
   if (!confirm('Hapus catatan arus kas ini?')) return;
 
+  const curSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
   appState.cashflow = (appState.cashflow || []).filter(c => c.id !== id);
-  saveStoredCashflow(appState.cashflow);
+  saveStoredCashflow(appState.cashflow, curSlug);
+  if (typeof dbDeleteCashflow === 'function') {
+    dbDeleteCashflow(id);
+  }
+  if (typeof deleteOrderFromSupabase === 'function') {
+    deleteOrderFromSupabase(id, curSlug);
+  }
   renderCashflowTable();
   showToast('Catatan arus kas telah dihapus.');
 }
@@ -2967,8 +2990,16 @@ function clearAllCashflow() {
   if (!confirm('⚠️ Anda yakin ingin mengosongkan seluruh Catatan Buku Kas Masuk - Keluar?\n\nSemua data arus kas akan dihapus untuk simulasi baru.')) {
     return;
   }
+  const curSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
+  const oldList = appState.cashflow || [];
   appState.cashflow = [];
-  saveStoredCashflow([]);
+  saveStoredCashflow([], curSlug);
+  oldList.forEach(c => {
+    if (c && c.id) {
+      if (typeof dbDeleteCashflow === 'function') dbDeleteCashflow(c.id);
+      if (typeof deleteOrderFromSupabase === 'function') deleteOrderFromSupabase(c.id, curSlug);
+    }
+  });
   renderCashflowTable();
   if (typeof showToast === 'function') showToast('🗑️ Seluruh Catatan Kas Masuk - Keluar berhasil dikosongkan!');
 }

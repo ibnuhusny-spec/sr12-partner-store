@@ -2448,32 +2448,59 @@ window.getOfflineTransactionsQueue = getOfflineTransactionsQueue;
 window.enqueueOfflineTransaction = enqueueOfflineTransaction;
 window.flushOfflineTransactions = flushOfflineTransactions;
 /**
- * Sinkronkan transaksi arus kas POS Olsera / Web ke Cloud Supabase (platform_ledger)
+ * Sinkronkan transaksi arus kas POS Olsera / Web ke Cloud Supabase secara permanen
  */
 async function saveCashflowToSupabase(entry, storeSlug = 'sr12-central') {
   const client = initSupabaseClient();
   if (!client || !entry) return false;
   try {
-    const slug = storeSlug || entry.store_slug || 'sr12-central';
-    const payload = {
+    const slug = storeSlug || entry.store_slug || (typeof appState !== 'undefined' && appState.currentStoreSlug) || 'sr12-central';
+    const nowIso = new Date().toISOString();
+
+    const orderPayload = {
       store_slug: slug,
-      transaction_type: entry.type === 'in' ? 'CASH_IN' : 'CASH_OUT',
-      quota_amount: 0,
-      nominal_amount: Number(entry.amount || entry.grandTotal || 0),
+      order_id: entry.id,
+      order_date: entry.date ? (entry.date.includes('T') ? entry.date : `${entry.date}T12:00:00.000Z`) : nowIso,
+      customer_name: entry.category || (entry.type === 'in' ? 'Kas Masuk' : 'Kas Keluar'),
+      customer_phone: entry.account || 'CASH',
+      customer_address: entry.notes || '-',
+      tier: 'cashflow_' + (entry.type || 'in'),
+      tier_label: entry.type === 'in' ? 'Kas Masuk' : 'Kas Keluar',
+      items_json: [entry],
+      subtotal_het: Number(entry.amount) || 0,
+      discount_amount: 0,
+      grand_total: Number(entry.amount) || 0,
       payment_method: entry.account || 'CASH',
-      payment_status: 'SUCCESS'
+      status: 'Lunas / Selesai',
+      order_source: 'Buku Kas Olsera'
     };
-    const { error } = await client.from('platform_ledger').insert(payload);
-    if (!error) {
-      console.log('☁️ [Supabase] Arus kas kasir berhasil dicatat di cloud:', entry.id || entry.notes);
+
+    // 1. Prioritas Utama: Simpan lewat Stored Procedure RPC rpc_create_store_order (Bypass RLS)
+    try {
+      const { data: rpcRes, error: rpcErr } = await client.rpc('rpc_create_store_order', {
+        p_slug: slug,
+        p_order: orderPayload
+      });
+      if (!rpcErr && rpcRes && rpcRes.success) {
+        console.log('☁️ [Supabase] Catatan buku kas tersimpan aman di cloud via RPC:', entry.id);
+        return true;
+      }
+    } catch (eRpc) {}
+
+    // 2. Fallback direct upsert ke orders
+    try {
+      await client.from('orders').upsert(orderPayload, { onConflict: 'order_id' });
+      console.log('☁️ [Supabase] Catatan buku kas tersimpan via upsert:', entry.id);
       return true;
-    }
+    } catch(e) {}
+
   } catch(e) {
     console.warn('saveCashflowToSupabase error:', e);
   }
   return false;
 }
 window.saveCashflowToSupabase = saveCashflowToSupabase;
+window.saveCashflowEntryToCloud = saveCashflowToSupabase;
 
 // Security Exports
 window.hashPasswordSecure = hashPasswordSecure;

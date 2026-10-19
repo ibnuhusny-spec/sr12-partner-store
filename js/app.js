@@ -775,10 +775,11 @@ function getStoredStoreSettings() {
 // Kapasitas besar (ratusan MB / GB), bebas dari batas 5MB LocalStorage browser
 // ==========================================
 const SR12_DB_NAME = 'sr12_partner_store_db';
-const SR12_DB_VERSION = 2;
+const SR12_DB_VERSION = 3;
 const SR12_STORE_PRODUCTS = 'products_master';
 const SR12_STORE_MITRA = 'mitra_master';
 const SR12_STORE_MARKETER_SALES = 'marketer_sales_master';
+const SR12_STORE_CASHFLOW = 'cashflow_master';
 
 function openSR12IndexedDB() {
   return new Promise((resolve) => {
@@ -798,6 +799,9 @@ function openSR12IndexedDB() {
         }
         if (!db.objectStoreNames.contains(SR12_STORE_MARKETER_SALES)) {
           db.createObjectStore(SR12_STORE_MARKETER_SALES, { keyPath: 'orderId' });
+        }
+        if (!db.objectStoreNames.contains(SR12_STORE_CASHFLOW)) {
+          db.createObjectStore(SR12_STORE_CASHFLOW, { keyPath: 'id' });
         }
       };
       req.onsuccess = () => resolve(req.result);
@@ -882,6 +886,87 @@ async function dbGetProduct(productId) {
   });
 }
 window.dbGetProduct = dbGetProduct;
+
+// ==========================================
+// INDEXEDDB ENGINE UNTUK CATATAN BUKU KAS (CASHFLOW)
+// ==========================================
+async function dbSaveCashflow(entry) {
+  if (!entry || !entry.id) return;
+  const db = await openSR12IndexedDB();
+  if (!db) return;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction([SR12_STORE_CASHFLOW], 'readwrite');
+      const store = tx.objectStore(SR12_STORE_CASHFLOW);
+      store.put(entry);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    } catch (e) {
+      resolve(false);
+    }
+  });
+}
+window.dbSaveCashflow = dbSaveCashflow;
+
+async function dbSaveAllCashflow(list) {
+  if (!Array.isArray(list) || list.length === 0) return;
+  const db = await openSR12IndexedDB();
+  if (!db) return;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction([SR12_STORE_CASHFLOW], 'readwrite');
+      const store = tx.objectStore(SR12_STORE_CASHFLOW);
+      list.forEach(c => { if (c && c.id) store.put(c); });
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    } catch (e) {
+      resolve(false);
+    }
+  });
+}
+window.dbSaveAllCashflow = dbSaveAllCashflow;
+
+async function dbGetAllCashflow(slug) {
+  const db = await openSR12IndexedDB();
+  if (!db) return [];
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction([SR12_STORE_CASHFLOW], 'readonly');
+      const store = tx.objectStore(SR12_STORE_CASHFLOW);
+      const req = store.getAll();
+      req.onsuccess = () => {
+        const res = req.result || [];
+        if (slug) {
+          resolve(res.filter(c => !c.store_slug || c.store_slug === slug));
+        } else {
+          resolve(res);
+        }
+      };
+      req.onerror = () => resolve([]);
+    } catch (e) {
+      resolve([]);
+    }
+  });
+}
+window.dbGetAllCashflow = dbGetAllCashflow;
+
+async function dbDeleteCashflow(id) {
+  if (!id) return;
+  const db = await openSR12IndexedDB();
+  if (!db) return;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction([SR12_STORE_CASHFLOW], 'readwrite');
+      const store = tx.objectStore(SR12_STORE_CASHFLOW);
+      store.delete(id);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    } catch (e) {
+      resolve(false);
+    }
+  });
+}
+window.dbDeleteCashflow = dbDeleteCashflow;
 
 function normalizeProductKey(str) {
   if (!str) return '';
@@ -2321,6 +2406,21 @@ window.initReferralAffiliateBanner = initReferralAffiliateBanner;
   if (typeof getStoredCashflow === 'function') {
     appState.cashflow = getStoredCashflow(initStoreSlug);
   }
+  if (typeof dbGetAllCashflow === 'function') {
+    dbGetAllCashflow(initStoreSlug).then(dbCash => {
+      if (Array.isArray(dbCash) && dbCash.length > 0) {
+        if (!appState.cashflow || appState.cashflow.length === 0) {
+          appState.cashflow = dbCash;
+          if (typeof saveStoredCashflow === 'function') {
+            saveStoredCashflow(appState.cashflow, initStoreSlug);
+          }
+          if (typeof renderCashflowTable === 'function') {
+            renderCashflowTable();
+          }
+        }
+      }
+    }).catch(() => {});
+  }
   if (typeof getStoredTransactions === 'function') {
     appState.transactions = getStoredTransactions(initStoreSlug);
   } else {
@@ -2373,7 +2473,44 @@ function mergeCloudOrdersIntoLocal(cloudOrders, storeSlug) {
     if (appState.notifiedOrderIds) appState.notifiedOrderIds.add(co.id);
   });
 
-  appState.transactions = merged;
+  // Ekstrak catatan arus kas (Buku Kas Olsera) yang tersimpan di Cloud Supabase
+  const cloudCashflow = [];
+  cloudOrders.forEach(co => {
+    if (co && co.id && (co.id.startsWith('CSH-') || co.orderSource === 'Buku Kas Olsera' || (co.tier && co.tier.startsWith('cashflow_')))) {
+      const itemDetail = (Array.isArray(co.items) && co.items[0]) ? co.items[0] : {};
+      const cashEntry = {
+        id: co.id,
+        store_slug: co.store_slug || currentSlug,
+        date: co.dateTime ? (co.dateTime.includes('T') ? co.dateTime.split('T')[0] : co.dateTime.split(' ')[0]) : (itemDetail.date || new Date().toISOString().split('T')[0]),
+        type: itemDetail.type || (co.tier === 'cashflow_out' ? 'out' : 'in'),
+        account: itemDetail.account || (co.customerPhone === 'TRANSFER' ? 'TRANSFER' : 'CASH'),
+        category: itemDetail.category || co.customerName || (co.tier === 'cashflow_out' ? 'Kas Keluar' : 'Kas Masuk'),
+        notes: itemDetail.notes || co.customerAddress || co.customerName || '-',
+        amount: Number(itemDetail.amount || co.grandTotal || co.subtotalHet) || 0
+      };
+      cloudCashflow.push(cashEntry);
+    }
+  });
+
+  if (cloudCashflow.length > 0) {
+    if (!Array.isArray(appState.cashflow)) appState.cashflow = [];
+    const cashMap = new Map();
+    appState.cashflow.forEach(c => { if (c && c.id) cashMap.set(c.id, c); });
+    cloudCashflow.forEach(c => cashMap.set(c.id, c));
+    appState.cashflow = Array.from(cashMap.values());
+    if (typeof saveStoredCashflow === 'function') {
+      saveStoredCashflow(appState.cashflow, currentSlug);
+    }
+    if (typeof dbSaveAllCashflow === 'function') {
+      dbSaveAllCashflow(appState.cashflow);
+    }
+    if (typeof renderCashflowTable === 'function') {
+      renderCashflowTable();
+    }
+  }
+
+  // Filter agar transaksi penjualan saja yang masuk ke tabel riwayat order
+  appState.transactions = merged.filter(t => !t.id.startsWith('CSH-') && t.orderSource !== 'Buku Kas Olsera' && !(t.tier && t.tier.startsWith('cashflow_')));
   if (typeof saveStoredTransactions === 'function') {
     saveStoredTransactions(appState.transactions, currentSlug);
   }
@@ -2441,9 +2578,10 @@ window.mergeCloudOrdersIntoLocal = mergeCloudOrdersIntoLocal;
 
   // A. Apakah pengguna sebelumnya berada di Developer Super Admin Console?
   const isDevByHash = rawHash.startsWith('#dev-') || rawHash === '#developer';
-  const isDevByState = (devSession === 'active' && (savedCurrentView === 'developer' || isDevOpenStorage));
+  const isDevAuthenticated = (devSession === 'active');
+  const isDevByState = isDevAuthenticated && (savedCurrentView === 'developer' || isDevOpenStorage);
 
-  if (isDevByHash || isDevByState) {
+  if (isDevAuthenticated && (isDevByHash || isDevByState)) {
     appState.isDevMasterLoggedIn = true;
     showDeveloperWorkspaceView(true);
     isDevWorkspaceOpenNow = true;
@@ -2458,7 +2596,15 @@ window.mergeCloudOrdersIntoLocal = mergeCloudOrdersIntoLocal;
     if (typeof switchDevPortalTab === 'function') {
       switchDevPortalTab(devTab);
     }
-  } else if (devSession === 'active') {
+  } else if (!isDevAuthenticated && isDevByHash) {
+    // Jika ada hash Developer di URL tapi belum login atau baru saja logout, bersihkan URL hash dan tampilkan prompt PIN
+    try {
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    } catch(e) {}
+    setTimeout(() => {
+      if (typeof openDevPinPrompt === 'function') openDevPinPrompt();
+    }, 400);
+  } else if (isDevAuthenticated) {
     appState.isDevMasterLoggedIn = true;
     const devStrip = document.getElementById('devPreviewStrip');
     if (devStrip) {
@@ -2565,6 +2711,21 @@ function loadStoreBySlug(slug) {
   }
   if (typeof getStoredCashflow === 'function') {
     appState.cashflow = getStoredCashflow(found.slug);
+  }
+  if (typeof dbGetAllCashflow === 'function') {
+    dbGetAllCashflow(found.slug).then(dbCash => {
+      if (Array.isArray(dbCash) && dbCash.length > 0) {
+        if (!appState.cashflow || appState.cashflow.length === 0) {
+          appState.cashflow = dbCash;
+          if (typeof saveStoredCashflow === 'function') {
+            saveStoredCashflow(appState.cashflow, found.slug);
+          }
+          if (typeof renderCashflowTable === 'function') {
+            renderCashflowTable();
+          }
+        }
+      }
+    }).catch(() => {});
   }
 
   if (typeof renderResellers === 'function') {
@@ -6804,16 +6965,31 @@ function showDeveloperWorkspaceView(showWorkspace) {
 }
 
 // Logout Developer
-function handleDeveloperLogout() {
+function handleDeveloperLogout(skipConfirm = false) {
+  if (!skipConfirm) {
+    const isSure = window.confirm('⚠️ Konfirmasi Keluar:\n\nApakah Anda yakin ingin logout dari Developer Super Admin Workspace?');
+    if (!isSure) return;
+  }
+
   appState.isDevMasterLoggedIn = false;
   appState.developerEmail = null;
+  appState.devSessionToken = null;
+
   if (typeof clearSecureAuthSession === 'function') {
     clearSecureAuthSession();
   }
   try {
+    sessionStorage.removeItem('sr12_dev_session');
     localStorage.removeItem('sr12_dev_session');
     localStorage.removeItem('sr12_dev_workspace_open');
-    if (window.location.hash === '#developer') {
+    localStorage.removeItem('sr12_dev_token');
+    localStorage.removeItem('sr12_active_dev_tab');
+    localStorage.setItem('sr12_current_view', 'storefront');
+    localStorage.setItem('sr12_active_view_mode', 'storefront');
+    sessionStorage.setItem('sr12_current_view', 'storefront');
+
+    // Hapus seluruh variasi hash developer dari address bar browser
+    if (window.location.hash.toLowerCase().startsWith('#dev') || window.location.hash.toLowerCase() === '#developer') {
       history.replaceState(null, '', window.location.pathname + window.location.search);
     }
   } catch(e) {}
