@@ -1069,7 +1069,7 @@
                   <input type="text" id="setOlseraBankAccount" placeholder="1234567890" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem;">
                 </div>
               </div>
-            <!-- KUSTOMISASI BIAYA LAYANAN SISTEM PLATFORM (RP 1.500 / RP 2.000) -->
+            <!-- KUSTOMISASI BIAYA LAYANAN SISTEM PLATFORM (RP 2.000 / SESUAI MASTER DEVELOPER) -->
             <div style="background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 10px; padding: 16px 18px; margin-top: 20px;">
               <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 6px;">
                 <h4 style="margin: 0; font-size: 0.94rem; color: #166534; font-weight: 800; display: flex; align-items: center; gap: 6px;">
@@ -1084,8 +1084,8 @@
                 <div>
                   <label style="font-size: 0.78rem; font-weight: 700; color: #166534; display: block; margin-bottom: 4px;">Pilihan Tarif Biaya Sistem:</label>
                   <select id="setOlseraPlatformFeeAmount" onchange="if(typeof syncOlseraPlatformFeeToModal==='function') syncOlseraPlatformFeeToModal(this.value);" style="width: 100%; padding: 8px 12px; border: 1.5px solid #86efac; border-radius: 6px; font-size: 0.82rem; font-weight: 700; color: #166534; background: #ffffff;">
+                    <option value="2000" selected>Rp 2.000 per Transaksi</option>
                     <option value="1500">Rp 1.500 per Transaksi</option>
-                    <option value="2000">Rp 2.000 per Transaksi</option>
                   </select>
                   <small id="olseraPlatformFeeHelpText" style="font-size: 0.7rem; color: #15803d; display: block; margin-top: 3px;">Tersinkron otomatis dengan Tarif Biaya Admin Global.</small>
                 </div>
@@ -1223,7 +1223,7 @@
         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
           <div style="display: flex; align-items: center; background: #090d16; border: 1.5px solid #334155; border-radius: 8px; padding: 5px 12px;">
             <span style="color: #64748b; font-size: 0.85rem; font-weight: 800; margin-right: 4px;">Rp</span>
-            <input type="number" id="inputDevGlobalFeeAmount" min="500" step="500" placeholder="1500" style="width: 85px; background: transparent; border: none; color: #38bdf8; font-weight: 800; font-size: 1rem; text-align: right; outline: none;">
+            <input type="number" id="inputDevGlobalFeeAmount" min="500" step="500" placeholder="2000" style="width: 85px; background: transparent; border: none; color: #38bdf8; font-weight: 800; font-size: 1rem; text-align: right; outline: none;">
           </div>
           <button type="button" onclick="saveDevGlobalPlatformFee()" style="background: #0284c7; color: #fff; border: 1px solid #38bdf8; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 0.82rem; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
             💾 Simpan Tarif
@@ -2319,7 +2319,7 @@
       <!-- Biaya Penanganan Sistem (Tampil Wajar bagi Pembeli) -->
       <div class="summary-line platform-fee-row">
         <span>Biaya Layanan Sistem:</span>
-        <span id="cartSummaryPlatformFee">+Rp 1.500</span>
+        <span id="cartSummaryPlatformFee">+Rp 2.000</span>
       </div>
 
       <div class="summary-total">
@@ -2480,8 +2480,8 @@
               <div>
                 <label style="font-size: 0.8rem; font-weight: 700; color: #166534; display: block; margin-bottom: 4px;">Besaran Biaya Layanan Sistem:</label>
                 <select id="settingPlatformFeeAmount" onchange="updateFeePayerLabels()" style="width: 100%; padding: 8px; border: 1.5px solid #86efac; border-radius: var(--radius-sm); font-size: 0.82rem; font-family: var(--font-main); background: #ffffff; font-weight: 700; color: #166534;">
+                  <option value="2000" selected>Rp 2.000 per Transaksi</option>
                   <option value="1500">Rp 1.500 per Transaksi</option>
-                  <option value="2000">Rp 2.000 per Transaksi</option>
                 </select>
                 <small id="settingPlatformFeeHelpText" style="font-size: 0.7rem; color: #15803d; display: block; margin-top: 3px;">Tersinkron otomatis dengan Tarif Biaya Admin Global.</small>
               </div>
@@ -2489,7 +2489,7 @@
             <div style="padding-top: 10px; border-top: 1px dashed #86efac;">
               <label style="font-size: 0.8rem; font-weight: 700; color: #166534; display: block; margin-bottom: 4px;">Penanggung Biaya Sistem:</label>
               <select id="settingFeePayer" style="width: 100%; padding: 8px; border: 1px solid #86efac; border-radius: var(--radius-sm); font-size: 0.82rem; font-family: var(--font-main); background: #ffffff;">
-                <option value="buyer">Ditanggung Pembeli (+Rp 1.500 di keranjang)</option>
+                <option value="buyer">Ditanggung Pembeli (+Rp 2.000 di keranjang)</option>
                 <option value="seller">Dipotong dari Penjual (Komisi per transaksi)</option>
               </select>
               <small style="font-size: 0.7rem; color: #15803d;">Default: Ditanggung Pembeli (Keuntungan Penjual Utuh).</small>
@@ -3394,11 +3394,11 @@
 
         <!-- Pilihan Paket Kuota -->
         <div class="topup-grid">
-          <div class="topup-pkg-card" id="pkgCard20k" onclick="selectTopupPackage(30000, 20)">
+          <div class="topup-pkg-card" id="pkgCard20k" onclick="selectTopupPackage(40000, 20)">
             <div class="topup-quota-num">20</div>
             <div style="font-size: 0.72rem; color: var(--dark-500);">Kuota Order</div>
-            <div class="topup-price-num">Rp 30.000</div>
-            <div style="font-size: 0.65rem; color: var(--dark-400); margin-top: 2px;">@ Rp 1.500 / order</div>
+            <div class="topup-price-num">Rp 40.000</div>
+            <div style="font-size: 0.65rem; color: var(--dark-400); margin-top: 2px;">@ Rp 2.000 / order</div>
           </div>
 
           <div class="topup-pkg-card active" id="pkgCard50k" onclick="selectTopupPackage(70000, 55)">
@@ -5022,7 +5022,7 @@
           </div>
           <div id="rcptAdminFeeRow" style="display: none; justify-content: space-between; color: #0284c7;">
             <span>Biaya Admin Sistem:</span>
-            <span id="rcptAdminFee">+ Rp 1.500</span>
+            <span id="rcptAdminFee">+ Rp 2.000</span>
           </div>
           <div style="display: flex; justify-content: space-between; font-weight: 800; font-size: 0.95rem; border-top: 1px solid #000; padding-top: 4px; margin-top: 4px;">
             <span>TOTAL BAYAR:</span>
@@ -5321,9 +5321,9 @@
 
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=17.4"></script>
-  <script src="js/data.js?v=17.4"></script>
-  <script src="js/app.js?v=17.4"></script>
-  <script src="js/olsera-suite.js?v=17.4"></script>
+  <script src="js/supabase-config.js?v=17.5"></script>
+  <script src="js/data.js?v=17.5"></script>
+  <script src="js/app.js?v=17.5"></script>
+  <script src="js/olsera-suite.js?v=17.5"></script>
 </body>
 </html>

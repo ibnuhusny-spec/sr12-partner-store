@@ -186,36 +186,57 @@ async function syncStoresFromSupabase() {
 
   try {
     const centralRow = data.find(row => row && row.slug === 'sr12-central');
+    let cloudFee = null;
 
     if (centralRow && centralRow.platform_fee_amount) {
-      const cloudFee = parseInt(centralRow.platform_fee_amount, 10);
-      if (!isNaN(cloudFee) && cloudFee >= 500) {
-        if (typeof appState !== 'undefined') {
-          appState.platformFee = cloudFee;
-        }
-        try {
-          localStorage.setItem('sr12_platform_fee_amount', String(cloudFee));
-        } catch (e) {}
+      const parsedFee = parseInt(centralRow.platform_fee_amount, 10);
+      if (!isNaN(parsedFee) && parsedFee >= 500) {
+        cloudFee = parsedFee;
       }
     }
 
-    // Baca dan sinkronkan Rekening Developer dari Cloud (hero_subtitle di sr12-central)
+    // Baca dan sinkronkan Rekening Developer & Tarif Biaya Admin Sistem dari Cloud (hero_subtitle di sr12-central)
     if (centralRow && centralRow.hero_subtitle) {
       try {
         const cloudPayment = typeof centralRow.hero_subtitle === 'string' ? JSON.parse(centralRow.hero_subtitle) : centralRow.hero_subtitle;
-        if (cloudPayment && (cloudPayment.bankAccount || cloudPayment.ewalletNumber || cloudPayment.developerWa)) {
-          if (typeof appState !== 'undefined') {
-            appState.devPaymentSettings = cloudPayment;
+        if (cloudPayment) {
+          if (cloudPayment.platformFee) {
+            const parsedDevFee = parseInt(cloudPayment.platformFee, 10);
+            if (!isNaN(parsedDevFee) && parsedDevFee >= 500) {
+              cloudFee = parsedDevFee;
+            }
           }
-          try {
-            localStorage.setItem('sr12_dev_payment_settings_v1', JSON.stringify(cloudPayment));
-          } catch(eLs) {}
-          if (typeof updateDevPaymentUI === 'function') {
-            updateDevPaymentUI();
+          if (cloudPayment.bankAccount || cloudPayment.ewalletNumber || cloudPayment.developerWa) {
+            if (typeof appState !== 'undefined') {
+              appState.devPaymentSettings = cloudPayment;
+            }
+            try {
+              localStorage.setItem('sr12_dev_payment_settings_v1', JSON.stringify(cloudPayment));
+            } catch(eLs) {}
+            if (typeof updateDevPaymentUI === 'function') {
+              updateDevPaymentUI();
+            }
           }
         }
       } catch (eJson) {}
     }
+
+    if (cloudFee && !isNaN(cloudFee) && cloudFee >= 500) {
+      if (typeof appState !== 'undefined') {
+        appState.platformFee = cloudFee;
+        if (appState.storeSettings) {
+          appState.storeSettings.platformFeeAmount = cloudFee;
+        }
+      }
+      try {
+        localStorage.setItem('sr12_platform_fee_amount', String(cloudFee));
+      } catch (e) {}
+      if (typeof syncPlatformFeeInputsToAllSettings === 'function') {
+        syncPlatformFeeInputsToAllSettings(cloudFee);
+      }
+    }
+
+    const effectiveGlobalFee = cloudFee || (typeof appState !== 'undefined' && appState.platformFee) || parseInt(localStorage.getItem('sr12_platform_fee_amount'), 10) || 2000;
 
     return data
       .filter(row => row && row.slug && row.slug !== 'toko-supa-distributor' && !row.slug.startsWith('deleted_') && !row.slug.includes('toko-supa') && row.store_tagline !== '__deleted__')
@@ -238,6 +259,7 @@ async function syncStoresFromSupabase() {
       recommenderSlug: row.recommender_slug || '',
       recommendationCode: row.recommendation_code || '',
       feePayer: row.fee_payer || 'buyer',
+      platformFeeAmount: effectiveGlobalFee,
       storeAdminPin: '••••', // Diproteksi dari pembacaan publik
       orderQuota: typeof row.order_quota === 'number' ? row.order_quota : 15,
       walletBalance: typeof row.wallet_balance === 'number' ? row.wallet_balance : 10000,
@@ -2144,12 +2166,35 @@ async function deleteOrderFromSupabase(orderId, storeSlug = 'sr12-central') {
 }
 window.deleteOrderFromSupabase = deleteOrderFromSupabase;
 
-// Update Pengaturan Rekening Developer ke Supabase Cloud (disimpan pada row sr12-central)
+// Update Pengaturan Rekening Developer & Tarif Admin Sistem ke Supabase Cloud (disimpan pada row sr12-central)
 async function updateDevPaymentSettingsInSupabase(settings) {
   const client = initSupabaseClient();
   if (!client) return false;
   try {
-    const payload = JSON.stringify(settings);
+    const toSave = Object.assign({}, settings);
+    if (!toSave.platformFee && typeof appState !== 'undefined' && appState.platformFee) {
+      toSave.platformFee = appState.platformFee;
+    }
+    const payload = JSON.stringify(toSave);
+
+    // 1. Prioritas Utama: Eksekusi RPC rpc_update_store_profile (Security Definer)
+    let token = 'dev_master_admin';
+    if (typeof appState !== 'undefined' && appState.isDevMasterLoggedIn) {
+      token = localStorage.getItem('sr12_dev_token') || 'dev_master_admin';
+    }
+
+    const { data: rpcRes, error: rpcErr } = await client.rpc('rpc_update_store_profile', {
+      p_slug: 'sr12-central',
+      p_token: token,
+      p_profile: { hero_subtitle: payload }
+    });
+
+    if (!rpcErr && rpcRes && rpcRes.success) {
+      console.log('✅ Pengaturan Developer & Tarif Admin berhasil tersinkronisasi ke Supabase Cloud!');
+      return true;
+    }
+
+    // 2. Fallback update langsung tabel stores
     const { error } = await client
       .from('stores')
       .update({ hero_subtitle: payload })
@@ -2167,7 +2212,7 @@ async function updateDevPaymentSettingsInSupabase(settings) {
   }
 }
 
-// Ambil Pengaturan Rekening & WhatsApp Developer langsung dari Supabase Cloud (row sr12-central)
+// Ambil Pengaturan Rekening, WhatsApp & Tarif Admin Developer langsung dari Supabase Cloud (row sr12-central)
 async function fetchDevPaymentSettingsFromSupabase() {
   const client = initSupabaseClient();
   if (!client) return null;
@@ -2182,6 +2227,24 @@ async function fetchDevPaymentSettingsFromSupabase() {
     const raw = data.hero_subtitle;
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
     if (parsed && typeof parsed === 'object') {
+      if (parsed.platformFee) {
+        const feeVal = parseInt(parsed.platformFee, 10);
+        if (!isNaN(feeVal) && feeVal >= 500) {
+          if (typeof appState !== 'undefined') {
+            appState.platformFee = feeVal;
+            if (appState.storeSettings) appState.storeSettings.platformFeeAmount = feeVal;
+            if (Array.isArray(appState.partnerStores)) {
+              appState.partnerStores.forEach(s => { s.platformFeeAmount = feeVal; });
+            }
+          }
+          try {
+            localStorage.setItem('sr12_platform_fee_amount', String(feeVal));
+          } catch (e) {}
+          if (typeof syncPlatformFeeInputsToAllSettings === 'function') {
+            syncPlatformFeeInputsToAllSettings(feeVal);
+          }
+        }
+      }
       return parsed;
     }
   } catch (e) {

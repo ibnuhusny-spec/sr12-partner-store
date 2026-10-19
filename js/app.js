@@ -533,16 +533,32 @@ async function syncStoresWithServer() {
         appState.partnerStores = validStores;
         changed = true;
 
-        // Sinkronkan rekening & kontak Developer dari row sr12-central di Supabase Cloud
+        // Sinkronkan rekening, kontak & tarif biaya admin Developer dari row sr12-central di Supabase Cloud
         if (centralStore) {
           const rawSubtitle = centralStore.hero_subtitle || centralStore.heroSubtitle;
           if (rawSubtitle) {
             try {
               const parsed = typeof rawSubtitle === 'string' ? JSON.parse(rawSubtitle) : rawSubtitle;
-              if (parsed && (parsed.bankAccount || parsed.ewalletNumber || parsed.developerWa)) {
-                appState.devPaymentSettings = Object.assign({}, DEFAULT_DEV_PAYMENT_SETTINGS, parsed);
-                localStorage.setItem('sr12_dev_payment_settings_v1', JSON.stringify(appState.devPaymentSettings));
-                if (typeof updateDevPaymentUI === 'function') updateDevPaymentUI();
+              if (parsed) {
+                if (parsed.platformFee) {
+                  const cloudFee = parseInt(parsed.platformFee, 10);
+                  if (!isNaN(cloudFee) && cloudFee >= 500) {
+                    appState.platformFee = cloudFee;
+                    localStorage.setItem('sr12_platform_fee_amount', String(cloudFee));
+                    if (appState.storeSettings) appState.storeSettings.platformFeeAmount = cloudFee;
+                    if (Array.isArray(appState.partnerStores)) {
+                      appState.partnerStores.forEach(s => { s.platformFeeAmount = cloudFee; });
+                    }
+                    if (typeof syncPlatformFeeInputsToAllSettings === 'function') {
+                      syncPlatformFeeInputsToAllSettings(cloudFee);
+                    }
+                  }
+                }
+                if (parsed.bankAccount || parsed.ewalletNumber || parsed.developerWa) {
+                  appState.devPaymentSettings = Object.assign({}, DEFAULT_DEV_PAYMENT_SETTINGS, parsed);
+                  localStorage.setItem('sr12_dev_payment_settings_v1', JSON.stringify(appState.devPaymentSettings));
+                  if (typeof updateDevPaymentUI === 'function') updateDevPaymentUI();
+                }
               }
             } catch (e) {}
           }
@@ -2095,7 +2111,7 @@ var appState = {
     address: '',
     courier: 'jne'
   },
-  platformFee: parseInt(localStorage.getItem('sr12_platform_fee_amount'), 10) || 1500,
+  platformFee: parseInt(localStorage.getItem('sr12_platform_fee_amount'), 10) || 2000,
   masterDevPin: getStoredDevPin(),
   devMetrics: {
     totalRegisteredStores: 0,
@@ -2687,7 +2703,15 @@ function loadStoreBySlug(slug) {
       }
     }
   } catch(e) {}
-  appState.platformFee = parseInt(found.platformFeeAmount || localStorage.getItem('sr12_platform_fee_amount') || 1500, 10);
+  const globalFee = parseInt(localStorage.getItem('sr12_platform_fee_amount') || appState.platformFee || 2000, 10);
+  appState.platformFee = globalFee;
+  found.platformFeeAmount = globalFee;
+  if (appState.storeSettings) {
+    appState.storeSettings.platformFeeAmount = globalFee;
+  }
+  if (typeof syncPlatformFeeInputsToAllSettings === 'function') {
+    syncPlatformFeeInputsToAllSettings(globalFee);
+  }
   applyStoreTheme(found.storeTheme || 'emerald');
   if (typeof updateAllowedTierOptions === 'function') {
     updateAllowedTierOptions();
@@ -7424,7 +7448,7 @@ window.changeDevMasterPin = changeDevMasterPin;
 
 function renderPlatformFeeOptions(selectEl, selectedVal) {
   if (!selectEl) return;
-  const globalFee = parseInt(appState.platformFee || localStorage.getItem('sr12_platform_fee_amount') || 1500, 10);
+  const globalFee = parseInt(appState.platformFee || localStorage.getItem('sr12_platform_fee_amount') || 2000, 10);
 
   // Kunci hanya 1 opsi resmi yang berlaku sesuai ketetapan Developer Super Admin Global
   const label = `Rp ${globalFee.toLocaleString('id-ID')} per Transaksi (Tarif Resmi Global)`;
@@ -7435,8 +7459,11 @@ function renderPlatformFeeOptions(selectEl, selectedVal) {
 window.renderPlatformFeeOptions = renderPlatformFeeOptions;
 
 function syncPlatformFeeInputsToAllSettings(fee) {
-  const numFee = parseInt(fee, 10) || 1500;
+  const numFee = parseInt(fee, 10) || 2000;
   appState.platformFee = numFee;
+  try {
+    localStorage.setItem('sr12_platform_fee_amount', String(numFee));
+  } catch(e) {}
   if (appState.storeSettings) {
     appState.storeSettings.platformFeeAmount = numFee;
   }
@@ -7461,6 +7488,11 @@ function syncPlatformFeeInputsToAllSettings(fee) {
     renderPlatformFeeOptions(modalSelect, numFee);
     modalSelect.value = String(numFee);
     if (typeof updateFeePayerLabels === 'function') updateFeePayerLabels();
+  }
+
+  const cartFee = document.getElementById('cartSummaryPlatformFee');
+  if (cartFee) {
+    cartFee.textContent = `+Rp ${numFee.toLocaleString('id-ID')}`;
   }
 
   if (typeof updateTopupPackageCardsUI === 'function') {
@@ -7488,28 +7520,18 @@ async function saveDevGlobalPlatformFee() {
     }
   } catch(e) {}
 
-  // Update Supabase jika terhubung (simpan ke tabel stores baris sr12-central sebagai acuan platform master)
-  if (typeof updateStoreFeeInSupabase === 'function') {
+  // Update Supabase Cloud via hero_subtitle di row sr12-central
+  if (typeof getStoredDevPaymentSettings === 'function' && typeof updateDevPaymentSettingsInSupabase === 'function') {
     try {
-      await updateStoreFeeInSupabase('sr12-central', val);
+      const devSettings = getStoredDevPaymentSettings() || {};
+      devSettings.platformFee = val;
+      if (appState.devPaymentSettings) {
+        appState.devPaymentSettings.platformFee = val;
+      }
+      localStorage.setItem('sr12_dev_payment_settings_v1', JSON.stringify(devSettings));
+      await updateDevPaymentSettingsInSupabase(devSettings);
     } catch(err) {
-      console.warn('Gagal sync fee global ke Supabase via helper:', err);
-    }
-  } else if (typeof SUPABASE_CONFIG !== 'undefined' && SUPABASE_CONFIG.isConfigured()) {
-    try {
-      const url = `${SUPABASE_CONFIG.url}/rest/v1/stores?slug=eq.sr12-central`;
-      await fetch(url, {
-        method: 'PATCH',
-        headers: {
-          'apikey': SUPABASE_CONFIG.anonKey,
-          'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify({ platform_fee_amount: val })
-      });
-    } catch(err) {
-      console.warn('Gagal PATCH platform_fee_amount ke Supabase:', err);
+      console.warn('Gagal sync fee global ke Supabase Cloud:', err);
     }
   }
 
@@ -7972,9 +7994,9 @@ function updateCartSummary() {
   const weightKg = Math.max(courier.minKg || 1, Math.ceil(totalWeightGram / 1000));
   const shippingCost = appState.cart.length > 0 ? (courier.id === 'pickup' ? 0 : courier.costPerKg * weightKg) : 0;
   
-  // Model Biaya Layanan: Ditanggung Pembeli (+Rp 1.500 / +Rp 2.000)
+  // Model Biaya Layanan: Ditanggung Pembeli (+Rp 2.000 / disesuaikan Master Developer)
   const isFeeChargedToBuyer = (appState.storeSettings.feePayer || 'buyer') === 'buyer';
-  const effectiveFee = parseInt(appState.storeSettings?.platformFeeAmount || appState.platformFee || localStorage.getItem('sr12_platform_fee_amount') || 1500, 10);
+  const effectiveFee = parseInt(appState.platformFee || localStorage.getItem('sr12_platform_fee_amount') || 2000, 10);
   appState.platformFee = effectiveFee;
   const currentFee = appState.cart.length > 0 && isFeeChargedToBuyer ? effectiveFee : 0;
   const grandTotal = subtotal + shippingCost + currentFee;
@@ -8216,7 +8238,7 @@ function checkoutViaWhatsApp() {
   const weightKg = Math.max(courier.minKg || 1, Math.ceil(totalWeightGram / 1000));
   const shippingCost = courier.id === 'pickup' ? 0 : courier.costPerKg * weightKg;
   const isFeeChargedToBuyer = (appState.storeSettings.feePayer || 'buyer') === 'buyer';
-  const effectiveFee = parseInt(appState.storeSettings?.platformFeeAmount || appState.platformFee || localStorage.getItem('sr12_platform_fee_amount') || 1500, 10);
+  const effectiveFee = parseInt(appState.platformFee || localStorage.getItem('sr12_platform_fee_amount') || 2000, 10);
   const fee = isFeeChargedToBuyer ? effectiveFee : 0;
   const grandTotal = subtotal + shippingCost + fee;
 
@@ -9549,7 +9571,7 @@ window.setEditImagePreset = setEditImagePreset;
 
 function updateFeePayerLabels() {
   const feeSelect = document.getElementById('settingPlatformFeeAmount');
-  const feeVal = feeSelect ? (parseInt(feeSelect.value, 10) || 1500) : 1500;
+  const feeVal = feeSelect ? (parseInt(feeSelect.value, 10) || appState.platformFee || 2000) : (appState.platformFee || 2000);
   const formattedFee = (typeof formatRupiah === 'function') ? formatRupiah(feeVal) : `Rp ${feeVal.toLocaleString('id-ID')}`;
   
   const payerSelect = document.getElementById('settingFeePayer');
@@ -9591,7 +9613,7 @@ function openStoreSettingsModal() {
   if (heroSubtitleInput) heroSubtitleInput.value = cfg.heroSubtitle || DEFAULT_STORE_SETTINGS.heroSubtitle;
   if (feePayerSelect) feePayerSelect.value = cfg.feePayer || 'buyer';
   if (feeAmountSelect) {
-    const curFee = parseInt(cfg.platformFeeAmount || appState.platformFee || localStorage.getItem('sr12_platform_fee_amount') || 1500, 10);
+    const curFee = parseInt(appState.platformFee || localStorage.getItem('sr12_platform_fee_amount') || 2000, 10);
     renderPlatformFeeOptions(feeAmountSelect, curFee);
     feeAmountSelect.value = String(curFee);
   }
@@ -10179,7 +10201,7 @@ function handleSaveStoreSettingsSubmit(e) {
     const heroSubtitle = document.getElementById('settingHeroSubtitle')?.value.trim();
     const feePayer = document.getElementById('settingFeePayer')?.value || 'buyer';
     const storeAdminPin = document.getElementById('settingStoreAdminPin')?.value.trim() || '1234';
-    const globalFeeVal = parseInt(localStorage.getItem('sr12_platform_fee_amount') || appState.platformFee || 1500, 10);
+    const globalFeeVal = parseInt(appState.platformFee || localStorage.getItem('sr12_platform_fee_amount') || 2000, 10);
     appState.platformFee = globalFeeVal;
 
     let logoUrl = appState.storeSettings.storeLogoUrl || 'assets/sr12-logo.png';
@@ -10205,7 +10227,7 @@ function handleSaveStoreSettingsSubmit(e) {
       storeCity: city || (appState.storeSettings && appState.storeSettings.storeCity) || 'Jakarta',
       storeOwner: owner || (appState.storeSettings && appState.storeSettings.storeOwner) || 'Mitra Resmi',
       feePayer: feePayer,
-      platformFeeAmount: feeAmountVal,
+      platformFeeAmount: globalFeeVal,
       storeAdminPin: storeAdminPin
     };
 
@@ -10743,7 +10765,7 @@ function updateDevPortalMetrics() {
   // Sinkronkan Input Tarif Biaya Admin Sistem Global Developer
   const inputGlobalFee = document.getElementById('inputDevGlobalFeeAmount');
   if (inputGlobalFee && !inputGlobalFee.matches(':focus')) {
-    inputGlobalFee.value = appState.platformFee || 1500;
+    inputGlobalFee.value = appState.platformFee || 2000;
   }
   if (typeof updateTopupPackageCardsUI === 'function') {
     updateTopupPackageCardsUI();
@@ -11109,7 +11131,7 @@ function printShippingLabel() {
   const weightKg = Math.max(courier.minKg || 1, Math.ceil(totalWeightGram / 1000));
   const shippingCost = courier.id === 'pickup' ? 0 : courier.costPerKg * weightKg;
   const isFeeChargedToBuyer = (appState.storeSettings.feePayer || 'buyer') === 'buyer';
-  const effectiveFee = parseInt(appState.storeSettings?.platformFeeAmount || appState.platformFee || localStorage.getItem('sr12_platform_fee_amount') || 1500, 10);
+  const effectiveFee = parseInt(appState.platformFee || localStorage.getItem('sr12_platform_fee_amount') || 2000, 10);
   const fee = isFeeChargedToBuyer ? effectiveFee : 0;
   const grandTotal = subtotal + shippingCost + fee;
 
@@ -12092,6 +12114,22 @@ async function refreshDevPaymentSettingsFromCloud() {
         const merged = Object.assign({}, current, cloudSettings);
         if (typeof appState !== 'undefined') {
           appState.devPaymentSettings = merged;
+          if (merged.platformFee) {
+            const feeVal = parseInt(merged.platformFee, 10);
+            if (!isNaN(feeVal) && feeVal >= 500) {
+              appState.platformFee = feeVal;
+              try {
+                localStorage.setItem('sr12_platform_fee_amount', String(feeVal));
+              } catch (e) {}
+              if (appState.storeSettings) appState.storeSettings.platformFeeAmount = feeVal;
+              if (Array.isArray(appState.partnerStores)) {
+                appState.partnerStores.forEach(s => { s.platformFeeAmount = feeVal; });
+              }
+              if (typeof syncPlatformFeeInputsToAllSettings === 'function') {
+                syncPlatformFeeInputsToAllSettings(feeVal);
+              }
+            }
+          }
           if (Array.isArray(appState.partnerStores)) {
             const central = appState.partnerStores.find(s => s && s.slug === 'sr12-central');
             if (central) {
@@ -12395,7 +12433,7 @@ function sendTopupProofToDeveloperWA() {
 }
 
 function updateTopupPackageCardsUI() {
-  const fee = parseInt(appState.platformFee || localStorage.getItem('sr12_platform_fee_amount') || 1500, 10);
+  const fee = parseInt(appState.platformFee || localStorage.getItem('sr12_platform_fee_amount') || 2000, 10);
   
   // Paket 1: 20 Kuota Order (@ fee)
   const pkg1Amount = 20 * fee;
@@ -12681,7 +12719,7 @@ function generateDevTopupToken(source) {
   const metaId = source === 'ws' ? 'devGeneratedTokenMeta_ws' : 'devGeneratedTokenMeta';
 
   const targetSlug = document.getElementById(storeSelectId)?.value || 'all';
-  const currentFee = parseInt(appState.platformFee || localStorage.getItem('sr12_platform_fee_amount') || 1500, 10);
+  const currentFee = parseInt(appState.platformFee || localStorage.getItem('sr12_platform_fee_amount') || 2000, 10);
   const pkgVal = document.getElementById(pkgSelectId)?.value || `55:${50 * currentFee - 5000}`;
   const [quotaStr, amountStr] = pkgVal.split(':');
   const quota = parseInt(quotaStr, 10) || 55;

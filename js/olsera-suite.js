@@ -1667,7 +1667,7 @@ function renderPosCart() {
 
   // Biaya Admin Sistem POS (Fleksibel - Default Rp 0 / Ditanggung Toko)
   const chkAdminFee = document.getElementById('chkPosApplyAdminFee');
-  const feeAmount = parseInt((typeof appState !== 'undefined' && appState.platformFee) || 1500, 10);
+  const feeAmount = parseInt((typeof appState !== 'undefined' && appState.platformFee) || localStorage.getItem('sr12_platform_fee_amount') || 2000, 10);
   const isFeeChecked = chkAdminFee && chkAdminFee.checked;
   const adminFeeVal = isFeeChecked ? feeAmount : 0;
   const grandTotal = baseTotal + adminFeeVal;
@@ -1781,10 +1781,10 @@ function processPosCheckout(action = 'save') {
   const discountValEl = document.getElementById('posDiscountVal');
   const grandTotal = parseInt(grandTotalEl.textContent.replace(/[^0-9]/g, ''), 10) || 0;
   const subtotalHet = parseInt(subtotalHetEl.textContent.replace(/[^0-9]/g, ''), 10) || 0;
-  const discountAmount = Math.max(0, subtotalHet - (grandTotal - (document.getElementById('chkPosApplyAdminFee')?.checked ? parseInt((typeof appState !== 'undefined' && appState.platformFee) || 1500, 10) : 0)));
+  const discountAmount = Math.max(0, subtotalHet - (grandTotal - (document.getElementById('chkPosApplyAdminFee')?.checked ? parseInt((typeof appState !== 'undefined' && appState.platformFee) || localStorage.getItem('sr12_platform_fee_amount') || 2000, 10) : 0)));
 
   const chkAdminFee = document.getElementById('chkPosApplyAdminFee');
-  const posAdminFeeAmount = (chkAdminFee && chkAdminFee.checked) ? (parseInt((typeof appState !== 'undefined' && appState.platformFee) || 1500, 10)) : 0;
+  const posAdminFeeAmount = (chkAdminFee && chkAdminFee.checked) ? (parseInt((typeof appState !== 'undefined' && appState.platformFee) || localStorage.getItem('sr12_platform_fee_amount') || 2000, 10)) : 0;
 
   const customerName = (document.getElementById('posCustomerName')?.value.trim()) || 'Pembeli Langsung (Kasir)';
   const customerPhone = (document.getElementById('posCustomerPhone')?.value.trim()) || '';
@@ -3241,7 +3241,7 @@ function populateOlseraSettingsForm() {
   setEl('setOlseraCity', store.storeCity);
   setEl('setOlseraTagline', store.storeTagline);
   setEl('setOlseraBankName', store.bankName || 'BCA');
-  const curFee = parseInt(store.platformFeeAmount || (typeof appState !== 'undefined' && appState.platformFee) || localStorage.getItem('sr12_platform_fee_amount') || 1500, 10);
+  const curFee = parseInt((typeof appState !== 'undefined' && appState.platformFee) || localStorage.getItem('sr12_platform_fee_amount') || 2000, 10);
   const olseraFeeSelect = document.getElementById('setOlseraPlatformFeeAmount');
   if (olseraFeeSelect) {
     if (typeof renderPlatformFeeOptions === 'function') {
@@ -3621,7 +3621,7 @@ function handleSaveOlseraSettings(e) {
   }
 
   // Simpan Biaya Layanan Sistem (Penanggung biaya bisa diatur, tarif fee selalu tersinkron dari Master Developer)
-  const globalFeeVal = parseInt(localStorage.getItem('sr12_platform_fee_amount') || appState.platformFee || 1500, 10);
+  const globalFeeVal = parseInt(localStorage.getItem('sr12_platform_fee_amount') || appState.platformFee || 2000, 10);
   const feePayerVal = document.getElementById('setOlseraFeePayer')?.value || 'buyer';
   appState.storeSettings.platformFeeAmount = globalFeeVal;
   appState.storeSettings.feePayer = feePayerVal;
