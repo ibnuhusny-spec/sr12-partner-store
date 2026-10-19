@@ -20,7 +20,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <link rel="stylesheet" href="css/style.css?v=17.1">
+  <link rel="stylesheet" href="css/style.css?v=17.2">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
 </head>
 <body>
@@ -247,9 +247,9 @@
         <span class="icon-symbol">🔑</span>
       </button>
 
-      <!-- 4. Tombol Dev Console (Hanya Super Admin Developer) -->
-      <button type="button" id="btnOlseraBackToDevConsole" class="btn-topbar-icon" onclick="showDeveloperWorkspaceView(true)" style="display: none; background: #0f172a; color: #38bdf8; border-color: #0284c7;" title="Kembali ke Developer Console">
-        <span>⚡</span>
+      <!-- 4. Tombol Akses Developer Console -->
+      <button type="button" id="btnOlseraDevConsoleTop" class="btn-topbar-icon" onclick="openDevPinPrompt()" style="background: #0f172a; color: #38bdf8; border: 1.5px solid #0284c7; width: auto; padding: 0 10px; gap: 4px; display: inline-flex; align-items: center; font-size: 0.78rem; font-weight: 800;" title="Akses Master Developer Console">
+        <span>⚡</span> <span class="desktop-only-label">Developer</span>
       </button>
 
       <!-- 5. Tinjau Toko Pembeli (Desktop Only - di HP sudah ada di Drawer Menu agar layar rapi) -->
@@ -449,6 +449,9 @@
 
       <!-- Sidebar Footer -->
       <div class="olsera-sidebar-footer">
+        <button type="button" onclick="closeOlseraSidebarDrawer(); openDevPinPrompt();" style="width: 100%; background: #0f172a; color: #38bdf8; border: 1.5px solid #0284c7; padding: 8px 14px; border-radius: var(--radius-full); font-weight: 800; font-size: 0.78rem; cursor: pointer; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <span>⚡</span> Akses Developer Console
+        </button>
         <button type="button" onclick="openCustomerFacingDisplay()" style="width: 100%; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 8px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 6px;">
           <span>🌐</span> Customer Facing Display
         </button>
@@ -477,6 +480,10 @@
           <button type="button" class="btn-olsera-static-cfd" onclick="openCustomerFacingDisplay();" title="Buka Tampilan Pembeli (Customer Facing Display)" style="background: #0284c7; color: #fff; border: none; padding: 7px 14px; border-radius: 9999px; font-weight: 800; font-size: 0.8rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(2,132,199,0.3);">
             <span>🌐</span>
             <span>Customer Facing Display</span>
+          </button>
+          <button type="button" class="btn-olsera-static-dev" onclick="openDevPinPrompt();" title="Akses Master Developer & Super Admin" style="background: #0f172a; color: #38bdf8; border: 1.5px solid #0284c7; padding: 7px 14px; border-radius: 9999px; font-weight: 800; font-size: 0.8rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.2);">
+            <span>⚡</span>
+            <span>Developer</span>
           </button>
           <button type="button" onclick="handleDistributorLogout()" class="btn-olsera-static-logout" title="Keluar / Logout Akun Distributor" style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; padding: 7px 12px; border-radius: 9999px; font-weight: 700; font-size: 0.78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
             <span>🚪</span>
@@ -2063,19 +2070,39 @@
 
   </main>
 
-  <!-- FOOTER RESMI TOKO (BERSIH, MINIMALIS & PROFESIONAL TANPA KOP GANDA) -->
+  <!-- FOOTER RESMI TOKO (KONSISTEN & LENGKAP DENGAN AKSES PENGELOLA) -->
   <footer class="site-storefront-footer" id="siteStorefrontFooter">
     <div class="footer-inner-content">
       <div class="footer-simple-brand">
         <span class="footer-brand-title">🌿 SR12-Ku Pro</span>
         <p class="footer-brand-desc">Platform Sistem Kemitraan &amp; Belanja Produk Resmi SR12 Herbal Skin Care</p>
       </div>
+
+      <!-- TOMBOL NAVIGASI & AKSES PENGELOLA RESMI (PROMINENT & MUDAH DIAKSES) -->
+      <div class="footer-action-buttons">
+        <button type="button" id="btnFooterChatWa" onclick="chatActiveStoreWa()" class="btn-footer-pill btn-footer-wa" title="Konsultasi Produk via WhatsApp">
+          <span>💬</span> Chat WhatsApp
+        </button>
+        <button type="button" onclick="switchPartnerStore('sr12-central'); window.scrollTo({top: 0, behavior: 'smooth'});" class="btn-footer-pill btn-footer-central" title="Kunjungi SR12 Official Central Hub">
+          <span>🏛️</span> Central Hub
+        </button>
+        <button type="button" onclick="openStoreSwitchModal()" class="btn-footer-pill btn-footer-switch" title="Pindah ke Cabang Toko Lain">
+          <span>🏪</span> Ganti Toko
+        </button>
+        <button type="button" onclick="openStoreSettingsModal()" class="btn-footer-pill btn-footer-settings" id="btnFooterStoreSettings" title="Pengaturan Toko Distributor">
+          <span>⚙️</span> Pengaturan Toko
+        </button>
+        <button type="button" onclick="openDevPinPrompt()" class="btn-footer-pill btn-footer-dev" id="footerDevLinkBtn" title="Akses Portal Super Admin Developer">
+          <span>🔐</span> Developer Console
+        </button>
+      </div>
+
       <div class="footer-simple-meta">
         <p class="footer-simple-copy">&copy; 2026 SR12-Ku Pro &bull; Produk 100% Original BPOM &amp; Halal MUI</p>
         <div class="footer-simple-links">
           <button type="button" onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="footer-link-btn">⬆ Kembali ke Atas</button>
           <span class="footer-sep">&bull;</span>
-          <button type="button" onclick="openDevPinPrompt()" class="footer-link-btn footer-dev-link" id="footerDevLinkBtn" title="Akses Developer &amp; Super Admin">🔐 Developer</button>
+          <button type="button" onclick="openDevPinPrompt()" class="footer-link-btn" style="color: #0284c7; font-weight: 700;">🔐 Login Developer</button>
         </div>
       </div>
       <!-- Hidden Elements for JS Compatibility (agar skrip JS tetap aman tanpa null pointer) -->
@@ -2088,8 +2115,6 @@
         <span id="footerStoreCity"></span>
         <a id="footerStoreWaLink" href="#"></a>
         <span id="footerStoreWaNumber"></span>
-        <button id="btnFooterChatWa"></button>
-        <button id="btnFooterStoreSettings"></button>
         <span id="footerStoreNameLegal"></span>
       </div>
     </div>
@@ -5296,9 +5321,9 @@
 
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=17.1"></script>
-  <script src="js/data.js?v=17.1"></script>
-  <script src="js/app.js?v=17.1"></script>
-  <script src="js/olsera-suite.js?v=17.1"></script>
+  <script src="js/supabase-config.js?v=17.2"></script>
+  <script src="js/data.js?v=17.2"></script>
+  <script src="js/app.js?v=17.2"></script>
+  <script src="js/olsera-suite.js?v=17.2"></script>
 </body>
 </html>

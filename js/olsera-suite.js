@@ -139,16 +139,7 @@ function showDistributorPortalView(showPortal) {
     if (showPortal) {
       localStorage.setItem('sr12_current_view', 'portal');
       localStorage.setItem('sr12_active_view_mode', 'portal');
-    } else {
-      localStorage.setItem('sr12_current_view', 'storefront');
-      localStorage.setItem('sr12_active_view_mode', 'storefront');
-      if (window.location.hash) {
-        const h = window.location.hash.toLowerCase().replace('#', '');
-        const validOlsera = ['pos', 'transactions', 'inventory', 'cashflow', 'reports', 'mitra', 'pending', 'marketer', 'settings'];
-        if (validOlsera.includes(h)) {
-          history.replaceState(null, '', window.location.pathname + window.location.search);
-        }
-      }
+      localStorage.removeItem('sr12_explicit_storefront_preview');
     }
   } catch (e) {}
 
@@ -364,6 +355,12 @@ function openCustomerFacingDisplay() {
     appState.isAdminMode = true;
     appState.isOlseraPortalOpen = false;
   }
+
+  try {
+    localStorage.setItem('sr12_explicit_storefront_preview', 'active');
+    localStorage.setItem('sr12_current_view', 'storefront');
+    localStorage.setItem('sr12_active_view_mode', 'storefront');
+  } catch(e) {}
 
   showDistributorPortalView(false);
 

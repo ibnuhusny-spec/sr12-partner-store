@@ -2462,12 +2462,17 @@ window.mergeCloudOrdersIntoLocal = mergeCloudOrdersIntoLocal;
     const validOlseraTabs = ['pos', 'transactions', 'inventory', 'cashflow', 'reports', 'mitra', 'pending', 'marketer', 'settings'];
     const isOlseraByHash = validOlseraTabs.includes(cleanHash);
     const isOlseraByView = (savedCurrentView === 'portal');
+    const isExplicitStorefront = localStorage.getItem('sr12_explicit_storefront_preview') === 'active';
+    const isDistributor = (appState.isDistributorLoggedIn || appState.isAdminMode || !!savedDistributorSession);
 
-    // Jika hash mengarah ke salah satu menu Olsera (misal #mitra, #pos, #inventory),
-    // ATAU view tersimpan adalah 'portal':
-    if (isOlseraByHash || isOlseraByView) {
+    // KETIKA DI DALAM MENU TOKO (OLSERA):
+    // Jika ada hash Olsera (#pos, #mitra, dll), ATAU view adalah 'portal',
+    // ATAU pengguna adalah distributor/pemilik toko dan TIDAK sedang secara eksplisit meninjau etalase pembeli:
+    if (isOlseraByHash || isOlseraByView || (isDistributor && !isExplicitStorefront)) {
       appState.isAdminMode = true;
       appState.isDistributorLoggedIn = true;
+      appState.isOlseraPortalOpen = true;
+
       let targetOlseraTab = isOlseraByHash ? cleanHash : (localStorage.getItem('sr12_active_olsera_tab') || 'pos');
       if (!validOlseraTabs.includes(targetOlseraTab)) targetOlseraTab = 'pos';
 
@@ -5523,14 +5528,6 @@ function updateViewModeUI() {
   const adminBanner = document.getElementById('adminModeBanner');
   if (toggleBar) toggleBar.style.display = 'none';
   if (adminBanner) adminBanner.style.display = 'none';
-
-  if (typeof showDistributorPortalView === 'function') {
-    if (isLogged) {
-      showDistributorPortalView(appState.isOlseraPortalOpen !== false);
-    } else {
-      showDistributorPortalView(false);
-    }
-  }
 
   if (typeof updateOlseraHeaderMeta === 'function') updateOlseraHeaderMeta();
 
@@ -15806,6 +15803,11 @@ function openOlseraPosDirect() {
     openDistributorLoginModal();
     return;
   }
+  try {
+    localStorage.removeItem('sr12_explicit_storefront_preview');
+    localStorage.setItem('sr12_current_view', 'portal');
+    localStorage.setItem('sr12_active_view_mode', 'portal');
+  } catch(e) {}
   if (typeof showDistributorPortalView === 'function') {
     showDistributorPortalView(true);
   }
