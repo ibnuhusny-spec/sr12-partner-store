@@ -160,7 +160,27 @@ function showDistributorPortalView(showPortal) {
     // Sembunyikan SEMUA bar retail toko online agar bersih & rapi
     // -------------------------------------------------------------
     document.body.classList.add('olsera-portal-active');
+    document.body.classList.remove('is-partner-store');
+    document.body.classList.remove('is-central-hub');
+
     if (storefront) storefront.style.display = 'none';
+    const mainWrap = document.querySelector('.main-wrapper');
+    if (mainWrap) mainWrap.style.display = 'none';
+    const siteFoot = document.getElementById('siteStorefrontFooter');
+    if (siteFoot) siteFoot.style.display = 'none';
+    const commWrap = document.getElementById('distributorCommerceWrapper');
+    if (commWrap) commWrap.style.display = 'none';
+    const distHero = document.getElementById('distributorStoreHeroCard');
+    if (distHero) distHero.style.display = 'none';
+    const catSec = document.getElementById('catalogSection');
+    if (catSec) catSec.style.display = 'none';
+    const rewSec = document.getElementById('rewardsSection');
+    if (rewSec) rewSec.style.display = 'none';
+    const centralHero = document.getElementById('officialCentralHubHero');
+    if (centralHero) centralHero.style.display = 'none';
+    const directorySection = document.getElementById('officialDistributorDirectorySection');
+    if (directorySection) directorySection.style.display = 'none';
+
     if (siteHeader) siteHeader.style.display = 'none';
     const siteH = document.getElementById('siteHeaderStorefront');
     if (siteH) siteH.style.display = 'none';
@@ -173,9 +193,14 @@ function showDistributorPortalView(showPortal) {
     const btnFloat = document.getElementById('btnFloatingAdminMenu');
     if (btnFloat) btnFloat.style.display = 'none';
 
-    // Tampilkan Portal Olsera dan pastikan Tab Hitam Atas (olseraNav) Disembunyikan Sesuai Permintaan User
+    // Tampilkan Portal Olsera
     if (olseraNav) olseraNav.style.display = 'none';
     if (portal) portal.style.display = 'flex';
+
+    // Tutup drawer samping agar tampilan bersih langsung ke Point of Sale
+    if (typeof closeOlseraSidebarDrawer === 'function') {
+      closeOlseraSidebarDrawer();
+    }
 
     // Jika Developer Super Admin yang sedang masuk:
     if (typeof appState !== 'undefined' && appState.isDevMasterLoggedIn) {
@@ -192,10 +217,13 @@ function showDistributorPortalView(showPortal) {
 
     // Refresh data nama toko, kuota, logo, dan hitungan badge
     updateOlseraHeaderMeta();
-    const currentTab = (window.location.hash ? window.location.hash.replace('#', '') : null) || 
-      (typeof appState !== 'undefined' ? appState.activeOlseraTab : null) || 
-      localStorage.getItem('sr12_active_olsera_tab') || 'pos';
-    switchOlseraTab(currentTab);
+    // Langsung masuk ke Menu Point of Sale (POS)
+    const currentTab = (typeof appState !== 'undefined' && appState.activeOlseraTab && appState.activeOlseraTab !== 'dashboard')
+      ? appState.activeOlseraTab
+      : 'pos';
+    if (typeof switchOlseraTab === 'function') {
+      switchOlseraTab(currentTab);
+    }
   } else {
     // -------------------------------------------------------------
     // 2. MODE TINJAU TOKO ONLINE PEMBELI (BUYER STOREFRONT PREVIEW)

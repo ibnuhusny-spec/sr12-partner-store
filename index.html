@@ -20,7 +20,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <link rel="stylesheet" href="css/style.css?v=16.8">
+  <link rel="stylesheet" href="css/style.css?v=16.9">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
 </head>
 <body>
@@ -2521,12 +2521,20 @@
             <label style="font-size: 0.82rem; font-weight: 700; color: var(--dark-800); display: block; margin-bottom: 8px;">📸 Ganti Foto Produk:</label>
             
             <!-- Upload Foto Langsung Bebas Resiko Keamanan URL -->
-            <input type="file" id="editProdFileInput" accept="image/jpeg,image/png,image/webp,image/*" style="display: none;">
+            <input type="file" id="editProdFileInput" accept="image/*" onchange="handleEditProdFileInputChange(event)" style="display: none;">
             <button type="button" onclick="document.getElementById('editProdFileInput').click()" style="width: 100%; background: #ecfdf5; border: 2px dashed #10b981; color: #047857; padding: 12px 16px; border-radius: 8px; font-weight: 700; font-size: 0.88rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s;">
               <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
               Upload Foto dari HP / Komputer (Kamera / Galeri)
             </button>
-            <div style="font-size: 0.72rem; color: #64748b; margin-top: 5px; text-align: center;">Mendukung JPG, PNG, WEBP (Otomatis dioptimasi hemat memori & bebas resiko link berbahaya)</div>
+            <div id="editProdUploadStatus" style="display: none; font-size: 0.8rem; font-weight: 700; color: #047857; margin-top: 6px; text-align: center;"></div>
+            <div style="font-size: 0.72rem; color: #64748b; margin-top: 5px; text-align: center;">Mendukung JPG, PNG, WEBP (Otomatis dioptimasi hemat memori &amp; tajam)</div>
+
+            <div style="margin-top: 10px; display: flex; gap: 6px;">
+              <input type="url" id="editProdUrlInput" placeholder="Atau tempel link gambar (https://...)" style="flex: 1; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.78rem;">
+              <button type="button" onclick="handleApplyEditProdUrl()" style="background: #0284c7; color: #fff; border: none; padding: 7px 12px; border-radius: 6px; font-weight: 700; font-size: 0.78rem; cursor: pointer;">
+                Pakai Link
+              </button>
+            </div>
 
             <div style="margin-top: 12px;">
               <span style="font-size: 0.75rem; font-weight: 700; color: #475569; display: block; margin-bottom: 6px;">Atau Pilih Foto Kemasan Resmi SR12:</span>
@@ -5294,9 +5302,9 @@
 
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=16.8"></script>
-  <script src="js/data.js?v=16.8"></script>
-  <script src="js/app.js?v=16.8"></script>
-  <script src="js/olsera-suite.js?v=16.8"></script>
+  <script src="js/supabase-config.js?v=16.9"></script>
+  <script src="js/data.js?v=16.9"></script>
+  <script src="js/app.js?v=16.9"></script>
+  <script src="js/olsera-suite.js?v=16.9"></script>
 </body>
 </html>

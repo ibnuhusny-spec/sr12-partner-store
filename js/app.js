@@ -1267,8 +1267,12 @@ function saveStoreProductOverride(storeSlug, prod) {
       summary: prod.summary || existing.summary || '',
       customEdited: true
     };
-    localStorage.setItem(`sr12_store_product_overrides_${storeSlug}`, JSON.stringify(overrides));
-    localStorage.setItem(`sr12_store_products_${storeSlug}`, JSON.stringify(overrides));
+    try {
+      localStorage.setItem(`sr12_store_product_overrides_${storeSlug}`, JSON.stringify(overrides));
+      localStorage.setItem(`sr12_store_products_${storeSlug}`, JSON.stringify(overrides));
+    } catch(lsErr) {
+      console.warn('LocalStorage quota penuh, override produk dihandle via IndexedDB:', lsErr);
+    }
   } catch(e) {
     console.warn('Gagal simpan override produk lokal:', e);
   }
@@ -1310,7 +1314,7 @@ async function loadStoreProducts(storeSlug) {
                 summary: ip.summary,
                 customEdited: true
               };
-            } else if (ip.image && (!overrides[rawId].image || overrides[rawId].image.startsWith('data:image/svg+xml'))) {
+            } else if (ip.image && (ip.customEdited || !overrides[rawId].image || overrides[rawId].image.startsWith('data:image/svg+xml'))) {
               overrides[rawId].image = ip.image;
             }
           }
@@ -2433,13 +2437,13 @@ window.mergeCloudOrdersIntoLocal = mergeCloudOrdersIntoLocal;
     const targetOlseraTab = isOlseraHash ? hashTab : (validOlseraTabs.includes(savedOlseraTab) ? savedOlseraTab : 'pos');
 
     const shouldOpenPortal = (appState.isAdminMode || appState.isDistributorLoggedIn || appState.isDevMasterLoggedIn) && 
-      (savedViewMode === 'portal' || isOlseraHash || wantsAdmin);
+      (savedViewMode !== 'storefront');
 
     if (shouldOpenPortal) {
       if (typeof showDistributorPortalView === 'function') {
         showDistributorPortalView(true);
         if (typeof switchOlseraTab === 'function') {
-          switchOlseraTab(targetOlseraTab);
+          switchOlseraTab('pos');
         }
       }
     } else {
@@ -5149,10 +5153,12 @@ async function handleDistributorLoginSubmit(e) {
     appState.pendingPosOpen = false;
     appState.isOlseraPortalOpen = true;
 
+    localStorage.setItem('sr12_active_view_mode', 'portal');
+    localStorage.setItem('sr12_active_olsera_tab', 'pos');
     if (typeof showDistributorPortalView === 'function') {
       showDistributorPortalView(true);
-      if (typeof openOlseraSidebarDrawer === 'function') {
-        openOlseraSidebarDrawer();
+      if (typeof switchOlseraTab === 'function') {
+        switchOlseraTab('pos');
       }
     }
     showToast(`👑 Login Berhasil! Selamat datang, ${appState.storeSettings.storeOwner || 'Pemilik Toko'}.`);
@@ -5221,10 +5227,12 @@ async function handleDistributorLoginSubmit(e) {
     appState.pendingPosOpen = false;
     appState.isOlseraPortalOpen = true;
 
+    localStorage.setItem('sr12_active_view_mode', 'portal');
+    localStorage.setItem('sr12_active_olsera_tab', 'pos');
     if (typeof showDistributorPortalView === 'function') {
       showDistributorPortalView(true);
-      if (typeof openOlseraSidebarDrawer === 'function') {
-        openOlseraSidebarDrawer();
+      if (typeof switchOlseraTab === 'function') {
+        switchOlseraTab('pos');
       }
     }
     showToast(`👑 Login Berhasil! Selamat datang, ${appState.storeSettings.storeOwner || 'Pemilik Toko'}.`);
@@ -9036,8 +9044,15 @@ function openEditProductModal(productId) {
   const summaryInput = document.getElementById('editProdSummary');
   const imgPreview = document.getElementById('editProdImgPreview');
   const fileInput = document.getElementById('editProdFileInput');
+  const urlInput = document.getElementById('editProdUrlInput');
+  const statusEl = document.getElementById('editProdUploadStatus');
 
   if (fileInput) fileInput.value = '';
+  if (urlInput) urlInput.value = '';
+  if (statusEl) {
+    statusEl.textContent = '';
+    statusEl.style.display = 'none';
+  }
   if (nameInput) nameInput.value = prod.name;
   if (catInput) catInput.value = prod.category;
   if (hetInput) {
@@ -9055,12 +9070,102 @@ function openEditProductModal(productId) {
   openModal('modalEditProduct');
 }
 
+async function handleEditProdFileInputChange(e) {
+  const file = e && e.target && e.target.files && e.target.files[0];
+  if (!file) return;
+
+  const previewImg = document.getElementById('editProdImgPreview');
+  const statusEl = document.getElementById('editProdUploadStatus');
+
+  if (statusEl) {
+    statusEl.style.display = 'block';
+    statusEl.style.color = '#0284c7';
+    statusEl.textContent = '⏳ Membaca foto dari perangkat...';
+  }
+  showToast('⏳ Membaca foto produk...');
+
+  const reader = new FileReader();
+  reader.onload = async (re) => {
+    const rawDataUrl = re.target && re.target.result;
+    if (!rawDataUrl) {
+      if (statusEl) statusEl.textContent = '❌ Gagal membaca foto. Silakan coba file lain.';
+      return;
+    }
+
+    // Pasang pratinjau seketika
+    if (previewImg) {
+      previewImg.src = rawDataUrl;
+      previewImg.style.display = 'block';
+    }
+    appState.tempEditImageBase64 = rawDataUrl;
+
+    // Lakukan kompresi otomatis agar ukuran ringan (~600px, JPEG 0.78)
+    try {
+      if (typeof compressImageSource === 'function') {
+        const compressed = await compressImageSource(rawDataUrl, 600, 0.78);
+        if (compressed && compressed.length > 50) {
+          appState.tempEditImageBase64 = compressed;
+          if (previewImg) previewImg.src = compressed;
+        }
+      }
+    } catch (eComp) {
+      console.warn('Kompresi canvas dialihkan:', eComp);
+    }
+
+    if (statusEl) {
+      statusEl.style.color = '#047857';
+      statusEl.textContent = '✅ Foto berhasil dipilih! Klik tombol "Simpan Perubahan Produk" di bawah untuk menerapkan.';
+    }
+    showToast('📷 Foto produk berhasil dimuat! Klik "Simpan Perubahan Produk" untuk menyimpan.');
+  };
+
+  reader.onerror = (err) => {
+    console.error('Error membaca file foto:', err);
+    if (statusEl) {
+      statusEl.style.color = '#dc2626';
+      statusEl.textContent = '❌ Gagal membaca file. Silakan pilih foto JPG atau PNG.';
+    }
+    alert('Gagal membaca file foto dari HP/komputer. Silakan coba kembali.');
+  };
+
+  reader.readAsDataURL(file);
+}
+
+function handleApplyEditProdUrl() {
+  const urlInput = document.getElementById('editProdUrlInput');
+  const previewImg = document.getElementById('editProdImgPreview');
+  const statusEl = document.getElementById('editProdUploadStatus');
+  const url = urlInput ? urlInput.value.trim() : '';
+
+  if (!url) {
+    alert('Silakan masukkan link/URL gambar terlebih dahulu.');
+    return;
+  }
+
+  const safeUrl = (typeof sanitizeImageUrl === 'function') ? sanitizeImageUrl(url) : url;
+  appState.tempEditImageBase64 = safeUrl;
+
+  if (previewImg) {
+    previewImg.src = safeUrl;
+    previewImg.style.display = 'block';
+  }
+  if (statusEl) {
+    statusEl.style.display = 'block';
+    statusEl.style.color = '#047857';
+    statusEl.textContent = '✅ Link foto produk diterapkan! Klik "Simpan Perubahan Produk" di bawah.';
+  }
+  showToast('🔗 Link foto produk berhasil diterapkan!');
+}
+
 async function handleEditProductSubmit(e) {
   if (e) e.preventDefault();
 
   const prodId = appState.activeEditingProductId;
   const prod = (appState.products || []).find(p => p.id === prodId);
-  if (!prod) return;
+  if (!prod) {
+    alert('Produk tidak ditemukan atau belum dipilih!');
+    return;
+  }
 
   const btnSubmit = document.getElementById('btnSubmitEditProduct');
   if (btnSubmit) {
@@ -9076,7 +9181,7 @@ async function handleEditProductSubmit(e) {
     const newStock = (stockRaw !== '' && !isNaN(Number(stockRaw))) ? Math.max(0, parseInt(stockRaw, 10)) : (typeof prod.stock !== 'undefined' ? prod.stock : 85);
     const newSummary = document.getElementById('editProdSummary')?.value.trim();
 
-    // Ambil gambar terpilih (hasil upload langsung atau preset)
+    // Ambil gambar terpilih (hasil upload langsung, preset, atau URL)
     const finalImage = appState.tempEditImageBase64 || prod.image || 'assets/hero-banner.jpg';
 
     prod.name = newName || prod.name;
@@ -9089,6 +9194,18 @@ async function handleEditProductSubmit(e) {
     prod.summary = newSummary || prod.summary;
     prod.image = finalImage;
     prod.customEdited = true;
+
+    // Perbarui juga data di appState.products & DEFAULT_SR12_PRODUCTS secara live di memori
+    const pIdx = (appState.products || []).findIndex(p => p.id === prod.id);
+    if (pIdx !== -1) {
+      appState.products[pIdx] = { ...appState.products[pIdx], ...prod };
+    }
+    if (typeof DEFAULT_SR12_PRODUCTS !== 'undefined' && Array.isArray(DEFAULT_SR12_PRODUCTS)) {
+      const dIdx = DEFAULT_SR12_PRODUCTS.findIndex(p => p.id === prod.id);
+      if (dIdx !== -1) {
+        DEFAULT_SR12_PRODUCTS[dIdx] = { ...DEFAULT_SR12_PRODUCTS[dIdx], ...prod };
+      }
+    }
 
     const activeStoreSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
 
@@ -9105,12 +9222,13 @@ async function handleEditProductSubmit(e) {
       }
     }
 
-    renderProducts();
-    updateCartUI();
+    // 3. Render ulang semua etalase & POS
+    if (typeof renderProducts === 'function') renderProducts();
+    if (typeof updateCartUI === 'function') updateCartUI();
     if (typeof renderInventoryTable === 'function') renderInventoryTable();
     if (typeof renderPosProducts === 'function') renderPosProducts();
 
-    // 3. Simpan juga ke Supabase Cloud secara asinkron
+    // 4. Simpan juga ke Supabase Cloud secara asinkron
     if (typeof saveProductToSupabase === 'function') {
       saveProductToSupabase(prod, activeStoreSlug).catch(errSupa => {
         console.warn('Supabase product save notice:', errSupa);
@@ -9133,6 +9251,7 @@ async function handleEditProductSubmit(e) {
 function setEditImagePreset(presetType) {
   const prodId = appState.activeEditingProductId;
   const imgPreview = document.getElementById('editProdImgPreview');
+  const statusEl = document.getElementById('editProdUploadStatus');
   let selectedImg = 'assets/hero-banner.jpg';
 
   if (presetType === 'deodorant') {
@@ -9151,9 +9270,16 @@ function setEditImagePreset(presetType) {
     imgPreview.src = selectedImg;
     imgPreview.style.display = 'block';
   }
+  if (statusEl) {
+    statusEl.style.display = 'block';
+    statusEl.style.color = '#047857';
+    statusEl.textContent = `✅ Foto resmi SR12 (${presetType}) dipilih! Klik "Simpan Perubahan Produk" di bawah.`;
+  }
   showToast(`🖼️ Foto kemasan produk dipilih: ${presetType}`);
 }
 window.openEditProductModal = openEditProductModal;
+window.handleEditProdFileInputChange = handleEditProdFileInputChange;
+window.handleApplyEditProdUrl = handleApplyEditProdUrl;
 window.handleEditProductSubmit = handleEditProductSubmit;
 window.setEditImagePreset = setEditImagePreset;
 

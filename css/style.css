@@ -772,7 +772,19 @@ body.dev-mode-active #genericStoreHeroBanner {
   display: none !important;
 }
 
-/* Pastikan di dalam Portal Olsera (Kasir, Transaksi, Pengaturan Toko), semua strip & tombol menu etalase publik 100% mati agar tidak ada tombol hijau ganda */
+/* Pastikan di dalam Portal Olsera (Kasir, Transaksi, Pengaturan Toko), SEMUA etalase publik & elemen toko pembeli 100% MATI TOTAL */
+body.olsera-portal-active #publicStorefrontMain,
+body.olsera-portal-active .main-wrapper,
+body.olsera-portal-active #siteStorefrontFooter,
+body.olsera-portal-active #distributorCommerceWrapper,
+body.olsera-portal-active #distributorStoreHeroCard,
+body.olsera-portal-active #catalogSection,
+body.olsera-portal-active #rewardsSection,
+body.olsera-portal-active #marketingKitSection,
+body.olsera-portal-active #officialCentralHubHero,
+body.olsera-portal-active #officialDistributorDirectorySection,
+body.olsera-portal-active .site-header,
+body.olsera-portal-active #siteHeaderStorefront,
 body.olsera-portal-active #distributorPreviewStrip,
 body.olsera-portal-active #btnFloatingAdminMenu,
 body.olsera-portal-active #btnHeaderAdminMenu,
@@ -781,28 +793,13 @@ body.olsera-portal-active #btnOpenDashboardFromRewards {
   display: none !important;
 }
 
-/* Sembunyikan tombol floating admin menu secara menyeluruh agar tidak bertumpuk dengan Menu Toko */
+/* Sembunyikan tombol floating admin menu secara menyeluruh */
 #btnFloatingAdminMenu {
   display: none !important;
 }
 
-/* Sembunyikan Site Header Publik hanya saat di dalam mode kasir POS Olsera atau Dev Mode */
-body.olsera-portal-active .site-header,
 body.dev-mode-active .site-header {
   display: none !important;
-}
-
-.site-header {
-  display: block !important;
-  position: sticky !important;
-  top: 0 !important;
-  z-index: 990 !important;
-  background: rgba(255, 255, 255, 0.96) !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
-  border-bottom: 1px solid var(--border-subtle) !important;
-  padding: 10px 16px !important;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04) !important;
 }
 
 /* Tombol Navbar Tambahan */
