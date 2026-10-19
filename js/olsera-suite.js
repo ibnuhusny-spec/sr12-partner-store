@@ -281,58 +281,19 @@ function showDistributorPortalView(showPortal) {
       }
     }
 
-    const currentIsCentral = (typeof appState !== 'undefined' && appState.storeSettings) 
-      ? (!appState.storeSettings.slug || appState.storeSettings.slug === 'sr12-central')
-      : false;
+    const activeSlug = (typeof appState !== 'undefined' && appState.storeSettings) 
+      ? (appState.storeSettings.slug || 'sr12-central')
+      : 'sr12-central';
 
-    document.body.classList.remove('olsera-portal-active');
-    document.body.classList.toggle('is-central-hub', currentIsCentral);
-    document.body.classList.toggle('is-partner-store', !currentIsCentral);
-
-    if (portal) portal.style.display = 'none';
-    if (olseraNav) olseraNav.style.display = 'none';
-    const bBar = document.getElementById('posMobileBottomBar');
-    if (bBar) {
-      bBar.classList.remove('active');
-      bBar.style.display = 'none';
+    if (typeof restoreStorefrontView === 'function') {
+      restoreStorefrontView(activeSlug);
     }
 
-    if (storefront) storefront.style.display = 'block';
-    if (siteHeader) siteHeader.style.display = 'none';
-    if (tierBanner) tierBanner.style.display = 'none';
-    if (platformTopbar) platformTopbar.style.display = 'none';
-
-    // Preview Strip dimatikan total agar etalase bersih untuk pembeli
-    if (previewStrip) previewStrip.style.display = 'none';
-    if (devStrip) devStrip.style.display = (typeof appState !== 'undefined' && appState.isDevMasterLoggedIn) ? 'flex' : 'none';
-
-    // Matikan tombol floating & header menu agar etalase pembeli bersih
-    const btnFloat = document.getElementById('btnFloatingAdminMenu');
-    if (btnFloat) btnFloat.style.display = 'none';
-    const btnHeaderMenu = document.getElementById('btnHeaderAdminMenu');
-    if (btnHeaderMenu) btnHeaderMenu.style.display = 'none';
-
-    // Matikan tombol Menu Toko di toolbar katalog & hadiah
-    const btnCatMenu = document.getElementById('btnOpenDashboardFromCatalog');
-    if (btnCatMenu) btnCatMenu.style.display = 'none';
-    const btnRewardMenu = document.getElementById('btnOpenDashboardFromRewards');
-    if (btnRewardMenu) btnRewardMenu.style.display = 'none';
-
-    // Pastikan etalase katalog toko pembeli langsung tampil di toko distributor
-    if (!currentIsCentral) {
-      const commerceWrapper = document.getElementById('distributorCommerceWrapper');
-      if (commerceWrapper) commerceWrapper.style.display = 'block';
-      const catSec = document.getElementById('catalogSection');
-      if (catSec && (!appState || appState.activeTab !== 'rewards')) catSec.style.display = 'block';
-      const distHero = document.getElementById('distributorStoreHeroCard');
-      if (distHero) distHero.style.display = 'block';
-      const centralHero = document.getElementById('officialCentralHubHero');
-      if (centralHero) centralHero.style.display = 'none';
-      const directorySection = document.getElementById('officialDistributorDirectorySection');
-      if (directorySection) directorySection.style.display = 'none';
+    if (typeof appState !== 'undefined' && appState.isDevMasterLoggedIn) {
+      if (devStrip) devStrip.style.display = 'flex';
+      const devFab = document.getElementById('devFloatingFab');
+      if (devFab) devFab.style.display = 'flex';
     }
-
-    if (typeof renderProducts === 'function') renderProducts();
   }
 }
 

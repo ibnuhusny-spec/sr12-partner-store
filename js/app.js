@@ -579,6 +579,11 @@ async function syncStoresWithServer() {
     if (typeof updateDevPortalMetrics === 'function') {
       updateDevPortalMetrics();
     }
+    if (appState.isDevMasterLoggedIn || localStorage.getItem('sr12_dev_session') === 'active') {
+      if (typeof syncAllNetworkOrdersForDev === 'function') {
+        syncAllNetworkOrdersForDev();
+      }
+    }
   } catch (errMetrics) {
     console.warn('Update dev portal metrics warning:', errMetrics);
   }
@@ -5666,6 +5671,127 @@ async function loadStoreDataFromBackend(slug) {
   }
 }
 
+// ==========================================
+// RESTORE STOREFRONT VIEW (ANTI-BLANK SCREEN ENGINE)
+// Memastikan etalase toko tampil sempurna seketika saat logout atau kembali dari backoffice
+// ==========================================
+function restoreStorefrontView(targetSlug = null) {
+  // 1. Lepaskan seluruh flag dan styling pengunci
+  document.body.classList.remove('olsera-portal-active');
+  document.body.classList.remove('dev-mode-active');
+  document.body.classList.remove('modal-open');
+  document.body.classList.remove('olsera-drawer-open');
+  if (document.documentElement) {
+    document.documentElement.classList.remove('olsera-portal-active');
+    document.documentElement.classList.remove('dev-mode-active');
+    document.documentElement.classList.remove('modal-open');
+    document.documentElement.classList.remove('olsera-drawer-open');
+    document.documentElement.style.overflow = '';
+    document.documentElement.style.overflowY = '';
+    document.documentElement.style.height = '';
+  }
+  document.body.style.overflow = '';
+  document.body.style.overflowY = '';
+  document.body.style.height = '';
+  if (typeof ensureScrollUnlocked === 'function') {
+    ensureScrollUnlocked();
+  }
+
+  // 2. Sembunyikan seluruh backoffice & workspace portal
+  const devWorkspace = document.getElementById('devSuperAdminWorkspace');
+  const devNav = document.getElementById('devSuperAdminNavbar');
+  const devPreviewStrip = document.getElementById('devPreviewStrip');
+  const devFab = document.getElementById('devFloatingFab');
+  const portal = document.getElementById('distributorOlseraPortal');
+  const olseraNav = document.getElementById('olseraAppNavbar');
+  const previewStrip = document.getElementById('distributorPreviewStrip');
+  const oldToggleBar = document.getElementById('distributorPortalToggleBar');
+  const adminBanner = document.getElementById('adminModeBanner');
+  const sidebar = document.getElementById('olseraSidebar');
+  const backdrop = document.getElementById('olseraDrawerBackdrop');
+
+  if (devWorkspace) devWorkspace.style.display = 'none';
+  if (devNav) devNav.style.display = 'none';
+  if (devPreviewStrip) devPreviewStrip.style.display = 'none';
+  if (devFab) devFab.style.display = 'none';
+  if (portal) portal.style.display = 'none';
+  if (olseraNav) olseraNav.style.display = 'none';
+  if (previewStrip) previewStrip.style.display = 'none';
+  if (oldToggleBar) oldToggleBar.style.display = 'none';
+  if (adminBanner) adminBanner.style.display = 'none';
+  if (sidebar) sidebar.classList.remove('open');
+  if (backdrop) backdrop.classList.remove('open');
+
+  // Tutup semua backdrop modal administratif
+  document.querySelectorAll('.modal-backdrop.open').forEach(m => {
+    if (m.id !== 'modalProductDetail' && m.id !== 'cartDrawer') {
+      m.classList.remove('open');
+    }
+  });
+
+  // 3. Tentukan toko target
+  const slug = targetSlug || appState.currentStoreSlug || (appState.storeSettings && appState.storeSettings.slug) || 'sr12-central';
+  const isCentral = (slug === 'sr12-central');
+
+  document.body.classList.toggle('is-central-hub', isCentral);
+  document.body.classList.toggle('is-partner-store', !isCentral);
+
+  // 4. Pastikan wrapper etalase utama dan footer tampil penuh (TIDAK BOLEH NONE!)
+  const storefront = document.getElementById('publicStorefrontMain');
+  const mainWrap = document.querySelector('.main-wrapper');
+  const siteFooter = document.getElementById('siteStorefrontFooter');
+  if (storefront) storefront.style.display = 'block';
+  if (mainWrap) mainWrap.style.display = 'block';
+  if (siteFooter) siteFooter.style.display = 'block';
+
+  // 5. Muat toko dan pulihkan section sesuai mode
+  if (typeof loadStoreBySlug === 'function') {
+    loadStoreBySlug(slug);
+  }
+
+  const centralHero = document.getElementById('officialCentralHubHero');
+  const directorySection = document.getElementById('officialDistributorDirectorySection');
+  const commWrap = document.getElementById('distributorCommerceWrapper');
+  const distHero = document.getElementById('distributorStoreHeroCard');
+  const catSec = document.getElementById('catalogSection');
+  const platformTopbar = document.getElementById('platformTopbar') || document.querySelector('.platform-topbar');
+  const siteHeader = document.querySelector('.site-header');
+
+  if (isCentral) {
+    if (centralHero) centralHero.style.display = 'block';
+    if (directorySection) directorySection.style.display = 'block';
+    if (commWrap) commWrap.style.display = 'none';
+    if (distHero) distHero.style.display = 'none';
+    if (catSec) catSec.style.display = 'none';
+    if (siteHeader) siteHeader.style.display = 'block';
+    if (platformTopbar) platformTopbar.style.display = 'block';
+    if (typeof renderOfficialDistributorDirectory === 'function') {
+      renderOfficialDistributorDirectory();
+    }
+  } else {
+    if (centralHero) centralHero.style.display = 'none';
+    if (directorySection) directorySection.style.display = 'none';
+    if (commWrap) commWrap.style.display = 'block';
+    if (distHero) distHero.style.display = 'block';
+    if (catSec) catSec.style.display = 'block';
+    if (siteHeader) siteHeader.style.display = 'none';
+    if (platformTopbar) platformTopbar.style.display = 'none';
+    if (typeof renderProducts === 'function') {
+      renderProducts();
+    }
+  }
+
+  if (typeof renderStoreBranding === 'function') {
+    renderStoreBranding();
+  }
+  if (typeof updateViewModeUI === 'function') {
+    updateViewModeUI();
+  }
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+window.restoreStorefrontView = restoreStorefrontView;
+
 function handleDistributorLogout() {
   appState.isAdminMode = false;
   appState.isDistributorLoggedIn = false;
@@ -5683,76 +5809,8 @@ function handleDistributorLogout() {
     }
   } catch (e) {}
 
-  // 1. Tutup drawer Olsera dan backdrop
-  if (typeof closeOlseraSidebarDrawer === 'function') {
-    closeOlseraSidebarDrawer();
-  } else {
-    document.getElementById('olseraSidebar')?.classList.remove('open');
-    document.getElementById('olseraDrawerBackdrop')?.classList.remove('open');
-  }
-
-  // 2. Tutup modal administratif tetapi pertahankan modal produk jika sedang dibuka via deep-link
-  document.querySelectorAll('.modal-backdrop.open').forEach(m => {
-    if (m.id !== 'modalProductDetail' && m.id !== 'cartDrawer' && m.id !== 'modalProductPromoShare') {
-      m.classList.remove('open');
-    }
-  });
-
-  // 3. Pastikan kunci scroll dilepas sepenuhnya dari body dan html
-  document.body.classList.remove('olsera-drawer-open');
-  document.body.classList.remove('modal-open');
-  if (document.documentElement) {
-    document.documentElement.classList.remove('olsera-drawer-open');
-    document.documentElement.classList.remove('modal-open');
-  }
-  if (typeof ensureScrollUnlocked === 'function') {
-    ensureScrollUnlocked();
-  }
-  document.body.style.overflow = '';
-  document.body.style.overflowY = '';
-  document.body.style.height = '';
-  document.body.style.touchAction = '';
-  if (document.documentElement) {
-    document.documentElement.style.overflow = '';
-    document.documentElement.style.overflowY = '';
-    document.documentElement.style.height = '';
-    document.documentElement.style.touchAction = '';
-  }
-
-  const portal = document.getElementById('distributorOlseraPortal');
-  const olseraNav = document.getElementById('olseraAppNavbar');
-  const previewStrip = document.getElementById('distributorPreviewStrip');
-  const storefront = document.getElementById('publicStorefrontMain');
-  const platformTopbar = document.getElementById('platformTopbar') || document.querySelector('.platform-topbar');
-  const siteHeader = document.querySelector('.site-header');
-  const tierBanner = document.querySelector('.tier-quick-banner');
-  const oldToggleBar = document.getElementById('distributorPortalToggleBar');
-  const adminBanner = document.getElementById('adminModeBanner');
-
-  if (portal) portal.style.display = 'none';
-  if (olseraNav) olseraNav.style.display = 'none';
-  if (previewStrip) previewStrip.style.display = 'none';
-  if (oldToggleBar) oldToggleBar.style.display = 'none';
-  if (adminBanner) adminBanner.style.display = 'none';
-
-  const isCentral = !appState.storeSettings?.slug || appState.storeSettings.slug === 'sr12-central';
-  document.body.classList.remove('olsera-portal-active');
-  document.body.classList.toggle('is-central-hub', isCentral);
-  document.body.classList.toggle('is-partner-store', !isCentral);
-
-  if (storefront) storefront.style.display = 'block';
-  if (siteHeader) siteHeader.style.display = isCentral ? 'block' : 'none';
-  if (tierBanner) tierBanner.style.display = 'none';
-  if (platformTopbar) platformTopbar.style.display = isCentral ? 'block' : 'none';
-
-  updateViewModeUI();
-  if (isCentral) {
-    renderStoreBranding();
-    renderOfficialDistributorDirectory();
-  } else {
-    switchTab('products');
-    renderProducts();
-  }
+  const currentSlug = appState.currentStoreSlug || (appState.storeSettings && appState.storeSettings.slug) || 'sr12-central';
+  restoreStorefrontView(currentSlug);
   showToast('🛍️ Anda telah logout. Web toko kini kembali bersih sebagai Tampilan Pembeli Umum.');
 }
 window.handleDistributorLogout = handleDistributorLogout;
@@ -6967,6 +7025,9 @@ function showDeveloperWorkspaceView(showWorkspace) {
     if (typeof syncPendingStoresWithServer === 'function') {
       syncPendingStoresWithServer();
     }
+    if (typeof syncAllNetworkOrdersForDev === 'function') {
+      syncAllNetworkOrdersForDev();
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } else {
     // Mode Tinjau Etalase Toko (Storefront Preview) dengan Developer Preview Strip
@@ -6979,43 +7040,16 @@ function showDeveloperWorkspaceView(showWorkspace) {
       }
     } catch(e) {}
 
-    document.body.classList.remove('dev-mode-active');
-    if (document.documentElement) document.documentElement.classList.remove('dev-mode-active');
-    document.body.style.overflowY = '';
-    if (document.documentElement) document.documentElement.style.overflowY = '';
-
-    if (devWorkspace) devWorkspace.style.display = 'none';
-    if (devNav) devNav.style.display = 'none';
-    if (olseraNav) olseraNav.style.display = 'none';
-    if (olseraPortal) olseraPortal.style.display = 'none';
-    if (distStrip) distStrip.style.display = 'none';
-
-    if (storefront) storefront.style.display = 'block';
-    const siteFooter = document.getElementById('siteStorefrontFooter');
-    if (siteFooter) siteFooter.style.display = '';
-    if (platformTopbar) platformTopbar.style.display = 'none';
-    if (siteHeader) siteHeader.style.display = 'block';
-    if (tierBanner) tierBanner.style.display = 'block';
-
-    // Pulihkan tampilan etalase & direktori Official Hub seketika tanpa perlu refresh
-    const centralHero = document.getElementById('officialCentralHubHero');
-    if (centralHero) centralHero.style.display = '';
-    const directorySection = document.getElementById('officialDistributorDirectorySection');
-    if (directorySection) directorySection.style.display = '';
-
-    renderStoreBranding();
-    if (appState.currentStoreSlug === 'sr12-central') {
-      if (typeof renderOfficialDistributorDirectory === 'function') {
-        renderOfficialDistributorDirectory();
-      }
-    } else {
-      if (typeof renderProducts === 'function') {
-        renderProducts();
-      }
+    const curSlug = appState.currentStoreSlug || (appState.storeSettings && appState.storeSettings.slug) || 'sr12-central';
+    if (typeof restoreStorefrontView === 'function') {
+      restoreStorefrontView(curSlug);
     }
 
     if (appState.isDevMasterLoggedIn) {
+      const devPreviewStrip = document.getElementById('devPreviewStrip');
+      const devFab = document.getElementById('devFloatingFab');
       if (devPreviewStrip) {
+        devPreviewStrip.style.display = 'flex';
         const isCentral = appState.storeSettings?.slug === 'sr12-central';
         const sName = isCentral ? 'SR12-Ku Pro' : ((appState.storeSettings && appState.storeSettings.storeName) || 'SR12-Ku Pro');
         const typeLabel = isCentral ? '🏛️ SR12 Official Central Hub' : '🏪 Toko Distributor';
@@ -7066,49 +7100,9 @@ function handleDeveloperLogout(skipConfirm = false) {
     }
   } catch(e) {}
 
-  document.body.classList.remove('dev-mode-active');
-  if (document.documentElement) document.documentElement.classList.remove('dev-mode-active');
-  document.body.style.overflowY = '';
-  if (document.documentElement) document.documentElement.style.overflowY = '';
-
-  const devWorkspace = document.getElementById('devSuperAdminWorkspace');
-  const devNav = document.getElementById('devSuperAdminNavbar');
-  const devPreviewStrip = document.getElementById('devPreviewStrip');
-  const devFab = document.getElementById('devFloatingFab');
-  const storefront = document.getElementById('publicStorefrontMain');
-  const platformTopbar = document.getElementById('platformTopbar') || document.querySelector('.platform-topbar');
-  const siteHeader = document.querySelector('.site-header');
-  const tierBanner = document.querySelector('.tier-quick-banner');
-  const modalDevPortal = document.getElementById('modalDevPortal');
-
-  if (modalDevPortal) modalDevPortal.classList.remove('open');
-  if (devWorkspace) devWorkspace.style.display = 'none';
-  if (devNav) devNav.style.display = 'none';
-  if (devPreviewStrip) devPreviewStrip.style.display = 'none';
-  if (devFab) devFab.style.display = 'none';
-
-  if (storefront) storefront.style.display = 'block';
-  const siteFooter = document.getElementById('siteStorefrontFooter');
-  if (siteFooter) siteFooter.style.display = '';
-  if (platformTopbar) platformTopbar.style.display = 'none';
-  if (siteHeader) siteHeader.style.display = 'block';
-  if (tierBanner) tierBanner.style.display = 'block';
-
-  // Pulihkan tampilan etalase & direktori Official Hub seketika tanpa perlu refresh
-  const centralHero = document.getElementById('officialCentralHubHero');
-  if (centralHero) centralHero.style.display = '';
-  const directorySection = document.getElementById('officialDistributorDirectorySection');
-  if (directorySection) directorySection.style.display = '';
-
-  renderStoreBranding();
-  if (appState.currentStoreSlug === 'sr12-central') {
-    if (typeof renderOfficialDistributorDirectory === 'function') {
-      renderOfficialDistributorDirectory();
-    }
-  } else {
-    if (typeof renderProducts === 'function') {
-      renderProducts();
-    }
+  // Selalu pulihkan ke halaman utama SR12 Official Central Hub etalase publik yang bersih & lengkap
+  if (typeof restoreStorefrontView === 'function') {
+    restoreStorefrontView('sr12-central');
   }
 
   showToast('🔒 Sesi Developer Super Admin Telah Berakhir.');
@@ -10784,8 +10778,40 @@ function switchTab(tabId) {
   }
 }
 
+// ==========================================
+// SINKRONISASI PESANAN CLOUD JARINGAN UNTUK METRIK DEVELOPER
+// ==========================================
+async function syncAllNetworkOrdersForDev() {
+  if (typeof initSupabaseClient !== 'function') return;
+  const client = initSupabaseClient();
+  if (!client) return;
+  try {
+    const token = (typeof getActiveSessionToken === 'function') ? getActiveSessionToken('all') : null;
+    const { data: allOrders, error } = await client.rpc('rpc_get_store_orders', {
+      p_slug: 'all',
+      p_token: token || 'dev_master'
+    });
+    if (!error && Array.isArray(allOrders)) {
+      window._allCloudOrdersCache = allOrders.map(r => ({
+        id: r.order_id,
+        store_slug: r.store_slug,
+        grandTotal: Number(r.grand_total) || 0,
+        subtotalHet: Number(r.subtotal_het) || 0,
+        status: r.status,
+        orderSource: r.order_source
+      }));
+      if (typeof updateDevPortalMetrics === 'function') {
+        updateDevPortalMetrics();
+      }
+    }
+  } catch(e) {
+    console.warn('syncAllNetworkOrdersForDev note:', e);
+  }
+}
+window.syncAllNetworkOrdersForDev = syncAllNetworkOrdersForDev;
+
 function updateDevPortalMetrics() {
-  const m = appState.devMetrics;
+  const m = appState.devMetrics || {};
   const dTx = document.getElementById('devPortalTotalTx');
   const dFee = document.getElementById('devPortalTotalFee');
   const dStores = document.getElementById('devPortalTotalStores');
@@ -10811,18 +10837,65 @@ function updateDevPortalMetrics() {
   const pendingTableBody_ws = document.getElementById('devPendingStoresTableBody_ws');
   const networkMitraTableBody = document.getElementById('devNetworkMitraTableBody_ws');
 
-  const totalStores = appState.partnerStores.length;
-  const totalTx = m.totalPlatformTransactions || 0;
-  const totalFee = totalTx * appState.platformFee;
+  const validStores = (appState.partnerStores || []).filter(s => s && s.slug && s.slug !== 'toko-supa-distributor' && !s.slug.startsWith('deleted_'));
+  const totalStores = validStores.length;
 
-  const storeTopupSum = appState.partnerStores.reduce((acc, s) => acc + (s.totalTopupPaid || 0), 0);
+  // Akumulasi Transaksi Jaringan, Omzet GMV, & Kas Top-up dari seluruh toko:
+  let storeTxSum = 0;
+  let storeGmvSum = 0;
+  let storeTopupSum = 0;
+
+  validStores.forEach(s => {
+    // Top-up kas
+    storeTopupSum += (Number(s.totalTopupPaid) || 0);
+
+    // Transaksi dari counter toko (sinkronisasi dari cloud stores.total_tx)
+    let sTx = Number(s.totalTx) || 0;
+    let sGmv = 0;
+
+    // Transaksi lokal toko jika tersimpan di browser
+    try {
+      const rawLocal = localStorage.getItem(`sr12_pos_transactions_v2_${s.slug}`) || localStorage.getItem(`sr12_customer_orders_${s.slug}`);
+      if (rawLocal) {
+        const parsed = JSON.parse(rawLocal);
+        if (Array.isArray(parsed)) {
+          const valid = parsed.filter(t => t && t.status !== 'Dihapus' && t.status !== 'deleted' && t.status !== 'Dibatalkan' && !t.id?.startsWith('CSH-'));
+          sTx = Math.max(sTx, valid.length);
+          sGmv = valid.reduce((acc, t) => acc + (Number(t.grandTotal) || Number(t.subtotalHet) || 0), 0);
+        }
+      }
+    } catch(e) {}
+
+    // Transaksi toko yang sedang aktif di memori
+    if (appState.storeSettings && appState.storeSettings.slug === s.slug && Array.isArray(appState.transactions)) {
+      const activeValid = appState.transactions.filter(t => t && t.status !== 'Dihapus' && t.status !== 'deleted' && t.status !== 'Dibatalkan' && !t.id?.startsWith('CSH-'));
+      sTx = Math.max(sTx, activeValid.length);
+      const activeGmv = activeValid.reduce((acc, t) => acc + (Number(t.grandTotal) || Number(t.subtotalHet) || 0), 0);
+      sGmv = Math.max(sGmv, activeGmv);
+    }
+
+    storeTxSum += sTx;
+    storeGmvSum += sGmv;
+  });
+
+  // Gabungkan jika ada cache seluruh pesanan cloud
+  if (Array.isArray(window._allCloudOrdersCache) && window._allCloudOrdersCache.length > 0) {
+    const validCloud = window._allCloudOrdersCache.filter(o => o && o.status !== 'Dihapus' && o.status !== 'deleted' && !o.id?.startsWith('CSH-') && o.orderSource !== 'Buku Kas Olsera');
+    storeTxSum = Math.max(storeTxSum, validCloud.length);
+    const cloudGmv = validCloud.reduce((acc, o) => acc + (Number(o.grandTotal) || Number(o.subtotalHet) || 0), 0);
+    storeGmvSum = Math.max(storeGmvSum, cloudGmv);
+  }
+
+  const totalTx = Math.max(storeTxSum, m.totalPlatformTransactions || 0);
+  const totalFee = totalTx * (appState.platformFee || 2000);
   const totalTopupKas = storeTopupSum;
+  const totalGMV = Math.max(storeGmvSum, m.totalGMV || 0);
 
   // Sync Modal Numbers
   if (dTx) dTx.textContent = totalTx.toLocaleString('id-ID');
   if (dFee) dFee.textContent = formatRupiah(totalFee);
   if (dStores) dStores.textContent = `${totalStores} Toko`;
-  if (dGmv) dGmv.textContent = formatRupiah(m.totalGMV || 0);
+  if (dGmv) dGmv.textContent = formatRupiah(totalGMV);
   if (dTopup) dTopup.textContent = formatRupiah(totalTopupKas);
   const devEmailText = appState.developerEmail || localStorage.getItem('sr12_dev_email') || 'developer@sr12.co.id';
   if (pinDisp) pinDisp.textContent = devEmailText;
@@ -10833,7 +10906,7 @@ function updateDevPortalMetrics() {
   if (wsFee) wsFee.textContent = formatRupiah(totalFee);
   if (wsStores) wsStores.textContent = `${totalStores} Toko`;
   if (wsTopup) wsTopup.textContent = formatRupiah(totalTopupKas);
-  if (wsGmv) wsGmv.textContent = formatRupiah(m.totalGMV || 0);
+  if (wsGmv) wsGmv.textContent = formatRupiah(totalGMV);
   if (wsPin) wsPin.textContent = devEmailText;
   if (navStores) navStores.textContent = `${totalStores} Toko`;
   if (navFee) navFee.textContent = formatRupiah(totalFee);

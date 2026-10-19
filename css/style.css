@@ -4463,13 +4463,14 @@ body.modal-open {
   z-index: 40;
 }
 
-/* Olsera Header Banner (Cyan-Blue geometric gradient with logo matching screenshot) */
+/* Olsera Header Banner (Signature SR12 Rich Herbal Emerald Gradient) */
 .olsera-header-banner {
-  background: linear-gradient(135deg, #0099e5 0%, #0084d6 50%, #0070c0 100%);
+  background: linear-gradient(135deg, #064e3b 0%, #047857 50%, #059669 100%);
   position: relative;
   padding: 24px 18px 20px 18px;
   color: #ffffff;
   overflow: hidden;
+  box-shadow: 0 4px 16px rgba(6, 78, 59, 0.2);
 }
 
 .olsera-header-banner::before {
@@ -4479,7 +4480,7 @@ body.modal-open {
   right: 0;
   width: 150px;
   height: 100%;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.02) 80%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0%, rgba(52, 211, 153, 0.04) 80%);
   clip-path: polygon(100% 0, 0% 100%, 100% 100%);
   pointer-events: none;
 }
@@ -4509,7 +4510,7 @@ body.modal-open {
   height: 58px;
   border-radius: 50%;
   background: #ffffff;
-  border: 3.5px solid #22c55e; /* Green border matching Alzam logo in screenshot */
+  border: 3.5px solid #10b981; /* SR12 Emerald border */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4555,19 +4556,19 @@ body.modal-open {
 
 .olsera-store-owner {
   font-size: 0.88rem;
-  color: #ffffff;
+  color: #ecfdf5;
   font-weight: 500;
   margin: 0;
 }
 
 .olsera-owner-caret {
   font-size: 0.65rem;
-  color: #bae6fd;
+  color: #a7f3d0;
   transform: scaleY(0.85);
   margin-left: 5px;
 }
 
-/* Olsera Nav Menu Items (Matching Screenshot) */
+/* Olsera Nav Menu Items (Signature SR12 Emerald Theme) */
 .olsera-menu-list {
   padding: 8px 0;
   list-style: none;
@@ -4592,19 +4593,19 @@ body.modal-open {
 }
 
 .olsera-menu-item:hover {
-  background: #f8fafc;
-  color: #0284c7;
+  background: #f0fdf4;
+  color: #047857;
 }
 
 .olsera-menu-item.active {
-  background: #e0f2fe; /* Light blue highlight matching screenshot */
-  color: #0284c7;
+  background: #ecfdf5; /* Soft herbal emerald highlight */
+  color: #047857;
   font-weight: 700;
-  border-left-color: #0284c7;
+  border-left-color: #059669;
 }
 
 .olsera-menu-item.active .olsera-menu-icon {
-  color: #0284c7;
+  color: #059669;
 }
 
 .olsera-menu-icon {
@@ -4630,6 +4631,8 @@ body.modal-open {
   padding: 2px 8px;
   border-radius: 999px;
   font-weight: 700;
+  background: #d1fae5;
+  color: #065f46;
 }
 
 /* Sidebar Footer */
