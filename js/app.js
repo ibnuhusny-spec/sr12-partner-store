@@ -4579,10 +4579,10 @@ function renderStoreBranding() {
   document.body.classList.toggle('is-partner-store', !isCentralHub);
 
   if (siteHeader) {
-    siteHeader.style.display = isCentralHub ? 'block' : 'none';
+    siteHeader.style.display = 'none';
   }
   if (platformTopbar) {
-    platformTopbar.style.display = isCentralHub ? 'block' : 'none';
+    platformTopbar.style.display = 'none';
   }
   if (tierQuickBanner) {
     tierQuickBanner.style.display = 'none';
@@ -5539,19 +5539,12 @@ function updateViewModeUI() {
 
   const isPortalOpen = (typeof appState !== 'undefined') && !!appState.isOlseraPortalOpen;
 
-  if (btnStoreSettings) btnStoreSettings.style.display = (isLogged && !isCentral) ? 'inline-flex' : 'none';
-  // Sembunyikan tombol header menu & floating menu agar TIDAK TERJADI TOMBOL GANDA (sudah ada di previewStrip dan toolbar)
+  if (btnStoreSettings) btnStoreSettings.style.display = 'none';
   if (btnHeaderAdminMenu) btnHeaderAdminMenu.style.display = 'none';
   if (btnFloatingAdminMenu) btnFloatingAdminMenu.style.display = 'none';
-  if (btnCatalogAdminMenu) btnCatalogAdminMenu.style.display = (isLogged && !isPortalOpen) ? 'inline-flex' : 'none';
-  if (btnRewardsAdminMenu) btnRewardsAdminMenu.style.display = (isLogged && !isPortalOpen) ? 'inline-flex' : 'none';
-  if (previewStrip) {
-    previewStrip.style.display = (isLogged && !isPortalOpen) ? 'flex' : 'none';
-    const pName = document.getElementById('previewStripDistName');
-    if (pName) {
-      pName.textContent = (appState.storeSettings && appState.storeSettings.storeName) || 'Toko Mitra';
-    }
-  }
+  if (btnCatalogAdminMenu) btnCatalogAdminMenu.style.display = 'none';
+  if (btnRewardsAdminMenu) btnRewardsAdminMenu.style.display = 'none';
+  if (previewStrip) previewStrip.style.display = 'none';
   if (btnAddProduct) btnAddProduct.style.display = isLogged ? 'inline-flex' : 'none';
   if (btnAddPromo) btnAddPromo.style.display = isLogged ? 'inline-flex' : 'none';
   if (btnAddMkit) btnAddMkit.style.display = isLogged ? 'inline-flex' : 'none';
@@ -16182,10 +16175,17 @@ function handleSecretStoreLogoTap(e) {
   if (_secretLogoTapTimer) clearTimeout(_secretLogoTapTimer);
 
   if (_secretLogoTapCount >= 2) {
-    // 2 atau 3 kali klik/tap langsung membuka portal login pemilik toko secara stealth
+    // 2 atau 3 kali klik/tap langsung membuka portal Olsera (jika login) atau modal login
     _secretLogoTapCount = 0;
-    if (typeof openDistributorLoginModal === 'function') {
-      openDistributorLoginModal();
+    if (appState.isDistributorLoggedIn || appState.isAdminMode) {
+      if (typeof showDistributorPortalView === 'function') {
+        showDistributorPortalView(true);
+        if (typeof openOlseraSidebarDrawer === 'function') openOlseraSidebarDrawer();
+      }
+    } else {
+      if (typeof openDistributorLoginModal === 'function') {
+        openDistributorLoginModal();
+      }
     }
     return;
   }
@@ -16201,8 +16201,15 @@ function handleSecretStoreLogoDblClick(e) {
   }
   _secretLogoTapCount = 0;
   if (_secretLogoTapTimer) clearTimeout(_secretLogoTapTimer);
-  if (typeof openDistributorLoginModal === 'function') {
-    openDistributorLoginModal();
+  if (appState.isDistributorLoggedIn || appState.isAdminMode) {
+    if (typeof showDistributorPortalView === 'function') {
+      showDistributorPortalView(true);
+      if (typeof openOlseraSidebarDrawer === 'function') openOlseraSidebarDrawer();
+    }
+  } else {
+    if (typeof openDistributorLoginModal === 'function') {
+      openDistributorLoginModal();
+    }
   }
 }
 window.handleSecretStoreLogoTap = handleSecretStoreLogoTap;

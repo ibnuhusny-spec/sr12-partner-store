@@ -20,7 +20,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <link rel="stylesheet" href="css/style.css?v=16.7">
+  <link rel="stylesheet" href="css/style.css?v=16.8">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
 </head>
 <body>
@@ -44,27 +44,7 @@
     </div>
   </aside>
 
-  <!-- 0.1 PREVIEW MODE STRIP (HANYA MUNCUL KETIKA DISTRIBUTOR MENINJAU TOKO PEMBELI / CUSTOMER FACING DISPLAY) -->
-  <aside id="distributorPreviewStrip" class="distributor-preview-strip" style="display: none;">
-    <div class="preview-strip-left">
-      <button type="button" class="btn-olsera-static-menu" onclick="showDistributorPortalView(true); openOlseraSidebarDrawer();" title="Buka Menu Toko" aria-label="Menu Toko">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-        <span>Menu Toko</span>
-      </button>
-      <div class="olsera-static-store-info">
-        <b id="previewStripDistName" class="olsera-static-store-title">Alzam Agency</b>
-        <span class="olsera-static-store-sub">Distributor Resmi SR12</span>
-      </div>
-    </div>
-    <div class="preview-strip-actions">
-      <button type="button" class="btn-topbar-action-settings" onclick="openStoreSettingsModal()" title="Pengaturan Toko">
-        <span>⚙️</span> <span>Pengaturan</span>
-      </button>
-      <button type="button" class="btn-topbar-action-logout" onclick="handleDistributorLogout()" title="Keluar / Logout Akun Distributor">
-        <span>🚪</span> <span>Logout</span>
-      </button>
-    </div>
-  </aside>
+
 
   <!-- 0. PLATFORM TOP BAR: MULTI-TENANT SAAS SWITCHER & REGISTRATION -->
   <aside class="platform-topbar" id="platformTopbar">
@@ -188,11 +168,7 @@
           <span class="badge-cart-counter" id="cartCountBadge">0</span>
         </button>
 
-        <!-- Tombol Masuk ke Menu Toko (Hanya muncul saat login distributor) -->
-        <button type="button" class="btn-header-admin-menu" id="btnHeaderAdminMenu" onclick="showDistributorPortalView(true); openOlseraSidebarDrawer();" style="display: none;" title="Buka Dashboard Admin &amp; Menu Toko (Kasir, Transaksi, Mitra, dll)">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-          <span>Menu Toko</span>
-        </button>
+
 
         <!-- Tombol Pengaturan Toko (Aktif di Toko Distributor) -->
         <button class="btn-store-settings" id="btnOpenStoreSettings" onclick="openStoreSettingsModal()" style="display: none;" title="Ubah Profil, Banner, Nama Toko, Slogan, dan Tema">
@@ -1557,16 +1533,23 @@
 
     <!-- 4.A MODE 1: SHOWCASE RESMI SR12-KU PRO (SR12 OFFICIAL CENTRAL HUB) -->
     <section id="officialCentralHubHero" class="official-central-hub-hero">
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 24px;">
-        <div style="flex: 1; min-width: 280px;">
-          <span class="central-hub-header-badge">🌐 SR12-KU PRO &bull; SR12 OFFICIAL CENTRAL HUB</span>
-          <h2 class="central-hub-title" id="centralHubTitleDisplay">SR12-Ku Pro</h2>
-          <p class="central-hub-subtitle" id="centralHubSubtitleDisplay" style="margin-bottom: 0;">
-            SR12 Official Central Hub &bull; Pusat pasokan &amp; jaringan kemitraan resmi produk SR12 Herbal Skin Care se-Indonesia. Silakan pilih Toko Distributor atau Agen terdekat di kota Anda untuk berbelanja produk asli SR12.
-          </p>
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 18px; margin-bottom: 24px;">
+        <div style="display: flex; align-items: center; gap: 18px; flex: 1; min-width: 280px;">
+          <div style="width: 76px; height: 76px; border-radius: 50%; background: #ffffff; padding: 5px; border: 2.5px solid #34d399; box-shadow: 0 6px 20px rgba(0,0,0,0.3); flex-shrink: 0; display: flex; align-items: center; justify-content: center; cursor: pointer;" onclick="handleSecretStoreLogoTap(event)" ondblclick="handleSecretStoreLogoDblClick(event)" title="SR12 Official Central Hub">
+            <img src="assets/sr12-logo.png" alt="Logo SR12-Ku Pro" style="width: 100%; height: 100%; object-fit: contain; border-radius: 50%;">
+          </div>
+          <div>
+            <h1 class="central-hub-title" id="centralHubTitleDisplay" style="margin: 0; font-size: 2rem; font-weight: 900; color: #ffffff; letter-spacing: -0.5px; line-height: 1.15;">SR12-Ku Pro</h1>
+            <div style="font-size: 1rem; font-weight: 800; color: #fde68a; margin-top: 3px; display: flex; align-items: center; gap: 6px;">
+              <span>🏛️ SR12 Official Central Hub</span>
+            </div>
+            <p class="central-hub-subtitle" id="centralHubSubtitleDisplay" style="margin: 4px 0 0 0; font-size: 0.84rem; color: #e2e8f0; line-height: 1.4;">
+              Pusat pasokan &amp; direktori jaringan kemitraan resmi produk SR12 Herbal Skin Care se-Indonesia. Silakan pilih Toko Distributor atau Agen terdekat di kota Anda untuk berbelanja produk asli SR12.
+            </p>
+          </div>
         </div>
-        <div style="background: rgba(255,255,255,0.12); border: 1.5px solid rgba(255,255,255,0.28); border-radius: 12px; padding: 12px 20px; text-align: center; min-width: 150px; align-self: flex-start; box-shadow: 0 4px 16px rgba(0,0,0,0.2); backdrop-filter: blur(6px); margin-bottom: 8px;">
-          <div style="font-size: 0.72rem; color: #a7f3d0; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px;">Status Operasional:</div>
+        <div style="background: rgba(255,255,255,0.12); border: 1.5px solid rgba(255,255,255,0.28); border-radius: 12px; padding: 12px 20px; text-align: center; min-width: 145px; box-shadow: 0 4px 16px rgba(0,0,0,0.2); backdrop-filter: blur(6px);">
+          <div style="font-size: 0.7rem; color: #a7f3d0; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px;">Status Operasional:</div>
           <div style="font-size: 1.05rem; font-weight: 900; color: #fde68a; margin: 2px 0;">🟢 CENTRAL HUB LIVE</div>
           <div style="font-size: 0.7rem; color: #cbd5e1;">Pusat Pasokan Resmi</div>
         </div>
@@ -1836,11 +1819,7 @@
           </select>
         </div>
 
-        <!-- Tombol Buka Menu Toko / Dashboard Admin (Hanya muncul saat Admin Mode) -->
-        <button id="btnOpenDashboardFromCatalog" onclick="showDistributorPortalView(true); openOlseraSidebarDrawer();" style="display: none; background: #065f46; color: #fff; border: none; padding: 10px 16px; border-radius: var(--radius-md); font-weight: 700; font-size: 0.85rem; cursor: pointer; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(6,95,70,0.3);" title="Buka Dashboard Admin &amp; Menu Toko (Kasir, Transaksi, Mitra, dll)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-          <span>Menu Toko</span>
-        </button>
+
 
         <!-- Tombol Tambah Produk Baru (Hanya muncul saat Admin Mode) -->
         <button id="btnOpenAddProduct" style="display: none; background: var(--primary-800); color: #fff; border: none; padding: 10px 16px; border-radius: var(--radius-md); font-weight: 700; font-size: 0.85rem; cursor: pointer;">
@@ -1864,11 +1843,7 @@
           <button type="button" class="chip-btn reward-scope-chip" data-scope="toko">🎁 Promo Toko</button>
         </div>
 
-        <!-- Tombol Menu Toko di Katalog Hadiah (Hanya Muncul untuk Pemilik Toko / Admin) -->
-        <button id="btnOpenDashboardFromRewards" type="button" onclick="showDistributorPortalView(true); openOlseraSidebarDrawer();" style="display: none; background: #065f46; color: #fff; border: none; padding: 7px 14px; border-radius: var(--radius-md); font-weight: 700; font-size: 0.8rem; cursor: pointer; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(6,95,70,0.25);" title="Buka Dashboard Admin &amp; Menu Toko">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-          <span>Menu Toko</span>
-        </button>
+
 
         <!-- Tombol Buat Promo Toko Baru (Hanya Muncul untuk Pemilik Toko / Admin) -->
         <button id="btnOpenAddPromo" type="button" class="btn-create-promo-header" onclick="openAddPromoModal()" style="display: none;">
@@ -5319,9 +5294,9 @@
 
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=16.7"></script>
-  <script src="js/data.js?v=16.7"></script>
-  <script src="js/app.js?v=16.7"></script>
-  <script src="js/olsera-suite.js?v=16.7"></script>
+  <script src="js/supabase-config.js?v=16.8"></script>
+  <script src="js/data.js?v=16.8"></script>
+  <script src="js/app.js?v=16.8"></script>
+  <script src="js/olsera-suite.js?v=16.8"></script>
 </body>
 </html>

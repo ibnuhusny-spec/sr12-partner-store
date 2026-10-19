@@ -267,31 +267,25 @@ function showDistributorPortalView(showPortal) {
     }
 
     if (storefront) storefront.style.display = 'block';
-    if (siteHeader) siteHeader.style.display = currentIsCentral ? 'block' : 'none';
+    if (siteHeader) siteHeader.style.display = 'none';
     if (tierBanner) tierBanner.style.display = 'none';
-    if (platformTopbar) platformTopbar.style.display = currentIsCentral ? 'block' : 'none';
+    if (platformTopbar) platformTopbar.style.display = 'none';
 
-    // Preview Strip untuk distributor saat meninjau etalase Customer Facing Display (HANYA MUNCUL DI TOKO DISTRIBUTOR, TIDAK DI CENTRAL HUB)
-    if (previewStrip) {
-      previewStrip.style.display = (isLoggedDistributor && !currentIsCentral) ? 'flex' : 'none';
-      const nameEl = document.getElementById('previewStripDistName');
-      if (nameEl) {
-        nameEl.textContent = (appState.storeSettings && appState.storeSettings.storeName) || 'Toko Mitra';
-      }
-    }
+    // Preview Strip dimatikan total agar etalase bersih untuk pembeli
+    if (previewStrip) previewStrip.style.display = 'none';
     if (devStrip) devStrip.style.display = (typeof appState !== 'undefined' && appState.isDevMasterLoggedIn) ? 'flex' : 'none';
 
-    // Matikan tombol floating & header menu agar TIDAK TERJADI TOMBOL GANDA (sudah ada di previewStrip dan toolbar)
+    // Matikan tombol floating & header menu agar etalase pembeli bersih
     const btnFloat = document.getElementById('btnFloatingAdminMenu');
     if (btnFloat) btnFloat.style.display = 'none';
     const btnHeaderMenu = document.getElementById('btnHeaderAdminMenu');
     if (btnHeaderMenu) btnHeaderMenu.style.display = 'none';
 
-    // Pastikan tombol Menu Toko di toolbar katalog & hadiah muncul untuk distributor
+    // Matikan tombol Menu Toko di toolbar katalog & hadiah
     const btnCatMenu = document.getElementById('btnOpenDashboardFromCatalog');
-    if (btnCatMenu) btnCatMenu.style.display = (isLoggedDistributor && !currentIsCentral) ? 'inline-flex' : 'none';
+    if (btnCatMenu) btnCatMenu.style.display = 'none';
     const btnRewardMenu = document.getElementById('btnOpenDashboardFromRewards');
-    if (btnRewardMenu) btnRewardMenu.style.display = (isLoggedDistributor && !currentIsCentral) ? 'inline-flex' : 'none';
+    if (btnRewardMenu) btnRewardMenu.style.display = 'none';
 
     // Pastikan etalase katalog toko pembeli langsung tampil di toko distributor
     if (!currentIsCentral) {
@@ -362,13 +356,7 @@ function openCustomerFacingDisplay() {
     if (portal) portal.style.display = 'none';
 
     const previewStrip = document.getElementById('distributorPreviewStrip');
-    if (previewStrip) {
-      previewStrip.style.display = 'flex';
-      const nameEl = document.getElementById('previewStripDistName');
-      if (nameEl) {
-        nameEl.textContent = (appState.storeSettings && appState.storeSettings.storeName) || 'Toko Mitra';
-      }
-    }
+    if (previewStrip) previewStrip.style.display = 'none';
 
     if (typeof updateViewModeUI === 'function') updateViewModeUI();
     if (typeof renderProducts === 'function') renderProducts();
