@@ -137,11 +137,17 @@ function showDistributorPortalView(showPortal) {
   }
   try {
     if (showPortal) {
+      localStorage.setItem('sr12_current_view', 'portal');
       localStorage.setItem('sr12_active_view_mode', 'portal');
     } else {
+      localStorage.setItem('sr12_current_view', 'storefront');
       localStorage.setItem('sr12_active_view_mode', 'storefront');
       if (window.location.hash) {
-        history.replaceState(null, '', window.location.pathname + window.location.search);
+        const h = window.location.hash.toLowerCase().replace('#', '');
+        const validOlsera = ['pos', 'transactions', 'inventory', 'cashflow', 'reports', 'mitra', 'pending', 'marketer', 'settings'];
+        if (validOlsera.includes(h)) {
+          history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
       }
     }
   } catch (e) {}
@@ -217,10 +223,14 @@ function showDistributorPortalView(showPortal) {
 
     // Refresh data nama toko, kuota, logo, dan hitungan badge
     updateOlseraHeaderMeta();
-    // Langsung masuk ke Menu Point of Sale (POS)
-    const currentTab = (typeof appState !== 'undefined' && appState.activeOlseraTab && appState.activeOlseraTab !== 'dashboard')
-      ? appState.activeOlseraTab
-      : 'pos';
+    // Tentukan tab Olsera yang harus dibuka
+    const hashTab = (window.location.hash ? window.location.hash.replace('#', '').toLowerCase() : '');
+    const validOlsera = ['pos', 'transactions', 'inventory', 'cashflow', 'reports', 'mitra', 'pending', 'marketer', 'settings'];
+    const currentTab = (validOlsera.includes(hashTab))
+      ? hashTab
+      : ((typeof appState !== 'undefined' && appState.activeOlseraTab && appState.activeOlseraTab !== 'dashboard')
+          ? appState.activeOlseraTab
+          : (localStorage.getItem('sr12_active_olsera_tab') || 'pos'));
     if (typeof switchOlseraTab === 'function') {
       switchOlseraTab(currentTab);
     }
@@ -1218,6 +1228,8 @@ function switchOlseraTab(tabId) {
   }
   try {
     localStorage.setItem('sr12_active_olsera_tab', tabId);
+    localStorage.setItem('sr12_current_view', 'portal');
+    localStorage.setItem('sr12_active_view_mode', 'portal');
     if (window.location.hash !== '#' + tabId) {
       history.replaceState(null, '', window.location.pathname + window.location.search + '#' + tabId);
     }

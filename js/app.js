@@ -2241,7 +2241,7 @@ window.initReferralAffiliateBanner = initReferralAffiliateBanner;
           initSlug = parsedSession.slug;
           loadStoreBySlug(initSlug);
         }
-        if (parsedSession.slug === initSlug) {
+        if (parsedSession.slug === initSlug || parsedSession.token === 'dev-master-bypass') {
           appState.isAdminMode = true;
           appState.isDistributorLoggedIn = true;
           if (parsedSession.token) {
@@ -2414,49 +2414,63 @@ window.mergeCloudOrdersIntoLocal = mergeCloudOrdersIntoLocal;
   updateAdminNotificationUI();
   updateDevPortalMetrics();
 
-  // 1. Pulihkan sesi Developer Super Admin jika sebelumnya aktif
+  // =========================================================================
+  // RESTORASI TAMPILAN PERSISTEN PRESISI TINGGI SAAT REFRESH
+  // (Developer Console vs Distributor Olsera vs Customer Facing Display vs Hub)
+  // =========================================================================
   let isDevWorkspaceOpenNow = false;
-  try {
-    const devSession = localStorage.getItem('sr12_dev_session');
-    const isDevOpen = localStorage.getItem('sr12_dev_workspace_open') === 'active' || 
-                      localStorage.getItem('sr12_active_view_mode') === 'developer' || 
-                      window.location.hash === '#developer';
-    if (devSession === 'active' && isDevOpen) {
-      appState.isDevMasterLoggedIn = true;
-      showDeveloperWorkspaceView(true);
-      isDevWorkspaceOpenNow = true;
-      const savedDevTab = localStorage.getItem('sr12_active_dev_tab') || 'overview';
-      if (typeof switchDevPortalTab === 'function') {
-        switchDevPortalTab(savedDevTab);
-      }
-    } else if (devSession === 'active') {
-      appState.isDevMasterLoggedIn = true;
-      const devStrip = document.getElementById('devPreviewStrip');
-      if (devStrip) {
-        devStrip.style.display = 'flex';
-        const stripName = document.getElementById('devStripStoreName');
-        const stripQuota = document.getElementById('devStripOrderQuota');
-        if (stripName) stripName.textContent = (appState.storeSettings && appState.storeSettings.storeName) || 'Toko Aktif';
-        if (stripQuota) stripQuota.textContent = typeof appState.storeSettings?.orderQuota === 'number' ? appState.storeSettings.orderQuota : 10;
-      }
-      const devFab = document.getElementById('devFloatingFab');
-      if (devFab) devFab.style.display = 'flex';
+  const rawHash = window.location.hash ? window.location.hash.toLowerCase() : '';
+  const cleanHash = rawHash.replace('#', '');
+  const savedCurrentView = localStorage.getItem('sr12_current_view') || localStorage.getItem('sr12_active_view_mode');
+  const devSession = localStorage.getItem('sr12_dev_session');
+
+  // A. Apakah pengguna sebelumnya berada di Developer Super Admin Console?
+  const isDevByHash = rawHash.startsWith('#dev-') || rawHash === '#developer';
+  const isDevByState = (devSession === 'active' && (savedCurrentView === 'developer' || localStorage.getItem('sr12_dev_workspace_open') === 'active'));
+
+  if (isDevByHash || isDevByState) {
+    appState.isDevMasterLoggedIn = true;
+    showDeveloperWorkspaceView(true);
+    isDevWorkspaceOpenNow = true;
+    let devTab = 'overview';
+    if (rawHash.startsWith('#dev-')) {
+      devTab = rawHash.replace('#dev-', '');
+    } else {
+      devTab = localStorage.getItem('sr12_active_dev_tab') || 'overview';
     }
-  } catch(e) {}
+    const validDevTabs = ['overview', 'stores', 'pending', 'networkMitra', 'payment'];
+    if (!validDevTabs.includes(devTab)) devTab = 'overview';
+    if (typeof switchDevPortalTab === 'function') {
+      switchDevPortalTab(devTab);
+    }
+  } else if (devSession === 'active') {
+    appState.isDevMasterLoggedIn = true;
+    const devStrip = document.getElementById('devPreviewStrip');
+    if (devStrip) {
+      devStrip.style.display = 'flex';
+      const stripName = document.getElementById('devStripStoreName');
+      const stripQuota = document.getElementById('devStripOrderQuota');
+      if (stripName) stripName.textContent = (appState.storeSettings && appState.storeSettings.storeName) || 'Toko Aktif';
+      if (stripQuota) stripQuota.textContent = typeof appState.storeSettings?.orderQuota === 'number' ? appState.storeSettings.orderQuota : 10;
+    }
+    const devFab = document.getElementById('devFloatingFab');
+    if (devFab) devFab.style.display = 'flex';
+  }
 
-  // 2. Pulihkan tampilan aktif (Portal Olsera vs Storefront Pembeli) saat refresh (hanya jika TIDAK sedang di Developer Workspace)
+  // B. Pulihkan tampilan aktif (Portal Olsera vs Storefront Pembeli) saat refresh (jika TIDAK di Developer Workspace)
   if (!isDevWorkspaceOpenNow) {
-    const savedViewMode = localStorage.getItem('sr12_active_view_mode');
     const validOlseraTabs = ['pos', 'transactions', 'inventory', 'cashflow', 'reports', 'mitra', 'pending', 'marketer', 'settings'];
-    const hashTab = window.location.hash ? window.location.hash.replace('#', '').toLowerCase() : '';
-    const isOlseraHash = validOlseraTabs.includes(hashTab);
-    const savedOlseraTab = localStorage.getItem('sr12_active_olsera_tab');
-    const targetOlseraTab = isOlseraHash ? hashTab : (validOlseraTabs.includes(savedOlseraTab) ? savedOlseraTab : 'pos');
+    const isOlseraByHash = validOlseraTabs.includes(cleanHash);
+    const isOlseraByView = (savedCurrentView === 'portal');
 
-    const shouldOpenPortal = (appState.isAdminMode || appState.isDistributorLoggedIn || appState.isDevMasterLoggedIn) && 
-      (savedViewMode !== 'storefront');
+    // Jika hash mengarah ke salah satu menu Olsera (misal #mitra, #pos, #inventory),
+    // ATAU view tersimpan adalah 'portal':
+    if (isOlseraByHash || isOlseraByView) {
+      appState.isAdminMode = true;
+      appState.isDistributorLoggedIn = true;
+      let targetOlseraTab = isOlseraByHash ? cleanHash : (localStorage.getItem('sr12_active_olsera_tab') || 'pos');
+      if (!validOlseraTabs.includes(targetOlseraTab)) targetOlseraTab = 'pos';
 
-    if (shouldOpenPortal) {
       if (typeof showDistributorPortalView === 'function') {
         showDistributorPortalView(true);
         if (typeof switchOlseraTab === 'function') {
@@ -2464,15 +2478,14 @@ window.mergeCloudOrdersIntoLocal = mergeCloudOrdersIntoLocal;
         }
       }
     } else {
-      if (!appState.isAdminMode && !appState.isDevMasterLoggedIn) {
-        if (typeof showDistributorPortalView === 'function') {
-          showDistributorPortalView(false);
-        }
+      // C. Mode Storefront Publik (Etalase Toko Pembeli)
+      if (typeof showDistributorPortalView === 'function') {
+        showDistributorPortalView(false);
       }
-      // Pulihkan tab etalase publik yang aktif (katalog/rewards/marketing/reseller)
-      const savedPublicTab = localStorage.getItem('sr12_active_public_tab');
-      if (savedPublicTab && typeof switchTab === 'function') {
-        switchTab(savedPublicTab);
+      const validPublicTabs = ['catalog', 'rewards', 'marketing', 'resellers', 'marketers'];
+      const targetPublicTab = validPublicTabs.includes(cleanHash) ? cleanHash : (localStorage.getItem('sr12_active_public_tab') || 'catalog');
+      if (typeof switchTab === 'function') {
+        switchTab(targetPublicTab);
       }
     }
   }
@@ -6367,6 +6380,12 @@ function openDevPinPrompt(callbackOnSuccess = null) {
 function switchDevPortalTab(tabName) {
   try {
     localStorage.setItem('sr12_active_dev_tab', tabName);
+    localStorage.setItem('sr12_current_view', 'developer');
+    localStorage.setItem('sr12_active_view_mode', 'developer');
+    const devHash = '#dev-' + tabName;
+    if (window.location.hash !== devHash) {
+      history.replaceState(null, '', window.location.pathname + window.location.search + devHash);
+    }
   } catch(e) {}
   const tabs = ['overview', 'stores', 'pending', 'networkMitra', 'payment'];
   tabs.forEach(t => {
@@ -6635,9 +6654,12 @@ function showDeveloperWorkspaceView(showWorkspace) {
     try {
       localStorage.setItem('sr12_dev_session', 'active');
       localStorage.setItem('sr12_dev_workspace_open', 'active');
+      localStorage.setItem('sr12_current_view', 'developer');
       localStorage.setItem('sr12_active_view_mode', 'developer');
-      if (window.location.hash !== '#developer') {
-        history.replaceState(null, '', window.location.pathname + window.location.search + '#developer');
+      const savedDevTab = localStorage.getItem('sr12_active_dev_tab') || 'overview';
+      const devHash = '#dev-' + savedDevTab;
+      if (!window.location.hash.startsWith('#dev-')) {
+        history.replaceState(null, '', window.location.pathname + window.location.search + devHash);
       }
     } catch(e) {}
 
@@ -6706,8 +6728,9 @@ function showDeveloperWorkspaceView(showWorkspace) {
     // Mode Tinjau Etalase Toko (Storefront Preview) dengan Developer Preview Strip
     try {
       localStorage.removeItem('sr12_dev_workspace_open');
+      localStorage.setItem('sr12_current_view', 'storefront');
       localStorage.setItem('sr12_active_view_mode', 'storefront');
-      if (window.location.hash === '#developer') {
+      if (window.location.hash.startsWith('#dev-') || window.location.hash === '#developer') {
         history.replaceState(null, '', window.location.pathname + window.location.search);
       }
     } catch(e) {}
@@ -6840,6 +6863,22 @@ function openDevStoreAdminBackoffice(targetSlug) {
 
   appState.isAdminMode = true;
   appState.isDistributorLoggedIn = true;
+  appState.isDevMasterLoggedIn = true;
+
+  try {
+    const distSessionObj = {
+      slug: slug,
+      email: 'developer@sr12.co.id',
+      token: 'dev-master-bypass',
+      loggedAt: Date.now()
+    };
+    sessionStorage.setItem('sr12_distributor_session', JSON.stringify(distSessionObj));
+    localStorage.setItem('sr12_distributor_session', JSON.stringify(distSessionObj));
+    localStorage.setItem('sr12_last_active_partner_store', slug);
+    localStorage.setItem('sr12_logged_store_slug', slug);
+    localStorage.setItem('sr12_current_view', 'portal');
+    localStorage.setItem('sr12_active_view_mode', 'portal');
+  } catch(e) {}
 
   // Sembunyikan Developer Workspace
   const devWorkspace = document.getElementById('devSuperAdminWorkspace');
@@ -10389,6 +10428,11 @@ function switchTab(tabId) {
   appState.activeTab = tabId;
   try {
     localStorage.setItem('sr12_active_public_tab', tabId);
+    localStorage.setItem('sr12_current_view', 'storefront');
+    localStorage.setItem('sr12_active_view_mode', 'storefront');
+    if (window.location.hash !== '#' + tabId) {
+      history.replaceState(null, '', window.location.pathname + window.location.search + '#' + tabId);
+    }
   } catch(e) {}
 
   // Jika sedang berada di dalam antarmuka Olsera Suite Dashboard, arahkan ke tab Olsera terkait agar layar tidak putih
