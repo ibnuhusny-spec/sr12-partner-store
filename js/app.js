@@ -711,14 +711,33 @@ function quickApproveFromPendingModal() {
 }
 
 function getInitialStoreSlug(stores) {
+  // 1. Cek parameter URL (?store=...)
   const params = new URLSearchParams(window.location.search);
   const storeParam = params.get('store');
-  if (storeParam) {
-    const matched = (stores || []).find(s => s.slug === storeParam);
+  if (storeParam && storeParam.trim()) {
+    const cleanParam = storeParam.trim();
+    const matched = (stores || []).find(s => s.slug === cleanParam);
     if (matched) return matched.slug;
-    // Pertahankan parameter store dari URL agar tidak ter-reset saat boot awal sebelum Supabase selesai
-    return storeParam;
+    return cleanParam;
   }
+
+  // 2. Cek sesi login distributor yang sedang aktif
+  try {
+    const distSession = sessionStorage.getItem('sr12_distributor_session') || localStorage.getItem('sr12_distributor_session');
+    if (distSession) {
+      const parsed = JSON.parse(distSession);
+      if (parsed && parsed.slug) return parsed.slug;
+    }
+  } catch(e) {}
+
+  // 3. Cek toko terakhir yang aktif dibuka
+  try {
+    const lastActive = localStorage.getItem('sr12_last_active_partner_store') || localStorage.getItem('sr12_logged_store_slug');
+    if (lastActive && lastActive.trim()) {
+      return lastActive.trim();
+    }
+  } catch(e) {}
+
   return 'sr12-central';
 }
 
@@ -2204,14 +2223,12 @@ window.initReferralAffiliateBanner = initReferralAffiliateBanner;
     appState.activeReferralMarketer = '';
   }
 
-  // CATATAN PENTING: JANGAN PERNAH menghapus parameter produk (?product=...) agar deep-link link promosi selalu terbuka sempurna!
+  // CATATAN PENTING: JANGAN PERNAH menghapus parameter produk (?product=...) atau hash halaman (#developer) agar link selalu terbuka sempurna!
   if (bootParamsChanged) {
-    window.history.replaceState({ store: initSlug }, '', window.location.pathname + '?' + bootParams.toString());
+    window.history.replaceState({ store: initSlug }, '', window.location.pathname + '?' + bootParams.toString() + (window.location.hash || ''));
   }
 
-  // DEFAULT: Selalu mulai dari MODE PEMBELI UMUM (BERSIH) saat membuka tautan toko!
-  // Mode Pemilik Toko hanya aktif jika pemilik secara eksplisit login di tab ini (sessionStorage)
-  // atau secara eksplisit meminta mode admin lewat ?admin=1
+  // Sesi Toko Distributor: Pertahankan status login dan toko distributor saat refresh
   const urlParamsCheck = new URLSearchParams(window.location.search);
   const wantsAdmin = urlParamsCheck.get('admin') === '1' || urlParamsCheck.get('mode') === 'admin';
   const savedDistributorSession = sessionStorage.getItem('sr12_distributor_session') || localStorage.getItem('sr12_distributor_session');
@@ -2219,31 +2236,30 @@ window.initReferralAffiliateBanner = initReferralAffiliateBanner;
   if (savedDistributorSession) {
     try {
       const parsedSession = JSON.parse(savedDistributorSession);
-      if (parsedSession && parsedSession.slug === initSlug) {
-        appState.isAdminMode = true;
-        appState.isDistributorLoggedIn = true;
-        if (parsedSession.token) {
-          appState.distSessionToken = parsedSession.token;
-        } else {
-          const authV2 = sessionStorage.getItem('sr12_auth_session_v2') || localStorage.getItem('sr12_auth_session_v2');
-          if (authV2) {
-            try {
-              const pV2 = JSON.parse(authV2);
-              if (pV2 && pV2.token) appState.distSessionToken = pV2.token;
-            } catch(e2) {}
+      if (parsedSession && parsedSession.slug) {
+        if (initSlug !== parsedSession.slug && !urlParamsCheck.has('store')) {
+          initSlug = parsedSession.slug;
+          loadStoreBySlug(initSlug);
+        }
+        if (parsedSession.slug === initSlug) {
+          appState.isAdminMode = true;
+          appState.isDistributorLoggedIn = true;
+          if (parsedSession.token) {
+            appState.distSessionToken = parsedSession.token;
+          } else {
+            const authV2 = sessionStorage.getItem('sr12_auth_session_v2') || localStorage.getItem('sr12_auth_session_v2');
+            if (authV2) {
+              try {
+                const pV2 = JSON.parse(authV2);
+                if (pV2 && pV2.token) appState.distSessionToken = pV2.token;
+              } catch(e2) {}
+            }
           }
         }
-      } else {
-        appState.isAdminMode = false;
-        appState.isDistributorLoggedIn = false;
       }
     } catch(e) {
-      appState.isAdminMode = false;
-      appState.isDistributorLoggedIn = false;
+      console.warn('Restore distributor session notice:', e);
     }
-  } else {
-    appState.isAdminMode = false;
-    appState.isDistributorLoggedIn = false;
   }
 
   renderStoreDropdown();
@@ -2402,28 +2418,29 @@ window.mergeCloudOrdersIntoLocal = mergeCloudOrdersIntoLocal;
   let isDevWorkspaceOpenNow = false;
   try {
     const devSession = localStorage.getItem('sr12_dev_session');
-    const isDevOpen = localStorage.getItem('sr12_dev_workspace_open') === 'active' || window.location.hash === '#developer';
-    if (devSession === 'active') {
+    const isDevOpen = localStorage.getItem('sr12_dev_workspace_open') === 'active' || 
+                      localStorage.getItem('sr12_active_view_mode') === 'developer' || 
+                      window.location.hash === '#developer';
+    if (devSession === 'active' && isDevOpen) {
       appState.isDevMasterLoggedIn = true;
-      if (isDevOpen) {
-        showDeveloperWorkspaceView(true);
-        isDevWorkspaceOpenNow = true;
-        const savedDevTab = localStorage.getItem('sr12_active_dev_tab') || 'overview';
-        if (typeof switchDevPortalTab === 'function') {
-          switchDevPortalTab(savedDevTab);
-        }
-      } else {
-        const devStrip = document.getElementById('devPreviewStrip');
-        if (devStrip) {
-          devStrip.style.display = 'flex';
-          const stripName = document.getElementById('devStripStoreName');
-          const stripQuota = document.getElementById('devStripOrderQuota');
-          if (stripName) stripName.textContent = (appState.storeSettings && appState.storeSettings.storeName) || 'Toko Aktif';
-          if (stripQuota) stripQuota.textContent = typeof appState.storeSettings?.orderQuota === 'number' ? appState.storeSettings.orderQuota : 10;
-        }
-        const devFab = document.getElementById('devFloatingFab');
-        if (devFab) devFab.style.display = 'flex';
+      showDeveloperWorkspaceView(true);
+      isDevWorkspaceOpenNow = true;
+      const savedDevTab = localStorage.getItem('sr12_active_dev_tab') || 'overview';
+      if (typeof switchDevPortalTab === 'function') {
+        switchDevPortalTab(savedDevTab);
       }
+    } else if (devSession === 'active') {
+      appState.isDevMasterLoggedIn = true;
+      const devStrip = document.getElementById('devPreviewStrip');
+      if (devStrip) {
+        devStrip.style.display = 'flex';
+        const stripName = document.getElementById('devStripStoreName');
+        const stripQuota = document.getElementById('devStripOrderQuota');
+        if (stripName) stripName.textContent = (appState.storeSettings && appState.storeSettings.storeName) || 'Toko Aktif';
+        if (stripQuota) stripQuota.textContent = typeof appState.storeSettings?.orderQuota === 'number' ? appState.storeSettings.orderQuota : 10;
+      }
+      const devFab = document.getElementById('devFloatingFab');
+      if (devFab) devFab.style.display = 'flex';
     }
   } catch(e) {}
 
@@ -2443,7 +2460,7 @@ window.mergeCloudOrdersIntoLocal = mergeCloudOrdersIntoLocal;
       if (typeof showDistributorPortalView === 'function') {
         showDistributorPortalView(true);
         if (typeof switchOlseraTab === 'function') {
-          switchOlseraTab('pos');
+          switchOlseraTab(targetOlseraTab);
         }
       }
     } else {
@@ -2481,6 +2498,17 @@ function loadStoreBySlug(slug) {
   const found = appState.partnerStores.find(s => s.slug === slug) || appState.partnerStores[0];
   appState.currentStoreSlug = found.slug;
   appState.storeSettings = Object.assign({}, found);
+  try {
+    localStorage.setItem('sr12_last_active_partner_store', found.slug);
+    const curParams = new URLSearchParams(window.location.search);
+    if (found.slug !== 'sr12-central') {
+      if (curParams.get('store') !== found.slug) {
+        curParams.set('store', found.slug);
+        const newSearch = curParams.toString() ? '?' + curParams.toString() : '';
+        history.replaceState({ store: found.slug }, '', window.location.pathname + newSearch + (window.location.hash || ''));
+      }
+    }
+  } catch(e) {}
   appState.platformFee = parseInt(found.platformFeeAmount || localStorage.getItem('sr12_platform_fee_amount') || 1500, 10);
   applyStoreTheme(found.storeTheme || 'emerald');
   if (typeof updateAllowedTierOptions === 'function') {
@@ -2617,7 +2645,7 @@ function switchPartnerStore(slug, pushHistory = true) {
     switchParams.delete('prod');
     switchParams.delete('id');
     const queryString = switchParams.toString();
-    const newUrl = window.location.pathname + (queryString ? '?' + queryString : '');
+    const newUrl = window.location.pathname + (queryString ? '?' + queryString : '') + (window.location.hash || '');
     window.history.pushState({ store: slug }, '', newUrl);
   }
 
@@ -4954,6 +4982,8 @@ function createSecureAuthSession(email, role, storeSlug, token) {
       };
       sessionStorage.setItem('sr12_distributor_session', JSON.stringify(distSessionObj));
       localStorage.setItem('sr12_distributor_session', JSON.stringify(distSessionObj));
+      localStorage.setItem('sr12_last_active_partner_store', session.storeSlug);
+      localStorage.setItem('sr12_logged_store_slug', session.storeSlug);
       localStorage.setItem(`sr12_dist_token_${session.storeSlug}`, sessionToken);
       if (typeof appState !== 'undefined') {
         appState.distSessionToken = sessionToken;
@@ -5155,6 +5185,8 @@ async function handleDistributorLoginSubmit(e) {
 
     localStorage.setItem('sr12_active_view_mode', 'portal');
     localStorage.setItem('sr12_active_olsera_tab', 'pos');
+    localStorage.setItem('sr12_last_active_partner_store', currentSlug);
+    localStorage.setItem('sr12_logged_store_slug', currentSlug);
     if (typeof showDistributorPortalView === 'function') {
       showDistributorPortalView(true);
       if (typeof switchOlseraTab === 'function') {
@@ -5229,6 +5261,8 @@ async function handleDistributorLoginSubmit(e) {
 
     localStorage.setItem('sr12_active_view_mode', 'portal');
     localStorage.setItem('sr12_active_olsera_tab', 'pos');
+    localStorage.setItem('sr12_last_active_partner_store', currentSlug);
+    localStorage.setItem('sr12_logged_store_slug', currentSlug);
     if (typeof showDistributorPortalView === 'function') {
       showDistributorPortalView(true);
       if (typeof switchOlseraTab === 'function') {
@@ -6601,6 +6635,7 @@ function showDeveloperWorkspaceView(showWorkspace) {
     try {
       localStorage.setItem('sr12_dev_session', 'active');
       localStorage.setItem('sr12_dev_workspace_open', 'active');
+      localStorage.setItem('sr12_active_view_mode', 'developer');
       if (window.location.hash !== '#developer') {
         history.replaceState(null, '', window.location.pathname + window.location.search + '#developer');
       }
@@ -6671,6 +6706,7 @@ function showDeveloperWorkspaceView(showWorkspace) {
     // Mode Tinjau Etalase Toko (Storefront Preview) dengan Developer Preview Strip
     try {
       localStorage.removeItem('sr12_dev_workspace_open');
+      localStorage.setItem('sr12_active_view_mode', 'storefront');
       if (window.location.hash === '#developer') {
         history.replaceState(null, '', window.location.pathname + window.location.search);
       }

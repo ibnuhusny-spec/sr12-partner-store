@@ -1219,7 +1219,7 @@ function switchOlseraTab(tabId) {
   try {
     localStorage.setItem('sr12_active_olsera_tab', tabId);
     if (window.location.hash !== '#' + tabId) {
-      history.replaceState(null, '', '#' + tabId);
+      history.replaceState(null, '', window.location.pathname + window.location.search + '#' + tabId);
     }
   } catch (e) {}
 
