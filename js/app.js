@@ -2421,12 +2421,27 @@ window.mergeCloudOrdersIntoLocal = mergeCloudOrdersIntoLocal;
   let isDevWorkspaceOpenNow = false;
   const rawHash = window.location.hash ? window.location.hash.toLowerCase() : '';
   const cleanHash = rawHash.replace('#', '');
-  const savedCurrentView = localStorage.getItem('sr12_current_view') || localStorage.getItem('sr12_active_view_mode');
-  const devSession = localStorage.getItem('sr12_dev_session');
+  let savedCurrentView = null;
+  let devSession = null;
+  let isExplicitStorefront = false;
+  let savedOlseraTab = 'pos';
+  let savedPublicTab = 'catalog';
+  let isDevOpenStorage = false;
+  let devTabStored = 'overview';
+
+  try {
+    savedCurrentView = localStorage.getItem('sr12_current_view') || localStorage.getItem('sr12_active_view_mode');
+    devSession = localStorage.getItem('sr12_dev_session');
+    isExplicitStorefront = localStorage.getItem('sr12_explicit_storefront_preview') === 'active';
+    savedOlseraTab = localStorage.getItem('sr12_active_olsera_tab') || 'pos';
+    savedPublicTab = localStorage.getItem('sr12_active_public_tab') || 'catalog';
+    isDevOpenStorage = localStorage.getItem('sr12_dev_workspace_open') === 'active';
+    devTabStored = localStorage.getItem('sr12_active_dev_tab') || 'overview';
+  } catch (e) {}
 
   // A. Apakah pengguna sebelumnya berada di Developer Super Admin Console?
   const isDevByHash = rawHash.startsWith('#dev-') || rawHash === '#developer';
-  const isDevByState = (devSession === 'active' && (savedCurrentView === 'developer' || localStorage.getItem('sr12_dev_workspace_open') === 'active'));
+  const isDevByState = (devSession === 'active' && (savedCurrentView === 'developer' || isDevOpenStorage));
 
   if (isDevByHash || isDevByState) {
     appState.isDevMasterLoggedIn = true;
@@ -2436,7 +2451,7 @@ window.mergeCloudOrdersIntoLocal = mergeCloudOrdersIntoLocal;
     if (rawHash.startsWith('#dev-')) {
       devTab = rawHash.replace('#dev-', '');
     } else {
-      devTab = localStorage.getItem('sr12_active_dev_tab') || 'overview';
+      devTab = devTabStored || 'overview';
     }
     const validDevTabs = ['overview', 'stores', 'pending', 'networkMitra', 'payment'];
     if (!validDevTabs.includes(devTab)) devTab = 'overview';
@@ -2462,7 +2477,6 @@ window.mergeCloudOrdersIntoLocal = mergeCloudOrdersIntoLocal;
     const validOlseraTabs = ['pos', 'transactions', 'inventory', 'cashflow', 'reports', 'mitra', 'pending', 'marketer', 'settings'];
     const isOlseraByHash = validOlseraTabs.includes(cleanHash);
     const isOlseraByView = (savedCurrentView === 'portal');
-    const isExplicitStorefront = localStorage.getItem('sr12_explicit_storefront_preview') === 'active';
     const isDistributor = (appState.isDistributorLoggedIn || appState.isAdminMode || !!savedDistributorSession);
 
     // KETIKA DI DALAM MENU TOKO (OLSERA):
@@ -2473,7 +2487,7 @@ window.mergeCloudOrdersIntoLocal = mergeCloudOrdersIntoLocal;
       appState.isDistributorLoggedIn = true;
       appState.isOlseraPortalOpen = true;
 
-      let targetOlseraTab = isOlseraByHash ? cleanHash : (localStorage.getItem('sr12_active_olsera_tab') || 'pos');
+      let targetOlseraTab = isOlseraByHash ? cleanHash : (savedOlseraTab || 'pos');
       if (!validOlseraTabs.includes(targetOlseraTab)) targetOlseraTab = 'pos';
 
       if (typeof showDistributorPortalView === 'function') {
@@ -2488,7 +2502,7 @@ window.mergeCloudOrdersIntoLocal = mergeCloudOrdersIntoLocal;
         showDistributorPortalView(false);
       }
       const validPublicTabs = ['catalog', 'rewards', 'marketing', 'resellers', 'marketers'];
-      const targetPublicTab = validPublicTabs.includes(cleanHash) ? cleanHash : (localStorage.getItem('sr12_active_public_tab') || 'catalog');
+      const targetPublicTab = validPublicTabs.includes(cleanHash) ? cleanHash : (savedPublicTab || 'catalog');
       if (typeof switchTab === 'function') {
         switchTab(targetPublicTab);
       }
@@ -6852,29 +6866,31 @@ function handleDeveloperLogout() {
   showToast('🔒 Sesi Developer Super Admin Telah Berakhir.');
 }
 
-// Buka Backoffice Olsera Toko Mana Saja dengan Akses Super Admin Developer
 function openDevStoreAdminBackoffice(targetSlug) {
-  if (targetSlug && targetSlug !== appState.currentStoreSlug) {
-    loadStoreBySlug(targetSlug);
+  const actualSlug = targetSlug || appState.currentStoreSlug || (appState.storeSettings && appState.storeSettings.slug) || 'sr12-central';
+  if (actualSlug && actualSlug !== appState.currentStoreSlug) {
+    loadStoreBySlug(actualSlug);
   }
 
   appState.isAdminMode = true;
   appState.isDistributorLoggedIn = true;
   appState.isDevMasterLoggedIn = true;
+  appState.isOlseraPortalOpen = true;
 
   try {
     const distSessionObj = {
-      slug: slug,
+      slug: actualSlug,
       email: 'developer@sr12.co.id',
       token: 'dev-master-bypass',
       loggedAt: Date.now()
     };
     sessionStorage.setItem('sr12_distributor_session', JSON.stringify(distSessionObj));
     localStorage.setItem('sr12_distributor_session', JSON.stringify(distSessionObj));
-    localStorage.setItem('sr12_last_active_partner_store', slug);
-    localStorage.setItem('sr12_logged_store_slug', slug);
+    localStorage.setItem('sr12_last_active_partner_store', actualSlug);
+    localStorage.setItem('sr12_logged_store_slug', actualSlug);
     localStorage.setItem('sr12_current_view', 'portal');
     localStorage.setItem('sr12_active_view_mode', 'portal');
+    localStorage.removeItem('sr12_explicit_storefront_preview');
   } catch(e) {}
 
   // Sembunyikan Developer Workspace
@@ -13553,6 +13569,30 @@ function renderResellers() {
     `).join('');
     return;
   }
+
+  const filter = appState.selectedMitraFilter || 'all';
+  const q = (appState.resellerSearchQuery || '').toLowerCase().trim();
+
+  const filtered = evaluatedList.filter(m => {
+    let matchType = false;
+    if (filter === 'all') matchType = true;
+    else if (filter === 'reseller_active') matchType = m.tier === 'reseller' && m.state === 'active';
+    else if (filter === 'reseller_grace') matchType = m.tier === 'reseller' && (m.state === 'grace' || m.state === 'inactive');
+    else if (filter === 'sub_agen') matchType = m.tier === 'sub_agen';
+    else if (filter === 'agen') matchType = m.tier === 'agen';
+    else if (filter === 'marketer') matchType = m.tier === 'marketer';
+    else if (filter === 'eligible_upgrade') matchType = m.progression && m.progression.isEligible;
+    else matchType = m.tier === filter;
+
+    const matchQuery = !q ||
+      (m.name && m.name.toLowerCase().includes(q)) ||
+      (m.id && m.id.toLowerCase().includes(q)) ||
+      (m.partner_code && m.partner_code.toLowerCase().includes(q)) ||
+      (m.phone && m.phone.includes(q)) ||
+      (m.city && m.city.toLowerCase().includes(q));
+
+    return matchType && matchQuery;
+  });
 
   if (filtered.length === 0) {
     tbody.innerHTML = `
