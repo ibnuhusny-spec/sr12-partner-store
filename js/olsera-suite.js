@@ -2670,18 +2670,31 @@ function renderCashflowTable() {
     appState.cashflow = (typeof getStoredCashflow === 'function') ? getStoredCashflow(curSlug) : [];
   }
 
-  // 1. Bersihkan otomatis catatan kas pesanan yang transaksinya sudah dihapus / dinolkan
+  // 1. Bersihkan otomatis catatan kas pesanan yang transaksinya sudah dihapus / dinolkan, serta ghost test data
   if (Array.isArray(appState.cashflow) && appState.cashflow.length > 0) {
     const validTrxIds = new Set((appState.transactions || []).map(t => t.id).filter(Boolean));
+    const ghostIds = new Set(['CSH-1792391940433-4560', 'CSH-1792391933362-1694', 'CSH-1792412735057-8961', 'CSH-1792412721972-8355']);
     const initialLen = appState.cashflow.length;
-    appState.cashflow = appState.cashflow.filter(c => {
-      if (!c.notes) return true;
-      const orderMatch = c.notes.match(/ORD-[A-Z0-9-]+/);
-      if (orderMatch) {
-        return validTrxIds.has(orderMatch[0]);
+    const seenIds = new Set();
+    const cleanedList = [];
+
+    appState.cashflow.forEach(c => {
+      if (!c) return;
+      if (ghostIds.has(c.id)) return;
+      const uid = c.id || `${c.date}_${c.type}_${c.account}_${c.amount}_${c.notes}`;
+      if (seenIds.has(uid)) return; // Cegah duplikasi ID
+
+      if (c.notes) {
+        const orderMatch = c.notes.match(/ORD-[A-Z0-9-]+/);
+        if (orderMatch && !validTrxIds.has(orderMatch[0])) {
+          return; // Skip jika order sudah dihapus
+        }
       }
-      return true; // Catatan kas operasional manual (bukan pesanan) tetap dipertahankan
+      seenIds.add(uid);
+      cleanedList.push(c);
     });
+
+    appState.cashflow = cleanedList;
     if (appState.cashflow.length !== initialLen && typeof saveStoredCashflow === 'function') {
       saveStoredCashflow(appState.cashflow, curSlug);
     }
@@ -2691,7 +2704,12 @@ function renderCashflowTable() {
   if (Array.isArray(appState.transactions) && appState.transactions.length > 0) {
     let hasNewTrx = false;
     appState.transactions.forEach(t => {
-      const exists = (appState.cashflow || []).some(c => c.notes && c.notes.includes(t.id));
+      if (!t || !t.id) return;
+      // JANGAN PERNAH rekonsiliasi jika t.id adalah CSH- atau buku kas itu sendiri!
+      if (t.id.startsWith('CSH-') || t.orderSource === 'Buku Kas Olsera' || (t.tier && t.tier.startsWith('cashflow_'))) {
+        return;
+      }
+      const exists = (appState.cashflow || []).some(c => (c.id === t.id) || (c.notes && c.notes.includes(t.id)));
       const itemSubtotal = (t.items && t.items.length)
         ? t.items.reduce((acc, i) => acc + (Number(i.subtotal) || (Number(i.price) * (Number(i.qty) || 1))), 0)
         : 0;

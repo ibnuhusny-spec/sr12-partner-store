@@ -449,13 +449,7 @@
 
       <!-- Sidebar Footer -->
       <div class="olsera-sidebar-footer">
-        <button type="button" onclick="closeOlseraSidebarDrawer(); openDevPinPrompt();" style="width: 100%; background: #0f172a; color: #38bdf8; border: 1.5px solid #0284c7; padding: 8px 14px; border-radius: var(--radius-full); font-weight: 800; font-size: 0.78rem; cursor: pointer; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 6px;">
-          <span>⚡</span> Akses Developer Console
-        </button>
-        <button type="button" onclick="openCustomerFacingDisplay()" style="width: 100%; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 8px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 6px;">
-          <span>🌐</span> Customer Facing Display
-        </button>
-        <button type="button" onclick="handleDistributorLogout()" style="width: 100%; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 8px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.78rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+        <button type="button" onclick="handleDistributorLogout()" style="width: 100%; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; padding: 10px 14px; border-radius: var(--radius-full); font-weight: 700; font-size: 0.82rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
           <span>🚪</span> Logout Distributor
         </button>
       </div>
@@ -2070,15 +2064,15 @@
 
   </main>
 
-  <!-- FOOTER RESMI TOKO (KONSISTEN & LENGKAP DENGAN AKSES PENGELOLA) -->
-  <footer class="site-storefront-footer" id="siteStorefrontFooter">
+  <!-- FOOTER RESMI TOKO (KONSISTEN & RAPI, AKSES DEVELOPER RAHASIA VIA TRIPLE CLICK 3X) -->
+  <footer class="site-storefront-footer" id="siteStorefrontFooter" onclick="handleFooterTripleClick(event)" title="SR12 Official Platform" style="cursor: default;">
     <div class="footer-inner-content">
       <div class="footer-simple-brand">
         <span class="footer-brand-title">🌿 SR12-Ku Pro</span>
         <p class="footer-brand-desc">Platform Sistem Kemitraan &amp; Belanja Produk Resmi SR12 Herbal Skin Care</p>
       </div>
 
-      <!-- TOMBOL NAVIGASI & AKSES PENGELOLA RESMI (PROMINENT & MUDAH DIAKSES) -->
+      <!-- TOMBOL NAVIGASI RESMI -->
       <div class="footer-action-buttons">
         <button type="button" id="btnFooterChatWa" onclick="chatActiveStoreWa()" class="btn-footer-pill btn-footer-wa" title="Konsultasi Produk via WhatsApp">
           <span>💬</span> Chat WhatsApp
@@ -2092,21 +2086,17 @@
         <button type="button" onclick="openStoreSettingsModal()" class="btn-footer-pill btn-footer-settings" id="btnFooterStoreSettings" title="Pengaturan Toko Distributor">
           <span>⚙️</span> Pengaturan Toko
         </button>
-        <button type="button" onclick="openDevPinPrompt()" class="btn-footer-pill btn-footer-dev" id="footerDevLinkBtn" title="Akses Portal Super Admin Developer">
-          <span>🔐</span> Developer Console
-        </button>
       </div>
 
       <div class="footer-simple-meta">
         <p class="footer-simple-copy">&copy; 2026 SR12-Ku Pro &bull; Produk 100% Original BPOM &amp; Halal MUI</p>
         <div class="footer-simple-links">
           <button type="button" onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="footer-link-btn">⬆ Kembali ke Atas</button>
-          <span class="footer-sep">&bull;</span>
-          <button type="button" onclick="openDevPinPrompt()" class="footer-link-btn" style="color: #0284c7; font-weight: 700;">🔐 Login Developer</button>
         </div>
       </div>
       <!-- Hidden Elements for JS Compatibility (agar skrip JS tetap aman tanpa null pointer) -->
       <div style="display: none !important;" aria-hidden="true">
+        <span id="footerDevLinkBtn"></span>
         <span id="footerStoreEmblemBox"></span>
         <span id="footerStoreTierBadge"></span>
         <h3 id="footerStoreName"></h3>
@@ -5321,9 +5311,9 @@
 
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=17.5"></script>
-  <script src="js/data.js?v=17.5"></script>
-  <script src="js/app.js?v=17.5"></script>
-  <script src="js/olsera-suite.js?v=17.5"></script>
+  <script src="js/supabase-config.js?v=17.6"></script>
+  <script src="js/data.js?v=17.6"></script>
+  <script src="js/app.js?v=17.6"></script>
+  <script src="js/olsera-suite.js?v=17.6"></script>
 </body>
 </html>

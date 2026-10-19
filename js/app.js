@@ -786,6 +786,29 @@ function getStoredStoreSettings() {
   }
 })();
 
+// Pembersihan otomatis sisa catatan kas uji coba lama
+(function autoPurgeGhostTestCashflow() {
+  const ghostIds = ['CSH-1792391940433-4560', 'CSH-1792391933362-1694', 'CSH-1792412735057-8961', 'CSH-1792412721972-8355'];
+  ['iyoutique', 'asmaragama', 'sr12-central'].forEach(slug => {
+    const key = `sr12_cashflow_records_v2_${slug}`;
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter(c => c && !ghostIds.includes(c.id));
+          localStorage.setItem(key, JSON.stringify(cleaned));
+        }
+      }
+    } catch(e) {}
+  });
+  ghostIds.forEach(id => {
+    if (typeof dbDeleteCashflow === 'function') {
+      try { dbDeleteCashflow(id); } catch(e) {}
+    }
+  });
+})();
+
 // ==========================================
 // INDEXEDDB ENGINE UNTUK PENYIMPANAN FOTO & MASTER PRODUK
 // Kapasitas besar (ratusan MB / GB), bebas dari batas 5MB LocalStorage browser
@@ -2491,8 +2514,13 @@ function mergeCloudOrdersIntoLocal(cloudOrders, storeSlug) {
 
   // Ekstrak catatan arus kas (Buku Kas Olsera) yang tersimpan di Cloud Supabase
   const cloudCashflow = [];
+  const ghostIds = new Set(['CSH-1792391940433-4560', 'CSH-1792391933362-1694', 'CSH-1792412735057-8961', 'CSH-1792412721972-8355']);
   cloudOrders.forEach(co => {
     if (co && co.id && (co.id.startsWith('CSH-') || co.orderSource === 'Buku Kas Olsera' || (co.tier && co.tier.startsWith('cashflow_')))) {
+      if (co.status === 'Dihapus' || co.status === 'deleted' || co.status === 'Dibatalkan' || ghostIds.has(co.id)) {
+        ghostIds.add(co.id);
+        return;
+      }
       const itemDetail = (Array.isArray(co.items) && co.items[0]) ? co.items[0] : {};
       const cashEntry = {
         id: co.id,
@@ -2508,6 +2536,13 @@ function mergeCloudOrdersIntoLocal(cloudOrders, storeSlug) {
     }
   });
 
+  if (Array.isArray(appState.cashflow)) {
+    appState.cashflow = appState.cashflow.filter(c => c && !ghostIds.has(c.id));
+    ghostIds.forEach(id => {
+      if (typeof dbDeleteCashflow === 'function') dbDeleteCashflow(id);
+    });
+  }
+
   if (cloudCashflow.length > 0) {
     if (!Array.isArray(appState.cashflow)) appState.cashflow = [];
     const cashMap = new Map();
@@ -2519,6 +2554,13 @@ function mergeCloudOrdersIntoLocal(cloudOrders, storeSlug) {
     }
     if (typeof dbSaveAllCashflow === 'function') {
       dbSaveAllCashflow(appState.cashflow);
+    }
+    if (typeof renderCashflowTable === 'function') {
+      renderCashflowTable();
+    }
+  } else if (ghostIds.size > 0) {
+    if (typeof saveStoredCashflow === 'function') {
+      saveStoredCashflow(appState.cashflow, currentSlug);
     }
     if (typeof renderCashflowTable === 'function') {
       renderCashflowTable();
@@ -2735,12 +2777,18 @@ function loadStoreBySlug(slug) {
   }
   if (typeof getStoredCashflow === 'function') {
     appState.cashflow = getStoredCashflow(found.slug);
+    const ghostIds = ['CSH-1792391940433-4560', 'CSH-1792391933362-1694', 'CSH-1792412735057-8961', 'CSH-1792412721972-8355'];
+    if (Array.isArray(appState.cashflow)) {
+      appState.cashflow = appState.cashflow.filter(c => c && !ghostIds.includes(c.id));
+    }
   }
   if (typeof dbGetAllCashflow === 'function') {
     dbGetAllCashflow(found.slug).then(dbCash => {
       if (Array.isArray(dbCash) && dbCash.length > 0) {
+        const ghostIds = ['CSH-1792391940433-4560', 'CSH-1792391933362-1694', 'CSH-1792412735057-8961', 'CSH-1792412721972-8355'];
+        const validDbCash = dbCash.filter(c => c && !ghostIds.includes(c.id));
         if (!appState.cashflow || appState.cashflow.length === 0) {
-          appState.cashflow = dbCash;
+          appState.cashflow = validDbCash;
           if (typeof saveStoredCashflow === 'function') {
             saveStoredCashflow(appState.cashflow, found.slug);
           }
@@ -7439,6 +7487,36 @@ async function handleSecurityPinChangeSubmit(e) {
     }
   }
 }
+
+// ==========================================
+// TRIPLE-CLICK FOOTER UNTUK AKSES RAHASIA CONSOLE DEVELOPER
+// ==========================================
+let footerClickCounter = 0;
+let footerClickResetTimer = null;
+
+function handleFooterTripleClick(e) {
+  // Jika klik berasal dari tombol interaktif footer lain (misal: Chat WhatsApp, Central Hub, Ganti Toko, Pengaturan Toko),
+  // jangan cegah aksi tombol tersebut
+  if (e && e.target && e.target.closest('button.btn-footer-pill, button.footer-link-btn')) {
+    return;
+  }
+
+  footerClickCounter++;
+  if (footerClickResetTimer) clearTimeout(footerClickResetTimer);
+
+  if (footerClickCounter >= 3 || (e && e.detail === 3)) {
+    footerClickCounter = 0;
+    if (typeof openDevPinPrompt === 'function') {
+      openDevPinPrompt();
+    }
+    return;
+  }
+
+  footerClickResetTimer = setTimeout(() => {
+    footerClickCounter = 0;
+  }, 1200);
+}
+window.handleFooterTripleClick = handleFooterTripleClick;
 
 // Change Developer Master PIN (mengarahkan ke modal profesional)
 function changeDevMasterPin() {
