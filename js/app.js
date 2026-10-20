@@ -526,6 +526,15 @@ async function syncStoresWithServer() {
           if (!apiStore || !apiStore.slug || apiStore.slug === 'sr12-central') return;
           if (apiStore.slug === 'toko-supa-distributor' || apiStore.slug.startsWith('deleted_') || apiStore.slug.includes('toko-supa') || apiStore.slug === 'simulasi-distributor' || apiStore.storeTagline === '__deleted__' || apiStore.storeName === '__deleted__') return;
 
+          // JANGAN PERNAH timpa PIN lokal asli dengan placeholder '••••' dari Cloud!
+          const existing = (appState.partnerStores || []).find(s => s && s.slug === apiStore.slug);
+          const savedLocalPin = localStorage.getItem(`sr12_store_pin_${apiStore.slug}`);
+          if (apiStore.storeAdminPin === '••••' || !apiStore.storeAdminPin) {
+            apiStore.storeAdminPin = (existing && existing.storeAdminPin && existing.storeAdminPin !== '••••')
+              ? existing.storeAdminPin
+              : (savedLocalPin || '1234');
+          }
+
           validStores.push(apiStore);
         });
 
@@ -2739,6 +2748,10 @@ function loadStoreBySlug(slug) {
   const found = appState.partnerStores.find(s => s.slug === slug) || appState.partnerStores[0];
   appState.currentStoreSlug = found.slug;
   appState.storeSettings = Object.assign({}, found);
+  const savedPinForSlug = localStorage.getItem(`sr12_store_pin_${found.slug}`);
+  if (savedPinForSlug && (appState.storeSettings.storeAdminPin === '••••' || !appState.storeSettings.storeAdminPin)) {
+    appState.storeSettings.storeAdminPin = savedPinForSlug;
+  }
   try {
     localStorage.setItem('sr12_last_active_partner_store', found.slug);
     const curParams = new URLSearchParams(window.location.search);
@@ -5495,10 +5508,15 @@ async function handleDistributorLoginSubmit(e) {
   if (emailInput && !emailInput.value) emailInput.value = email;
 
   // 1. Verifikasi Langsung PIN Toko & Master PIN (Dual Auth: PIN Toko Resmi / Master Super Admin PIN)
-  const storePin = String(store.storeAdminPin || localStorage.getItem(`sr12_store_pin_${currentSlug}`) || '1234').trim();
+  const localSlugPin = localStorage.getItem(`sr12_store_pin_${currentSlug}`);
+  const pStore = (appState.partnerStores || []).find(s => s && s.slug === currentSlug);
+  const pStorePin = (pStore && pStore.storeAdminPin && pStore.storeAdminPin !== '••••') ? String(pStore.storeAdminPin).trim() : null;
+  const cfgStorePin = (store && store.storeAdminPin && store.storeAdminPin !== '••••') ? String(store.storeAdminPin).trim() : null;
+
+  const storePin = String(localSlugPin || cfgStorePin || pStorePin || '1234').trim();
   const masterPin = String(getStoredDevPin() || '8899').trim();
 
-  const isPinMatch = (password === storePin) || (password === masterPin) || (email === storePin);
+  const isPinMatch = (password === storePin) || (password === masterPin) || (email === storePin) || (localSlugPin && password === String(localSlugPin).trim());
 
   if (isPinMatch) {
     resetAuthLockout('store');
@@ -7529,22 +7547,28 @@ async function handleSecurityPinChangeSubmit(e) {
       showToast('🔑 Master PIN Developer Berhasil Diperbarui!');
     } else {
       const storeSlug = appState.currentStoreSlug || (appState.storeSettings && appState.storeSettings.slug) || 'alzam-agency';
+      const cleanNewPin = String(newPin).trim();
       appState.storeSettings = {
         ...appState.storeSettings,
-        storeAdminPin: String(newPin).trim()
+        storeAdminPin: cleanNewPin
       };
-      saveStoredSettings(appState.storeSettings);
+
+      try {
+        localStorage.setItem(`sr12_store_pin_${storeSlug}`, cleanNewPin);
+        localStorage.setItem('sr12_store_settings_v4', JSON.stringify(appState.storeSettings));
+        localStorage.setItem('sr12_store_settings_v1', JSON.stringify(appState.storeSettings));
+      } catch(eLs) {}
 
       // Perbarui partnerStores
       const idx = (appState.partnerStores || []).findIndex(s => s.slug === storeSlug);
       if (idx >= 0) {
-        appState.partnerStores[idx].storeAdminPin = String(newPin).trim();
+        appState.partnerStores[idx].storeAdminPin = cleanNewPin;
         saveStoredPartnerStores(appState.partnerStores);
       }
 
       // Update input & badge di Store Settings
       const pinInp = document.getElementById('settingStoreAdminPin');
-      if (pinInp) pinInp.value = newPin;
+      if (pinInp) pinInp.value = cleanNewPin;
       const maskEl = document.getElementById('settingStorePinMasked');
       if (maskEl) maskEl.textContent = '•••• (Aktif)';
 
@@ -9795,7 +9819,8 @@ function openStoreSettingsModal() {
   updateFeePayerLabels();
 
   const storeAdminPinInput = document.getElementById('settingStoreAdminPin');
-  if (storeAdminPinInput) storeAdminPinInput.value = cfg.storeAdminPin || '1234';
+  const actualSavedPin = localStorage.getItem(`sr12_store_pin_${cfg.slug}`) || (cfg.storeAdminPin !== '••••' ? cfg.storeAdminPin : '') || '1234';
+  if (storeAdminPinInput) storeAdminPinInput.value = actualSavedPin;
 
   const skNumDisplay = document.getElementById('settingSkNumberDisplay');
   if (skNumDisplay) {
@@ -10390,7 +10415,10 @@ function handleSaveStoreSettingsSubmit(e) {
     const heroTitle = document.getElementById('settingHeroTitle')?.value.trim();
     const heroSubtitle = document.getElementById('settingHeroSubtitle')?.value.trim();
     const feePayer = document.getElementById('settingFeePayer')?.value || 'buyer';
-    const storeAdminPin = document.getElementById('settingStoreAdminPin')?.value.trim() || '1234';
+    const curSlug = appState.currentStoreSlug || appState.storeSettings?.slug || 'alzam-agency';
+    const savedSlugPin = localStorage.getItem(`sr12_store_pin_${curSlug}`);
+    const inputPin = document.getElementById('settingStoreAdminPin')?.value.trim();
+    const storeAdminPin = (inputPin && inputPin !== '••••') ? inputPin : (savedSlugPin || '1234');
     const globalFeeVal = parseInt(appState.platformFee || localStorage.getItem('sr12_platform_fee_amount') || 2000, 10);
     appState.platformFee = globalFeeVal;
 
@@ -10444,6 +10472,9 @@ function handleSaveStoreSettingsSubmit(e) {
 
     try {
       localStorage.setItem('sr12_store_settings_v4', JSON.stringify(appState.storeSettings));
+      if (curSlug) {
+        localStorage.setItem(`sr12_store_pin_${curSlug}`, storeAdminPin);
+      }
     } catch (lsErr) {
       console.warn('Peringatan kuota localStorage penuh saat simpan store settings:', lsErr);
     }
@@ -11090,6 +11121,9 @@ function updateDevPortalMetrics() {
               <button onclick="switchPartnerStore('${s.slug}'); closeModal('modalDevPortal');" style="background: #0284c7; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer;">
                 Buka
               </button>
+              <button onclick="openDevEditStoreModal('${s.slug}'); closeModal('modalDevPortal');" style="background: #0d9488; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer;" title="Edit Data & NIK Toko">
+                ✏️ NIK
+              </button>
               ${s.slug !== 'sr12-central' ? `
               <button onclick="toggleBlockStore('${s.slug}')" style="background: ${s.isBlocked ? '#059669' : '#dc2626'}; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; cursor: pointer;" title="${s.isBlocked ? 'Buka Blokir Toko' : 'Blokir Toko Karena Pelanggaran'}">
                 ${s.isBlocked ? '✅ Buka' : '🚫 Blok'}
@@ -11138,6 +11172,9 @@ function updateDevPortalMetrics() {
               </button>
               <button type="button" onclick="openDevStoreAdminBackoffice('${s.slug}')" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(245, 158, 11, 0.3);">
                 👑 Backoffice
+              </button>
+              <button type="button" onclick="openDevEditStoreModal('${s.slug}')" style="background: #0d9488; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(13, 148, 136, 0.3);" title="Edit Data & NIK Pemilik Toko">
+                ✏️ Edit NIK
               </button>
               ${s.slug !== 'sr12-central' ? `
               <button type="button" onclick="toggleBlockStore('${s.slug}')" style="background: ${s.isBlocked ? 'linear-gradient(135deg, #059669, #047857)' : 'linear-gradient(135deg, #dc2626, #b91c1c)'}; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="${s.isBlocked ? 'Buka Blokir Toko' : 'Blokir Toko Karena Pelanggaran'}">
@@ -11385,6 +11422,153 @@ function updateDevPortalMetrics() {
     }
   }
 }
+
+function openDevEditStoreModal(slug) {
+  const store = (appState.partnerStores || []).find(s => s && s.slug === slug);
+  if (!store) {
+    showToast('❌ Toko tidak ditemukan.');
+    return;
+  }
+
+  const modal = document.getElementById('modalDevEditStore');
+  if (!modal) return;
+
+  const slugInput = document.getElementById('devEditStoreSlug');
+  const nameInput = document.getElementById('devEditStoreName');
+  const ownerInput = document.getElementById('devEditStoreOwner');
+  const nikInput = document.getElementById('devEditStoreNik');
+  const waInput = document.getElementById('devEditStoreWa');
+  const cityInput = document.getElementById('devEditStoreCity');
+  const pinInput = document.getElementById('devEditStorePin');
+  const quotaInput = document.getElementById('devEditStoreQuota');
+
+  if (slugInput) slugInput.value = store.slug;
+  if (nameInput) nameInput.value = store.storeName || '';
+  if (ownerInput) ownerInput.value = store.storeOwner || '';
+  
+  // Ambil NIK dari pending store atau partnerStores atau localStorage
+  const savedNik = store.nikNumber || store.nik_number || localStorage.getItem(`sr12_store_nik_${store.slug}`) || '3374025804820003';
+  if (nikInput) nikInput.value = savedNik;
+
+  if (waInput) waInput.value = store.storeWaNumber || '';
+  if (cityInput) cityInput.value = store.storeCity || '';
+
+  // Ambil PIN aktual
+  const savedPin = localStorage.getItem(`sr12_store_pin_${store.slug}`) || (store.storeAdminPin !== '••••' ? store.storeAdminPin : '') || '1234';
+  if (pinInput) pinInput.value = savedPin;
+
+  if (quotaInput) quotaInput.value = typeof store.orderQuota === 'number' ? store.orderQuota : 10;
+
+  modal.classList.add('open');
+}
+window.openDevEditStoreModal = openDevEditStoreModal;
+
+async function handleDevSaveStoreData(e) {
+  if (e) e.preventDefault();
+  const slugInput = document.getElementById('devEditStoreSlug');
+  const slug = slugInput?.value;
+  if (!slug) return;
+
+  const storeIdx = (appState.partnerStores || []).findIndex(s => s && s.slug === slug);
+  if (storeIdx < 0) {
+    showToast('❌ Toko tidak ditemukan.');
+    return;
+  }
+
+  const nameVal = document.getElementById('devEditStoreName')?.value.trim();
+  const ownerVal = document.getElementById('devEditStoreOwner')?.value.trim();
+  const nikVal = document.getElementById('devEditStoreNik')?.value.trim();
+  const waVal = document.getElementById('devEditStoreWa')?.value.trim();
+  const cityVal = document.getElementById('devEditStoreCity')?.value.trim();
+  const pinVal = document.getElementById('devEditStorePin')?.value.trim() || '1234';
+  const quotaVal = parseInt(document.getElementById('devEditStoreQuota')?.value, 10) || 10;
+
+  if (!nameVal || !ownerVal) {
+    alert('Nama toko dan nama pemilik wajib diisi!');
+    return;
+  }
+
+  if (nikVal && nikVal.length !== 16) {
+    alert('⚠️ NIK harus tepat 16 digit angka sesuai KTP!');
+    return;
+  }
+
+  const submitBtn = document.getElementById('btnDevSaveStoreSubmit');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '⏳ Menyimpan...';
+  }
+
+  try {
+    const s = appState.partnerStores[storeIdx];
+    s.storeName = nameVal;
+    s.storeOwner = ownerVal;
+    s.nikNumber = nikVal;
+    s.storeWaNumber = waVal;
+    s.storeCity = cityVal;
+    s.storeAdminPin = pinVal;
+    s.orderQuota = quotaVal;
+
+    // Simpan ke storage lokal
+    localStorage.setItem(`sr12_store_pin_${slug}`, pinVal);
+    localStorage.setItem(`sr12_store_nik_${slug}`, nikVal);
+    saveStoredPartnerStores(appState.partnerStores);
+
+    // Jika sedang di toko ini, perbarui appState.storeSettings
+    if (appState.currentStoreSlug === slug) {
+      appState.storeSettings = {
+        ...appState.storeSettings,
+        storeName: nameVal,
+        storeOwner: ownerVal,
+        nikNumber: nikVal,
+        storeWaNumber: waVal,
+        storeCity: cityVal,
+        storeAdminPin: pinVal,
+        orderQuota: quotaVal
+      };
+      try {
+        localStorage.setItem('sr12_store_settings_v4', JSON.stringify(appState.storeSettings));
+      } catch(e) {}
+      if (typeof renderStoreBranding === 'function') renderStoreBranding();
+    }
+
+    // Sinkronkan ke Supabase Cloud
+    if (typeof saveStoreToSupabase === 'function') {
+      try {
+        await saveStoreToSupabase(s);
+      } catch(eSb) {
+        console.warn('Sync to Supabase warning:', eSb);
+      }
+    }
+
+    // Perbarui juga data di pending_stores jika ada row pengajuannya
+    const client = (typeof initSupabaseClient === 'function') ? initSupabaseClient() : null;
+    if (client) {
+      try {
+        await client.from('pending_stores').update({
+          store_name: nameVal,
+          store_owner: ownerVal,
+          nik_number: nikVal,
+          store_wa_number: waVal,
+          store_city: cityVal
+        }).eq('slug', slug);
+      } catch(ePend) {}
+    }
+
+    showToast(`✅ Data & NIK Toko "${nameVal}" berhasil diperbarui!`);
+    closeModal('modalDevEditStore');
+    if (typeof renderDevPortal === 'function') renderDevPortal();
+  } catch(err) {
+    console.error('Error saving store data by dev:', err);
+    alert('Gagal menyimpan perubahan: ' + err.message);
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '💾 Simpan Perubahan Toko';
+    }
+  }
+}
+window.handleDevSaveStoreData = handleDevSaveStoreData;
 
 function printShippingLabel() {
   const storeName = appState.storeSettings.storeName;
