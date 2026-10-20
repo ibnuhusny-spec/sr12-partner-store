@@ -2,5 +2,10 @@
   "name": "sr12-partner-store",
   "version": "1.0.0",
   "private": true,
-  "description": "SR12 Partner Store Official Platform"
+  "description": "SR12 Partner Store Official Platform",
+  "scripts": {
+    "start": "node local-dev-server.js",
+    "dev": "node local-dev-server.js",
+    "test": "node scratch/test_url_security.js"
+  }
 }

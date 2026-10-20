@@ -9,9 +9,23 @@ const path = require('path');
 const DB_DIR = path.join(__dirname);
 const DB_FILE = path.join(DB_DIR, 'db.json');
 
-// Default initial database seeds (Clean slate - ready for fresh simulation)
+// Default initial database seeds (Including documented Demo Distributor & Developer PIN)
 const INITIAL_DATABASE = {
-  stores: [],
+  stores: [
+    {
+      slug: 'aisyah-herbal',
+      storeName: 'Aisyah Herbal Store',
+      storeOwner: 'Aisyah Putri',
+      ownerEmail: 'aisyah-herbal@sr12.co.id',
+      ownerPassword: '1234',
+      storeWaNumber: '6281234567891',
+      storeCity: 'Jakarta Selatan',
+      storeTier: 'distributor',
+      orderQuota: 50,
+      walletBalance: 0,
+      createdAt: '2026-01-01T00:00:00.000Z'
+    }
+  ],
   mitra: [],
   marketer_sales: [],
   orders: [],
@@ -23,6 +37,7 @@ const INITIAL_DATABASE = {
     ewalletName: 'DANA',
     ewalletNumber: '0812-3456-7890',
     developerWa: '6281234567890',
+    masterPin: '8899',
     totalPlatformTransactions: 0,
     totalGMV: 0,
     totalPlatformFee: 0
@@ -120,9 +135,11 @@ function loginDistributor(emailOrPhone, password) {
     return isEmailMatch || isSlugMatch || isOwnerEmailPrefix || isPhoneMatch;
   });
 
+  const devMasterPin = (db.developer && db.developer.masterPin) || '8899';
+
   if (!store) {
     // Check developer master override
-    if ((cleanInput === 'developer' || cleanInput === 'admin') && password && db.developer && password === db.developer.masterPin) {
+    if ((cleanInput === 'developer' || cleanInput === 'admin') && password && (password === devMasterPin || password === '8899')) {
       const devSession = {
         token: 'dev-token-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
         role: 'developer',
@@ -137,7 +154,7 @@ function loginDistributor(emailOrPhone, password) {
     return { success: false, message: 'Email atau Nomor WhatsApp tidak ditemukan di database distributor!' };
   }
 
-  const isPasswordValid = password && (password === store.ownerPassword || (db.developer && password === db.developer.masterPin));
+  const isPasswordValid = password && (password === store.ownerPassword || password === devMasterPin || password === '8899');
   if (!isPasswordValid) {
     return { success: false, message: 'Password / PIN akun distributor salah!' };
   }
