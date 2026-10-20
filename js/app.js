@@ -10200,8 +10200,15 @@ const PRESET_RECOVERABLE_STORES = [
 ];
 
 function openRestoreStoreModal() {
+  if (typeof closeModal === 'function') {
+    closeModal('modalDevPortal');
+  }
+
   const modal = document.getElementById('modalRestoreStore');
-  if (!modal) return;
+  if (!modal) {
+    console.error('Modal modalRestoreStore tidak ditemukan!');
+    return;
+  }
 
   const rawDeleted = localStorage.getItem('sr12_deleted_store_slugs');
   let deletedSlugs = rawDeleted ? JSON.parse(rawDeleted) : [];
@@ -10261,7 +10268,13 @@ function openRestoreStoreModal() {
     }
   }
 
-  modal.classList.add('open');
+  if (typeof openModal === 'function') {
+    openModal('modalRestoreStore');
+  } else {
+    modal.style.display = 'flex';
+    modal.classList.add('open');
+    document.body.classList.add('modal-open');
+  }
 }
 window.openRestoreStoreModal = openRestoreStoreModal;
 
