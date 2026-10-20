@@ -5447,6 +5447,26 @@ function openDistributorLoginModal() {
   if (passInput) passInput.value = '';
   if (err) err.style.display = 'none';
 
+  // Cek apakah ada sesi pemulihan PIN toko yang masih aktif
+  const currentSlug = appState.currentStoreSlug || store.slug || 'sr12-central';
+  let activeReset = appState.storeResetSession;
+  if (!activeReset) {
+    try {
+      const s = sessionStorage.getItem('sr12_store_reset_session');
+      if (s) {
+        const p = JSON.parse(s);
+        if (p && p.slug === currentSlug && p.expiresAt > Date.now()) {
+          activeReset = p;
+          appState.storeResetSession = p;
+        }
+      }
+    } catch(e) {}
+  }
+  const resetBanner = document.getElementById('distLoginActiveResetBanner');
+  if (resetBanner) {
+    resetBanner.style.display = (activeReset && activeReset.expiresAt > Date.now()) ? 'block' : 'none';
+  }
+
   switchDistLoginTab('auth');
 
   if (modal) {
@@ -16945,7 +16965,7 @@ window.handleSecretStoreLogoDblClick = handleSecretStoreLogoDblClick;
 // FITUR PEMULIHAN PIN / PASSWORD TOKO DISTRIBUTOR TERPROTEKSI (2-FACTOR WA & OTP)
 // ==========================================
 
-function openForgotStorePinModal() {
+function openForgotStorePinModal(forceStep1 = false) {
   if (typeof closeModal === 'function') closeModal('modalDistributorLogin');
   const modal = document.getElementById('modalForgotStorePin');
   const badge = document.getElementById('forgotStoreBadge');
@@ -16957,15 +16977,44 @@ function openForgotStorePinModal() {
   const err2 = document.getElementById('forgotStoreStep2Error');
 
   const store = appState.storeSettings || DEFAULT_STORE_SETTINGS;
+  const currentSlug = appState.currentStoreSlug || store.slug || 'sr12-central';
   if (badge) {
     badge.textContent = `${store.storeName} (${store.storeCity || 'Mitra Resmi'})`;
   }
-  if (step1) step1.style.display = 'block';
-  if (step2) step2.style.display = 'none';
-  if (waInput) waInput.value = '';
-  if (nikInput) nikInput.value = '';
-  if (err1) err1.style.display = 'none';
-  if (err2) err2.style.display = 'none';
+
+  // Cek apakah ada sesi pemulihan yang masih aktif tersimpan
+  let activeSession = appState.storeResetSession;
+  if (!activeSession) {
+    try {
+      const stored = sessionStorage.getItem('sr12_store_reset_session');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && parsed.slug === currentSlug && parsed.expiresAt > Date.now()) {
+          activeSession = parsed;
+          appState.storeResetSession = parsed;
+        }
+      }
+    } catch (e) {}
+  }
+
+  if (activeSession && activeSession.expiresAt > Date.now() && !forceStep1) {
+    // Sesi masih aktif! Langsung lanjutkan ke Step 2 tanpa perlu minta token ulang
+    if (step1) step1.style.display = 'none';
+    if (step2) step2.style.display = 'block';
+    if (err2) err2.style.display = 'none';
+    const maskedWaEl = document.getElementById('forgotStoreMaskedWa');
+    if (maskedWaEl && activeSession.maskedWa) {
+      maskedWaEl.innerHTML = `Sesi pemulihan PIN masih aktif. PIN Sementara telah dikirimkan ke WhatsApp resmi pemilik (<b>${escapeHtml(activeSession.maskedWa)}</b>). Silakan masukkan kode token di bawah:`;
+    }
+  } else {
+    // Tampilkan Step 1
+    if (step1) step1.style.display = 'block';
+    if (step2) step2.style.display = 'none';
+    if (waInput) waInput.value = '';
+    if (nikInput) nikInput.value = '';
+    if (err1) err1.style.display = 'none';
+    if (err2) err2.style.display = 'none';
+  }
 
   if (modal) {
     document.body.classList.add('modal-open');
@@ -16975,12 +17024,11 @@ function openForgotStorePinModal() {
 window.openForgotStorePinModal = openForgotStorePinModal;
 
 function backToForgotStoreStep1() {
-  const step1 = document.getElementById('forgotStoreStep1');
-  const step2 = document.getElementById('forgotStoreStep2');
-  const err1 = document.getElementById('forgotStoreError');
-  if (step1) step1.style.display = 'block';
-  if (step2) step2.style.display = 'none';
-  if (err1) err1.style.display = 'none';
+  appState.storeResetSession = null;
+  try { sessionStorage.removeItem('sr12_store_reset_session'); } catch (e) {}
+  const banner = document.getElementById('distLoginActiveResetBanner');
+  if (banner) banner.style.display = 'none';
+  openForgotStorePinModal(true);
 }
 window.backToForgotStoreStep1 = backToForgotStoreStep1;
 
@@ -17053,10 +17101,16 @@ function handleRequestStoreTempPin() {
   const tempPin = String(Math.floor(100000 + Math.random() * 900000));
   const currentSlug = appState.currentStoreSlug || store.slug || 'sr12-central';
 
+  const cleanPhone = storeWa.startsWith('0') ? ('62' + storeWa.slice(1)) : (storeWa.startsWith('62') ? storeWa : ('62' + storeWa));
+  const displayWa = cleanPhone.length > 7
+    ? `+${cleanPhone.slice(0, 4)} ****-**${cleanPhone.slice(-2)}`
+    : `+${cleanPhone}`;
+
   appState.storeResetSession = {
     slug: currentSlug,
     tempPin: tempPin,
     expiresAt: Date.now() + 10 * 60 * 1000, // Valid 10 menit
+    maskedWa: displayWa,
     attempts: 0
   };
 
@@ -17081,7 +17135,6 @@ function handleRequestStoreTempPin() {
     `1. Masukkan kode PIN Sementara di atas pada layar konfirmasi pemulihan toko untuk membuat PIN baru Anda.\n` +
     `2. *JIKA ANDA TIDAK MERASA MEMINTA RESET INI:* Jangan berikan kode ini kepada siapa pun dan *ABAIKAN PESAN INI*. Keamanan toko Anda tetap terjaga dan PIN lama Anda TIDAK AKAN BERUBAH.`;
 
-  const cleanPhone = storeWa.startsWith('0') ? ('62' + storeWa.slice(1)) : (storeWa.startsWith('62') ? storeWa : ('62' + storeWa));
   const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
 
   // Buka WhatsApp langsung ke nomor WA pemilik toko
@@ -17095,11 +17148,6 @@ function handleRequestStoreTempPin() {
   const newPinInput = document.getElementById('forgotStoreNewPinInput');
   const confirmPinInput = document.getElementById('forgotStoreConfirmNewPinInput');
   const err2 = document.getElementById('forgotStoreStep2Error');
-
-  // Mask nomor HP: misal +62 812-****-**90
-  const displayWa = cleanPhone.length > 7
-    ? `+${cleanPhone.slice(0, 4)} ****-**${cleanPhone.slice(-2)}`
-    : `+${cleanPhone}`;
 
   if (maskedWaEl) {
     maskedWaEl.innerHTML = `Pesan verifikasi berisi <b>PIN Sementara</b> telah dikirimkan ke WhatsApp pemilik toko resmi (<b>${escapeHtml(displayWa)}</b>). Silakan buka WhatsApp Anda.`;
@@ -17217,6 +17265,8 @@ function handleConfirmStoreTempPin() {
   // Hapus sesi reset PIN
   appState.storeResetSession = null;
   try { sessionStorage.removeItem('sr12_store_reset_session'); } catch (e) {}
+  const activeResetBanner = document.getElementById('distLoginActiveResetBanner');
+  if (activeResetBanner) activeResetBanner.style.display = 'none';
 
   resetAuthLockout('store');
 

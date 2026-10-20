@@ -3796,6 +3796,21 @@
           <span style="font-size: 1.25rem;">🏪</span>
         </div>
 
+        <!-- BANNER SESI PEMULIHAN AKTIF JIKA MODAL SEMPAT TERTUTUP -->
+        <div id="distLoginActiveResetBanner" style="display: none; background: #ecfdf5; border: 1.5px solid #10b981; border-radius: 10px; padding: 10px 12px; margin-bottom: 14px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <div style="font-size: 0.76rem; color: #065f46; font-weight: 700;">
+              <span>📨</span> Sesi Pemulihan PIN Aktif!
+              <div style="font-size: 0.7rem; color: #047857; font-weight: 500; margin-top: 2px;">
+                Kode token telah dikirim ke WhatsApp Anda.
+              </div>
+            </div>
+            <button type="button" onclick="openForgotStorePinModal(false)" style="background: #059669; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.74rem; font-weight: 800; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 6px rgba(5,150,105,0.3);">
+              👉 Lanjutkan Input Token
+            </button>
+          </div>
+        </div>
+
         <!-- Navigasi Tab Autentikasi Distributor: Login vs Aktivasi Email -->
         <div style="display: flex; gap: 6px; background: #e2e8f0; padding: 4px; border-radius: 10px; margin-bottom: 16px;">
           <button type="button" id="btnTabDistLogin_auth" onclick="switchDistLoginTab('auth')" style="flex: 1; padding: 8px 10px; border: none; border-radius: 8px; font-size: 0.78rem; font-weight: 800; cursor: pointer; background: #fff; color: #065f46; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
@@ -3964,14 +3979,17 @@
         <!-- STEP 2: KONFIRMASI PIN SEMENTARA / OTP DARI WHATSAPP -->
         <div id="forgotStoreStep2" style="display: none;">
           <div style="background: #ecfdf5; border: 1.5px solid #6ee7b7; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px;">
-            <div style="display: flex; align-items: center; gap: 6px; color: #065f46; font-weight: 800; font-size: 0.84rem; margin-bottom: 4px;">
-              <span>📨</span> Pesan Terkirim ke WhatsApp Pemilik
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; flex-wrap: wrap; gap: 4px;">
+              <div style="display: flex; align-items: center; gap: 6px; color: #065f46; font-weight: 800; font-size: 0.84rem;">
+                <span>📨</span> Pesan Terkirim ke WhatsApp Pemilik
+              </div>
+              <span style="font-size: 0.68rem; background: #d1fae5; color: #065f46; font-weight: 800; padding: 2px 8px; border-radius: 99px;">⏱️ Sesi Aktif 10 Menit</span>
             </div>
             <div id="forgotStoreMaskedWa" style="font-size: 0.76rem; color: #047857; line-height: 1.4;">
               Pesan berisi PIN Sementara baru telah dikirimkan ke WhatsApp resmi pemilik toko. Silakan periksa pesan masuk di WhatsApp Anda.
             </div>
             <div style="font-size: 0.7rem; color: #065f46; margin-top: 6px; background: rgba(255,255,255,0.6); padding: 4px 8px; border-radius: 4px;">
-              💡 <i>Jika Anda tidak merasa meminta reset ini, abaikan pesan WhatsApp tersebut. Toko Anda tetap aman.</i>
+              💡 <b>Catatan Aman:</b> Jika jendela ini sempat tertutup saat Anda membuka WhatsApp di HP, jangan khawatir! Cukup buka kembali tombol <i>"Lupa Password atau PIN Toko"</i> atau klik banner hijau di form login untuk langsung melanjutkan.
             </div>
           </div>
 
@@ -5406,9 +5424,9 @@
 
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=18.2"></script>
-  <script src="js/data.js?v=18.2"></script>
-  <script src="js/app.js?v=18.2"></script>
-  <script src="js/olsera-suite.js?v=18.2"></script>
+  <script src="js/supabase-config.js?v=18.3"></script>
+  <script src="js/data.js?v=18.3"></script>
+  <script src="js/app.js?v=18.3"></script>
+  <script src="js/olsera-suite.js?v=18.3"></script>
 </body>
 </html>
