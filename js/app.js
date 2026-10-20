@@ -3544,11 +3544,6 @@ function isSafeImageUrl(rawUrl) {
   const url = rawUrl.trim();
   if (!url) return false;
 
-  // 0. Cegah quote injection, tag injection, dan karakter berbahaya
-  if (/["'<>`\s]/.test(url)) {
-    return false;
-  }
-
   // 1. BLOKIR KERAS skema script berbahaya
   const dangerousPatterns = /^(javascript|vbscript|data:text|data:application|file|ftp):/i;
   if (dangerousPatterns.test(url)) {
@@ -3572,10 +3567,10 @@ function isSafeImageUrl(rawUrl) {
     checkUrl = 'https://' + checkUrl;
   }
 
-  // 4. Untuk URL web eksternal: Hanya izinkan HTTPS resmi yang aman (blokir HTTP tidak terenkripsi)
+  // 4. Untuk URL web eksternal: Izinkan HTTPS dan HTTP resmi
   try {
     const parsed = new URL(checkUrl);
-    if (parsed.protocol === 'https:') {
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
       return true;
     }
   } catch (err) {
@@ -11169,8 +11164,7 @@ function claimReward(rewardId, points, title) {
     return;
   }
   appState.userRewardPoints -= points;
-  const ptsEl = document.getElementById('headerUserPointsVal');
-  if (ptsEl) ptsEl.textContent = `${appState.userRewardPoints} Poin`;
+  document.getElementById('headerUserPointsVal').textContent = `${appState.userRewardPoints} Poin`;
   alert(`Alhamdulillah! Berhasil klaim "${title}". Admin logistik SR12 akan segera memproses reward Anda.`);
 }
 

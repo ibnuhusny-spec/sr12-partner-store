@@ -10,7 +10,7 @@ Panduan ini disusun agar Anda dapat melakukan simulasi menyeluruh (*end-to-end t
 | Informasi | Nilai / Akses | Keterangan |
 | :--- | :--- | :--- |
 | **URL Production (Vercel)** | `https://sr12-partner-store.vercel.app` | Dapat diakses bersamaan di Laptop & HP |
-| **URL Local (Opsional)** | `http://localhost:3000` | Server lokal di laptop |
+| **URL Local (Opsional)** | `http://localhost:8080` | Server lokal di laptop |
 | **PIN Console Dev (Super Admin)** | `8899` | Tombol `🔐 Console Dev` di pojok kanan bawah |
 | **Default PIN Admin Toko Mitra** | `1234` | Untuk login ke dasbor pemilik toko mitra |
 | **Toko Induk (Pusat)** | `?store=sr12-central` | Toko resmi pusat SR12 Herbal Skin Care |

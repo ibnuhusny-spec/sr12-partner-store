@@ -46,8 +46,7 @@ Platform Toko Online Resmi & Sistem Manajemen Gudang POS Distributor untuk Ekosi
 
 2. **Jalankan server lokal:**
    ```bash
-   node local-dev-server.js
-   # atau: npm start
+   node server.js
    ```
 
 3. **Buka di browser:**

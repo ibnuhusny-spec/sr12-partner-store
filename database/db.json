@@ -1,49 +1,18 @@
 {
-  "stores": [
-    {
-      "slug": "aisyah-herbal",
-      "storeName": "Aisyah Herbal Store",
-      "storeOwner": "Aisyah Putri",
-      "ownerEmail": "aisyah-herbal@sr12.co.id",
-      "ownerPassword": "1234",
-      "storeWaNumber": "6281234567891",
-      "storeCity": "Jakarta Selatan",
-      "storeTier": "distributor",
-      "orderQuota": 50,
-      "walletBalance": 0,
-      "createdAt": "2026-01-01T00:00:00.000Z"
-    }
-  ],
+  "stores": [],
   "mitra": [],
   "marketer_sales": [],
   "orders": [],
   "cashflow": [],
   "developer": {
-    "bankName": "BCA",
     "bankAccount": "1234567890 (BCA)",
     "bankHolder": "PT. Digital Solusi Indonesia",
     "ewalletAccount": "081234567890 (GoPay/OVO/Dana)",
     "developerWa": "6281234567890",
-    "masterPin": "8899",
     "totalPlatformTransactions": 0,
     "totalGMV": 0,
     "totalPlatformFee": 0
   },
   "pending_stores": [],
-  "sessions": [
-    {
-      "token": "dev-token-1792494077799-8y7ra",
-      "role": "developer",
-      "slug": "aisyah-herbal",
-      "owner": "Developer Master",
-      "createdAt": "2026-10-20T11:01:17.799Z"
-    },
-    {
-      "token": "dist-session-1792494077809-mm7r7",
-      "role": "distributor",
-      "slug": "aisyah-herbal",
-      "owner": "Aisyah Putri",
-      "createdAt": "2026-10-20T11:01:17.809Z"
-    }
-  ]
+  "sessions": []
 }
