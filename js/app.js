@@ -9785,6 +9785,10 @@ function openStoreSettingsModal() {
   if (skNumDisplay) {
     skNumDisplay.textContent = cfg.verifiedSkNumber || cfg.skNumber || `SK-DIST-SR12-2026-${(cfg.slug || 'mitra').replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 5)}`;
   }
+  const nikDisplay = document.getElementById('settingNikDisplay');
+  if (nikDisplay) {
+    nikDisplay.textContent = cfg.nikNumber || '3374025804820003';
+  }
   appState.tempStoreSkBase64 = null;
   appState.tempStoreSkDocName = null;
   const skFileInput = document.getElementById('settingSkFileInput');
