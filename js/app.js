@@ -17063,7 +17063,15 @@ function handleRequestStoreTempPin() {
   if (!userWa || userWa.length < 8) {
     if (errEl) {
       errEl.style.display = 'block';
-      errEl.textContent = '❌ Masukkan nomor WhatsApp resmi toko Anda dengan benar (minimal 8 digit)!';
+      errEl.textContent = '❌ Masukkan nomor kontak toko Anda dengan benar!';
+    }
+    return;
+  }
+
+  if (!userNik) {
+    if (errEl) {
+      errEl.style.display = 'block';
+      errEl.textContent = '❌ Masukkan kode unik keamanan toko!';
     }
     return;
   }
@@ -17073,7 +17081,7 @@ function handleRequestStoreTempPin() {
   const normStore = storeWa.startsWith('62') ? storeWa.slice(2) : (storeWa.startsWith('0') ? storeWa.slice(1) : storeWa);
   const isWaMatch = normUser && normStore && (normUser === normStore || normStore.endsWith(normUser) || normUser.endsWith(normStore));
 
-  // Verifikasi 6 digit terakhir NIK Pemilik jika toko memiliki NIK terdaftar
+  // Verifikasi kode unik (mencocokkan kode unik pemilik di sistem)
   let isNikMatch = true;
   if (storeNik && storeNik.length >= 6) {
     const last6StoreNik = storeNik.slice(-6);
@@ -17092,7 +17100,7 @@ function handleRequestStoreTempPin() {
     }
     if (errEl) {
       errEl.style.display = 'block';
-      errEl.innerHTML = `❌ Verifikasi data gagal! Nomor WhatsApp atau 6 digit NIK tidak cocok dengan data resmi toko ini.<br><span style="font-size: 0.7rem; color: #64748b;">Percobaan gagal: ${storeResetRateLimit.fails}/5. Jika lupa data NIK, silakan klik tombol bantuan ke Developer Pusat.</span>`;
+      errEl.innerHTML = `❌ Verifikasi data gagal! Nomor kontak atau kode unik tidak cocok.<br><span style="font-size: 0.7rem; color: #64748b;">Percobaan gagal: ${storeResetRateLimit.fails}/5. Hubungi distributor atau Developer Pusat jika memerlukan bantuan.</span>`;
     }
     return;
   }
