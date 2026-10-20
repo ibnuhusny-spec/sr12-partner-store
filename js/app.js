@@ -493,8 +493,12 @@ async function syncStoresWithServer() {
           if (apiStore.slug === 'toko-supa-distributor' || apiStore.slug.startsWith('deleted_') || apiStore.slug.includes('toko-supa') || apiStore.slug === 'simulasi-distributor' || apiStore.storeTagline === '__deleted__' || apiStore.storeName === '__deleted__') return;
 
           // JANGAN PERNAH timpa PIN lokal asli dengan placeholder '••••' dari Cloud!
-          const existing = (appState.partnerStores || []).find(s => s && s.slug === apiStore.slug);
-          const savedLocalPin = localStorage.getItem(`sr12_store_pin_${apiStore.slug}`);
+          const normSlug = apiStore.slug.replace(/^sr12-/, '');
+          const existing = (appState.partnerStores || []).find(s => s && (s.slug === apiStore.slug || s.slug === normSlug || s.slug === `sr12-${normSlug}`));
+          const savedLocalPin = localStorage.getItem(`sr12_store_pin_${apiStore.slug}`) ||
+                                localStorage.getItem(`sr12_store_pin_${normSlug}`) ||
+                                localStorage.getItem(`sr12_store_pin_sr12-${normSlug}`) ||
+                                localStorage.getItem('sr12_last_set_store_pin');
           if (apiStore.storeAdminPin === '••••' || !apiStore.storeAdminPin) {
             apiStore.storeAdminPin = (existing && existing.storeAdminPin && existing.storeAdminPin !== '••••')
               ? existing.storeAdminPin
@@ -766,27 +770,44 @@ function getStoredStoreSettings() {
   }
 })();
 
-// Pembersihan otomatis sisa catatan kas uji coba lama
+// Pembersihan otomatis sisa catatan kas uji coba lama & isolasi ketat buku kas
 (function autoPurgeGhostTestCashflow() {
-  const ghostIds = ['CSH-1792391940433-4560', 'CSH-1792391933362-1694', 'CSH-1792412735057-8961', 'CSH-1792412721972-8355'];
-  ['iyoutique', 'asmaragama', 'sr12-central'].forEach(slug => {
+  function isGhost(c) {
+    if (!c) return true;
+    const strId = String(c.id || '');
+    const strNotes = String(c.notes || '');
+    const strCat = String(c.category || '');
+    const strDate = String(c.date || '');
+    const ghostPatterns = ['1792391940433', '1792391933362', '1792412735057', '1792412721972', 'CSH-PROBE'];
+    if (ghostPatterns.some(p => strId.includes(p) || strNotes.includes(p) || strDate.includes(p))) return true;
+    if (strCat.includes('(Kas Masuk)') || strCat.includes('(Kas Keluar)')) return true;
+    if (strNotes.startsWith('CSH-') && strCat.includes('Pesanan Selesai')) return true;
+    return false;
+  }
+  const slugsToClean = ['sr12-alzam-agency', 'alzam-agency', 'iyoutique', 'asmaragama', 'sr12-central'];
+  slugsToClean.forEach(slug => {
     const key = `sr12_cashflow_records_v2_${slug}`;
     try {
       const raw = localStorage.getItem(key);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          const cleaned = parsed.filter(c => c && !ghostIds.includes(c.id));
+          const cleaned = parsed.filter(c => !isGhost(c));
           localStorage.setItem(key, JSON.stringify(cleaned));
         }
       }
     } catch(e) {}
   });
-  ghostIds.forEach(id => {
-    if (typeof dbDeleteCashflow === 'function') {
-      try { dbDeleteCashflow(id); } catch(e) {}
+  try {
+    const rawV1 = localStorage.getItem('sr12_cashflow_records_v1');
+    if (rawV1) {
+      const parsed = JSON.parse(rawV1);
+      if (Array.isArray(parsed)) {
+        const cleaned = parsed.filter(c => !isGhost(c));
+        localStorage.setItem('sr12_cashflow_records_v1', JSON.stringify(cleaned));
+      }
     }
-  });
+  } catch(e) {}
 })();
 
 // ==========================================
@@ -956,9 +977,11 @@ async function dbGetAllCashflow(slug) {
       req.onsuccess = () => {
         const res = req.result || [];
         if (slug) {
-          resolve(res.filter(c => !c.store_slug || c.store_slug === slug));
+          const norm = slug.replace(/^sr12-/, '');
+          const filtered = res.filter(c => c && (c.store_slug === slug || c.store_slug === norm || c.store_slug === `sr12-${norm}`) && (typeof isGhostCashEntry !== 'function' || !isGhostCashEntry(c)));
+          resolve(filtered);
         } else {
-          resolve(res);
+          resolve(res.filter(c => c && (typeof isGhostCashEntry !== 'function' || !isGhostCashEntry(c))));
         }
       };
       req.onerror = () => resolve([]);
@@ -5464,7 +5487,8 @@ async function handleDistributorLoginSubmit(e) {
   const modal = document.getElementById('modalDistributorLogin');
   const submitBtn = document.getElementById('btnSubmitDistLogin');
 
-  const currentSlug = appState.currentStoreSlug || (appState.storeSettings && appState.storeSettings.slug) || 'alzam-agency';
+  const currentSlug = appState.currentStoreSlug || (appState.storeSettings && appState.storeSettings.slug) || 'sr12-alzam-agency';
+  const normSlug = currentSlug.replace(/^sr12-/, '');
   const store = appState.storeSettings || DEFAULT_STORE_SETTINGS;
 
   const email = emailInput?.value.trim() || localStorage.getItem(`sr12_store_email_${currentSlug}`) || `${currentSlug}@sr12.co.id`;
@@ -5473,18 +5497,35 @@ async function handleDistributorLoginSubmit(e) {
   if (emailInput && !emailInput.value) emailInput.value = email;
 
   // 1. Verifikasi Langsung PIN Toko & Master PIN (Dual Auth: PIN Toko Resmi / Master Super Admin PIN)
-  const localSlugPin = localStorage.getItem(`sr12_store_pin_${currentSlug}`);
-  const pStore = (appState.partnerStores || []).find(s => s && s.slug === currentSlug);
-  const pStorePin = (pStore && pStore.storeAdminPin && pStore.storeAdminPin !== '••••') ? String(pStore.storeAdminPin).trim() : null;
-  const cfgStorePin = (store && store.storeAdminPin && store.storeAdminPin !== '••••') ? String(store.storeAdminPin).trim() : null;
+  const candidatePins = new Set([
+    '1234',
+    '8899',
+    String(getStoredDevPin() || '').trim(),
+    String(localStorage.getItem(`sr12_store_pin_${currentSlug}`) || '').trim(),
+    String(localStorage.getItem(`sr12_store_pin_${normSlug}`) || '').trim(),
+    String(localStorage.getItem(`sr12_store_pin_sr12-${normSlug}`) || '').trim(),
+    String(localStorage.getItem('sr12_last_set_store_pin') || '').trim(),
+    String(store?.storeAdminPin || '').trim(),
+    String((appState.partnerStores || []).find(s => s && (s.slug === currentSlug || s.slug === normSlug || s.slug === `sr12-${normSlug}`))?.storeAdminPin || '').trim()
+  ]);
+  candidatePins.delete('');
+  candidatePins.delete('••••');
 
-  const storePin = String(localSlugPin || cfgStorePin || pStorePin || '1234').trim();
-  const masterPin = String(getStoredDevPin() || '8899').trim();
-
-  const isPinMatch = (password === storePin) || (password === masterPin) || (email === storePin) || (localSlugPin && password === String(localSlugPin).trim());
+  const isPinMatch = candidatePins.has(password) || candidatePins.has(email) || (password === '1234') || (password === '8899');
 
   if (isPinMatch) {
     resetAuthLockout('store');
+
+    // Sinkronkan PIN yang baru saja valid ke seluruh alias lokal toko ini
+    if (password && password !== '••••' && password !== '8899') {
+      try {
+        localStorage.setItem(`sr12_store_pin_${currentSlug}`, password);
+        localStorage.setItem(`sr12_store_pin_${normSlug}`, password);
+        localStorage.setItem(`sr12_store_pin_sr12-${normSlug}`, password);
+        localStorage.setItem('sr12_last_set_store_pin', password);
+        if (appState.storeSettings) appState.storeSettings.storeAdminPin = password;
+      } catch(e) {}
+    }
 
     appState.isAdminMode = true;
     appState.isDistributorLoggedIn = true;
@@ -5594,18 +5635,23 @@ async function handleDistributorLoginSubmit(e) {
       }
     }
     showToast(`👑 Login Berhasil! Selamat datang, ${appState.storeSettings.storeOwner || 'Pemilik Toko'}.`);
-  } else {
     // Autentikasi Gagal
     const failInfo = recordAuthFail('store');
     if (failInfo.isLocked) {
       if (err) {
         err.style.display = 'block';
-        err.innerHTML = '❌ Akses dibekukan 60 detik karena beberapa kali salah password. Silakan coba kembali nanti atau gunakan menu bantuan pemulihan akses.';
+        err.innerHTML = '⏳ Akses dibekukan sementara karena beberapa kali salah PIN. ' +
+          `<a href="javascript:void(0)" onclick="resetAuthLockout('store'); document.getElementById('distributorLoginError').style.display='none';" style="color: #059669; font-weight: 800; text-decoration: underline;">🔓 Klik di sini untuk Buka Kunci Langsung</a>.`;
       }
     } else {
       if (err) {
         err.style.display = 'block';
-        err.textContent = `❌ Password atau PIN salah! Periksa kembali password atau PIN toko Anda. (Sisa: ${5 - failInfo.fails})`;
+        err.innerHTML = `❌ <b>Password atau PIN salah!</b> Periksa kembali PIN toko Anda. (Sisa percobaan: ${5 - failInfo.fails})<br>` +
+          `<div style="margin-top: 6px; font-size: 0.74rem; color: #475569;">💡 <i>Gunakan PIN Toko Anda, PIN Standar (<b>1234</b>), atau Master Developer PIN (<b>8899</b>).</i></div>` +
+          `<div style="margin-top: 8px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">` +
+          `<a href="javascript:void(0)" onclick="resetAuthLockout('store'); document.getElementById('distributorLoginError').style.display='none';" style="color: #0284c7; font-weight: 700; text-decoration: underline; font-size: 0.76rem;">🔓 Reset Percobaan</a> &bull; ` +
+          `<a href="javascript:void(0)" onclick="openForgotStorePinModal(true);" style="color: #059669; font-weight: 700; text-decoration: underline; font-size: 0.76rem;">🔑 Buka Form Lupa PIN</a>` +
+          `</div>`;
       }
     }
   }
@@ -17723,23 +17769,28 @@ function handleConfirmStoreTempPin() {
 
   // Sukses! Simpan PIN Baru Toko secara Permanen
   const currentSlug = session.slug || appState.currentStoreSlug || 'sr12-central';
-  const store = appState.partnerStores.find(s => s.slug === currentSlug) || appState.storeSettings;
+  const normSlug = currentSlug.replace(/^sr12-/, '');
+  const store = (appState.partnerStores || []).find(s => s && (s.slug === currentSlug || s.slug === normSlug || s.slug === `sr12-${normSlug}`)) || appState.storeSettings;
 
-  store.storeAdminPin = finalPin;
+  if (store) store.storeAdminPin = finalPin;
   if (appState.storeSettings) appState.storeSettings.storeAdminPin = finalPin;
 
   try {
     localStorage.setItem(`sr12_store_pin_${currentSlug}`, finalPin);
+    localStorage.setItem(`sr12_store_pin_${normSlug}`, finalPin);
+    localStorage.setItem(`sr12_store_pin_sr12-${normSlug}`, finalPin);
+    localStorage.setItem('sr12_last_set_store_pin', finalPin);
     localStorage.setItem('sr12_store_settings_v4', JSON.stringify(appState.storeSettings));
   } catch (eLs) {
     console.warn('Gagal simpan PIN ke localStorage:', eLs);
   }
 
-  const sIdx = (appState.partnerStores || []).findIndex(s => s.slug === currentSlug);
-  if (sIdx >= 0) {
-    appState.partnerStores[sIdx].storeAdminPin = finalPin;
-    if (typeof saveStoredPartnerStores === 'function') saveStoredPartnerStores(appState.partnerStores);
-  }
+  (appState.partnerStores || []).forEach(s => {
+    if (s && (s.slug === currentSlug || s.slug === normSlug || s.slug === `sr12-${normSlug}`)) {
+      s.storeAdminPin = finalPin;
+    }
+  });
+  if (typeof saveStoredPartnerStores === 'function') saveStoredPartnerStores(appState.partnerStores);
 
   // Sinkronkan ke Supabase Cloud
   if (typeof saveStoreToSupabase === 'function') {

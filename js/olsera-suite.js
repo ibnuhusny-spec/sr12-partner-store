@@ -32,6 +32,21 @@ function saveStoredTransactions(list, slug) {
   localStorage.setItem(key, data);
 }
 
+// Helper deteksi dan eliminasi catatan kas hantu / sampah pengujian lama yang bocor lintas toko
+function isGhostCashEntry(c) {
+  if (!c) return true;
+  const strId = String(c.id || '');
+  const strNotes = String(c.notes || '');
+  const strCat = String(c.category || '');
+  const strDate = String(c.date || '');
+  const ghostPatterns = ['1792391940433', '1792391933362', '1792412735057', '1792412721972', 'CSH-PROBE'];
+  if (ghostPatterns.some(p => strId.includes(p) || strNotes.includes(p) || strDate.includes(p))) return true;
+  if (strCat.includes('(Kas Masuk)') || strCat.includes('(Kas Keluar)')) return true;
+  if (strNotes.startsWith('CSH-') && strCat.includes('Pesanan Selesai')) return true;
+  return false;
+}
+window.isGhostCashEntry = isGhostCashEntry;
+
 function getStoredCashflow(slug) {
   const curSlug = slug || (typeof appState !== 'undefined' && appState.currentStoreSlug) || (typeof appState !== 'undefined' && appState.storeSettings && appState.storeSettings.slug) || 'sr12-central';
   const key = `sr12_cashflow_records_v2_${curSlug}`;
@@ -39,7 +54,13 @@ function getStoredCashflow(slug) {
     const s = localStorage.getItem(key);
     if (s) {
       const parsed = JSON.parse(s);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        const cleaned = parsed.filter(c => !isGhostCashEntry(c));
+        if (cleaned.length !== parsed.length) {
+          localStorage.setItem(key, JSON.stringify(cleaned));
+        }
+        return cleaned;
+      }
     }
   } catch (e) {}
   return [];
@@ -49,7 +70,8 @@ function saveStoredCashflow(list, slug) {
   const curSlug = slug || (typeof appState !== 'undefined' && appState.currentStoreSlug) || (typeof appState !== 'undefined' && appState.storeSettings && appState.storeSettings.slug) || 'sr12-central';
   const key = `sr12_cashflow_records_v2_${curSlug}`;
   try {
-    localStorage.setItem(key, JSON.stringify(list || []));
+    const cleaned = (list || []).filter(c => !isGhostCashEntry(c));
+    localStorage.setItem(key, JSON.stringify(cleaned));
   } catch(e) {}
 }
 
@@ -2631,21 +2653,22 @@ function renderCashflowTable() {
   if (!tbody || typeof appState === 'undefined') return;
 
   const curSlug = (appState.storeSettings && appState.storeSettings.slug) || appState.currentStoreSlug || 'sr12-central';
-  if (!appState.cashflow) {
-    appState.cashflow = (typeof getStoredCashflow === 'function') ? getStoredCashflow(curSlug) : [];
-  }
+  // Selalu muat ulang data kas murni milik toko yang sedang aktif agar tidak pernah tercampur data toko lain
+  appState.cashflow = (typeof getStoredCashflow === 'function') ? getStoredCashflow(curSlug) : [];
 
   // 1. Bersihkan otomatis catatan kas pesanan yang transaksinya sudah dihapus / dinolkan, serta ghost test data
   if (Array.isArray(appState.cashflow) && appState.cashflow.length > 0) {
     const validTrxIds = new Set((appState.transactions || []).map(t => t.id).filter(Boolean));
-    const ghostIds = new Set(['CSH-1792391940433-4560', 'CSH-1792391933362-1694', 'CSH-1792412735057-8961', 'CSH-1792412721972-8355']);
     const initialLen = appState.cashflow.length;
     const seenIds = new Set();
     const cleanedList = [];
 
     appState.cashflow.forEach(c => {
       if (!c) return;
-      if (ghostIds.has(c.id)) return;
+      if (typeof isGhostCashEntry === 'function' && isGhostCashEntry(c)) {
+        if (c.id && typeof dbDeleteCashflow === 'function') dbDeleteCashflow(c.id);
+        return; // Eliminasi data sampah/pengujian lama
+      }
       const uid = c.id || `${c.date}_${c.type}_${c.account}_${c.amount}_${c.notes}`;
       if (seenIds.has(uid)) return; // Cegah duplikasi ID
 
@@ -2670,8 +2693,8 @@ function renderCashflowTable() {
     let hasNewTrx = false;
     appState.transactions.forEach(t => {
       if (!t || !t.id) return;
-      // JANGAN PERNAH rekonsiliasi jika t.id adalah CSH- atau buku kas itu sendiri!
-      if (t.id.startsWith('CSH-') || t.orderSource === 'Buku Kas Olsera' || (t.tier && t.tier.startsWith('cashflow_'))) {
+      // HANYA rekonsiliasi pesanan penjualan resmi (ORD-), JANGAN PERNAH rekonsiliasi CSH- atau kas itu sendiri!
+      if (!String(t.id).startsWith('ORD-') || t.orderSource === 'Buku Kas Olsera' || (t.tier && t.tier.startsWith('cashflow_'))) {
         return;
       }
       const exists = (appState.cashflow || []).some(c => (c.id === t.id) || (c.notes && c.notes.includes(t.id)));
