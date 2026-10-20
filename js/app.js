@@ -57,8 +57,8 @@ try {
   const rawDel = localStorage.getItem('sr12_deleted_store_slugs');
   if (rawDel) {
     const parsedDel = JSON.parse(rawDel);
-    if (Array.isArray(parsedDel) && parsedDel.includes('iyoutique')) {
-      const cleaned = parsedDel.filter(s => s !== 'iyoutique' && s !== 'sr12-central');
+    if (Array.isArray(parsedDel) && (parsedDel.includes('iyoutique') || parsedDel.includes('asmaragama') || parsedDel.includes('sr12-alzam-agency'))) {
+      const cleaned = parsedDel.filter(s => s !== 'iyoutique' && s !== 'asmaragama' && s !== 'sr12-alzam-agency' && s !== 'sr12-central');
       localStorage.setItem('sr12_deleted_store_slugs', JSON.stringify(cleaned));
     }
   }
@@ -9897,6 +9897,23 @@ async function deletePartnerStore(slug) {
 
   if (!confirmed) return;
 
+  // 0. Simpan snapshot lengkap toko ke Recycle Bin (agar dapat dipulihkan jika tidak sengaja terhapus)
+  try {
+    const rawRecycle = localStorage.getItem('sr12_store_recycle_bin');
+    let recycleBin = rawRecycle ? JSON.parse(rawRecycle) : [];
+    if (!Array.isArray(recycleBin)) recycleBin = [];
+    if (targetStore) {
+      recycleBin = recycleBin.filter(b => b && b.slug !== slug);
+      recycleBin.unshift({
+        ...targetStore,
+        deletedAt: new Date().toISOString()
+      });
+      localStorage.setItem('sr12_store_recycle_bin', JSON.stringify(recycleBin.slice(0, 30)));
+    }
+  } catch (e) {
+    console.warn('Gagal mengarsipkan snapshot toko ke Recycle Bin:', e);
+  }
+
   // 1. Simpan slug ke daftar tombstone (blacklist) agar sinkronisasi cloud tidak memunculkannya lagi
   try {
     const rawDeleted = localStorage.getItem('sr12_deleted_store_slugs');
@@ -10108,6 +10125,262 @@ async function deleteAllPartnerStores() {
 window.deletePartnerStore = deletePartnerStore;
 window.deleteCurrentActiveStore = deleteCurrentActiveStore;
 window.deleteAllPartnerStores = deleteAllPartnerStores;
+
+// ==========================================
+// FITUR RECYCLE BIN & PEMULIHAN TOKO TERHAPUS (STORE RESTORE ENGINE)
+// ==========================================
+
+const PRESET_RECOVERABLE_STORES = [
+  {
+    slug: 'iyoutique',
+    storeName: 'Iyoutique',
+    storeTagline: 'Mitra Resmi SR12 Makassar',
+    storeTheme: 'emerald',
+    heroTitle: 'Katalog Resmi SR12 Iyoutique',
+    heroSubtitle: 'Solusi perawatan herbal alami berlisensi resmi BPOM. Belanja aman, diskon otomatis, dan cepat sampai.',
+    heroBannerUrl: 'assets/hero-banner.jpg',
+    storeLogoText: 'I',
+    storeLogoUrl: '',
+    storeWaNumber: '6285342743763',
+    storeCity: 'Makassar',
+    storeOwner: 'Ibnu Husny',
+    partnerTier: 'distributor',
+    feePayer: 'buyer',
+    storeAdminPin: '1234',
+    orderQuota: 15,
+    walletBalance: 10000,
+    totalTopupPaid: 0,
+    totalTx: 3,
+    verifiedSkNumber: 'SK-DIST-SR12-0001'
+  },
+  {
+    slug: 'asmaragama',
+    storeName: 'Asmaragama Official',
+    storeTagline: 'Distributor Resmi SR12 Herbal',
+    storeTheme: 'emerald',
+    heroTitle: 'Katalog Resmi SR12 Asmaragama',
+    heroSubtitle: 'Pusat pasokan herbal resmi berlisensi BPOM & Halal MUI.',
+    heroBannerUrl: 'assets/hero-banner.jpg',
+    storeLogoText: 'A',
+    storeLogoUrl: '',
+    storeWaNumber: '6281234567890',
+    storeCity: 'Jakarta',
+    storeOwner: 'Fadli',
+    partnerTier: 'distributor',
+    feePayer: 'buyer',
+    storeAdminPin: '1234',
+    orderQuota: 15,
+    walletBalance: 10000,
+    totalTopupPaid: 0,
+    totalTx: 2,
+    verifiedSkNumber: 'SK-DIST-SR12-0002'
+  },
+  {
+    slug: 'sr12-alzam-agency',
+    storeName: 'Alzam Agency SR12',
+    storeTagline: 'Distributor Resmi SR12 Berlisensi',
+    storeTheme: 'emerald',
+    heroTitle: 'Katalog Resmi Alzam Agency',
+    heroSubtitle: 'Solusi perawatan kulit herbal alami berlisensi resmi BPOM & Halal MUI.',
+    heroBannerUrl: 'assets/hero-banner.jpg',
+    storeLogoText: 'A',
+    storeLogoUrl: '',
+    storeWaNumber: '6285255476307',
+    storeCity: 'Makassar',
+    storeOwner: 'Nurlinda Sari',
+    partnerTier: 'distributor',
+    feePayer: 'buyer',
+    storeAdminPin: '1234',
+    orderQuota: 20,
+    walletBalance: 15000,
+    totalTopupPaid: 0,
+    totalTx: 0,
+    verifiedSkNumber: 'SK-DIST-SR12-0003'
+  }
+];
+
+function openRestoreStoreModal() {
+  const modal = document.getElementById('modalRestoreStore');
+  if (!modal) return;
+
+  const rawDeleted = localStorage.getItem('sr12_deleted_store_slugs');
+  let deletedSlugs = rawDeleted ? JSON.parse(rawDeleted) : [];
+  if (!Array.isArray(deletedSlugs)) deletedSlugs = [];
+
+  let recycleBin = [];
+  try {
+    const rawRec = localStorage.getItem('sr12_store_recycle_bin');
+    if (rawRec) recycleBin = JSON.parse(rawRec);
+  } catch(e) {}
+  if (!Array.isArray(recycleBin)) recycleBin = [];
+
+  const activeSlugs = new Set((appState.partnerStores || []).map(s => s && s.slug));
+
+  const allCandidateSlugs = Array.from(new Set([
+    ...deletedSlugs,
+    ...recycleBin.map(b => b.slug),
+    ...PRESET_RECOVERABLE_STORES.map(p => p.slug)
+  ])).filter(slug => slug && slug !== 'sr12-central' && !activeSlugs.has(slug));
+
+  const listContainer = document.getElementById('restoreStoresListContainer');
+  if (listContainer) {
+    if (allCandidateSlugs.length === 0) {
+      listContainer.innerHTML = `
+        <div style="text-align: center; padding: 26px 16px; color: #94a3b8; background: #0b1329; border-radius: 10px; border: 1px dashed #334155;">
+          <div style="font-size: 2rem; margin-bottom: 8px;">✨</div>
+          <div style="font-weight: 800; color: #f1f5f9; font-size: 0.95rem;">Tidak ada toko mitra yang terhapus saat ini.</div>
+          <div style="font-size: 0.76rem; color: #64748b; margin-top: 4px;">Seluruh toko mitra Anda sedang aktif normal di jaringan.</div>
+        </div>
+      `;
+    } else {
+      listContainer.innerHTML = allCandidateSlugs.map(slug => {
+        const snap = recycleBin.find(b => b && b.slug === slug);
+        const preset = PRESET_RECOVERABLE_STORES.find(p => p.slug === slug);
+        const storeName = snap?.storeName || preset?.storeName || `Toko Mitra (${slug})`;
+        const owner = snap?.storeOwner || preset?.storeOwner || 'Pemilik Toko';
+        const city = snap?.storeCity || preset?.storeCity || '-';
+        const wa = snap?.storeWaNumber || preset?.storeWaNumber || '-';
+
+        return `
+          <div style="background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <div>
+              <div style="font-weight: 800; color: #f8fafc; font-size: 0.95rem; display: flex; align-items: center; gap: 6px;">
+                <span>🏪</span> ${escapeHtml(storeName)}
+                <span style="font-size: 0.7rem; background: #334155; color: #38bdf8; padding: 2px 6px; border-radius: 4px; font-family: monospace;">?store=${escapeHtml(slug)}</span>
+              </div>
+              <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 3px;">
+                Pemilik: <b style="color: #cbd5e1;">${escapeHtml(owner)}</b> &middot; Wilayah: ${escapeHtml(city)} &middot; WA: ${escapeHtml(wa)}
+              </div>
+            </div>
+            <button type="button" onclick="restoreDeletedStore('${slug}')" style="background: linear-gradient(135deg, #059669, #047857); color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 800; font-size: 0.8rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.35);">
+              ⚡ Pulihkan Toko Ini
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+  }
+
+  modal.classList.add('open');
+}
+window.openRestoreStoreModal = openRestoreStoreModal;
+
+async function restoreDeletedStore(slug) {
+  if (!slug) return;
+
+  // 1. Keluarkan slug dari blacklist tombstone
+  try {
+    const rawDel = localStorage.getItem('sr12_deleted_store_slugs');
+    let deletedSlugs = rawDel ? JSON.parse(rawDel) : [];
+    if (Array.isArray(deletedSlugs)) {
+      deletedSlugs = deletedSlugs.filter(s => s !== slug);
+      localStorage.setItem('sr12_deleted_store_slugs', JSON.stringify(deletedSlugs));
+    }
+  } catch(e) {}
+
+  // 2. Ambil data snapshot toko
+  let restoredData = null;
+  try {
+    const rawRec = localStorage.getItem('sr12_store_recycle_bin');
+    if (rawRec) {
+      const recycleBin = JSON.parse(rawRec);
+      if (Array.isArray(recycleBin)) {
+        restoredData = recycleBin.find(b => b && b.slug === slug);
+      }
+    }
+  } catch(e) {}
+
+  if (!restoredData) {
+    restoredData = PRESET_RECOVERABLE_STORES.find(p => p.slug === slug);
+  }
+
+  if (!restoredData) {
+    restoredData = {
+      slug: slug,
+      storeName: slug.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      storeTagline: 'Mitra Resmi SR12 Skin Care',
+      storeTheme: 'emerald',
+      heroTitle: 'Katalog Resmi ' + slug,
+      heroSubtitle: 'Solusi herbal alami bersertifikasi resmi BPOM & Halal MUI.',
+      heroBannerUrl: 'assets/hero-banner.jpg',
+      storeLogoText: slug.slice(0, 2).toUpperCase(),
+      storeLogoUrl: '',
+      storeWaNumber: '6281234567890',
+      storeCity: 'Indonesia',
+      storeOwner: 'Mitra Resmi',
+      partnerTier: 'distributor',
+      feePayer: 'buyer',
+      storeAdminPin: '1234',
+      orderQuota: 15,
+      walletBalance: 10000,
+      totalTopupPaid: 0,
+      totalTx: 0
+    };
+  }
+
+  // 3. Masukkan kembali ke appState.partnerStores
+  if (!Array.isArray(appState.partnerStores)) appState.partnerStores = [];
+  const exists = appState.partnerStores.some(s => s && s.slug === slug);
+  if (!exists) {
+    appState.partnerStores.push(restoredData);
+    saveStoredPartnerStores(appState.partnerStores);
+  }
+
+  // 4. Sinkronkan ke Supabase Cloud
+  if (typeof saveStoreToSupabase === 'function') {
+    try {
+      await saveStoreToSupabase(restoredData);
+    } catch(sbErr) {}
+  }
+
+  // 5. Perbarui tampilan
+  closeModal('modalRestoreStore');
+  showToast(`🎉 Berhasil! Toko "${restoredData.storeName}" telah dipulihkan.`);
+  
+  if (typeof renderDevPortal === 'function') renderDevPortal();
+  if (typeof renderStoreDropdown === 'function') renderStoreDropdown();
+  if (typeof updateDevPortalMetrics === 'function') updateDevPortalMetrics();
+  if (typeof switchPartnerStore === 'function') {
+    switchPartnerStore(slug);
+  }
+}
+window.restoreDeletedStore = restoreDeletedStore;
+
+function handleManualRestoreStore() {
+  const input = document.getElementById('manualRestoreSlugInput');
+  const slug = input?.value.trim().toLowerCase();
+  if (!slug) {
+    alert('Silakan masukkan slug toko yang ingin dipulihkan.');
+    return;
+  }
+  restoreDeletedStore(slug);
+}
+window.handleManualRestoreStore = handleManualRestoreStore;
+
+async function restoreAllOfficialPresetStores() {
+  try {
+    localStorage.removeItem('sr12_deleted_store_slugs');
+  } catch(e) {}
+
+  for (const store of PRESET_RECOVERABLE_STORES) {
+    const exists = appState.partnerStores.some(s => s && s.slug === store.slug);
+    if (!exists) {
+      appState.partnerStores.push(store);
+      if (typeof saveStoreToSupabase === 'function') {
+        try { await saveStoreToSupabase(store); } catch(e) {}
+      }
+    }
+  }
+
+  saveStoredPartnerStores(appState.partnerStores);
+  closeModal('modalRestoreStore');
+  showToast('🎉 Seluruh Toko Resmi SR12 berhasil dipulihkan!');
+
+  if (typeof renderDevPortal === 'function') renderDevPortal();
+  if (typeof renderStoreDropdown === 'function') renderStoreDropdown();
+  if (typeof updateDevPortalMetrics === 'function') updateDevPortalMetrics();
+}
+window.restoreAllOfficialPresetStores = restoreAllOfficialPresetStores;
 
 /**
  * Reset PIN Toko Mitra Tertentu oleh Developer

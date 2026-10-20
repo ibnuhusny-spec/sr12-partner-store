@@ -1304,6 +1304,7 @@
           </h4>
           <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
             <span id="devTotalStoresCounter_ws" style="font-size: 0.74rem; background: #0284c7; color: #fff; padding: 3px 10px; border-radius: 9999px; font-weight: 700;">2 Toko Terdaftar</span>
+            <button type="button" onclick="openRestoreStoreModal()" style="background: #059669; color: #fff; border: none; padding: 4px 12px; border-radius: 6px; font-weight: 700; font-size: 0.72rem; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(5, 150, 105, 0.3);" title="Pulihkan Toko yang Tidak Sengaja Terhapus">♻️ Pulihkan Toko Terhapus</button>
             <button type="button" onclick="deleteAllPartnerStores()" style="background: #ef4444; color: #fff; border: none; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.72rem; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);" title="Hapus Seluruh Toko Mitra Sekaligus (Reset Bersih)">🗑️ Hapus Seluruh Toko</button>
           </div>
         </div>
@@ -4416,7 +4417,10 @@
               <h4 style="color: #38bdf8; font-size: 0.9rem; margin: 0; display: flex; align-items: center; gap: 6px;">
                 <span>🌐</span> Jaringan Toko Mitra Aktif:
               </h4>
-              <span id="devTotalStoresCounter" style="font-size: 0.72rem; background: #0284c7; color: #fff; padding: 2px 8px; border-radius: 9999px; font-weight: 700;">3 Toko Terdaftar</span>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <button type="button" onclick="openRestoreStoreModal(); closeModal('modalDevPortal');" style="background: #059669; color: #fff; border: none; padding: 2px 8px; border-radius: 6px; font-weight: 700; font-size: 0.7rem; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Pulihkan Toko yang Tidak Sengaja Terhapus">♻️ Pulihkan Toko</button>
+                <span id="devTotalStoresCounter" style="font-size: 0.72rem; background: #0284c7; color: #fff; padding: 2px 8px; border-radius: 9999px; font-weight: 700;">3 Toko Terdaftar</span>
+              </div>
             </div>
             <div style="overflow-x: auto; max-height: 280px; overflow-y: auto;">
               <table style="width: 100%; border-collapse: collapse; font-size: 0.76rem; text-align: left;">
@@ -4696,6 +4700,60 @@
           </button>
         </div>
       </form>
+    </div>
+  <!-- MODAL: PEMULIHAN TOKO TERHAPUS (RECYCLE BIN & RESTORE STORE) -->
+  <div class="modal-backdrop" id="modalRestoreStore" style="z-index: 11000;">
+    <div class="modal-dialog" style="max-width: 620px; background: #0f172a; color: #f8fafc; border: 1.5px solid #059669; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.85); overflow: hidden;">
+      <div style="background: linear-gradient(135deg, #064e3b, #0f172a); border-bottom: 1px solid #10b981; padding: 18px 24px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <span style="font-size: 0.68rem; font-weight: 800; letter-spacing: 0.05em; background: rgba(16, 185, 129, 0.2); color: #34d399; padding: 3px 10px; border-radius: 9999px; border: 1px solid rgba(16, 185, 129, 0.4); display: inline-block; margin-bottom: 4px;">
+            ♻️ RECYCLE BIN &amp; DATA RECOVERY
+          </span>
+          <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #ecfdf5; display: flex; align-items: center; gap: 8px;">
+            <span>♻️</span> Pulihkan Toko yang Tidak Sengaja Dihapus
+          </h3>
+        </div>
+        <button class="btn-close-modal" onclick="closeModal('modalRestoreStore')" style="color: #94a3b8; font-size: 1.5rem; background: none; border: none; cursor: pointer;">&times;</button>
+      </div>
+
+      <div style="padding: 20px 24px; max-height: calc(85vh - 120px); overflow-y: auto;">
+        <p style="font-size: 0.82rem; color: #cbd5e1; line-height: 1.5; margin: 0 0 16px 0;">
+          Toko yang terhapus dapat dipulihkan kembali ke jaringan aktif beserta seluruh pengaturannya tanpa perlu mendaftar ulang.
+        </p>
+
+        <!-- Daftar Toko yang Terhapus -->
+        <div style="margin-bottom: 20px;">
+          <div style="font-size: 0.8rem; font-weight: 800; color: #34d399; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+            <span>📋</span> Daftar Toko yang Pernah Dihapus:
+          </div>
+          <div id="restoreStoresListContainer" style="display: flex; flex-direction: column; gap: 10px;">
+            <!-- Populated via openRestoreStoreModal() -->
+          </div>
+        </div>
+
+        <!-- Pulihkan Manual via Slug -->
+        <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid #334155; border-radius: 10px; padding: 14px 16px; margin-top: 16px;">
+          <div style="font-size: 0.78rem; font-weight: 700; color: #94a3b8; margin-bottom: 8px;">
+            🔍 Atau masukkan ID/Slug Toko yang ingin dipulihkan secara spesifik:
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <input type="text" id="manualRestoreSlugInput" placeholder="Contoh: iyoutique, asmaragama, alzam..." style="flex: 1 1 200px; background: #1e293b; border: 1px solid #475569; color: #f8fafc; padding: 9px 12px; border-radius: 8px; font-size: 0.85rem; font-family: monospace;">
+            <button type="button" onclick="handleManualRestoreStore()" style="background: #0284c7; color: #fff; border: none; padding: 9px 16px; border-radius: 8px; font-weight: 700; font-size: 0.82rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+              ⚡ Pulihkan
+            </button>
+          </div>
+        </div>
+
+        <!-- Tombol Cepat Pulihkan Semua Toko Bawaan -->
+        <div style="margin-top: 20px; padding-top: 14px; border-top: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+          <span style="font-size: 0.74rem; color: #64748b;">
+            💡 Reset blacklist memulihkan semua toko mitra resmi bawaan.
+          </span>
+          <button type="button" onclick="restoreAllOfficialPresetStores()" style="background: #334155; color: #34d399; border: 1px solid #059669; padding: 8px 14px; border-radius: 8px; font-size: 0.76rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+            🔄 Pulihkan Semua Toko Resmi
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -5491,9 +5549,9 @@
 
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=18.6"></script>
-  <script src="js/data.js?v=18.6"></script>
-  <script src="js/app.js?v=18.6"></script>
-  <script src="js/olsera-suite.js?v=18.6"></script>
+  <script src="js/supabase-config.js?v=18.7"></script>
+  <script src="js/data.js?v=18.7"></script>
+  <script src="js/app.js?v=18.7"></script>
+  <script src="js/olsera-suite.js?v=18.7"></script>
 </body>
 </html>
