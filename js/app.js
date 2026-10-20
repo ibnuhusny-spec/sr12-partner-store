@@ -17025,11 +17025,14 @@ function handleRequestStoreTempPin() {
   const normStore = storeWa.startsWith('62') ? storeWa.slice(2) : (storeWa.startsWith('0') ? storeWa.slice(1) : storeWa);
   const isWaMatch = normUser && normStore && (normUser === normStore || normStore.endsWith(normUser) || normUser.endsWith(normStore));
 
-  // Verifikasi 4 digit terakhir NIK Pemilik jika toko memiliki NIK terdaftar
+  // Verifikasi 6 digit terakhir NIK Pemilik jika toko memiliki NIK terdaftar
   let isNikMatch = true;
-  if (storeNik && storeNik.length >= 4) {
+  if (storeNik && storeNik.length >= 6) {
+    const last6StoreNik = storeNik.slice(-6);
+    isNikMatch = (userNik === last6StoreNik);
+  } else if (storeNik && storeNik.length >= 4) {
     const last4StoreNik = storeNik.slice(-4);
-    isNikMatch = (userNik === last4StoreNik);
+    isNikMatch = (userNik === last4StoreNik || userNik.endsWith(last4StoreNik));
   } else if (userNik.length > 0 && userNik.length < 4) {
     isNikMatch = false;
   }
@@ -17041,7 +17044,7 @@ function handleRequestStoreTempPin() {
     }
     if (errEl) {
       errEl.style.display = 'block';
-      errEl.innerHTML = `❌ Verifikasi data gagal! Nomor WhatsApp atau 4 digit NIK tidak cocok dengan data resmi toko ini.<br><span style="font-size: 0.7rem; color: #64748b;">Percobaan gagal: ${storeResetRateLimit.fails}/5. Jika lupa data NIK, silakan klik tombol bantuan ke Developer Pusat.</span>`;
+      errEl.innerHTML = `❌ Verifikasi data gagal! Nomor WhatsApp atau 6 digit NIK tidak cocok dengan data resmi toko ini.<br><span style="font-size: 0.7rem; color: #64748b;">Percobaan gagal: ${storeResetRateLimit.fails}/5. Jika lupa data NIK, silakan klik tombol bantuan ke Developer Pusat.</span>`;
     }
     return;
   }
