@@ -3899,52 +3899,118 @@
     </div>
   </div>
 
-  <!-- 14B. MODAL: PEMULIHAN PIN & PASSWORD TOKO (DISTRIBUTOR RECOVERY) -->
+  <!-- 14. MODAL: LUPA PIN / RESET PASSWORD TOKO DISTRIBUTOR DENGAN VERIFIKASI WA DUA ARAH & OTP -->
   <div class="modal-backdrop" id="modalForgotStorePin">
-    <div class="modal-dialog" style="max-width: 440px; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.4);">
+    <div class="modal-dialog" style="max-width: 460px; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);">
       <div class="modal-header" style="background: linear-gradient(135deg, #065f46, #047857); color: #fff; padding: 16px 20px;">
         <div>
           <div style="display: inline-flex; align-items: center; gap: 5px; background: rgba(255,255,255,0.18); padding: 2px 8px; border-radius: 99px; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.5px; margin-bottom: 4px;">
-            🛡️ PEMULIHAN AKSES RESMI
+            🛡️ SISTEM KEAMANAN RESMI SR12
           </div>
           <h3 style="display: flex; align-items: center; gap: 8px; color: #fff; margin: 0; font-size: 1.05rem;">
-            <span>🔑</span> Pemulihan PIN / Password Toko
+            <span>🔐</span> Pemulihan PIN / Akses Toko
           </h3>
         </div>
         <button class="btn-close-modal" style="color: #fff;" onclick="closeModal('modalForgotStorePin')">&times;</button>
       </div>
       <div class="modal-body" style="padding: 20px;">
-        <p style="font-size: 0.8rem; color: #475569; margin-top: 0; margin-bottom: 14px; line-height: 1.5;">
-          Untuk melindungi keamanan toko dari pembobolan, masukkan <b>Nomor WhatsApp Resmi Toko</b> yang terdaftar pada profil toko Anda.
-        </p>
+        
+        <!-- STEP 1: VERIFIKASI IDENTITAS & KIRIM PIN SEMENTARA KE WA PEMILIK -->
+        <div id="forgotStoreStep1">
+          <div style="background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 10px; padding: 10px 14px; margin-bottom: 14px;">
+            <span style="font-size: 0.68rem; font-weight: 800; color: #15803d; text-transform: uppercase;">Toko yang dipulihkan:</span>
+            <div id="forgotStoreBadge" style="font-size: 0.88rem; font-weight: 800; color: #065f46;">Toko Mitra SR12</div>
+          </div>
 
-        <div style="background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 10px; padding: 10px 14px; margin-bottom: 14px;">
-          <span style="font-size: 0.68rem; font-weight: 800; color: #15803d; text-transform: uppercase;">Toko yang dipulihkan:</span>
-          <div id="forgotStoreBadge" style="font-size: 0.88rem; font-weight: 800; color: #065f46;">Toko Mitra SR12</div>
+          <p style="font-size: 0.78rem; color: #475569; margin-top: 0; margin-bottom: 14px; line-height: 1.5;">
+            Untuk melindungi toko Anda dari pembobolan, masukkan nomor WhatsApp resmi toko serta 4 digit terakhir NIK pemilik. Sistem akan mengirimkan <b>PIN Sementara</b> langsung ke WhatsApp pemilik toko resmi.
+          </p>
+
+          <div style="margin-bottom: 12px;">
+            <label style="font-size: 0.78rem; font-weight: 700; color: #1e293b; display: block; margin-bottom: 5px;">
+              Nomor WhatsApp Resmi Toko:
+            </label>
+            <input type="tel" id="forgotStoreWaInput" placeholder="Contoh: 081234567890 atau 628xxxxxxxxxx" style="width: 100%; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; font-family: monospace;">
+            <small style="font-size: 0.7rem; color: #64748b; display: block; margin-top: 3px;">
+              Nomor WhatsApp yang terdaftar pada profil toko ini.
+            </small>
+          </div>
+
+          <div style="margin-bottom: 14px;">
+            <label style="font-size: 0.78rem; font-weight: 700; color: #1e293b; display: block; margin-bottom: 5px;">
+              4 Digit Terakhir NIK / KTP Pemilik:
+            </label>
+            <input type="password" id="forgotStoreNikInput" maxlength="4" placeholder="Contoh: 0003" style="width: 100%; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; font-family: monospace; letter-spacing: 2px;">
+            <small style="font-size: 0.7rem; color: #64748b; display: block; margin-top: 3px;">
+              Verifikasi data rahasia pemilik toko (tercantum pada dokumen KTP saat pendaftaran).
+            </small>
+            <div id="forgotStoreError" style="display: none; color: #ef4444; font-size: 0.78rem; margin-top: 6px; font-weight: 600; padding: 6px 10px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px;"></div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 16px;">
+            <button type="button" id="btnRequestStoreTempPin" onclick="handleRequestStoreTempPin()" style="background: linear-gradient(135deg, #059669, #047857); color: #fff; border: none; padding: 12px; border-radius: 8px; font-weight: 800; font-size: 0.88rem; cursor: pointer; box-shadow: 0 4px 12px rgba(5,150,105,0.3); display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+              <span>📲</span> Kirim PIN Sementara ke WhatsApp Pemilik Toko
+            </button>
+            <button type="button" onclick="sendStorePinResetRequestToDevWA()" style="background: #25d366; color: #fff; border: none; padding: 10px; border-radius: 8px; font-weight: 700; font-size: 0.82rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+              <span>💬</span> Bantuan Reset via WhatsApp Developer Pusat
+            </button>
+            <button type="button" onclick="closeModal('modalForgotStorePin'); openDistributorLoginModal();" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 10px; border-radius: 8px; font-weight: 600; font-size: 0.82rem; cursor: pointer;">
+              Kembali ke Form Login
+            </button>
+          </div>
         </div>
 
-        <div style="margin-bottom: 14px;">
-          <label style="font-size: 0.78rem; font-weight: 700; color: #1e293b; display: block; margin-bottom: 5px;">
-            Nomor WhatsApp Resmi Toko:
-          </label>
-          <input type="tel" id="forgotStoreWaInput" placeholder="Contoh: 081234567890 atau 628xxxxxxxxxx" style="width: 100%; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; font-family: monospace;">
-          <small style="font-size: 0.7rem; color: #64748b; display: block; margin-top: 4px;">
-            Nomor WhatsApp yang Anda daftarkan saat membuka toko ini.
-          </small>
-          <div id="forgotStoreError" style="display: none; color: #ef4444; font-size: 0.78rem; margin-top: 6px; font-weight: 600; padding: 6px 10px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px;"></div>
+        <!-- STEP 2: KONFIRMASI PIN SEMENTARA / OTP DARI WHATSAPP -->
+        <div id="forgotStoreStep2" style="display: none;">
+          <div style="background: #ecfdf5; border: 1.5px solid #6ee7b7; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px;">
+            <div style="display: flex; align-items: center; gap: 6px; color: #065f46; font-weight: 800; font-size: 0.84rem; margin-bottom: 4px;">
+              <span>📨</span> Pesan Terkirim ke WhatsApp Pemilik
+            </div>
+            <div id="forgotStoreMaskedWa" style="font-size: 0.76rem; color: #047857; line-height: 1.4;">
+              Pesan berisi PIN Sementara baru telah dikirimkan ke WhatsApp resmi pemilik toko. Silakan periksa pesan masuk di WhatsApp Anda.
+            </div>
+            <div style="font-size: 0.7rem; color: #065f46; margin-top: 6px; background: rgba(255,255,255,0.6); padding: 4px 8px; border-radius: 4px;">
+              💡 <i>Jika Anda tidak merasa meminta reset ini, abaikan pesan WhatsApp tersebut. Toko Anda tetap aman.</i>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 12px;">
+            <label style="font-size: 0.78rem; font-weight: 700; color: #1e293b; display: block; margin-bottom: 5px;">
+              Masukkan PIN Sementara (6-Digit dari WhatsApp):
+            </label>
+            <input type="text" id="forgotStoreOtpInput" maxlength="6" placeholder="Contoh: 849201" style="width: 100%; padding: 10px 12px; border: 1.5px solid #059669; border-radius: 8px; font-size: 1.1rem; font-family: monospace; letter-spacing: 4px; font-weight: 800; color: #065f46; text-align: center;">
+          </div>
+
+          <div style="margin-bottom: 12px;">
+            <label style="font-size: 0.78rem; font-weight: 700; color: #1e293b; display: block; margin-bottom: 5px;">
+              Buat PIN Baru Toko (4 - 6 Angka):
+            </label>
+            <input type="password" id="forgotStoreNewPinInput" maxlength="6" placeholder="Masukkan PIN baru pilihan Anda" style="width: 100%; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; font-family: monospace; letter-spacing: 2px;">
+          </div>
+
+          <div style="margin-bottom: 14px;">
+            <label style="font-size: 0.78rem; font-weight: 700; color: #1e293b; display: block; margin-bottom: 5px;">
+              Ulangi PIN Baru Toko:
+            </label>
+            <input type="password" id="forgotStoreConfirmNewPinInput" maxlength="6" placeholder="Ketik ulang PIN baru di atas" style="width: 100%; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; font-family: monospace; letter-spacing: 2px;">
+            <div id="forgotStoreStep2Error" style="display: none; color: #ef4444; font-size: 0.78rem; margin-top: 6px; font-weight: 600; padding: 6px 10px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px;"></div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 16px;">
+            <button type="button" id="btnConfirmStoreTempPin" onclick="handleConfirmStoreTempPin()" style="background: linear-gradient(135deg, #059669, #047857); color: #fff; border: none; padding: 12px; border-radius: 8px; font-weight: 800; font-size: 0.88rem; cursor: pointer; box-shadow: 0 4px 12px rgba(5,150,105,0.3); display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+              <span>🔓</span> Simpan PIN Baru &amp; Masuk ke Toko
+            </button>
+            <div style="display: flex; gap: 8px;">
+              <button type="button" onclick="handleResendStoreTempPin()" style="flex: 1; background: #f0fdf4; color: #047857; border: 1px solid #86efac; padding: 8px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; cursor: pointer;">
+                🔄 Kirim Ulang WA
+              </button>
+              <button type="button" onclick="backToForgotStoreStep1()" style="flex: 1; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px; font-size: 0.76rem; font-weight: 600; cursor: pointer;">
+                ‹ Ubah No. HP
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 16px;">
-          <button type="button" id="btnVerifyStoreWa" onclick="handleVerifyAndResetStorePin()" style="background: #059669; color: #fff; border: none; padding: 12px; border-radius: 8px; font-weight: 800; font-size: 0.88rem; cursor: pointer; box-shadow: 0 4px 12px rgba(5,150,105,0.3);">
-            ⚡ Verifikasi &amp; Pulihkan Akses Toko
-          </button>
-          <button type="button" onclick="sendStorePinResetRequestToDevWA()" style="background: #25d366; color: #fff; border: none; padding: 10px; border-radius: 8px; font-weight: 700; font-size: 0.82rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
-            <span>💬</span> Bantuan Reset via WhatsApp Developer Pusat
-          </button>
-          <button type="button" onclick="closeModal('modalForgotStorePin'); openDistributorLoginModal();" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 10px; border-radius: 8px; font-weight: 600; font-size: 0.82rem; cursor: pointer;">
-            Kembali ke Form Login
-          </button>
-        </div>
       </div>
     </div>
   </div>
@@ -5339,9 +5405,9 @@
 
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=17.9"></script>
-  <script src="js/data.js?v=17.9"></script>
-  <script src="js/app.js?v=17.9"></script>
-  <script src="js/olsera-suite.js?v=17.9"></script>
+  <script src="js/supabase-config.js?v=18.0"></script>
+  <script src="js/data.js?v=18.0"></script>
+  <script src="js/app.js?v=18.0"></script>
+  <script src="js/olsera-suite.js?v=18.0"></script>
 </body>
 </html>

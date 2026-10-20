@@ -5478,11 +5478,11 @@ async function handleDistributorLoginSubmit(e) {
 
   if (emailInput && !emailInput.value) emailInput.value = email;
 
-  // 1. Verifikasi Langsung PIN Toko & Master PIN (Dual Auth: PIN Toko 1234 / Master PIN 8899)
+  // 1. Verifikasi Langsung PIN Toko & Master PIN (Dual Auth: PIN Toko Resmi / Master Super Admin PIN)
   const storePin = String(store.storeAdminPin || localStorage.getItem(`sr12_store_pin_${currentSlug}`) || '1234').trim();
   const masterPin = String(getStoredDevPin() || '8899').trim();
 
-  const isPinMatch = (password === storePin) || (password === '1234') || (password === masterPin) || (email === storePin);
+  const isPinMatch = (password === storePin) || (password === masterPin) || (email === storePin);
 
   if (isPinMatch) {
     resetAuthLockout('store');
@@ -16937,19 +16937,31 @@ window.handleSecretStoreLogoDblClick = handleSecretStoreLogoDblClick;
 // ==========================================
 // FITUR PEMULIHAN PIN / PASSWORD TOKO DISTRIBUTOR
 // ==========================================
+// ==========================================
+// FITUR PEMULIHAN PIN / PASSWORD TOKO DISTRIBUTOR TERPROTEKSI (2-FACTOR WA & OTP)
+// ==========================================
+
 function openForgotStorePinModal() {
   if (typeof closeModal === 'function') closeModal('modalDistributorLogin');
   const modal = document.getElementById('modalForgotStorePin');
   const badge = document.getElementById('forgotStoreBadge');
-  const input = document.getElementById('forgotStoreWaInput');
-  const err = document.getElementById('forgotStoreError');
+  const step1 = document.getElementById('forgotStoreStep1');
+  const step2 = document.getElementById('forgotStoreStep2');
+  const waInput = document.getElementById('forgotStoreWaInput');
+  const nikInput = document.getElementById('forgotStoreNikInput');
+  const err1 = document.getElementById('forgotStoreError');
+  const err2 = document.getElementById('forgotStoreStep2Error');
 
   const store = appState.storeSettings || DEFAULT_STORE_SETTINGS;
   if (badge) {
     badge.textContent = `${store.storeName} (${store.storeCity || 'Mitra Resmi'})`;
   }
-  if (input) input.value = '';
-  if (err) err.style.display = 'none';
+  if (step1) step1.style.display = 'block';
+  if (step2) step2.style.display = 'none';
+  if (waInput) waInput.value = '';
+  if (nikInput) nikInput.value = '';
+  if (err1) err1.style.display = 'none';
+  if (err2) err2.style.display = 'none';
 
   if (modal) {
     document.body.classList.add('modal-open');
@@ -16958,76 +16970,271 @@ function openForgotStorePinModal() {
 }
 window.openForgotStorePinModal = openForgotStorePinModal;
 
-function handleVerifyAndResetStorePin() {
-  const input = document.getElementById('forgotStoreWaInput');
-  const err = document.getElementById('forgotStoreError');
-  const userWa = (input?.value || '').replace(/\D/g, ''); // strip karakter non-angka
+function backToForgotStoreStep1() {
+  const step1 = document.getElementById('forgotStoreStep1');
+  const step2 = document.getElementById('forgotStoreStep2');
+  const err1 = document.getElementById('forgotStoreError');
+  if (step1) step1.style.display = 'block';
+  if (step2) step2.style.display = 'none';
+  if (err1) err1.style.display = 'none';
+}
+window.backToForgotStoreStep1 = backToForgotStoreStep1;
+
+// Anti-Spam / Rate Limiting untuk Permintaan Reset PIN Toko
+const storeResetRateLimit = {
+  fails: 0,
+  lockedUntil: 0
+};
+
+function handleRequestStoreTempPin() {
+  const now = Date.now();
+  const errEl = document.getElementById('forgotStoreError');
+
+  if (storeResetRateLimit.lockedUntil && now < storeResetRateLimit.lockedUntil) {
+    const sisaMenit = Math.ceil((storeResetRateLimit.lockedUntil - now) / 60000);
+    if (errEl) {
+      errEl.style.display = 'block';
+      errEl.textContent = `🔒 Terlalu banyak percobaan gagal. Demi keamanan toko, silakan tunggu ${sisaMenit} menit sebelum mencoba kembali.`;
+    }
+    return;
+  }
+
+  const waInput = document.getElementById('forgotStoreWaInput');
+  const nikInput = document.getElementById('forgotStoreNikInput');
+  const userWa = (waInput?.value || '').replace(/\D/g, '');
+  const userNik = (nikInput?.value || '').trim();
 
   const store = appState.storeSettings || DEFAULT_STORE_SETTINGS;
   const storeWa = (store.storeWaNumber || store.phone || '').replace(/\D/g, '');
+  const storeNik = (store.nikNumber || '').replace(/\D/g, '');
 
   if (!userWa || userWa.length < 8) {
-    if (err) {
-      err.style.display = 'block';
-      err.textContent = '❌ Masukkan nomor WhatsApp resmi toko Anda dengan benar (minimal 8 digit)!';
+    if (errEl) {
+      errEl.style.display = 'block';
+      errEl.textContent = '❌ Masukkan nomor WhatsApp resmi toko Anda dengan benar (minimal 8 digit)!';
     }
     return;
   }
 
-  // Bandingkan nomor WA toko (normalisasi 08xx vs 628xx atau 8-9 digit terakhir)
+  // Normalisasi nomor WA toko (08xx vs 628xx)
   const normUser = userWa.startsWith('62') ? userWa.slice(2) : (userWa.startsWith('0') ? userWa.slice(1) : userWa);
   const normStore = storeWa.startsWith('62') ? storeWa.slice(2) : (storeWa.startsWith('0') ? storeWa.slice(1) : storeWa);
+  const isWaMatch = normUser && normStore && (normUser === normStore || normStore.endsWith(normUser) || normUser.endsWith(normStore));
 
-  const isMatch = normUser && normStore && (normUser === normStore || normStore.endsWith(normUser) || normUser.endsWith(normStore));
+  // Verifikasi 4 digit terakhir NIK Pemilik jika toko memiliki NIK terdaftar
+  let isNikMatch = true;
+  if (storeNik && storeNik.length >= 4) {
+    const last4StoreNik = storeNik.slice(-4);
+    isNikMatch = (userNik === last4StoreNik);
+  } else if (userNik.length > 0 && userNik.length < 4) {
+    isNikMatch = false;
+  }
 
-  // Default fallback untuk demo/testing nomor standar jika belum ada nomor terdaftar
-  const isDefaultDemoWa = (userWa === '081234567890' || userWa === '6281234567890');
-
-  if (!isMatch && !isDefaultDemoWa) {
-    if (err) {
-      err.style.display = 'block';
-      err.textContent = '❌ Nomor WhatsApp tidak cocok dengan nomor resmi yang terdaftar pada profil toko ini. Silakan periksa kembali atau gunakan tombol Bantuan Reset Developer Pusat.';
+  if (!isWaMatch || !isNikMatch) {
+    storeResetRateLimit.fails++;
+    if (storeResetRateLimit.fails >= 5) {
+      storeResetRateLimit.lockedUntil = Date.now() + 15 * 60 * 1000; // Lock 15 menit
+    }
+    if (errEl) {
+      errEl.style.display = 'block';
+      errEl.innerHTML = `❌ Verifikasi data gagal! Nomor WhatsApp atau 4 digit NIK tidak cocok dengan data resmi toko ini.<br><span style="font-size: 0.7rem; color: #64748b;">Percobaan gagal: ${storeResetRateLimit.fails}/5. Jika lupa data NIK, silakan klik tombol bantuan ke Developer Pusat.</span>`;
     }
     return;
   }
 
-  // Nomor WA Valid dan Terverifikasi! Lakukan reset PIN toko ke Default '1234'
-  const currentSlug = appState.currentStoreSlug || store.slug || 'alzam-agency';
-  store.storeAdminPin = '1234';
-  if (appState.storeSettings) appState.storeSettings.storeAdminPin = '1234';
+  // Verifikasi lolos! Buat PIN Sementara Acak 6 Digit Baru (Time-Limited OTP)
+  const tempPin = String(Math.floor(100000 + Math.random() * 900000));
+  const currentSlug = appState.currentStoreSlug || store.slug || 'sr12-central';
+
+  appState.storeResetSession = {
+    slug: currentSlug,
+    tempPin: tempPin,
+    expiresAt: Date.now() + 10 * 60 * 1000, // Valid 10 menit
+    attempts: 0
+  };
 
   try {
-    localStorage.setItem(`sr12_store_pin_${currentSlug}`, '1234');
+    sessionStorage.setItem('sr12_store_reset_session', JSON.stringify(appState.storeResetSession));
+  } catch (e) {}
+
+  // Susun pesan WhatsApp resmi yang profesional dan aman
+  const storeName = store.storeName || 'Toko Mitra SR12';
+  const owner = store.storeOwner || 'Pemilik Toko';
+  const timeStr = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+
+  const msg =
+    `🛡️ *NOTIFIKASI KEAMANAN TOKO SR12*\n\n` +
+    `Halo *${owner}*,\n` +
+    `Ada permintaan pemulihan PIN untuk toko Anda:\n` +
+    `🏪 Toko: *${storeName}* (${currentSlug})\n` +
+    `⏰ Waktu: ${timeStr} WIB\n\n` +
+    `🔑 *PIN SEMENTARA LOGIN ANDA:*\n` +
+    `👉 *${tempPin}* 👈\n\n` +
+    `⚠️ *PERINGATAN PENTING:*\n` +
+    `1. Masukkan kode PIN Sementara di atas pada layar konfirmasi pemulihan toko untuk membuat PIN baru Anda.\n` +
+    `2. *JIKA ANDA TIDAK MERASA MEMINTA RESET INI:* Jangan berikan kode ini kepada siapa pun dan *ABAIKAN PESAN INI*. Keamanan toko Anda tetap terjaga dan PIN lama Anda TIDAK AKAN BERUBAH.`;
+
+  const cleanPhone = storeWa.startsWith('0') ? ('62' + storeWa.slice(1)) : (storeWa.startsWith('62') ? storeWa : ('62' + storeWa));
+  const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
+
+  // Buka WhatsApp langsung ke nomor WA pemilik toko
+  window.open(waUrl, '_blank');
+
+  // Pindah ke Step 2 (Konfirmasi PIN Sementara)
+  const step1 = document.getElementById('forgotStoreStep1');
+  const step2 = document.getElementById('forgotStoreStep2');
+  const maskedWaEl = document.getElementById('forgotStoreMaskedWa');
+  const otpInput = document.getElementById('forgotStoreOtpInput');
+  const newPinInput = document.getElementById('forgotStoreNewPinInput');
+  const confirmPinInput = document.getElementById('forgotStoreConfirmNewPinInput');
+  const err2 = document.getElementById('forgotStoreStep2Error');
+
+  // Mask nomor HP: misal +62 812-****-**90
+  const displayWa = cleanPhone.length > 7
+    ? `+${cleanPhone.slice(0, 4)} ****-**${cleanPhone.slice(-2)}`
+    : `+${cleanPhone}`;
+
+  if (maskedWaEl) {
+    maskedWaEl.innerHTML = `Pesan verifikasi berisi <b>PIN Sementara</b> telah dikirimkan ke WhatsApp pemilik toko resmi (<b>${escapeHtml(displayWa)}</b>). Silakan buka WhatsApp Anda.`;
+  }
+  if (otpInput) otpInput.value = '';
+  if (newPinInput) newPinInput.value = '';
+  if (confirmPinInput) confirmPinInput.value = '';
+  if (err2) err2.style.display = 'none';
+
+  if (step1) step1.style.display = 'none';
+  if (step2) step2.style.display = 'block';
+
+  showToast('📨 Pesan keamanan berisi PIN Sementara telah dikirim ke WhatsApp pemilik!');
+}
+window.handleRequestStoreTempPin = handleRequestStoreTempPin;
+
+function handleResendStoreTempPin() {
+  handleRequestStoreTempPin();
+}
+window.handleResendStoreTempPin = handleResendStoreTempPin;
+
+function handleConfirmStoreTempPin() {
+  const session = appState.storeResetSession;
+  const errEl = document.getElementById('forgotStoreStep2Error');
+
+  if (!session || !session.tempPin) {
+    if (errEl) {
+      errEl.style.display = 'block';
+      errEl.textContent = '❌ Sesi reset PIN tidak ditemukan atau telah kedaluwarsa. Silakan ulangi dari awal.';
+    }
+    return;
+  }
+
+  if (Date.now() > session.expiresAt) {
+    if (errEl) {
+      errEl.style.display = 'block';
+      errEl.textContent = '⏳ PIN Sementara telah kedaluwarsa (berlaku 10 menit). Silakan klik "Kirim Ulang WA".';
+    }
+    return;
+  }
+
+  const otpInput = document.getElementById('forgotStoreOtpInput')?.value.trim();
+  const newPin = document.getElementById('forgotStoreNewPinInput')?.value.trim();
+  const confirmPin = document.getElementById('forgotStoreConfirmNewPinInput')?.value.trim();
+
+  if (!otpInput) {
+    if (errEl) {
+      errEl.style.display = 'block';
+      errEl.textContent = '❌ Masukkan PIN Sementara 6-digit yang Anda terima di WhatsApp!';
+    }
+    return;
+  }
+
+  if (otpInput !== session.tempPin) {
+    session.attempts = (session.attempts || 0) + 1;
+    if (errEl) {
+      errEl.style.display = 'block';
+      errEl.textContent = `❌ PIN Sementara salah! Periksa kembali pesan di WhatsApp Anda (Percobaan: ${session.attempts}/3).`;
+    }
+    if (session.attempts >= 3) {
+      appState.storeResetSession = null;
+      if (errEl) {
+        errEl.textContent = '❌ Terlalu banyak percobaan salah. Sesi dibatalkan demi keamanan.';
+      }
+      setTimeout(() => backToForgotStoreStep1(), 2000);
+    }
+    return;
+  }
+
+  // Jika input PIN baru diisi, pastikan minimal 4 digit dan cocok
+  let finalPin = session.tempPin;
+  if (newPin || confirmPin) {
+    if (newPin.length < 4) {
+      if (errEl) {
+        errEl.style.display = 'block';
+        errEl.textContent = '❌ PIN Baru minimal 4 digit angka!';
+      }
+      return;
+    }
+    if (newPin !== confirmPin) {
+      if (errEl) {
+        errEl.style.display = 'block';
+        errEl.textContent = '❌ Konfirmasi PIN Baru tidak cocok dengan PIN Baru!';
+      }
+      return;
+    }
+    finalPin = newPin;
+  }
+
+  // Sukses! Simpan PIN Baru Toko secara Permanen
+  const currentSlug = session.slug || appState.currentStoreSlug || 'sr12-central';
+  const store = appState.partnerStores.find(s => s.slug === currentSlug) || appState.storeSettings;
+
+  store.storeAdminPin = finalPin;
+  if (appState.storeSettings) appState.storeSettings.storeAdminPin = finalPin;
+
+  try {
+    localStorage.setItem(`sr12_store_pin_${currentSlug}`, finalPin);
     localStorage.setItem('sr12_store_settings_v4', JSON.stringify(appState.storeSettings));
   } catch (eLs) {
-    console.warn('Gagal simpan reset PIN ke localStorage:', eLs);
+    console.warn('Gagal simpan PIN ke localStorage:', eLs);
   }
 
   const sIdx = (appState.partnerStores || []).findIndex(s => s.slug === currentSlug);
   if (sIdx >= 0) {
-    appState.partnerStores[sIdx].storeAdminPin = '1234';
+    appState.partnerStores[sIdx].storeAdminPin = finalPin;
     if (typeof saveStoredPartnerStores === 'function') saveStoredPartnerStores(appState.partnerStores);
   }
 
+  // Sinkronkan ke Supabase Cloud
   if (typeof saveStoreToSupabase === 'function') {
     saveStoreToSupabase(appState.storeSettings).catch(() => {});
   }
 
+  // Hapus sesi reset PIN
+  appState.storeResetSession = null;
+  try { sessionStorage.removeItem('sr12_store_reset_session'); } catch (e) {}
+
   resetAuthLockout('store');
 
   if (typeof closeModal === 'function') closeModal('modalForgotStorePin');
-  if (typeof openDistributorLoginModal === 'function') openDistributorLoginModal();
 
-  const passInput = document.getElementById('distributorLoginPassword');
-  if (passInput) passInput.value = '1234';
+  // Login otomatis masuk ke portal toko
+  appState.isAdminMode = true;
+  appState.isDistributorLoggedIn = true;
+  localStorage.setItem('sr12_active_view_mode', 'portal');
+  localStorage.setItem('sr12_active_olsera_tab', 'pos');
+  localStorage.setItem('sr12_last_active_partner_store', currentSlug);
+  localStorage.setItem('sr12_logged_store_slug', currentSlug);
 
-  if (typeof showToast === 'function') {
-    showToast('✅ Nomor WhatsApp terverifikasi! Akses login toko Anda telah dipulihkan. Silakan masuk.');
-  } else {
-    alert('✅ Nomor WhatsApp terverifikasi!\n\nAkses login toko Anda telah berhasil dipulihkan. Silakan masuk ke dashboard.');
+  if (typeof showDistributorPortalView === 'function') {
+    showDistributorPortalView(true);
+  } else if (typeof updateViewModeUI === 'function') {
+    updateViewModeUI();
   }
+
+  showToast(`🎉 PIN Baru Toko Berhasil Disimpan & Akses Toko Telah Dibuka!`);
 }
-window.handleVerifyAndResetStorePin = handleVerifyAndResetStorePin;
+window.handleConfirmStoreTempPin = handleConfirmStoreTempPin;
+
+// Kompatibilitas mundur
+window.handleVerifyAndResetStorePin = handleRequestStoreTempPin;
 
 function sendStorePinResetRequestToDevWA() {
   const store = appState.storeSettings || DEFAULT_STORE_SETTINGS;
@@ -17037,7 +17244,7 @@ function sendStorePinResetRequestToDevWA() {
   const wa = store.storeWaNumber || '-';
 
   const text = encodeURIComponent(
-    `Halo Super Admin Developer SR12,\n\nSaya pemilik toko *${storeName}* (${slug})\nNama Pemilik: ${owner}\nNo. WA Toko: ${wa}\n\nSaya lupa password/PIN toko saya dan membutuhkan bantuan reset akses login. Mohon panduannya. Terima kasih!`
+    `Halo Super Admin Developer SR12,\n\nSaya pemilik toko *${storeName}* (${slug})\nNama Pemilik: ${owner}\nNo. WA Toko: ${wa}\n\nSaya lupa password/PIN toko saya dan membutuhkan bantuan reset akses login manual dari Developer. Mohon panduannya. Terima kasih!`
   );
   window.open(`https://wa.me/6282255554309?text=${text}`, '_blank');
 }
