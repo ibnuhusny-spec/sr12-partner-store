@@ -2491,6 +2491,26 @@
             <input type="text" id="settingStoreOwner" placeholder="Contoh: Ibu Aisyah (Distributor Resmi)" style="width: 100%; padding: 8px 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-family: var(--font-main);">
           </div>
 
+          <!-- Dokumen SK / Legalitas Resmi Toko -->
+          <div style="background: #f0fdf4; border: 1.5px solid #a7f3d0; border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 16px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; flex-wrap: wrap; gap: 6px;">
+              <label style="font-size: 0.82rem; font-weight: 800; color: #065f46; display: flex; align-items: center; gap: 6px;">
+                <span>📜</span> Berkas SK / Legalitas Resmi Toko:
+              </label>
+              <button type="button" onclick="showCurrentStoreSk()" style="background: #059669; color: #fff; border: none; padding: 4px 10px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+                <span>👁️</span> Lihat Dokumen SK Saat Ini
+              </button>
+            </div>
+            <div style="font-size: 0.74rem; color: #047857; margin-bottom: 8px;">
+              No. SK: <code id="settingSkNumberDisplay" style="font-weight: 800; font-family: monospace; background: #ecfdf5; padding: 2px 6px; border-radius: 4px; border: 1px solid #86efac;">-</code>
+            </div>
+            <label style="font-size: 0.74rem; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Ganti / Lampirkan Foto Berkas SK Fisik (JPG / PNG):</label>
+            <input type="file" id="settingSkFileInput" accept="image/jpeg,image/png" style="width: 100%; font-size: 0.75rem; padding: 6px; background: #ffffff; border: 1px dashed #059669; border-radius: 6px;">
+            <div id="settingSkPreviewBox" style="display: none; align-items: center; gap: 8px; margin-top: 6px; padding: 4px 8px; background: #ffffff; border-radius: 4px; border: 1px solid #86efac;">
+              <span id="settingSkFileName" style="font-size: 0.72rem; color: #065f46; font-family: monospace; font-weight: 700;"></span>
+            </div>
+          </div>
+
           <button type="submit" id="btnSubmitStoreSettings" style="width: 100%; background: var(--primary-800); color: #fff; border: none; padding: 12px; border-radius: var(--radius-md); font-weight: 800; font-size: 0.92rem; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
             💾 Simpan Perubahan Identitas & Tema Toko
           </button>
@@ -5311,9 +5331,9 @@
 
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/supabase-config.js?v=17.7"></script>
-  <script src="js/data.js?v=17.7"></script>
-  <script src="js/app.js?v=17.7"></script>
-  <script src="js/olsera-suite.js?v=17.7"></script>
+  <script src="js/supabase-config.js?v=17.8"></script>
+  <script src="js/data.js?v=17.8"></script>
+  <script src="js/app.js?v=17.8"></script>
+  <script src="js/olsera-suite.js?v=17.8"></script>
 </body>
 </html>

@@ -3945,6 +3945,10 @@ async function approvePendingStore(appId) {
     totalTopupPaid: 0,
     totalTx: 0,
     verifiedSkNumber: app.skNumber,
+    skDocUrl: app.skDocUrl || '',
+    skDocName: app.skDocName || '',
+    ktpDocUrl: app.ktpDocUrl || '',
+    ktpDocName: app.ktpDocName || '',
     approvedAt: new Date().toISOString()
   };
 
@@ -4786,11 +4790,119 @@ function handleDirectorySearch(query) {
 }
 window.handleDirectorySearch = handleDirectorySearch;
 
-function showSpecificStoreSk(slug) {
-  const store = appState.partnerStores.find(s => s.slug === slug) || appState.storeSettings;
-  const skNum = store.skNumber || `SK-DIST-SR12-2026-${(store.slug || 'mitra').replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 5)}`;
+/**
+ * Render Konten Pratinjau Dokumen SK / Sertifikat Toko Mitra
+ * Menampilkan berkas fisik asli yang diunggah toko jika ada (foto JPG/PNG atau PDF),
+ * atau menampilkan template sertifikat resmi digital jika toko belum melampirkan berkas fisik.
+ */
+function renderStoreSkViewerContent(store, containerEl) {
+  if (!store || !containerEl) return;
+  const slug = store.slug || '';
+  const skNum = store.skNumber || store.verifiedSkNumber || `SK-DIST-SR12-2026-${slug.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 5)}`;
   const owner = store.storeOwner || 'Mitra Resmi';
   const nik = store.nikNumber || '3374025804820003';
+  const city = (store.storeCity || 'Indonesia').split('(')[0].trim();
+  const storeName = store.storeName || 'Toko Resmi SR12';
+
+  // 1. Cari berkas dokumen asli (skDocUrl / sk_doc_url / ktpDocUrl / dari pendingStoreApps)
+  const matchedApp = (appState.pendingStoreApps || []).find(a => a.slug === slug || (slug && a.slug && a.slug.startsWith(slug)) || a.storeName === storeName);
+  const realDocUrl = store.skDocUrl || store.sk_doc_url || (matchedApp && (matchedApp.skDocUrl || matchedApp.ktpDocUrl)) || '';
+  const hasRealDoc = realDocUrl && typeof realDocUrl === 'string' && !realDocUrl.startsWith('data:image/svg+xml');
+
+  const docUrl = hasRealDoc ? realDocUrl : getMockSkSvgUrl(owner, nik, storeName, skNum, city);
+  const docName = store.skDocName || store.sk_doc_name || (matchedApp && matchedApp.skDocName) || (hasRealDoc ? `Dokumen_Asli_SK_${slug || 'Toko'}.jpg` : `SK_${skNum}.svg`);
+  const isPdf = (typeof docUrl === 'string' && (docUrl.startsWith('data:application/pdf') || docUrl.toLowerCase().includes('.pdf'))) || 
+                (docName && docName.toLowerCase().endsWith('.pdf'));
+
+  window.__activePreviewDocUrl = docUrl;
+  window.__activePreviewDocName = docName;
+  window.__activePreviewDocTitle = `Dokumen Legalitas Resmi: ${storeName}`;
+
+  if (isPdf) {
+    containerEl.innerHTML = `
+      <div style="width: 100%; border: 1.5px solid #0284c7; border-radius: 10px; overflow: hidden; background: #0b1329; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #0f172a; border-bottom: 1px solid #1e293b; flex-wrap: wrap; gap: 8px;">
+          <div style="font-size: 0.8rem; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 8px;">
+            <span>📄</span>
+            <span>Berkas Dokumen Asli: <b style="color: #fff; font-family: monospace;">${escapeHtml(docName)}</b></span>
+          </div>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button type="button" onclick="openDocumentFullscreenViewer(window.__activePreviewDocUrl, window.__activePreviewDocTitle, window.__activePreviewDocName)" style="color: #fff; background: #0284c7; border: none; font-size: 0.74rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4);">
+              <span>🔍</span> Buka Layar Penuh
+            </button>
+            <button type="button" onclick="downloadDocumentDirectly(window.__activePreviewDocUrl, window.__activePreviewDocName)" style="color: #bae6fd; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35); font-size: 0.74rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 6px; cursor: pointer;">
+              <span>📥</span> Unduh PDF
+            </button>
+          </div>
+        </div>
+        <div style="padding: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 280px; max-height: 440px; background: #020617;">
+          <iframe src="${docUrl}" style="width: 100%; height: 340px; border: 1px solid #334155; border-radius: 6px; background: #ffffff;" title="Berkas PDF Asli"></iframe>
+        </div>
+        <div style="padding: 10px 14px; background: rgba(14, 165, 233, 0.1); border-top: 1px solid rgba(14, 165, 233, 0.2); font-size: 0.75rem; color: #bae6fd; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+          <span>🏛️ <b>Status:</b> Dokumen PDF Asli Unggahan Toko (SK No: <code style="color: #fef08a;">${escapeHtml(skNum)}</code>)</span>
+          <span style="background: #0369a1; color: #e0f2fe; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 0.7rem;">✓ Dokumen Asli</span>
+        </div>
+      </div>
+    `;
+  } else if (hasRealDoc) {
+    containerEl.innerHTML = `
+      <div style="width: 100%; border: 1.5px solid #059669; border-radius: 10px; overflow: hidden; background: #022c22; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #0f172a; border-bottom: 1px solid #1e293b; flex-wrap: wrap; gap: 8px;">
+          <span style="font-size: 0.8rem; font-weight: 700; color: #34d399; display: flex; align-items: center; gap: 6px;">
+            📸 Berkas Asli Unggahan Toko &middot; <span style="font-family: monospace; color: #fef08a;">${escapeHtml(skNum)}</span>
+          </span>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button type="button" onclick="openDocumentFullscreenViewer(window.__activePreviewDocUrl, window.__activePreviewDocTitle, window.__activePreviewDocName)" style="color: #34d399; font-size: 0.74rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; background: rgba(52, 211, 153, 0.15); border: 1px solid rgba(52, 211, 153, 0.4); border-radius: 6px; cursor: pointer;">
+              🔍 Buka Layar Penuh
+            </button>
+            <button type="button" onclick="downloadDocumentDirectly(window.__activePreviewDocUrl, window.__activePreviewDocName)" style="color: #fff; background: #059669; border: none; font-size: 0.74rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 6px; cursor: pointer;">
+              📥 Download Berkas Asli
+            </button>
+          </div>
+        </div>
+        <div style="padding: 12px; display: flex; justify-content: center; align-items: center; min-height: 260px; max-height: 440px; overflow: auto; background: #041f18;">
+          <img src="${docUrl}" alt="Berkas SK Asli" style="max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.6); cursor: zoom-in;" onclick="openDocumentFullscreenViewer(window.__activePreviewDocUrl, window.__activePreviewDocTitle, window.__activePreviewDocName)" title="Klik untuk membuka layar penuh">
+        </div>
+        <div style="padding: 10px 14px; background: rgba(16, 185, 129, 0.1); border-top: 1px solid rgba(16, 185, 129, 0.2); font-size: 0.75rem; color: #a7f3d0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+          <span>🏛️ <b>Status Berkas:</b> Foto Fisik Asli Yang Dilampirkan Toko</span>
+          <span style="color: #cbd5e1; font-size: 0.72rem; font-family: monospace;">${escapeHtml(docName)}</span>
+        </div>
+      </div>
+    `;
+  } else {
+    // Fallback: Digital Generated Certificate SVG
+    containerEl.innerHTML = `
+      <div style="width: 100%; border: 1.5px solid #059669; border-radius: 10px; overflow: hidden; background: #022c22; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #0f172a; border-bottom: 1px solid #1e293b; flex-wrap: wrap; gap: 8px;">
+          <span style="font-size: 0.8rem; font-weight: 700; color: #34d399;">
+            📜 SK Resmi Kemitraan: <span style="font-family: monospace; color: #fef08a;">${escapeHtml(skNum)}</span>
+          </span>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button type="button" onclick="openDocumentFullscreenViewer(window.__activePreviewDocUrl, window.__activePreviewDocTitle, window.__activePreviewDocName)" style="color: #34d399; font-size: 0.74rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; background: rgba(52, 211, 153, 0.15); border: 1px solid rgba(52, 211, 153, 0.4); border-radius: 6px; cursor: pointer;">
+              🔍 Buka Layar Penuh
+            </button>
+            <button type="button" onclick="downloadDocumentDirectly(window.__activePreviewDocUrl, window.__activePreviewDocName)" style="color: #fff; background: #059669; border: none; font-size: 0.74rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 6px; cursor: pointer;">
+              📥 Download Sertifikat
+            </button>
+          </div>
+        </div>
+        <div style="padding: 12px; display: flex; justify-content: center; align-items: center; min-height: 260px; max-height: 420px; overflow: auto; background: #041f18;">
+          <img src="${docUrl}" alt="SK Resmi" style="max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.6); cursor: zoom-in;" onclick="openDocumentFullscreenViewer(window.__activePreviewDocUrl, window.__activePreviewDocTitle, window.__activePreviewDocName)" title="Klik untuk membuka layar penuh">
+        </div>
+        <div style="padding: 10px 14px; background: rgba(16, 185, 129, 0.1); border-top: 1px solid rgba(16, 185, 129, 0.2); font-size: 0.75rem; color: #a7f3d0; display: flex; justify-content: space-between; align-items: center;">
+          <span>🏛️ <b>Penerbit SK:</b> PT. SR12 Herbal Perkasa (Sertifikat Digital Otomatis)</span>
+          <span style="color: #fef08a; font-size: 0.72rem; background: rgba(254, 240, 138, 0.15); padding: 2px 6px; border-radius: 4px;">ℹ️ Belum upload berkas fisik</span>
+        </div>
+      </div>
+    `;
+  }
+}
+window.renderStoreSkViewerContent = renderStoreSkViewerContent;
+
+function showSpecificStoreSk(slug) {
+  const store = appState.partnerStores.find(s => s.slug === slug) || appState.storeSettings;
+  const skNum = store.skNumber || store.verifiedSkNumber || `SK-DIST-SR12-2026-${(store.slug || 'mitra').replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 5)}`;
+  const owner = store.storeOwner || 'Mitra Resmi';
   const city = (store.storeCity || 'Indonesia').split('(')[0].trim();
   const storeName = store.storeName || 'Toko Resmi SR12';
 
@@ -4799,7 +4911,6 @@ function showSpecificStoreSk(slug) {
 
   const titleEl = document.getElementById('previewSkTitle');
   const detailsEl = document.getElementById('previewSkDetails');
-  const frameEl = document.getElementById('previewSkFrame');
   const btnApprove = document.getElementById('btnPreviewApproveSk');
   const btnReject = document.getElementById('btnPreviewRejectSk');
 
@@ -4813,35 +4924,7 @@ function showSpecificStoreSk(slug) {
   }
   const containerEl = document.getElementById('previewSkContainer');
   if (containerEl) {
-    const skSvg = getMockSkSvgUrl(owner, nik, storeName, skNum, city);
-    window.__activePreviewDocUrl = skSvg;
-    window.__activePreviewDocName = `SK_${skNum}.svg`;
-    window.__activePreviewDocTitle = `Dokumen SK Resmi: ${storeName}`;
-
-    containerEl.innerHTML = `
-      <div style="width: 100%; border: 1.5px solid #059669; border-radius: 10px; overflow: hidden; background: #022c22; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #0f172a; border-bottom: 1px solid #1e293b; flex-wrap: wrap; gap: 8px;">
-          <span style="font-size: 0.8rem; font-weight: 700; color: #34d399;">
-            📜 SK Resmi Kemitraan: <span style="font-family: monospace; color: #fef08a;">${escapeHtml(skNum)}</span>
-          </span>
-          <div style="display: flex; gap: 6px; align-items: center;">
-            <button type="button" onclick="openDocumentFullscreenViewer(window.__activePreviewDocUrl, window.__activePreviewDocTitle, window.__activePreviewDocName)" style="color: #34d399; font-size: 0.74rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; background: rgba(52, 211, 153, 0.15); border: 1px solid rgba(52, 211, 153, 0.4); border-radius: 6px; cursor: pointer;">
-              🔍 Buka Layar Penuh
-            </button>
-            <button type="button" onclick="downloadDocumentDirectly(window.__activePreviewDocUrl, window.__activePreviewDocName)" style="color: #fff; background: #059669; border: none; font-size: 0.74rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 6px; cursor: pointer;">
-              📥 Download
-            </button>
-          </div>
-        </div>
-        <div style="padding: 12px; display: flex; justify-content: center; align-items: center; min-height: 260px; max-height: 420px; overflow: auto; background: #041f18;">
-          <img src="${skSvg}" alt="SK Resmi" style="max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.6); cursor: zoom-in;" onclick="openDocumentFullscreenViewer(window.__activePreviewDocUrl, window.__activePreviewDocTitle, window.__activePreviewDocName)" title="Klik untuk membuka layar penuh">
-        </div>
-        <div style="padding: 10px 14px; background: rgba(16, 185, 129, 0.1); border-top: 1px solid rgba(16, 185, 129, 0.2); font-size: 0.75rem; color: #a7f3d0; display: flex; justify-content: space-between; align-items: center;">
-          <span>🏛️ <b>Penerbit SK:</b> PT. SR12 Herbal Perkasa (Legalitas Sah)</span>
-          <span style="color: #cbd5e1; font-size: 0.72rem;">✓ SK Terdaftar</span>
-        </div>
-      </div>
-    `;
+    renderStoreSkViewerContent(store, containerEl);
   }
   if (btnApprove) btnApprove.style.display = 'none';
   if (btnReject) btnReject.style.display = 'none';
@@ -5146,35 +5229,7 @@ function showCurrentStoreSk() {
   }
   const containerEl = document.getElementById('previewSkContainer');
   if (containerEl) {
-    const skSvg = getMockSkSvgUrl(owner, nik, storeName, skNum, city);
-    window.__activePreviewDocUrl = skSvg;
-    window.__activePreviewDocName = `SK_${skNum}.svg`;
-    window.__activePreviewDocTitle = `Dokumen SK Resmi: ${storeName}`;
-
-    containerEl.innerHTML = `
-      <div style="width: 100%; border: 1.5px solid #059669; border-radius: 10px; overflow: hidden; background: #022c22; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #0f172a; border-bottom: 1px solid #1e293b; flex-wrap: wrap; gap: 8px;">
-          <span style="font-size: 0.8rem; font-weight: 700; color: #34d399;">
-            📜 SK Resmi Kemitraan: <span style="font-family: monospace; color: #fef08a;">${escapeHtml(skNum)}</span>
-          </span>
-          <div style="display: flex; gap: 6px; align-items: center;">
-            <button type="button" onclick="openDocumentFullscreenViewer(window.__activePreviewDocUrl, window.__activePreviewDocTitle, window.__activePreviewDocName)" style="color: #34d399; font-size: 0.74rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; background: rgba(52, 211, 153, 0.15); border: 1px solid rgba(52, 211, 153, 0.4); border-radius: 6px; cursor: pointer;">
-              🔍 Buka Layar Penuh
-            </button>
-            <button type="button" onclick="downloadDocumentDirectly(window.__activePreviewDocUrl, window.__activePreviewDocName)" style="color: #fff; background: #059669; border: none; font-size: 0.74rem; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 6px; cursor: pointer;">
-              📥 Download
-            </button>
-          </div>
-        </div>
-        <div style="padding: 12px; display: flex; justify-content: center; align-items: center; min-height: 260px; max-height: 420px; overflow: auto; background: #041f18;">
-          <img src="${skSvg}" alt="SK Resmi" style="max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.6); cursor: zoom-in;" onclick="openDocumentFullscreenViewer(window.__activePreviewDocUrl, window.__activePreviewDocTitle, window.__activePreviewDocName)" title="Klik untuk membuka layar penuh">
-        </div>
-        <div style="padding: 10px 14px; background: rgba(16, 185, 129, 0.1); border-top: 1px solid rgba(16, 185, 129, 0.2); font-size: 0.75rem; color: #a7f3d0; display: flex; justify-content: space-between; align-items: center;">
-          <span>🏛️ <b>Penerbit SK:</b> PT. SR12 Herbal Perkasa (Legalitas Sah)</span>
-          <span style="color: #cbd5e1; font-size: 0.72rem;">✓ SK Terdaftar</span>
-        </div>
-      </div>
-    `;
+    renderStoreSkViewerContent(store, containerEl);
   }
   if (btnApprove) btnApprove.style.display = 'none';
   if (btnReject) btnReject.style.display = 'none';
@@ -6369,6 +6424,38 @@ function initEventListeners() {
             }
           };
           reader.readAsDataURL(file);
+        }
+      }
+    });
+  }
+
+  // Store Settings SK Document Upload (Foto Berkas Asli)
+  const settingSkFileInput = document.getElementById('settingSkFileInput');
+  if (settingSkFileInput) {
+    settingSkFileInput.addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file) {
+        if (!isStrictImageFile(file)) {
+          alert('Format file tidak didukung! Unggah foto berkas SK resmi berformat JPG atau PNG.');
+          e.target.value = '';
+          return;
+        }
+        showToast('⏳ Memproses foto berkas SK toko...');
+        try {
+          const compressed = typeof compressImageSource === 'function'
+            ? await compressImageSource(file, 900, 0.72)
+            : null;
+          if (compressed) {
+            appState.tempStoreSkBase64 = compressed;
+            appState.tempStoreSkDocName = file.name;
+            const previewBox = document.getElementById('settingSkPreviewBox');
+            const fileNameSpan = document.getElementById('settingSkFileName');
+            if (fileNameSpan) fileNameSpan.textContent = `📎 ${file.name} (Foto Asli Siap Disimpan)`;
+            if (previewBox) previewBox.style.display = 'flex';
+            showToast('📄 Berkas SK fisik siap disimpan!');
+          }
+        } catch (err) {
+          console.warn('Gagal memproses berkas SK toko:', err);
         }
       }
     });
@@ -9694,6 +9781,17 @@ function openStoreSettingsModal() {
   const storeAdminPinInput = document.getElementById('settingStoreAdminPin');
   if (storeAdminPinInput) storeAdminPinInput.value = cfg.storeAdminPin || '1234';
 
+  const skNumDisplay = document.getElementById('settingSkNumberDisplay');
+  if (skNumDisplay) {
+    skNumDisplay.textContent = cfg.verifiedSkNumber || cfg.skNumber || `SK-DIST-SR12-2026-${(cfg.slug || 'mitra').replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 5)}`;
+  }
+  appState.tempStoreSkBase64 = null;
+  appState.tempStoreSkDocName = null;
+  const skFileInput = document.getElementById('settingSkFileInput');
+  if (skFileInput) skFileInput.value = '';
+  const skPreviewBox = document.getElementById('settingSkPreviewBox');
+  if (skPreviewBox) skPreviewBox.style.display = 'none';
+
   appState.tempStoreLogoBase64 = null;
   appState.tempHeroBannerBase64 = null;
   const bannerFileInput = document.getElementById('settingBannerFileInput');
@@ -10303,6 +10401,12 @@ function handleSaveStoreSettingsSubmit(e) {
       storeAdminPin: storeAdminPin
     };
 
+    // Simpan berkas dokumen SK fisik baru jika diunggah
+    if (appState.tempStoreSkBase64) {
+      appState.storeSettings.skDocUrl = appState.tempStoreSkBase64;
+      appState.storeSettings.skDocName = appState.tempStoreSkDocName || 'Dokumen_SK_Toko.jpg';
+    }
+
     // Sinkronkan ke daftar partnerStores agar direktori pusat terupdate seketika
     const currentIdx = (appState.partnerStores || []).findIndex(s => s.slug === appState.currentStoreSlug);
     if (currentIdx > -1) {
@@ -10315,6 +10419,8 @@ function handleSaveStoreSettingsSubmit(e) {
 
     appState.tempStoreLogoBase64 = null;
     appState.tempHeroBannerBase64 = null;
+    appState.tempStoreSkBase64 = null;
+    appState.tempStoreSkDocName = null;
 
     try {
       localStorage.setItem('sr12_store_settings_v4', JSON.stringify(appState.storeSettings));
