@@ -2509,7 +2509,10 @@
             </div>
             <div style="font-size: 0.74rem; color: #047857; margin-bottom: 8px; display: flex; gap: 12px; flex-wrap: wrap;">
               <span>No. SK: <code id="settingSkNumberDisplay" style="font-weight: 800; font-family: monospace; background: #ecfdf5; padding: 2px 6px; border-radius: 4px; border: 1px solid #86efac;">-</code></span>
-              <span>🪪 NIK Pemilik: <code id="settingNikDisplay" style="font-weight: 800; font-family: monospace; background: #ecfdf5; padding: 2px 6px; border-radius: 4px; border: 1px solid #86efac;">-</code></span>
+              <span style="display: inline-flex; align-items: center; gap: 4px;">
+                🪪 NIK Pemilik: <code id="settingNikDisplay" style="font-weight: 800; font-family: monospace; background: #ecfdf5; padding: 2px 6px; border-radius: 4px; border: 1px solid #86efac;">-</code>
+                <button type="button" onclick="toggleStoreSettingNikVisibility()" style="background: none; border: none; cursor: pointer; padding: 0 2px; font-size: 0.82rem;" title="Lihat/Sembunyikan NIK Lengkap">👁️</button>
+              </span>
             </div>
             <label style="font-size: 0.74rem; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">Ganti / Lampirkan Foto Berkas SK Fisik (JPG / PNG):</label>
             <input type="file" id="settingSkFileInput" accept="image/jpeg,image/png" style="width: 100%; font-size: 0.75rem; padding: 6px; background: #ffffff; border: 1px dashed #059669; border-radius: 6px;">

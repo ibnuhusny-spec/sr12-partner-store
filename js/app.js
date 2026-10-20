@@ -9870,8 +9870,23 @@ function openStoreSettingsModal() {
     dangerZone.style.display = cfg.slug === 'sr12-central' ? 'none' : 'block';
   }
 
+  window.__isSettingNikFullVisible = false;
   if (modal) modal.classList.add('open');
 }
+
+function toggleStoreSettingNikVisibility() {
+  window.__isSettingNikFullVisible = !window.__isSettingNikFullVisible;
+  const nikDisplay = document.getElementById('settingNikDisplay');
+  const cfg = appState.storeSettings || DEFAULT_STORE_SETTINGS;
+  if (!nikDisplay) return;
+  const raw = String(cfg.nikNumber || '3374025804820003').replace(/\D/g, '');
+  if (window.__isSettingNikFullVisible) {
+    nikDisplay.textContent = raw;
+  } else {
+    nikDisplay.textContent = raw.length >= 8 ? raw.slice(0, 4) + '********' + raw.slice(-4) : '••••••••••••••••';
+  }
+}
+window.toggleStoreSettingNikVisibility = toggleStoreSettingNikVisibility;
 
 /**
  * Hapus Toko Mitra Secara Permanen
