@@ -4748,7 +4748,6 @@ function renderOfficialDistributorDirectory(filter = currentDirectoryFilter, sea
           <div class="dist-card-info-box">
             <div>👤 <b>Pemilik:</b> ${store.storeOwner}</div>
             <div>📍 <b>Wilayah:</b> ${cleanCity}</div>
-            <div>📱 <b>WhatsApp:</b> +${cleanWa}</div>
             ${(store.recommenderDistributor) ? `<div style="font-size: 0.73rem; color: #1e40af; background: #eff6ff; padding: 3px 8px; border-radius: 4px; margin-top: 4px; border: 1px solid #bfdbfe;">👑 <b>Rekomendasi:</b> ${store.recommenderDistributor}</div>` : ''}
           </div>
 
@@ -4756,17 +4755,14 @@ function renderOfficialDistributorDirectory(filter = currentDirectoryFilter, sea
             <span>🟢</span> Stok Ready &bull; Pengiriman Cepat
           </div>
 
-          <!-- 5. Tombol Aksi Masuk Toko / Kontak -->
+          <!-- 5. Tombol Aksi Masuk Toko / Cek Legalitas (Kontak Terlindungi) -->
           <div class="dist-card-actions">
             <button type="button" onclick="if(typeof closeModal==='function') closeModal('modalProductDetail'); switchPartnerStore('${store.slug}'); window.scrollTo({top: 0, behavior: 'smooth'});" class="btn-card-enter-store">
-              <span>🛍️</span> Belanja di Toko Ini
+              <span>🛍️</span> Kunjungi Toko Ini
             </button>
-            <div class="dist-card-sub-actions">
-              <a href="https://wa.me/${cleanWa}?text=${encodeURIComponent(`Halo ${store.storeName}, saya melihat toko resmi Anda di direktori Pusat SR12...`)}" target="_blank" class="btn-card-sub btn-card-sub-wa" title="Hubungi Toko via WhatsApp" aria-label="WhatsApp">
-                <span>💬</span>
-              </a>
-              <button type="button" onclick="showSpecificStoreSk('${store.slug}')" class="btn-card-sub btn-card-sub-sk" title="Periksa Dokumen SK Resmi Distributor" aria-label="SK Resmi">
-                <span>📜</span>
+            <div class="dist-card-sub-actions" style="width: 100%;">
+              <button type="button" onclick="showSpecificStoreSk('${store.slug}')" class="btn-card-sub btn-card-sub-sk" style="width: 100%; border-radius: 9999px; height: 32px; font-size: 0.75rem; gap: 6px; display: inline-flex; align-items: center; justify-content: center;" title="Periksa Dokumen SK Resmi Distributor" aria-label="SK Resmi">
+                <span>📜</span> Cek Dokumen Legalitas Toko
               </button>
             </div>
           </div>
