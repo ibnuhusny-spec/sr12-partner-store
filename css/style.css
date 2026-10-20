@@ -7915,6 +7915,30 @@ body.olsera-portal-active #olseraAppNavbar {
     box-shadow: 0 3px 10px rgba(2, 132, 199, 0.35) !important;
   }
 
+  .btn-olsera-static-back {
+    height: 38px !important;
+    padding: 0 14px !important;
+    font-size: 0.8rem !important;
+    font-weight: 800 !important;
+    background: linear-gradient(135deg, #ecfdf5, #d1fae5) !important;
+    border: 1.5px solid #10b981 !important;
+    color: #047857 !important;
+    border-radius: 9999px !important;
+    cursor: pointer !important;
+    display: none;
+    align-items: center !important;
+    gap: 5px !important;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3) !important;
+    flex-shrink: 0 !important;
+    transition: all 0.2s ease !important;
+  }
+
+  .btn-olsera-static-back:hover {
+    background: #a7f3d0 !important;
+    border-color: #059669 !important;
+    transform: translateY(-1px) !important;
+  }
+
   .olsera-static-store-info {
     text-align: right !important;
     min-width: 0 !important;

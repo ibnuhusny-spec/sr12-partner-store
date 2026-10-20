@@ -424,6 +424,10 @@ function updateOlseraHeaderMeta() {
   if (staticStoreNameEl) staticStoreNameEl.textContent = displayName;
   if (staticStoreRoleEl) staticStoreRoleEl.textContent = isCentral ? 'SR12 Official Central Hub' : `Distributor Resmi SR12 (${store.storeCity || 'Indonesia'})`;
   if (staticCashierLabelEl) staticCashierLabelEl.textContent = `Kasir: ${activeCashierName}`;
+  const btnStaticBackCentral = document.getElementById('btnOlseraStaticBackToCentral');
+  if (btnStaticBackCentral) {
+    btnStaticBackCentral.style.display = isCentral ? 'none' : 'inline-flex';
+  }
 
   // Update POS Cashier Pills
   const posCashierPill = document.getElementById('posActiveCashierLabel');

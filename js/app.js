@@ -4972,6 +4972,10 @@ function renderStoreBranding() {
     btnBackCentral.style.display = isCentralHub ? 'none' : 'inline-flex';
     btnBackCentral.innerHTML = '<span>🏛️</span> <span class="hide-on-mobile">Belanja di Pusat</span>';
   }
+  const btnStaticBackCentral = document.getElementById('btnOlseraStaticBackToCentral');
+  if (btnStaticBackCentral) {
+    btnStaticBackCentral.style.display = isCentralHub ? 'none' : 'inline-flex';
+  }
 
   // Tombol WhatsApp di Navbar
   if (navChatWa) {
@@ -9064,6 +9068,9 @@ window.addEventListener('popstate', (e) => {
   if (targetSlug !== appState.currentStoreSlug) {
     switchPartnerStore(targetSlug, false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  } else if (appState.currentStoreSlug && appState.currentStoreSlug !== 'sr12-central') {
+    switchPartnerStore('sr12-central', false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 });
 
@@ -9265,10 +9272,11 @@ function initGlobalEdgeSwipeBackGesture() {
     touchStartY = touch.clientY;
     touchStartTime = Date.now();
 
-    // Hanya aktif jika sentuhan dimulai dari area dekat tepi kiri layar (<= 45px)
-    isTrackingEdgeSwipe = touchStartX <= 45;
+    // Area geser tepi kiri diperluas hingga <= 75px agar nyaman dan responsif di seluruh HP
+    isTrackingEdgeSwipe = touchStartX <= 75;
   }, { passive: true });
 
+  // Gunakan passive: false agar bisa e.preventDefault() ketika geser horizontal (mencegah scroll layar saat gesture back!)
   window.addEventListener('touchmove', (e) => {
     if (!isTrackingEdgeSwipe || e.touches.length !== 1) return;
     const touch = e.touches[0];
@@ -9276,21 +9284,25 @@ function initGlobalEdgeSwipeBackGesture() {
     const diffY = touch.clientY - touchStartY;
 
     // Gerakan harus dominan ke kanan (horizontal)
-    if (diffX > 15 && diffX > Math.abs(diffY) * 1.2) {
+    if (diffX > 10 && diffX > Math.abs(diffY)) {
+      // HENTIKAN SCROLL BROWSER SAAT PENGGUNA SEDANG MENGGESER UNTUK KEMBALI
+      if (e.cancelable) {
+        e.preventDefault();
+      }
       if (indicator) {
         indicator.classList.add('active');
         const progress = Math.min(1, diffX / 75);
         indicator.style.opacity = `${0.35 + (progress * 0.65)}`;
         if (textEl) {
-          textEl.textContent = diffX >= 70 ? 'Lepas untuk Kembali' : 'Kembali';
+          textEl.textContent = diffX >= 60 ? 'Lepas untuk Kembali' : 'Kembali';
         }
       }
-    } else if (diffY > Math.abs(diffX) && diffY > 20) {
-      // Jika ternyata gerakan scroll vertikal, batalkan
+    } else if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > 25) {
+      // Jika ternyata murni gerakan scroll vertikal, batalkan gesture edge swipe
       isTrackingEdgeSwipe = false;
       if (indicator) indicator.classList.remove('active');
     }
-  }, { passive: true });
+  }, { passive: false });
 
   window.addEventListener('touchend', (e) => {
     if (!isTrackingEdgeSwipe) return;
@@ -9309,8 +9321,8 @@ function initGlobalEdgeSwipeBackGesture() {
     const diffY = touch.clientY - touchStartY;
     const elapsed = Date.now() - touchStartTime;
 
-    // Trigger jika tarikan mencapai >= 65px dan dominan horizontal dalam waktu < 800ms
-    if (diffX >= 65 && diffX > Math.abs(diffY) * 1.2 && elapsed < 800) {
+    // Trigger jika tarikan mencapai >= 45px dan dominan horizontal dalam waktu < 1200ms
+    if (diffX >= 45 && diffX > Math.abs(diffY) && elapsed < 1200) {
       handleGlobalBackNavigation();
     }
   }, { passive: true });
@@ -9369,7 +9381,15 @@ function handleGlobalBackNavigation() {
     return;
   }
 
-  // 5. Jika di etalase toko pembeli
+  // 5. JIKA SEDANG MEMBUKA TOKO MITRA (misal Toko Alzam dsb): Kembali ke Direktori Toko Pusat (SR12 Official Central Hub)
+  if (appState.currentStoreSlug && appState.currentStoreSlug !== 'sr12-central') {
+    switchPartnerStore('sr12-central');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    showToast('🏠 Kembali ke Direktori Toko Pusat');
+    return;
+  }
+
+  // 6. Jika sudah di etalase toko pembeli / pusat
   if (window.history.length > 1) {
     window.history.back();
   } else {
@@ -10278,6 +10298,17 @@ async function restoreDeletedStore(slug) {
       const recycleBin = JSON.parse(rawRec);
       if (Array.isArray(recycleBin)) {
         restoredData = recycleBin.find(b => b && b.slug === slug);
+      }
+    }
+  } catch(e) {}
+
+  // Cek apakah ada backup konfigurasi etalase toko (termasuk foto profil dan custom banner)
+  try {
+    const rawSettings = localStorage.getItem(`sr12_store_settings_v4_${slug}`);
+    if (rawSettings) {
+      const parsedSettings = JSON.parse(rawSettings);
+      if (parsedSettings && typeof parsedSettings === 'object') {
+        restoredData = Object.assign({}, restoredData || {}, parsedSettings);
       }
     }
   } catch(e) {}
