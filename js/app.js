@@ -221,7 +221,10 @@ function getMockKtpSvgUrl(name, nik, city, address) {
 
 function getMockSkSvgUrl(name, nik, storeName, skNumber, city) {
   const safeName = (name || 'HJ. SITI BAROKAH').toUpperCase();
-  const safeNik = nik || '3374025804820003';
+  const rawNik = String(nik || '3374025804820003').replace(/\D/g, '');
+  const safeNik = rawNik.length >= 8 
+    ? rawNik.slice(0, 4) + '********' + rawNik.slice(-4) 
+    : '••••••••••••••••';
   const safeStore = (storeName || 'GRIYA CANTIK BAROKAH SR12').toUpperCase();
   const safeSk = skNumber || 'SK-DIST-SR12-2026-0419';
   const safeCity = city || 'Semarang';
@@ -265,7 +268,7 @@ function getMockSkSvgUrl(name, nik, storeName, skNumber, city) {
       <g transform="translate(65, 412)">
         <rect width="470" height="92" rx="6" fill="#f0fdf4" stroke="#a7f3d0" stroke-width="1.2"/>
         <text x="18" y="24" font-size="10.5" font-weight="700">Nama Lengkap</text><text x="150" y="24" font-weight="900" fill="#047857">: ${safeName}</text>
-        <text x="18" y="44" font-size="10.5" font-weight="700">NIK KTP</text><text x="150" y="44" font-family="Courier,monospace">: ${safeNik}</text>
+        <text x="18" y="44" font-size="10.5" font-weight="700">NIK KTP (Tersensor)</text><text x="150" y="44" font-family="Courier,monospace">: ${safeNik}</text>
         <text x="18" y="64" font-size="10.5" font-weight="700">Nama Toko Online</text><text x="150" y="64" font-weight="800">: ${safeStore}</text>
         <text x="18" y="84" font-size="10.5" font-weight="700">Wilayah Otoritas</text><text x="150" y="84">: Kota ${safeCity} &amp; Sekitarnya (Jawa Tengah)</text>
       </g>
@@ -4768,16 +4771,11 @@ function renderOfficialDistributorDirectory(filter = currentDirectoryFilter, sea
             <span>🟢</span> Stok Ready &bull; Pengiriman Cepat
           </div>
 
-          <!-- 5. Tombol Aksi Masuk Toko / Cek Legalitas (Kontak Terlindungi) -->
+          <!-- 5. Tombol Aksi Masuk Toko (Privasi Terlindungi Penuh Sesuai UU PDP) -->
           <div class="dist-card-actions">
-            <button type="button" onclick="if(typeof closeModal==='function') closeModal('modalProductDetail'); switchPartnerStore('${store.slug}'); window.scrollTo({top: 0, behavior: 'smooth'});" class="btn-card-enter-store">
+            <button type="button" onclick="if(typeof closeModal==='function') closeModal('modalProductDetail'); switchPartnerStore('${store.slug}'); window.scrollTo({top: 0, behavior: 'smooth'});" class="btn-card-enter-store" style="width: 100%; justify-content: center;">
               <span>🛍️</span> Kunjungi Toko Ini
             </button>
-            <div class="dist-card-sub-actions" style="width: 100%;">
-              <button type="button" onclick="showSpecificStoreSk('${store.slug}')" class="btn-card-sub btn-card-sub-sk" style="width: 100%; border-radius: 9999px; height: 32px; font-size: 0.75rem; gap: 6px; display: inline-flex; align-items: center; justify-content: center;" title="Periksa Dokumen SK Resmi Distributor" aria-label="SK Resmi">
-                <span>📜</span> Cek Dokumen Legalitas Toko
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -4813,9 +4811,9 @@ function renderStoreSkViewerContent(store, containerEl) {
   const city = (store.storeCity || 'Indonesia').split('(')[0].trim();
   const storeName = store.storeName || 'Toko Resmi SR12';
 
-  // 1. Cari berkas dokumen asli (skDocUrl / sk_doc_url / ktpDocUrl / dari pendingStoreApps)
+  // 1. Cari berkas dokumen asli SK (hanya SK, bukan foto KTP demi privasi)
   const matchedApp = (appState.pendingStoreApps || []).find(a => a.slug === slug || (slug && a.slug && a.slug.startsWith(slug)) || a.storeName === storeName);
-  const realDocUrl = store.skDocUrl || store.sk_doc_url || (matchedApp && (matchedApp.skDocUrl || matchedApp.ktpDocUrl)) || '';
+  const realDocUrl = store.skDocUrl || store.sk_doc_url || (matchedApp && matchedApp.skDocUrl) || '';
   const hasRealDoc = realDocUrl && typeof realDocUrl === 'string' && !realDocUrl.startsWith('data:image/svg+xml');
 
   const docUrl = hasRealDoc ? realDocUrl : getMockSkSvgUrl(owner, nik, storeName, skNum, city);
@@ -9828,7 +9826,10 @@ function openStoreSettingsModal() {
   }
   const nikDisplay = document.getElementById('settingNikDisplay');
   if (nikDisplay) {
-    nikDisplay.textContent = cfg.nikNumber || '3374025804820003';
+    const raw = String(cfg.nikNumber || '3374025804820003').replace(/\D/g, '');
+    nikDisplay.textContent = raw.length >= 8 
+      ? raw.slice(0, 4) + '********' + raw.slice(-4) 
+      : '••••••••••••••••';
   }
   appState.tempStoreSkBase64 = null;
   appState.tempStoreSkDocName = null;
