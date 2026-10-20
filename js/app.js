@@ -24,43 +24,16 @@ const DEFAULT_PARTNER_STORES = [
     walletBalance: 500000,
     totalTopupPaid: 0,
     totalTx: 0
-  },
-  {
-    slug: 'iyoutique',
-    storeName: 'Iyoutique',
-    storeTagline: 'Mitra Resmi SR12 Makassar',
-    storeTheme: 'emerald',
-    heroTitle: 'Katalog Resmi SR12 Iyoutique',
-    heroSubtitle: 'Solusi perawatan herbal alami berlisensi resmi BPOM. Belanja aman, diskon otomatis, dan cepat sampai.',
-    heroBannerUrl: 'assets/hero-banner.jpg',
-    storeLogoText: 'I',
-    storeLogoUrl: '',
-    storeWaNumber: '6285342743763',
-    storeCity: 'Makassar',
-    storeOwner: 'Ibnu Husny',
-    partnerTier: 'distributor',
-    feePayer: 'buyer',
-    storeAdminPin: '••••',
-    orderQuota: 15,
-    walletBalance: 10000,
-    totalTopupPaid: 0,
-    totalTx: 0,
-    verifiedSkNumber: 'SK-DIST-SR12-0001',
-    approvedAt: '2026-10-18T12:40:38.240776+00:00'
   }
 ];
 
 const LEGACY_DELETED_SLUGS = ['toko-supa-distributor', 'simulasi-distributor'];
 
-// Pemulihan otomatis jika slug toko resmi sempat tersimpan di blacklist lokal
+// Bersihkan cache store versi lama agar toko uji coba yang pernah dihapus tidak pernah muncul terlintas saat refresh
 try {
-  const rawDel = localStorage.getItem('sr12_deleted_store_slugs');
-  if (rawDel) {
-    const parsedDel = JSON.parse(rawDel);
-    if (Array.isArray(parsedDel) && (parsedDel.includes('iyoutique') || parsedDel.includes('asmaragama') || parsedDel.includes('sr12-alzam-agency'))) {
-      const cleaned = parsedDel.filter(s => s !== 'iyoutique' && s !== 'asmaragama' && s !== 'sr12-alzam-agency' && s !== 'sr12-central');
-      localStorage.setItem('sr12_deleted_store_slugs', JSON.stringify(cleaned));
-    }
+  if (localStorage.getItem('sr12_partner_stores_v2') || localStorage.getItem('sr12_partner_stores_v1')) {
+    localStorage.removeItem('sr12_partner_stores_v1');
+    localStorage.removeItem('sr12_partner_stores_v2');
   }
 } catch(e) {}
 
@@ -69,16 +42,15 @@ function getDeletedStoreSlugs() {
     const raw = localStorage.getItem('sr12_deleted_store_slugs');
     const parsed = raw ? JSON.parse(raw) : [];
     const list = Array.isArray(parsed) ? parsed : [];
-    // Jangan pernah memblokir platform central hub atau toko resmi aktif
     return Array.from(new Set([...list, ...LEGACY_DELETED_SLUGS]))
-      .filter(slug => slug && slug !== 'sr12-central' && slug !== 'iyoutique');
+      .filter(slug => slug && slug !== 'sr12-central');
   } catch(e) {
-    return [...LEGACY_DELETED_SLUGS].filter(slug => slug && slug !== 'sr12-central' && slug !== 'iyoutique');
+    return [...LEGACY_DELETED_SLUGS].filter(slug => slug && slug !== 'sr12-central');
   }
 }
 
 function getStoredPartnerStores() {
-  const stored = localStorage.getItem('sr12_partner_stores_v2');
+  const stored = localStorage.getItem('sr12_partner_stores_v3');
   const deletedSlugs = getDeletedStoreSlugs();
   let stores = [];
   if (stored) {
@@ -92,21 +64,12 @@ function getStoredPartnerStores() {
     }
   }
 
-  // Jika belum ada data tersimpan, gunakan template default
+  // Jika belum ada data tersimpan, gunakan template default (hanya sr12-central)
   if (stores.length === 0) {
     stores = DEFAULT_PARTNER_STORES.map(s => Object.assign({}, s));
     saveStoredPartnerStores(stores);
     return stores;
   }
-
-  // Gabungkan toko mitra terverifikasi dari DEFAULT_PARTNER_STORES yang belum tersimpan di cache lokal
-  DEFAULT_PARTNER_STORES.forEach(defStore => {
-    if (defStore.slug !== 'sr12-central' && !deletedSlugs.includes(defStore.slug)) {
-      if (!stores.some(s => s && s.slug === defStore.slug)) {
-        stores.push(Object.assign({}, defStore));
-      }
-    }
-  });
 
   // Pastikan SR12-Ku Pro (sr12-central) selalu ada di index 0 sebagai platform hub
   let centralIdx = stores.findIndex(s => s.slug === 'sr12-central');
@@ -134,7 +97,7 @@ function getStoredPartnerStores() {
 
 function saveStoredPartnerStores(stores) {
   try {
-    localStorage.setItem('sr12_partner_stores_v2', JSON.stringify(stores));
+    localStorage.setItem('sr12_partner_stores_v3', JSON.stringify(stores));
   } catch (err) {
     console.warn('Gagal menyimpan partner stores ke localStorage (kuota penuh):', err);
     try {
@@ -143,7 +106,7 @@ function saveStoredPartnerStores(stores) {
         heroBannerUrl: (s.heroBannerUrl && s.heroBannerUrl.startsWith('data:')) ? 'assets/hero-banner.jpg' : s.heroBannerUrl,
         storeLogoUrl: (s.storeLogoUrl && s.storeLogoUrl.startsWith('data:')) ? 'assets/sr12-logo.png' : s.storeLogoUrl
       }));
-      localStorage.setItem('sr12_partner_stores_v2', JSON.stringify(lightweightStores));
+      localStorage.setItem('sr12_partner_stores_v3', JSON.stringify(lightweightStores));
     } catch (fallbackErr) {
       console.warn('Fallback penyimpanan partner stores gagal:', fallbackErr);
     }
@@ -1900,7 +1863,7 @@ function resetAllAppData(confirmFirst = true) {
   
   // Reset daftar toko: Hanya tersisa platform pusat sr12-central (0 toko mitra aktif)
   const freshCentralStore = Object.assign({}, DEFAULT_PARTNER_STORES[0]);
-  localStorage.setItem('sr12_partner_stores_v2', JSON.stringify([freshCentralStore]));
+  localStorage.setItem('sr12_partner_stores_v3', JSON.stringify([freshCentralStore]));
   // JANGAN PERNAH menimpa data produk atau menghapus foto hasil edit pengguna di sini!
   
   if (typeof appState !== 'undefined') {
