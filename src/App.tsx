@@ -24,9 +24,11 @@ import { DistributorLoginModal } from './components/dev/DistributorLoginModal';
 import { StoreAdminLoginModal } from './components/dev/StoreAdminLoginModal';
 import { AffiliateBanner } from './components/storefront/AffiliateBanner';
 import { PosLayout } from './components/pos/PosLayout';
+import { BottomNav } from './components/common/BottomNav';
 
 export function App() {
   const { isPosOpen, setIsPosOpen, currentStore } = useApp();
+
 
   // Load isolated catalog specific to the current active store
   const [products, setProducts] = useState<Product[]>(() => {
@@ -136,7 +138,7 @@ export function App() {
       <HeroBanner />
 
       {/* 6. Catalog Controls: Tier Selector & Category Slider */}
-      <section className="catalog-controls">
+      <section className="catalog-controls" id="catalogControlsSection">
         <TierSelector />
         <CategorySlider
           categories={categories}
@@ -148,7 +150,8 @@ export function App() {
       </section>
 
       {/* 7. Products Grid */}
-      <main className="products-grid">
+      <main className="products-grid" id="productsGridSection">
+
         {filteredProducts.length === 0 ? (
           <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px 20px', color: '#64748b' }}>
             <p style={{ fontSize: '1.1rem', fontWeight: 700 }}>Tidak ada produk yang cocok dengan pencarian Anda.</p>
@@ -205,8 +208,23 @@ export function App() {
         onClose={() => setIsStoreLoginOpen(false)}
         onSuccessLogin={() => setIsPosOpen(true)}
       />
+
+      {/* 9. Mobile Bottom Navigation Dock (Fixed at bottom on HP) */}
+      <BottomNav
+        onOpenCart={() => setIsCartOpen(true)}
+        onOpenStoreLogin={() => setIsStoreLoginOpen(true)}
+        onScrollToCatalog={() => {
+          const el = document.getElementById('catalogControlsSection');
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }}
+        onScrollToTiers={() => {
+          const el = document.getElementById('tierSelectorSection');
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }}
+      />
     </div>
   );
 }
 
 export default App;
+

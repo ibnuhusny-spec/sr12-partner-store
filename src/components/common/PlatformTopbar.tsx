@@ -50,10 +50,10 @@ export const PlatformTopbar: React.FC<PlatformTopbarProps> = ({
               onClick={() => setShowStoreDropdown(!showStoreDropdown)}
               title="Ganti Toko Mitra / Belanja di Pusat"
             >
-              <StoreIcon size={14} color="#94a3b8" />
-              <span style={{ color: '#94a3b8' }}>Toko:</span>
+              <StoreIcon size={13} color="#94a3b8" />
+              <span className="hide-on-mobile" style={{ color: '#94a3b8' }}>Toko:</span>
               <span className="store-chip-name">{currentStore.storeName}</span>
-              <ChevronDown size={13} color="#94a3b8" />
+              <ChevronDown size={12} color="#94a3b8" />
             </button>
 
             {showStoreDropdown && (
@@ -68,6 +68,7 @@ export const PlatformTopbar: React.FC<PlatformTopbarProps> = ({
                   borderRadius: '12px',
                   boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
                   minWidth: '240px',
+                  maxWidth: '90vw',
                   zIndex: 2000,
                   overflow: 'hidden'
                 }}
@@ -119,15 +120,15 @@ export const PlatformTopbar: React.FC<PlatformTopbarProps> = ({
             title={`Status Cloud Supabase: ${cloudStatus.toUpperCase()}. Klik untuk refresh data.`}
           >
             <span className={`cloud-dot ${cloudStatus}`} />
-            <span style={{ color: cloudStatus === 'online' ? '#34d399' : '#f59e0b', fontWeight: 700 }}>
+            <span className="hide-on-mobile" style={{ color: cloudStatus === 'online' ? '#34d399' : '#f59e0b', fontWeight: 700 }}>
               {cloudStatus === 'online' ? 'Cloud Aktif' : 'Menghubungkan...'}
             </span>
           </div>
 
-          {/* Backoffice Olsera POS Button */}
+          {/* Backoffice Olsera POS Button (Desktop only, mobile has BottomNav) */}
           <button
             type="button"
-            className="btn-topbar btn-topbar-pos"
+            className="btn-topbar btn-topbar-pos hide-on-mobile"
             id="btnOpenPosBackoffice"
             onClick={() => {
               if (isStoreAdminLoggedIn || isDevMasterLoggedIn || isDistributorLoggedIn) {
@@ -142,16 +143,16 @@ export const PlatformTopbar: React.FC<PlatformTopbarProps> = ({
             <span>{isStoreAdminLoggedIn ? 'Kasir POS (Aktif)' : 'Kasir POS'}</span>
           </button>
 
-          {/* Dev Console Button */}
+          {/* Dev Console Button (Desktop only) */}
           <button
             type="button"
-            className="btn-topbar"
+            className="btn-topbar hide-on-mobile"
             style={{ background: '#1e293b', color: '#fde68a', border: '1px solid rgba(253, 230, 138, 0.3)' }}
             onClick={onOpenDevConsole}
             title="Buka Console Super Admin Developer (PIN 8899)"
           >
             <Lock size={12} />
-            <span>Console Dev</span>
+            <span>Dev</span>
           </button>
 
           {/* Buka Toko Baru */}
@@ -162,7 +163,7 @@ export const PlatformTopbar: React.FC<PlatformTopbarProps> = ({
             title="Daftarkan Toko Online SR12 Baru"
           >
             <PlusCircle size={13} />
-            <span>Buka Toko</span>
+            <span><span className="hide-on-mobile">Buka </span>Toko</span>
           </button>
 
           {/* Logout if store admin or distributor logged in */}
@@ -175,7 +176,7 @@ export const PlatformTopbar: React.FC<PlatformTopbarProps> = ({
               title="Logout dari Sesi Admin Toko Ini"
             >
               <LogOut size={12} />
-              <span>Kunci Kasir</span>
+              <span className="hide-on-mobile">Kunci Kasir</span>
             </button>
           )}
         </div>
@@ -183,3 +184,4 @@ export const PlatformTopbar: React.FC<PlatformTopbarProps> = ({
     </aside>
   );
 };
+

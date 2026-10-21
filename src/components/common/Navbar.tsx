@@ -54,34 +54,34 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenDistributorLog
           {!isCentral && (
             <button
               type="button"
-              className="btn-topbar"
+              className="btn-topbar hide-on-mobile"
               style={{ background: '#f8fafc', color: '#065f46', border: '1px solid #a7f3d0' }}
               onClick={() => switchStore('sr12-central')}
               title="Kembali belanja di Toko Pusat SR12"
             >
               <Building2 size={13} />
-              <span className="hide-on-mobile">Belanja di Pusat</span>
+              <span>Belanja di Pusat</span>
             </button>
           )}
 
-          {/* WhatsApp CS Link */}
+          {/* WhatsApp CS Link (Desktop view, on mobile it is in BottomNav) */}
           {currentStore.storeWaNumber && (
             <a
               href={`https://wa.me/${currentStore.storeWaNumber.replace(/[^0-9]/g, '')}?text=Halo%20Admin%20${encodeURIComponent(currentStore.storeName)},%20saya%20ingin%20tanya%20seputar%20produk%20SR12`}
               target="_blank"
               rel="noopener noreferrer"
-              className="btn-nav-wa"
+              className="btn-nav-wa hide-on-mobile"
               title="Chat WhatsApp CS Toko Ini"
             >
               <MessageCircle size={15} />
-              <span className="hide-on-mobile">WhatsApp</span>
+              <span>WhatsApp</span>
             </a>
           )}
 
-          {/* Floating Cart Launcher Button */}
+          {/* Floating Cart Launcher Button (Desktop view, on mobile it is in BottomNav) */}
           <button
             type="button"
-            className="btn-nav-cart"
+            className="btn-nav-cart hide-on-mobile"
             id="btnOpenCart"
             onClick={onOpenCart}
             title="Buka Keranjang Belanja"
@@ -95,3 +95,4 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenDistributorLog
     </header>
   );
 };
+

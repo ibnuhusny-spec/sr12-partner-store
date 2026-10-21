@@ -84,54 +84,25 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </div>
 
         {/* Realtime Stock Indicator Connected to Olsera Inventory */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          padding: '4px 8px',
-          borderRadius: '6px',
-          fontSize: '0.72rem',
-          fontWeight: 700,
-          marginBottom: '10px',
-          background: product.stock === 0
-            ? 'rgba(239, 68, 68, 0.1)'
-            : product.stock <= 15
-            ? 'rgba(245, 158, 11, 0.1)'
-            : 'rgba(16, 185, 129, 0.1)',
-          color: product.stock === 0
-            ? '#ef4444'
-            : product.stock <= 15
-            ? '#d97706'
-            : '#059669',
-          border: `1px solid ${
-            product.stock === 0
-              ? 'rgba(239, 68, 68, 0.25)'
-              : product.stock <= 15
-              ? 'rgba(245, 158, 11, 0.25)'
-              : 'rgba(16, 185, 129, 0.25)'
-          }`
-        }}>
-          <span style={{
-            width: '7px',
-            height: '7px',
-            borderRadius: '50%',
-            background: product.stock === 0 ? '#ef4444' : product.stock <= 15 ? '#f59e0b' : '#10b981',
-            boxShadow: product.stock === 0 ? '0 0 6px #ef4444' : product.stock <= 15 ? '0 0 6px #f59e0b' : '0 0 6px #10b981'
-          }} />
-          <span>
+        <div
+          className={`product-stock-pill ${product.stock === 0 ? 'stock-empty' : product.stock <= 15 ? 'stock-warning' : 'stock-ready'}`}
+          title={`Status Stok Gudang Olsera: ${product.stock} pcs`}
+        >
+          <span className="stock-dot-pulse" />
+          <span className="stock-pill-text">
             {product.stock === 0 ? (
-              <b>Stok Habis (Gudang Olsera)</b>
+              'Habis'
             ) : product.stock <= 15 ? (
-              <>Sisa Stok: <b>{product.stock} pcs</b> (Menipis!)</>
+              <>Sisa <b>{product.stock}</b></>
             ) : (
-              <>Stok: <b>{product.stock} pcs</b> (Tersedia)</>
+              <>Stok <b>{product.stock}</b></>
             )}
           </span>
         </div>
 
-        {/* 3 TOMBOL KAPSUL SEBARIS (CRITICAL SPECIFICATION) */}
+        {/* 3 TOMBOL KAPSUL SEBARIS (OPTIMIZED FOR 2-COLUMN MOBILE & DESKTOP) */}
         <div className="product-actions-capsule-row">
-          {/* Tombol 1: Keranjang */}
+          {/* Tombol 1: Keranjang / Beli */}
           <button
             type="button"
             className={`btn-capsule btn-capsule-cart ${product.stock === 0 ? 'disabled' : ''}`}
@@ -141,14 +112,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               e.stopPropagation();
               if (product.stock > 0) addToCart(product, 1);
             }}
-            style={{
-              opacity: product.stock === 0 ? 0.45 : 1,
-              cursor: product.stock === 0 ? 'not-allowed' : 'pointer'
-            }}
             title={product.stock === 0 ? 'Stok produk habis di gudang' : 'Tambah ke Keranjang'}
+            aria-label="Beli Produk"
           >
-            <ShoppingBag size={14} />
-            <span style={{ fontSize: '0.72rem' }}>{product.stock === 0 ? 'Habis' : 'Beli'}</span>
+            <ShoppingBag size={13} />
+            <span className="capsule-text">{product.stock === 0 ? 'Habis' : 'Beli'}</span>
           </button>
 
           {/* Tombol 2: Detail Produk */}
@@ -161,9 +129,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               onOpenDetail(product);
             }}
             title="Lihat Detail Produk Lengkap"
+            aria-label="Lihat Detail Produk"
           >
             <Eye size={14} />
-            <span style={{ fontSize: '0.72rem' }}>Detail</span>
+            <span className="capsule-text hide-on-mobile-col">Detail</span>
           </button>
 
           {/* Tombol 3: Promosikan / Share */}
@@ -176,12 +145,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               onOpenShare(product);
             }}
             title="Bagikan / Promosikan Produk"
+            aria-label="Bagikan Produk"
           >
-            <Share2 size={14} />
-            <span style={{ fontSize: '0.72rem' }}>Share</span>
+            <Share2 size={13} />
+            <span className="capsule-text hide-on-mobile-col">Share</span>
           </button>
         </div>
       </div>
     </article>
   );
 };
+

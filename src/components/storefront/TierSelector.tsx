@@ -2,7 +2,7 @@ import React from 'react';
 import { useApp } from '../../context/AppContext';
 import { SR12_TIERS } from '../../config/tiers';
 import { PartnerTier } from '../../types';
-import { Tag } from 'lucide-react';
+import { Tag, Sparkles } from 'lucide-react';
 
 export const TierSelector: React.FC = () => {
   const { activeTier, setActiveTier } = useApp();
@@ -10,15 +10,21 @@ export const TierSelector: React.FC = () => {
   const tierKeys: PartnerTier[] = ['konsumen', 'marketer', 'reseller', 'sub_agen', 'agen', 'distributor'];
 
   return (
-    <div className="tier-selector-banner">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <Tag size={16} color="#059669" />
-        <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#0f172a' }}>
-          Simulasi Level Harga:
+    <div className="tier-selector-banner" id="tierSelectorSection">
+      <div className="tier-header-info">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <Tag size={16} color="#059669" />
+          <span style={{ fontSize: '0.84rem', fontWeight: 800, color: '#0f172a' }}>
+            Simulasi Level Harga:
+          </span>
+        </div>
+        <span className="tier-swipe-hint">
+          <Sparkles size={11} color="#f59e0b" />
+          <span>Geser untuk level kemitraan</span>
         </span>
       </div>
 
-      <div className="tier-pill-group">
+      <div className="tier-pill-group" role="tablist" aria-label="Level Harga Mitra SR12">
         {tierKeys.map(tKey => {
           const t = SR12_TIERS[tKey];
           const isSelected = activeTier === tKey;
@@ -26,22 +32,20 @@ export const TierSelector: React.FC = () => {
             <button
               key={tKey}
               type="button"
+              role="tab"
+              aria-selected={isSelected}
               className={`tier-pill ${isSelected ? 'active' : ''}`}
               onClick={() => setActiveTier(tKey)}
               title={t.description}
             >
-              <span>{t.label}</span>
-              {t.discountPct > 0 && (
-                <span
-                  style={{
-                    marginLeft: '4px',
-                    fontSize: '0.7rem',
-                    background: isSelected ? 'rgba(255,255,255,0.25)' : '#e2e8f0',
-                    padding: '1px 5px',
-                    borderRadius: '999px'
-                  }}
-                >
+              <span className="tier-pill-label">{t.label}</span>
+              {t.discountPct > 0 ? (
+                <span className="tier-discount-badge">
                   -{t.discountPct}%
+                </span>
+              ) : (
+                <span className="tier-het-badge">
+                  HET
                 </span>
               )}
             </button>
@@ -51,3 +55,4 @@ export const TierSelector: React.FC = () => {
     </div>
   );
 };
+

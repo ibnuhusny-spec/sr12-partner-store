@@ -48,9 +48,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
 
         {/* Body */}
         <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
             {/* Image */}
-            <div style={{ width: '180px', height: '180px', borderRadius: '12px', overflow: 'hidden', background: '#f1f5f9', flexShrink: 0 }}>
+            <div style={{ width: '100%', maxWidth: '180px', height: '180px', margin: '0 auto', borderRadius: '12px', overflow: 'hidden', background: '#f1f5f9', flexShrink: 0 }}>
               <img
                 src={product.image}
                 alt={product.name}
@@ -182,16 +182,23 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
             >
               {added ? <Check size={18} /> : <ShoppingBag size={18} />}
               <span>
-                {product.stock === 0
-                  ? 'Stok Habis (Menunggu Pasokan)'
-                  : added
-                  ? 'Berhasil Ditambahkan!'
-                  : `Tambah ke Keranjang (Rp ${(tierPrice * qty).toLocaleString('id-ID')})`}
+                {product.stock === 0 ? (
+                  'Stok Habis'
+                ) : added ? (
+                  'Berhasil Ditambahkan!'
+                ) : (
+                  <>
+                    <span className="hide-on-mobile">Tambah ke Keranjang </span>
+                    <span className="hide-on-desktop">+ Keranjang </span>
+                    (Rp {(tierPrice * qty).toLocaleString('id-ID')})
+                  </>
+                )}
               </span>
             </button>
           </div>
         </div>
       </div>
     </div>
+
   );
 };
