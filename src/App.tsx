@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from './context/AppContext';
-import { DEFAULT_SR12_PRODUCTS } from './data/defaultProducts';
 import { Product } from './types';
+import {
+  getStoreCatalog,
+  updateStoreProduct,
+  updateStoreProductStock,
+  resetStoreCatalogToMaster
+} from './services/catalogService';
 import { PlatformTopbar } from './components/common/PlatformTopbar';
 import { Navbar } from './components/common/Navbar';
 import { NotificationChime } from './components/common/NotificationChime';
@@ -22,13 +27,9 @@ import { PosLayout } from './components/pos/PosLayout';
 export function App() {
   const { isPosOpen, currentStore } = useApp();
 
+  // Load isolated catalog specific to the current active store
   const [products, setProducts] = useState<Product[]>(() => {
-    try {
-      const raw = localStorage.getItem('sr12_custom_products');
-      return raw ? JSON.parse(raw) : DEFAULT_SR12_PRODUCTS;
-    } catch {
-      return DEFAULT_SR12_PRODUCTS;
-    }
+    return getStoreCatalog(currentStore.slug);
   });
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -41,6 +42,11 @@ export function App() {
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [isDevConsoleOpen, setIsDevConsoleOpen] = useState(false);
   const [isDistributorLoginOpen, setIsDistributorLoginOpen] = useState(false);
+
+  // When active store switches (via ?store=... or switcher), load that store's custom catalog
+  useEffect(() => {
+    setProducts(getStoreCatalog(currentStore.slug));
+  }, [currentStore.slug]);
 
   // Check URL query parameters for ?product=id deep-linking
   useEffect(() => {
@@ -65,11 +71,18 @@ export function App() {
   }, [products]);
 
   const handleUpdateStock = (productId: string, newStock: number) => {
-    setProducts(prev => {
-      const next = prev.map(p => p.id === productId ? { ...p, stock: newStock } : p);
-      localStorage.setItem('sr12_custom_products', JSON.stringify(next));
-      return next;
-    });
+    const nextCatalog = updateStoreProductStock(currentStore.slug, productId, newStock);
+    setProducts(nextCatalog);
+  };
+
+  const handleUpdateProduct = (updatedProduct: Product) => {
+    const nextCatalog = updateStoreProduct(currentStore.slug, updatedProduct);
+    setProducts(nextCatalog);
+  };
+
+  const handleResetCatalog = () => {
+    const nextCatalog = resetStoreCatalogToMaster(currentStore.slug);
+    setProducts(nextCatalog);
   };
 
   const categories = ['all', ...Array.from(new Set(products.map(p => p.category)))];
@@ -89,6 +102,8 @@ export function App() {
       <PosLayout
         products={products}
         onUpdateStock={handleUpdateStock}
+        onUpdateProduct={handleUpdateProduct}
+        onResetCatalogToMaster={handleResetCatalog}
       />
     );
   }

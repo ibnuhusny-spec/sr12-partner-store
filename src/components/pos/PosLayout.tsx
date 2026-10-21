@@ -23,9 +23,16 @@ import {
 interface PosLayoutProps {
   products: Product[];
   onUpdateStock: (productId: string, newStock: number) => void;
+  onUpdateProduct: (product: Product) => void;
+  onResetCatalogToMaster?: () => void;
 }
 
-export const PosLayout: React.FC<PosLayoutProps> = ({ products, onUpdateStock }) => {
+export const PosLayout: React.FC<PosLayoutProps> = ({
+  products,
+  onUpdateStock,
+  onUpdateProduct,
+  onResetCatalogToMaster
+}) => {
   const { currentStore, setIsPosOpen } = useApp();
   const [activeTab, setActiveTab] = useState<'cashier' | 'transactions' | 'inventory' | 'cashflow' | 'reports' | 'downlines'>('cashier');
   const [cashierName, setCashierName] = useState('Siti Aminah');
@@ -230,7 +237,12 @@ export const PosLayout: React.FC<PosLayoutProps> = ({ products, onUpdateStock })
         )}
         {activeTab === 'transactions' && <PosTransactionsView />}
         {activeTab === 'inventory' && (
-          <PosInventoryView products={products} onUpdateStock={onUpdateStock} />
+          <PosInventoryView
+            products={products}
+            onUpdateStock={onUpdateStock}
+            onUpdateProduct={onUpdateProduct}
+            onResetCatalogToMaster={onResetCatalogToMaster}
+          />
         )}
         {activeTab === 'cashflow' && <PosCashflowView />}
         {activeTab === 'reports' && <PosReportsView />}

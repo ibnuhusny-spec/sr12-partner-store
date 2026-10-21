@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { submitStoreApplication } from '../../services/storeService';
+import { seedNewStoreCatalog } from '../../services/catalogService';
 import { PartnerTier } from '../../types';
 import { X, Store, CheckCircle, Upload } from 'lucide-react';
 
@@ -53,6 +54,7 @@ export const RegisterStoreModal: React.FC<RegisterStoreModalProps> = ({ isOpen, 
       });
 
       if (res.success) {
+        seedNewStoreCatalog(slug);
         setSubmittedSuccess(true);
       } else {
         alert(res.message);

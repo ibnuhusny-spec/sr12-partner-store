@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { fetchPendingStores, approveStoreApplication, deleteStore } from '../../services/storeService';
+import { seedNewStoreCatalog } from '../../services/catalogService';
 import { PendingStore, Store } from '../../types';
 import { X, Lock, CheckCircle, Trash2, RefreshCw, BarChart3, Users, Building, ShieldCheck, Copy, Check } from 'lucide-react';
 
@@ -57,6 +58,7 @@ export const DevConsoleModal: React.FC<DevConsoleModalProps> = ({ isOpen, onClos
     try {
       const res = await approveStoreApplication(app);
       if (res.success) {
+        seedNewStoreCatalog(app.slug);
         alert(res.message);
         await refreshStores();
         loadPending();
