@@ -55,7 +55,22 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
   }, 0);
 
   const discountAmount = Math.max(0, subtotalHet - totalProductsPrice);
-  const grandTotal = totalProductsPrice + finalShippingCost;
+
+  // Dynamic Platform Fee (Developer Monetization)
+  const platformFee = (() => {
+    try {
+      const payerMode = localStorage.getItem('sr12_fee_payer_mode') || 'buyer';
+      if (payerMode === 'buyer') {
+        const val = localStorage.getItem('sr12_platform_fee_nominal');
+        return val ? Number(val) : 1500;
+      }
+      return 0;
+    } catch {
+      return 1500;
+    }
+  })();
+
+  const grandTotal = totalProductsPrice + finalShippingCost + platformFee;
 
   const handleVerifyMitra = async () => {
     if (!mitraQuery.trim()) return;
@@ -121,6 +136,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
       marketerId: marketerReferral || undefined,
       courierName: selectedCourier.name,
       shippingCost: finalShippingCost,
+      platformFee,
       dropship: isDropship ? {
         isDropship: true,
         senderName: dropshipSenderName,
@@ -375,6 +391,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
                 <span>Ongkir ({selectedCourier.name}):</span>
                 <span>{finalShippingCost === 0 ? 'Gratis (Rp 0)' : `Rp ${finalShippingCost.toLocaleString('id-ID')}`}</span>
               </div>
+              {platformFee > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#0284c7', fontWeight: 600 }}>
+                  <span>Biaya Layanan Aplikasi:</span>
+                  <span>Rp {platformFee.toLocaleString('id-ID')}</span>
+                </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1rem', fontWeight: 900, color: '#0f172a', borderTop: '1px solid #e2e8f0', paddingTop: '6px', marginTop: '4px' }}>
                 <span>Total Bayar:</span>
                 <span style={{ color: '#065f46' }}>Rp {grandTotal.toLocaleString('id-ID')}</span>

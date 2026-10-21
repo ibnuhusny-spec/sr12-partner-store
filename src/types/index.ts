@@ -153,6 +153,7 @@ export interface Order {
   marketerId?: string;
   courierName?: string;
   shippingCost?: number;
+  platformFee?: number;
   dropship?: {
     isDropship: boolean;
     senderName: string;

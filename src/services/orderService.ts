@@ -132,6 +132,10 @@ export function formatWhatsAppOrderMessage(order: Order, store: Store): string {
     ? `\n🚚 Ongkir (${order.courierName || 'Ekspedisi'}): Rp ${order.shippingCost.toLocaleString('id-ID')}`
     : `\n🚚 Pengiriman: ${order.courierName || 'Ambil di Toko / Bebas Ongkir'}`;
 
+  const platformFeeText = order.platformFee && order.platformFee > 0
+    ? `\n🛡️ Biaya Layanan Aplikasi: Rp ${order.platformFee.toLocaleString('id-ID')}`
+    : '';
+
   const dropshipText = order.dropship?.isDropship
     ? `\n\n📦 *PENGIRIMAN DROPSHIP*\nDari: ${order.dropship.senderName} (${order.dropship.senderPhone})`
     : '';
@@ -154,7 +158,7 @@ Level Harga: *${order.tierLabel}*${marketerText}${dropshipText}
 ${itemsText}
 
 💰 *TOTAL PEMBAYARAN:*
-Subtotal Produk: Rp ${order.subtotalHet.toLocaleString('id-ID')}${discountText}${shippingText}
+Subtotal Produk: Rp ${order.subtotalHet.toLocaleString('id-ID')}${discountText}${shippingText}${platformFeeText}
 ---------------------------------------
 *TOTAL TRANSFER: Rp ${order.grandTotal.toLocaleString('id-ID')}*
 

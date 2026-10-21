@@ -1,5 +1,147 @@
 import { supabase, getActiveSessionToken } from '../config/supabase';
-import { MarketerSale, MitraDownline } from '../types';
+import { MarketerSale, MitraDownline, PartnerTier } from '../types';
+
+export const DEFAULT_SAMPLE_DOWNLINES: MitraDownline[] = [
+  {
+    storeSlug: 'all',
+    partnerCode: 'RS-101',
+    name: 'Dewi Anggraini, S.Farm',
+    phone: '081288992211',
+    city: 'Jakarta Selatan',
+    tier: 'reseller',
+    bankName: 'BCA',
+    bankAccount: '7310294821',
+    bankHolder: 'Dewi Anggraini',
+    status: 'active',
+    accumulatedSpent90Days: 3450000, // >= 3jt -> LAYAK PROMOSI KE SUB AGEN!
+    totalOrdersCount: 14,
+    lastOrderDate: '2026-10-18'
+  },
+  {
+    storeSlug: 'all',
+    partnerCode: 'RS-102',
+    name: 'Budi Santoso',
+    phone: '085712345678',
+    city: 'Bandung',
+    tier: 'reseller',
+    bankName: 'Mandiri',
+    bankAccount: '132001928374',
+    bankHolder: 'Budi Santoso',
+    status: 'active',
+    accumulatedSpent90Days: 850000, // Target min 500rb aman, target ideal 1jt
+    totalOrdersCount: 6,
+    lastOrderDate: '2026-10-15'
+  },
+  {
+    storeSlug: 'all',
+    partnerCode: 'RS-103',
+    name: 'Rina Wulandari',
+    phone: '087899887766',
+    city: 'Semarang',
+    tier: 'reseller',
+    bankName: 'BRI',
+    bankAccount: '009801234567',
+    bankHolder: 'Rina Wulandari',
+    status: 'active',
+    accumulatedSpent90Days: 200000, // < 500rb -> PERINGATAN TURUN LEVEL KE MARKETER!
+    totalOrdersCount: 1,
+    lastOrderDate: '2026-10-02'
+  },
+  {
+    storeSlug: 'all',
+    partnerCode: 'SA-201',
+    name: 'Hj. Nurul Hidayah',
+    phone: '081399001122',
+    city: 'Surabaya',
+    tier: 'sub_agen',
+    bankName: 'BSI',
+    bankAccount: '7109283746',
+    bankHolder: 'Nurul Hidayah',
+    status: 'active',
+    accumulatedSpent90Days: 12800000, // >= 10jt -> LAYAK PROMOSI KE AGEN!
+    totalOrdersCount: 22,
+    lastOrderDate: '2026-10-20'
+  },
+  {
+    storeSlug: 'all',
+    partnerCode: 'SA-202',
+    name: 'Fitri Handayani',
+    phone: '082155667788',
+    city: 'Yogyakarta',
+    tier: 'sub_agen',
+    bankName: 'BCA',
+    bankAccount: '8830192847',
+    bankHolder: 'Fitri Handayani',
+    status: 'active',
+    accumulatedSpent90Days: 1750000, // < 3jt -> PERINGATAN TURUN LEVEL KE RESELLER!
+    totalOrdersCount: 3,
+    lastOrderDate: '2026-10-05'
+  },
+  {
+    storeSlug: 'all',
+    partnerCode: 'MK-301',
+    name: 'Siti Rahmawati',
+    phone: '089611223344',
+    city: 'Tangerang',
+    tier: 'marketer',
+    bankName: 'BCA',
+    bankAccount: '6040192837',
+    bankHolder: 'Siti Rahmawati',
+    status: 'active',
+    accumulatedSpent90Days: 1200000, // >= 1jt -> LAYAK PROMOSI KE RESELLER!
+    totalOrdersCount: 8,
+    lastOrderDate: '2026-10-19'
+  }
+];
+
+export const DEFAULT_SAMPLE_MARKETER_SALES: MarketerSale[] = [
+  {
+    storeSlug: 'all',
+    orderId: 'ORD-982101',
+    marketerId: 'MK-301',
+    orderDate: '2026-10-18',
+    monthPeriod: '2026-10',
+    customerName: 'Anisa Maharani',
+    customerPhone: '081299887711',
+    fulfillmentType: 'delivery',
+    itemsDesc: '1x Deodorant Spray, 1x Toner Chamomile',
+    omsetHet: 185000,
+    commissionPct: 15,
+    commissionAmount: 27750,
+    paidStatus: 'paid',
+    paidDate: '2026-10-19'
+  },
+  {
+    storeSlug: 'all',
+    orderId: 'ORD-982102',
+    marketerId: 'MK-301',
+    orderDate: '2026-10-19',
+    monthPeriod: '2026-10',
+    customerName: 'Dian Permatasari',
+    customerPhone: '085711223344',
+    fulfillmentType: 'delivery',
+    itemsDesc: '2x Salimah Slim, 1x Manjakani Kapsul',
+    omsetHet: 320000,
+    commissionPct: 15,
+    commissionAmount: 48000,
+    paidStatus: 'unpaid'
+  },
+  {
+    storeSlug: 'all',
+    orderId: 'ORD-982103',
+    marketerId: 'MK-302',
+    orderDate: '2026-10-20',
+    monthPeriod: '2026-10',
+    customerName: 'Kartika Sari',
+    customerPhone: '087799112233',
+    fulfillmentType: 'pickup',
+    itemsDesc: '1x Paket Glowing Pemula, 1x Sunscreen Gel',
+    omsetHet: 265000,
+    commissionPct: 15,
+    commissionAmount: 39750,
+    paidStatus: 'unpaid'
+  }
+];
 
 export async function verifyMitraDiscount(query: string, storeSlug: string): Promise<{ found: boolean; mitra?: Partial<MitraDownline> }> {
   if (!query || !query.trim()) return { found: false };
@@ -31,17 +173,24 @@ export async function verifyMitraDiscount(query: string, storeSlug: string): Pro
   // Fallback to local
   const cleanQ = query.toUpperCase().trim();
   const raw = localStorage.getItem('sr12_mitra_downlines_v2');
+  let list: MitraDownline[] = [];
   if (raw) {
     try {
-      const list: MitraDownline[] = JSON.parse(raw);
-      const found = list.find(m => 
-        (m.partnerCode && m.partnerCode.toUpperCase() === cleanQ) ||
-        (m.phone && m.phone.replace(/[^0-9]/g, '').endsWith(cleanQ.replace(/[^0-9]/g, '')))
-      );
-      if (found) {
-        return { found: true, mitra: found };
-      }
-    } catch (e) {}
+      list = JSON.parse(raw);
+    } catch {}
+  }
+  if (list.length === 0) {
+    list = DEFAULT_SAMPLE_DOWNLINES;
+    localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(list));
+  }
+
+  const found = list.find(m => 
+    (m.partnerCode && m.partnerCode.toUpperCase() === cleanQ) ||
+    (m.phone && m.phone.replace(/[^0-9]/g, '').endsWith(cleanQ.replace(/[^0-9]/g, '')))
+  );
+
+  if (found) {
+    return { found: true, mitra: found };
   }
 
   return { found: false };
@@ -54,7 +203,7 @@ export async function fetchStoreDownlines(storeSlug: string): Promise<MitraDownl
       p_slug: storeSlug,
       p_token: token
     });
-    if (!error && Array.isArray(data)) {
+    if (!error && Array.isArray(data) && data.length > 0) {
       return data.map((d: any) => ({
         id: d.id,
         storeSlug: d.store_slug,
@@ -76,9 +225,17 @@ export async function fetchStoreDownlines(storeSlug: string): Promise<MitraDownl
   // Fallback local
   try {
     const raw = localStorage.getItem('sr12_mitra_downlines_v2');
-    return raw ? JSON.parse(raw) : [];
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+    // Seed initial demo downlines so user can see rank promotion / warning right away
+    localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(DEFAULT_SAMPLE_DOWNLINES));
+    return DEFAULT_SAMPLE_DOWNLINES;
   } catch {
-    return [];
+    return DEFAULT_SAMPLE_DOWNLINES;
   }
 }
 
@@ -106,7 +263,7 @@ export async function saveStoreDownline(mitra: Partial<MitraDownline>, storeSlug
   // Update local
   try {
     const raw = localStorage.getItem('sr12_mitra_downlines_v2');
-    const list: MitraDownline[] = raw ? JSON.parse(raw) : [];
+    const list: MitraDownline[] = raw ? JSON.parse(raw) : [...DEFAULT_SAMPLE_DOWNLINES];
     const idx = list.findIndex(m => m.partnerCode === mitra.partnerCode);
     if (idx >= 0) {
       list[idx] = { ...list[idx], ...mitra } as MitraDownline;
@@ -119,6 +276,21 @@ export async function saveStoreDownline(mitra: Partial<MitraDownline>, storeSlug
   return true;
 }
 
+export async function updateMitraTier(partnerCode: string, newTier: PartnerTier, storeSlug: string): Promise<boolean> {
+  try {
+    const raw = localStorage.getItem('sr12_mitra_downlines_v2');
+    const list: MitraDownline[] = raw ? JSON.parse(raw) : [...DEFAULT_SAMPLE_DOWNLINES];
+    const idx = list.findIndex(m => m.partnerCode === partnerCode);
+    if (idx >= 0) {
+      list[idx].tier = newTier;
+      localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(list));
+      await saveStoreDownline(list[idx], storeSlug);
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
+
 export async function fetchStoreMarketerSales(storeSlug: string): Promise<MarketerSale[]> {
   const token = getActiveSessionToken(storeSlug);
   try {
@@ -126,7 +298,7 @@ export async function fetchStoreMarketerSales(storeSlug: string): Promise<Market
       p_slug: storeSlug,
       p_token: token
     });
-    if (!error && Array.isArray(data)) {
+    if (!error && Array.isArray(data) && data.length > 0) {
       return data.map((d: any) => ({
         id: d.id,
         storeSlug: d.store_slug,
@@ -150,8 +322,34 @@ export async function fetchStoreMarketerSales(storeSlug: string): Promise<Market
 
   try {
     const raw = localStorage.getItem('sr12_marketer_sales_v1');
-    return raw ? JSON.parse(raw) : [];
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+    localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(DEFAULT_SAMPLE_MARKETER_SALES));
+    return DEFAULT_SAMPLE_MARKETER_SALES;
   } catch {
-    return [];
+    return DEFAULT_SAMPLE_MARKETER_SALES;
   }
+}
+
+export function updateMarketerSalePaidStatus(orderId: string, newStatus: 'paid' | 'unpaid'): boolean {
+  try {
+    const raw = localStorage.getItem('sr12_marketer_sales_v1');
+    const list: MarketerSale[] = raw ? JSON.parse(raw) : [...DEFAULT_SAMPLE_MARKETER_SALES];
+    const idx = list.findIndex(s => s.orderId === orderId);
+    if (idx >= 0) {
+      list[idx].paidStatus = newStatus;
+      if (newStatus === 'paid') {
+        list[idx].paidDate = new Date().toISOString().split('T')[0];
+      } else {
+        delete list[idx].paidDate;
+      }
+      localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(list));
+      return true;
+    }
+  } catch {}
+  return false;
 }

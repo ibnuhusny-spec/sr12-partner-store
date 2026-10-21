@@ -32,7 +32,7 @@ export const RegisterStoreModal: React.FC<RegisterStoreModalProps> = ({ isOpen, 
   const [showPassword, setShowPassword] = useState(false);
   const [storeWaNumber, setStoreWaNumber] = useState('');
   const [storeCity, setStoreCity] = useState('');
-  const [partnerTier, setPartnerTier] = useState<PartnerTier>('reseller');
+  const [partnerTier, setPartnerTier] = useState<PartnerTier>('sub_agen');
   const [recommenderDistributor, setRecommenderDistributor] = useState('');
   const [nikNumber, setNikNumber] = useState('');
 
@@ -332,14 +332,15 @@ export const RegisterStoreModal: React.FC<RegisterStoreModalProps> = ({ isOpen, 
                 />
               </div>
 
-              {/* Kota & Level */}
+              {/* Kota & Level Toko (Khusus Distributor, Agen, Sub Agen) */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
                   <label style={{ fontSize: '0.78rem', fontWeight: 800, color: '#334155', display: 'block', marginBottom: '4px' }}>
-                    Kota Domisili *
+                    Kota Domisili Toko *
                   </label>
                   <input
                     type="text"
+                    required
                     placeholder="Contoh: Bandung"
                     value={storeCity}
                     onChange={(e) => setStoreCity(e.target.value)}
@@ -348,37 +349,62 @@ export const RegisterStoreModal: React.FC<RegisterStoreModalProps> = ({ isOpen, 
                 </div>
                 <div>
                   <label style={{ fontSize: '0.78rem', fontWeight: 800, color: '#334155', display: 'block', marginBottom: '4px' }}>
-                    Level Kemitraan *
+                    Level Kemitraan Toko *
                   </label>
                   <select
                     value={partnerTier}
                     onChange={(e) => setPartnerTier(e.target.value as PartnerTier)}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: '#fff' }}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1.5px solid #059669', fontSize: '0.85rem', background: '#ecfdf5', fontWeight: 700, color: '#065f46' }}
                   >
-                    <option value="reseller">Reseller Resmi (20%)</option>
-                    <option value="sub_agen">Sub Agen (30%)</option>
-                    <option value="agen">Agen Resmi (40%)</option>
-                    <option value="distributor">Distributor Utama (50%)</option>
+                    <option value="distributor">👑 Distributor Utama (Diskon 50%)</option>
+                    <option value="agen">⭐ Agen Resmi (Diskon 40%)</option>
+                    <option value="sub_agen">💠 Sub Agen (Diskon 30%)</option>
                   </select>
+                </div>
+              </div>
+
+              {/* Notice Kemitraan Aman */}
+              <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '0.74rem', color: '#64748b', lineHeight: 1.5 }}>
+                <span style={{ fontWeight: 800, color: '#0f172a' }}>🔒 Catatan Keamanan Kemitraan SR12:</span>
+                <br />
+                Pembukaan toko online &amp; sistem POS dibatasi hanya untuk <b>Distributor, Agen, dan Sub Agen</b> resmi berlisensi. Mitra level <i>Reseller &amp; Marketer</i> terdaftar sebagai mitra binaan (downline) di bawah toko Anda.
+              </div>
+
+              {/* Nomor SK / ID Mitra Resmi SR12 */}
+              <div>
+                <label style={{ fontSize: '0.78rem', fontWeight: 800, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                  Nomor SK / ID Kemitraan Resmi SR12 *
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <ShieldCheck size={16} color="#059669" style={{ position: 'absolute', left: '12px', top: '11px' }} />
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: SK-SR12-DIST-2026-089 / ID Mitra Resmi"
+                    value={nikNumber}
+                    onChange={(e) => setNikNumber(e.target.value)}
+                    style={{ width: '100%', padding: '9px 12px 9px 36px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                  />
                 </div>
               </div>
 
               {/* Distributor Perujuk */}
               <div>
                 <label style={{ fontSize: '0.78rem', fontWeight: 800, color: '#334155', display: 'block', marginBottom: '4px' }}>
-                  Distributor Perujuk (Opsional)
+                  Distributor Perujuk / Upline (Opsional)
                 </label>
                 <select
                   value={recommenderDistributor}
                   onChange={(e) => setRecommenderDistributor(e.target.value)}
                   style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: '#fff' }}
                 >
-                  <option value="">-- Tanpa Perujuk (Pusat PT SR12) --</option>
-                  {partnerStores.filter(s => s.partnerTier === 'distributor').map(d => (
+                  <option value="">-- Pasokan Langsung dari Pusat PT SR12 --</option>
+                  {partnerStores.filter(s => s.partnerTier === 'distributor' && s.slug !== 'sr12-central').map(d => (
                     <option key={d.slug} value={d.storeName}>{d.storeName} ({d.storeCity})</option>
                   ))}
                 </select>
               </div>
+
 
               {/* NIK KTP */}
               <div>

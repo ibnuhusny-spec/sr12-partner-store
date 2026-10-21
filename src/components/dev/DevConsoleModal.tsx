@@ -26,6 +26,35 @@ export const DevConsoleModal: React.FC<DevConsoleModalProps> = ({ isOpen, onClos
   const [pendingList, setPendingList] = useState<PendingStore[]>([]);
   const [isLoadingPending, setIsLoadingPending] = useState(false);
   const [copiedLog, setCopiedLog] = useState(false);
+  const [platformFeeNominal, setPlatformFeeNominal] = useState<number>(() => {
+    try {
+      const v = localStorage.getItem('sr12_platform_fee_nominal');
+      return v ? Number(v) : 1500;
+    } catch {
+      return 1500;
+    }
+  });
+  const [feePayerMode, setFeePayerMode] = useState<'buyer' | 'seller'>(() => {
+    try {
+      return (localStorage.getItem('sr12_fee_payer_mode') as any) || 'buyer';
+    } catch {
+      return 'buyer';
+    }
+  });
+  const [feeSaveSuccess, setFeeSaveSuccess] = useState(false);
+
+  const handleSaveFee = () => {
+    try {
+      localStorage.setItem('sr12_platform_fee_nominal', String(platformFeeNominal));
+      localStorage.setItem('sr12_fee_payer_mode', feePayerMode);
+      setFeeSaveSuccess(true);
+      setTimeout(() => setFeeSaveSuccess(false), 3000);
+    } catch {}
+  };
+
+  const totalNetworkTx = partnerStores.reduce((acc, s) => acc + (s.totalTx || 0), 0);
+  const totalDevEarnings = totalNetworkTx * platformFeeNominal;
+
 
   useEffect(() => {
     if (isOpen && isDevMasterLoggedIn) {
@@ -261,11 +290,104 @@ export const DevConsoleModal: React.FC<DevConsoleModalProps> = ({ isOpen, onClos
                       <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px' }}>Menunggu verifikasi SK</div>
                     </div>
                     <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                      <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700 }}>Sistem Kuota Platform</div>
-                      <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#0284c7' }}>Rp 1.000</div>
-                      <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px' }}>Tarif fee per order sukses</div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 700 }}>Tarif Platform Fee Developer</div>
+                      <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#0284c7' }}>
+                        Rp {platformFeeNominal.toLocaleString('id-ID')}
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: '#059669', marginTop: '4px' }}>
+                        Per transaksi ({feePayerMode === 'buyer' ? 'Dibayar Pembeli' : 'Potong Saldo Toko'})
+                      </div>
+                    </div>
+                    <div style={{ background: '#f0fdf4', padding: '16px', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
+                      <div style={{ fontSize: '0.75rem', color: '#166534', fontWeight: 700 }}>Total Pendapatan Developer</div>
+                      <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#15803d' }}>
+                        Rp {totalDevEarnings.toLocaleString('id-ID')}
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: '#166534', marginTop: '4px' }}>
+                        Dari {totalNetworkTx} total transaksi jaringan
+                      </div>
                     </div>
                   </div>
+
+                  {/* Panel Pengaturan Tarif Platform Fee Developer */}
+                  <div style={{ background: '#ffffff', padding: '18px', borderRadius: '14px', border: '1.5px solid #cbd5e1', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                      <div>
+                        <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: '#0f172a' }}>
+                          ⚙️ Konfigurasi Biaya Transaksi Developer (Royalti Platform)
+                        </h4>
+                        <p style={{ margin: '2px 0 0', fontSize: '0.76rem', color: '#64748b' }}>
+                          Anda bebas mengubah nominal fee kapan saja. Sistem akan otomatis menerapkan tarif ini ke seluruh transaksi toko.
+                        </p>
+                      </div>
+                      {feeSaveSuccess && (
+                        <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#059669', background: '#ecfdf5', padding: '3px 8px', borderRadius: '6px', border: '1px solid #a7f3d0' }}>
+                          ✓ Tersimpan!
+                        </span>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', alignItems: 'flex-end' }}>
+                      <div>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 800, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                          Nominal Fee Per Transaksi (Rp):
+                        </label>
+                        <input
+                          type="number"
+                          value={platformFeeNominal}
+                          onChange={(e) => setPlatformFeeNominal(Math.max(0, Number(e.target.value)))}
+                          style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            border: '1.5px solid #0284c7',
+                            fontSize: '0.92rem',
+                            fontWeight: 800,
+                            color: '#0f172a'
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 800, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                          Siapa yang Membayar Fee:
+                        </label>
+                        <select
+                          value={feePayerMode}
+                          onChange={(e) => setFeePayerMode(e.target.value as any)}
+                          style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            border: '1px solid #cbd5e1',
+                            fontSize: '0.82rem',
+                            fontWeight: 700,
+                            background: '#fff'
+                          }}
+                        >
+                          <option value="buyer">Pembeli (Ditambahkan saat Checkout)</option>
+                          <option value="seller">Pemilik Toko (Dipotong dari Saldo Dompet Toko)</option>
+                        </select>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleSaveFee}
+                        style={{
+                          background: '#0284c7',
+                          color: '#fff',
+                          padding: '9px 16px',
+                          borderRadius: '8px',
+                          fontSize: '0.82rem',
+                          fontWeight: 800,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Simpan Tarif Baru
+                      </button>
+                    </div>
+                  </div>
+
 
                   <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                     <button
