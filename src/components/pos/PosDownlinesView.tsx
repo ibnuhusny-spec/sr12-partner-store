@@ -43,6 +43,7 @@ export const PosDownlinesView: React.FC = () => {
 
   // Modal State
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showRulesModal, setShowRulesModal] = useState(false);
   const [promoteModalMitra, setPromoteModalMitra] = useState<{ mitra: MitraDownline; evalData: MitraRankEvaluation } | null>(null);
   const [selectedNewTier, setSelectedNewTier] = useState<PartnerTier>('sub_agen');
 
@@ -201,25 +202,49 @@ export const PosDownlinesView: React.FC = () => {
             💼 Komisi Marketer 15% ({sales.length})
           </button>
           {activeTab === 'downlines' && (
-            <button
-              type="button"
-              onClick={() => setShowAddModal(true)}
-              style={{
-                background: '#059669',
-                color: '#fff',
-                padding: '8px 14px',
-                borderRadius: '8px',
-                fontSize: '0.78rem',
-                fontWeight: 800,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                cursor: 'pointer'
-              }}
-            >
-              <UserPlus size={14} />
-              <span>Tambah Mitra Binaan</span>
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setShowRulesModal(true)}
+                style={{
+                  background: 'rgba(56, 189, 248, 0.15)',
+                  color: '#38bdf8',
+                  border: '1px solid rgba(56, 189, 248, 0.35)',
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  fontSize: '0.78rem',
+                  fontWeight: 800,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  cursor: 'pointer'
+                }}
+                title="Lihat Aturan Baku Kemitraan SR12 2026 Resmi (CK SWORD)"
+              >
+                <Award size={14} />
+                <span>📜 Rules Kemitraan 2026</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowAddModal(true)}
+                style={{
+                  background: '#059669',
+                  color: '#fff',
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  fontSize: '0.78rem',
+                  fontWeight: 800,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  cursor: 'pointer'
+                }}
+              >
+                <UserPlus size={14} />
+                <span>Tambah Mitra Binaan</span>
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -459,8 +484,11 @@ export const PosDownlinesView: React.FC = () => {
                               ({evalData.currentTierConfig.discountPct}%)
                             </span>
                           </div>
-                          <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px' }}>
-                            Target Min: Rp {evalData.currentTierConfig.minMonthlyTarget.toLocaleString('id-ID')}
+                          <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '4px' }}>
+                            Min/Bln: Rp {evalData.currentTierConfig.minMonthlyTarget.toLocaleString('id-ID')}
+                          </div>
+                          <div style={{ fontSize: '0.66rem', color: '#64748b' }}>
+                            Target 3 Bln: Rp {evalData.currentTierConfig.accum3MonthsTarget.toLocaleString('id-ID')}
                           </div>
                         </td>
 
@@ -471,7 +499,7 @@ export const PosDownlinesView: React.FC = () => {
                               Rp {mitra.accumulatedSpent90Days.toLocaleString('id-ID')}
                             </span>
                             <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 700 }}>
-                              {evalData.progressIdealPct}%
+                              {evalData.progress3MonthsPct}% (3 Bln)
                             </span>
                           </div>
 
@@ -479,7 +507,7 @@ export const PosDownlinesView: React.FC = () => {
                           <div style={{ width: '100%', height: '6px', background: '#0f172a', borderRadius: '999px', overflow: 'hidden' }}>
                             <div
                               style={{
-                                width: `${evalData.progressIdealPct}%`,
+                                width: `${evalData.progress3MonthsPct}%`,
                                 height: '100%',
                                 background: isPromotable
                                   ? 'linear-gradient(90deg, #10b981, #34d399)'
@@ -521,7 +549,7 @@ export const PosDownlinesView: React.FC = () => {
 
                           {evalData.status === 'warning' && (
                             <div style={{ fontSize: '0.68rem', color: '#f87171', fontWeight: 700, marginTop: '4px' }}>
-                              Kurang Rp {evalData.remainingToMin.toLocaleString('id-ID')} sebelum akhir bulan!
+                              Kurang Rp {evalData.remainingMonthlyMin.toLocaleString('id-ID')} sebelum akhir bulan!
                             </div>
                           )}
                         </td>
@@ -871,6 +899,67 @@ export const PosDownlinesView: React.FC = () => {
                 >
                   Terapkan Level Baru
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Rules Kemitraan 2026 (CK SWORD) */}
+      {showRulesModal && (
+        <div className="modal-overlay" onClick={() => setShowRulesModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '640px', background: '#0f172a', color: '#fff', borderRadius: '16px', border: '1.5px solid #334155', overflow: 'hidden' }}>
+            <div style={{ padding: '16px 20px', background: '#1e293b', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: '0.7rem', color: '#38bdf8', fontWeight: 800, textTransform: 'uppercase' }}>SR12 SKIN CARE / CK SWORD</div>
+                <h3 style={{ margin: '2px 0 0', fontSize: '1.05rem', fontWeight: 900 }}>Rules Kemitraan 2026</h3>
+              </div>
+              <button type="button" onClick={() => setShowRulesModal(false)} style={{ color: '#94a3b8', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ padding: '20px', maxHeight: '75vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* 1. RESELLER */}
+              <div style={{ background: '#1e293b', padding: '16px', borderRadius: '12px', border: '1px solid #334155' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 900, color: '#38bdf8' }}>RESELLER</h4>
+                  <span style={{ fontSize: '1rem', fontWeight: 900, color: '#38bdf8' }}>20% Diskon</span>
+                </div>
+                <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '0.76rem', color: '#cbd5e1', lineHeight: 1.6 }}>
+                  <li>Melakukan <b>order pertama (First Order)</b> senilai minimal <b>Rp 500.000,-</b> atau Rp 400.000,- setelah diskon 20%.</li>
+                  <li>Khusus yang telah menjadi Mitra, kesempatan menjadi Reseller melalui jalur omset minimal <b>Rp 800.000,-</b> dengan omset pribadi minimal Rp 300.000,- berturut-turut selama 3 bulan.</li>
+                  <li>Omset minimal <b>Rp 500.000,- per bulan</b> atau akumulasi minimal <b>Rp 1.500.000,- selama 3 bulan</b>.</li>
+                  <li style={{ color: '#fca5a5' }}>Reseller yang tidak bisa mencapai minimal akumulasi omset selama 3 bulan, maka <b>memasuki bulan ke-4 status Mitra akan diturunkan ke tingkatan di bawahnya (Marketer)</b>.</li>
+                </ul>
+              </div>
+
+              {/* 2. SUB AGEN */}
+              <div style={{ background: '#1e293b', padding: '16px', borderRadius: '12px', border: '1px solid #334155' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 900, color: '#34d399' }}>SUB AGEN</h4>
+                  <span style={{ fontSize: '1rem', fontWeight: 900, color: '#34d399' }}>30% Diskon</span>
+                </div>
+                <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '0.76rem', color: '#cbd5e1', lineHeight: 1.6 }}>
+                  <li>Melakukan <b>order pertama (First Order)</b> senilai minimal <b>Rp 5.000.000,-</b> atau Rp 3.500.000,- setelah diskon 30%.</li>
+                  <li>Khusus yang telah menjadi Mitra, kesempatan menjadi Sub Agent melalui jalur omset minimal <b>Rp 4.000.000,-</b> dengan omset pribadi minimal Rp 3.000.000,- berturut-turut selama 3 bulan.</li>
+                  <li>Omset minimal <b>Rp 4.000.000,- per bulan</b> atau akumulasi omset minimal <b>Rp 12.000.000,- selama 3 bulan</b>.</li>
+                  <li style={{ color: '#fca5a5' }}>Sub Agent yang tidak bisa mencapai minimal akumulasi omset selama 3 bulan, maka <b>memasuki bulan ke-4 status Mitra akan diturunkan ke tingkatan di bawahnya (Reseller)</b>.</li>
+                </ul>
+              </div>
+
+              {/* 3. AGEN */}
+              <div style={{ background: '#1e293b', padding: '16px', borderRadius: '12px', border: '1px solid #334155' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 900, color: '#f59e0b' }}>AGEN</h4>
+                  <span style={{ fontSize: '1rem', fontWeight: 900, color: '#f59e0b' }}>40% Diskon</span>
+                </div>
+                <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '0.76rem', color: '#cbd5e1', lineHeight: 1.6 }}>
+                  <li>Melakukan <b>order pertama kepada Distributor/Agent</b> senilai minimal <b>Rp 25.000.000,-</b> atau Rp 15.000.000,- setelah mendapatkan diskon 40%.</li>
+                  <li>Khusus yang telah menjadi Mitra, berkesempatan menjadi Agent melalui jalur omset minimal <b>Rp 15.000.000,-</b> dengan omset pribadi minimal Rp 10.000.000,- berturut-turut selama 3 bulan.</li>
+                  <li>Omset minimal Agent sebesar <b>Rp 15.000.000,- per bulan</b> atau akumulasi omset minimal <b>Rp 45.000.000,- selama 3 bulan</b>.</li>
+                  <li style={{ color: '#fca5a5' }}>Agent yang tidak bisa mencapai minimal akumulasi omset selama 3 bulan, maka <b>memasuki bulan ke-4 status Mitra akan diturunkan ke tingkatan di bawahnya (Sub Agen)</b>.</li>
+                </ul>
               </div>
             </div>
           </div>

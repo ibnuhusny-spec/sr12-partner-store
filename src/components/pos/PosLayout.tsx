@@ -17,8 +17,10 @@ import {
   Store as StoreIcon,
   Clock,
   Lock,
-  ChevronLeft
+  ChevronLeft,
+  Coins
 } from 'lucide-react';
+import { TokenTopupModal } from './TokenTopupModal';
 
 interface PosLayoutProps {
   products: Product[];
@@ -37,6 +39,7 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
   const [activeTab, setActiveTab] = useState<'cashier' | 'transactions' | 'inventory' | 'cashflow' | 'reports' | 'downlines'>('cashier');
   const [cashierName, setCashierName] = useState('Siti Aminah');
   const [isClockedIn, setIsClockedIn] = useState(true);
+  const [showTokenModal, setShowTokenModal] = useState(false);
 
   return (
     <div className="pos-wrapper">
@@ -80,8 +83,39 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
           </div>
         </div>
 
-        {/* Cashier Attendance & Shift Info */}
+        {/* Token Kuota Indicator & Topup Trigger */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            type="button"
+            onClick={() => setShowTokenModal(true)}
+            style={{
+              background: (currentStore.orderQuota || 0) <= 0 
+                ? 'rgba(239, 68, 68, 0.2)' 
+                : (currentStore.orderQuota || 0) <= 5 
+                ? 'rgba(245, 158, 11, 0.2)' 
+                : '#0f172a',
+              color: (currentStore.orderQuota || 0) <= 0 
+                ? '#f87171' 
+                : (currentStore.orderQuota || 0) <= 5 
+                ? '#fbbf24' 
+                : '#f59e0b',
+              border: `1px solid ${(currentStore.orderQuota || 0) <= 0 ? '#ef4444' : (currentStore.orderQuota || 0) <= 5 ? '#f59e0b' : '#334155'}`,
+              padding: '5px 10px',
+              borderRadius: '8px',
+              fontSize: '0.72rem',
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              cursor: 'pointer'
+            }}
+            title="Kelola Kuota Token Transaksi & Pengaturan Biaya Admin Toko"
+          >
+            <Coins size={13} color="#f59e0b" />
+            <span><b>{currentStore.orderQuota || 0}</b> <span className="hide-on-mobile">Token</span></span>
+            <span style={{ fontSize: '0.62rem', background: '#f59e0b', color: '#0f172a', padding: '1px 5px', borderRadius: '4px', fontWeight: 900 }}>+ISI</span>
+          </button>
+
           <div
             style={{
               background: '#0f172a',
@@ -276,6 +310,12 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
         {activeTab === 'reports' && <PosReportsView />}
         {activeTab === 'downlines' && <PosDownlinesView />}
       </main>
+
+      {/* Token Topup & Settings Modal */}
+      <TokenTopupModal
+        isOpen={showTokenModal}
+        onClose={() => setShowTokenModal(false)}
+      />
     </div>
   );
 };

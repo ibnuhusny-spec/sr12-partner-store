@@ -3,6 +3,8 @@ import { Product, PartnerTier } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { getProductTierPrice, SR12_TIERS } from '../../config/tiers';
 import { PosReceiptModal } from './PosReceiptModal';
+import { deductStoreTransactionQuota } from '../../services/storeService';
+import { Coins, AlertTriangle } from 'lucide-react';
 import {
   Search,
   Plus,
@@ -97,11 +99,23 @@ export const PosCashierView: React.FC<PosCashierViewProps> = ({ products, active
   const changeAmount = Math.max(0, (cashReceived || 0) - totalPayable);
   const totalCartCount = posCart.reduce((sum, line) => sum + line.qty, 0);
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (posCart.length === 0) {
       alert('Keranjang kasir masih kosong.');
       return;
     }
+
+    if ((currentStore.orderQuota || 0) <= 0) {
+      alert('⚠️ Kuota Token Transaksi Toko Anda Telah Habis (0 Token)!\n\nUntuk memproses dan mencatat transaksi kasir baru, silakan lakukan Isi Ulang Token terlebih dahulu melalui tombol Token di menu atas.');
+      return;
+    }
+
+    const res = await deductStoreTransactionQuota(currentStore.slug);
+    if (!res.success) {
+      alert('⚠️ Token Transaksi tidak mencukupi.');
+      return;
+    }
+    currentStore.orderQuota = res.remainingQuota;
 
     const trxId = 'POS-' + Math.floor(100000 + Math.random() * 900000);
     const trxData = {
@@ -407,12 +421,20 @@ export const PosCashierView: React.FC<PosCashierViewProps> = ({ products, active
             )}
           </div>
 
+          {(currentStore.orderQuota || 0) <= 0 && (
+            <div style={{ background: 'rgba(239, 68, 68, 0.18)', border: '1px solid #ef4444', borderRadius: '8px', padding: '8px 10px', marginBottom: '8px', fontSize: '0.74rem', color: '#fca5a5', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <AlertTriangle size={15} color="#ef4444" />
+              <span>Token Transaksi Habis! Isi ulang token untuk melanjutkan.</span>
+            </div>
+          )}
+
           <button
             type="button"
             onClick={handleCheckout}
+            disabled={(currentStore.orderQuota || 0) <= 0}
             style={{
               width: '100%',
-              background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+              background: (currentStore.orderQuota || 0) <= 0 ? '#475569' : 'linear-gradient(135deg, #0284c7, #0369a1)',
               color: '#ffffff',
               padding: '12px',
               borderRadius: '8px',
@@ -422,8 +444,9 @@ export const PosCashierView: React.FC<PosCashierViewProps> = ({ products, active
               alignItems: 'center',
               justifyContent: 'center',
               gap: '8px',
-              boxShadow: '0 4px 14px rgba(2,132,199,0.4)',
-              cursor: 'pointer'
+              boxShadow: (currentStore.orderQuota || 0) <= 0 ? 'none' : '0 4px 14px rgba(2,132,199,0.4)',
+              cursor: (currentStore.orderQuota || 0) <= 0 ? 'not-allowed' : 'pointer',
+              opacity: (currentStore.orderQuota || 0) <= 0 ? 0.7 : 1
             }}
           >
             <CheckCircle size={18} />

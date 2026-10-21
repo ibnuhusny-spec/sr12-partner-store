@@ -56,15 +56,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
 
   const discountAmount = Math.max(0, subtotalHet - totalProductsPrice);
 
-  // Dynamic Platform Fee (Developer Monetization)
+  // Dynamic Platform Fee: Ditentukan oleh pemilik toko (currentStore.feePayer)
   const platformFee = (() => {
     try {
-      const payerMode = localStorage.getItem('sr12_fee_payer_mode') || 'buyer';
+      const payerMode = currentStore.feePayer || 'buyer';
       if (payerMode === 'buyer') {
         const val = localStorage.getItem('sr12_platform_fee_nominal');
         return val ? Number(val) : 1500;
       }
-      return 0;
+      return 0; // Ditanggung oleh toko, pembeli tidak dikenakan biaya admin
     } catch {
       return 1500;
     }

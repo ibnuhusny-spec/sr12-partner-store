@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { fetchPendingStores, approveStoreApplication, deleteStore } from '../../services/storeService';
+import { fetchPendingStores, approveStoreApplication, deleteStore, topupStoreQuota } from '../../services/storeService';
 import { seedNewStoreCatalog } from '../../services/catalogService';
 import { PendingStore, Store } from '../../types';
-import { X, Lock, CheckCircle, Trash2, RefreshCw, BarChart3, Users, Building, ShieldCheck, Copy, Check } from 'lucide-react';
+import { X, Lock, CheckCircle, Trash2, RefreshCw, BarChart3, Users, Building, ShieldCheck, Copy, Check, Coins, Gift } from 'lucide-react';
 
 interface DevConsoleModalProps {
   isOpen: boolean;
@@ -54,6 +54,12 @@ export const DevConsoleModal: React.FC<DevConsoleModalProps> = ({ isOpen, onClos
 
   const totalNetworkTx = partnerStores.reduce((acc, s) => acc + (s.totalTx || 0), 0);
   const totalDevEarnings = totalNetworkTx * platformFeeNominal;
+
+  const handleDevTopup = async (storeSlug: string, count: number) => {
+    await topupStoreQuota(storeSlug, count);
+    await refreshStores();
+    alert(`✓ Berhasil menambahkan +${count} Token Transaksi ke toko ${storeSlug}!`);
+  };
 
 
   useEffect(() => {
@@ -388,6 +394,53 @@ export const DevConsoleModal: React.FC<DevConsoleModalProps> = ({ isOpen, onClos
                     </div>
                   </div>
 
+                  {/* Panel Voucher Generator untuk Developer */}
+                  <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                      <Gift size={16} color="#ec4899" />
+                      <h4 style={{ margin: 0, fontSize: '0.88rem', fontWeight: 800, color: '#0f172a' }}>
+                        Kode Voucher Token Transaksi (Kirim ke Mitra via WhatsApp)
+                      </h4>
+                    </div>
+                    <p style={{ margin: '0 0 10px', fontSize: '0.74rem', color: '#64748b' }}>
+                      Jika toko melakukan transfer manual via WhatsApp, Anda dapat memberikan salah satu kode voucher berikut untuk mereka klaim sendiri:
+                    </p>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {[
+                        { code: 'SR12-BONUS', desc: 'Bonus 25 Token Starter' },
+                        { code: 'SR12-TOKEN50', desc: '50 Token (Rp 75.000)' },
+                        { code: 'SR12-TOKEN100', desc: '100 Token (Rp 150.000)' },
+                        { code: 'SR12-TOKEN250', desc: '250 Token (Rp 375.000)' },
+                        { code: 'SR12-TOKEN500', desc: '500 Token (Rp 750.000)' }
+                      ].map(v => (
+                        <button
+                          key={v.code}
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(v.code);
+                            alert(`Kode voucher "${v.code}" disalin ke clipboard! Siap dikirim via WhatsApp.`);
+                          }}
+                          style={{
+                            background: '#ffffff',
+                            border: '1px solid #cbd5e1',
+                            padding: '6px 10px',
+                            borderRadius: '8px',
+                            fontSize: '0.74rem',
+                            fontWeight: 800,
+                            color: '#0f172a',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <Copy size={12} color="#ec4899" />
+                          <span>{v.code} ({v.desc})</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
 
                   <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                     <button
@@ -526,7 +579,36 @@ export const DevConsoleModal: React.FC<DevConsoleModalProps> = ({ isOpen, onClos
                           </span>
                         </div>
                         <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                          Pemilik: {store.storeOwner} &bull; Kuota: <b>{store.orderQuota} order</b> &bull; Saldo: Rp {store.walletBalance.toLocaleString('id-ID')}
+                          Pemilik: {store.storeOwner} &bull; Kuota: <b style={{ color: (store.orderQuota || 0) <= 0 ? '#ef4444' : (store.orderQuota || 0) <= 5 ? '#f59e0b' : '#059669' }}>{store.orderQuota || 0} Token</b> &bull; Kebijakan Admin: <b>{store.feePayer === 'store' ? 'Ditanggung Toko' : 'Dibayar Pembeli'}</b>
+                        </div>
+
+                        {/* Quick token injection buttons */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
+                          <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700 }}>Inject Token Dev:</span>
+                          <button
+                            type="button"
+                            onClick={() => handleDevTopup(store.slug, 50)}
+                            style={{ padding: '2px 8px', borderRadius: '4px', background: '#e0f2fe', color: '#0369a1', fontSize: '0.68rem', fontWeight: 800, border: 'none', cursor: 'pointer' }}
+                            title="Tambah 50 Token Transaksi"
+                          >
+                            +50 Token
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDevTopup(store.slug, 100)}
+                            style={{ padding: '2px 8px', borderRadius: '4px', background: '#dcfce7', color: '#15803d', fontSize: '0.68rem', fontWeight: 800, border: 'none', cursor: 'pointer' }}
+                            title="Tambah 100 Token Transaksi"
+                          >
+                            +100 Token
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDevTopup(store.slug, 250)}
+                            style={{ padding: '2px 8px', borderRadius: '4px', background: '#fef3c7', color: '#b45309', fontSize: '0.68rem', fontWeight: 800, border: 'none', cursor: 'pointer' }}
+                            title="Tambah 250 Token Transaksi"
+                          >
+                            +250 Token
+                          </button>
                         </div>
                       </div>
 

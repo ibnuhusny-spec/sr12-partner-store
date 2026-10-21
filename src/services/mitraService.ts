@@ -13,8 +13,8 @@ export const DEFAULT_SAMPLE_DOWNLINES: MitraDownline[] = [
     bankAccount: '7310294821',
     bankHolder: 'Dewi Anggraini',
     status: 'active',
-    accumulatedSpent90Days: 3450000, // >= 3jt -> LAYAK PROMOSI KE SUB AGEN!
-    totalOrdersCount: 14,
+    accumulatedSpent90Days: 5200000, // >= 5jt -> LAYAK PROMOSI KE SUB AGEN (First Order Sub Agen 5jt)!
+    totalOrdersCount: 16,
     lastOrderDate: '2026-10-18'
   },
   {
@@ -28,8 +28,8 @@ export const DEFAULT_SAMPLE_DOWNLINES: MitraDownline[] = [
     bankAccount: '132001928374',
     bankHolder: 'Budi Santoso',
     status: 'active',
-    accumulatedSpent90Days: 850000, // Target min 500rb aman, target ideal 1jt
-    totalOrdersCount: 6,
+    accumulatedSpent90Days: 1850000, // Target min 3 bln 1.5jt tercapai aman
+    totalOrdersCount: 7,
     lastOrderDate: '2026-10-15'
   },
   {
@@ -43,8 +43,8 @@ export const DEFAULT_SAMPLE_DOWNLINES: MitraDownline[] = [
     bankAccount: '009801234567',
     bankHolder: 'Rina Wulandari',
     status: 'active',
-    accumulatedSpent90Days: 200000, // < 500rb -> PERINGATAN TURUN LEVEL KE MARKETER!
-    totalOrdersCount: 1,
+    accumulatedSpent90Days: 350000, // < 500rb/bln atau < 1.5jt/3 bln -> PERINGATAN TURUN KE MARKETER!
+    totalOrdersCount: 2,
     lastOrderDate: '2026-10-02'
   },
   {
@@ -58,8 +58,8 @@ export const DEFAULT_SAMPLE_DOWNLINES: MitraDownline[] = [
     bankAccount: '7109283746',
     bankHolder: 'Nurul Hidayah',
     status: 'active',
-    accumulatedSpent90Days: 12800000, // >= 10jt -> LAYAK PROMOSI KE AGEN!
-    totalOrdersCount: 22,
+    accumulatedSpent90Days: 26500000, // >= 25jt -> LAYAK PROMOSI KE AGEN (First Order Agen 25jt)!
+    totalOrdersCount: 24,
     lastOrderDate: '2026-10-20'
   },
   {
@@ -73,8 +73,8 @@ export const DEFAULT_SAMPLE_DOWNLINES: MitraDownline[] = [
     bankAccount: '8830192847',
     bankHolder: 'Fitri Handayani',
     status: 'active',
-    accumulatedSpent90Days: 1750000, // < 3jt -> PERINGATAN TURUN LEVEL KE RESELLER!
-    totalOrdersCount: 3,
+    accumulatedSpent90Days: 3200000, // < 4jt/bln (target 3 bln 12jt) -> PERINGATAN TURUN KE RESELLER!
+    totalOrdersCount: 4,
     lastOrderDate: '2026-10-05'
   },
   {
@@ -88,7 +88,7 @@ export const DEFAULT_SAMPLE_DOWNLINES: MitraDownline[] = [
     bankAccount: '6040192837',
     bankHolder: 'Siti Rahmawati',
     status: 'active',
-    accumulatedSpent90Days: 1200000, // >= 1jt -> LAYAK PROMOSI KE RESELLER!
+    accumulatedSpent90Days: 950000, // >= 800rb jalur prestasi / 500rb FO -> LAYAK PROMOSI KE RESELLER!
     totalOrdersCount: 8,
     lastOrderDate: '2026-10-19'
   }

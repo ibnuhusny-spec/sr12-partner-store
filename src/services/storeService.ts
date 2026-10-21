@@ -290,3 +290,96 @@ export async function uploadImageToSupabase(file: File, storeSlug = 'global'): P
   const { data } = supabase.storage.from('products').getPublicUrl(fileName);
   return data.publicUrl;
 }
+
+export interface TokenPackage {
+  id: string;
+  name: string;
+  tokens: number;
+  price: number;
+  popular?: boolean;
+  tag?: string;
+}
+
+export const TOKEN_PACKAGES: TokenPackage[] = [
+  { id: 'token-50', name: 'Paket Starter', tokens: 50, price: 75000, tag: 'Uji Coba' },
+  { id: 'token-100', name: 'Paket Bisnis', tokens: 100, price: 150000 },
+  { id: 'token-250', name: 'Paket Pro Store', tokens: 250, price: 375000, popular: true, tag: 'Paling Laris' },
+  { id: 'token-500', name: 'Paket Distributor', tokens: 500, price: 750000, tag: 'Hemat 10%' }
+];
+
+export async function updateStoreFeePayer(slug: string, feePayer: 'buyer' | 'store'): Promise<boolean> {
+  try {
+    const raw = localStorage.getItem(STORAGE_STORES_KEY);
+    if (raw) {
+      const list: Store[] = JSON.parse(raw);
+      const idx = list.findIndex(s => s.slug === slug);
+      if (idx >= 0) {
+        list[idx].feePayer = feePayer;
+        localStorage.setItem(STORAGE_STORES_KEY, JSON.stringify(list));
+        return true;
+      }
+    }
+  } catch {}
+  return false;
+}
+
+export async function topupStoreQuota(slug: string, addedTokens: number): Promise<{ success: boolean; newQuota: number }> {
+  try {
+    const raw = localStorage.getItem(STORAGE_STORES_KEY);
+    if (raw) {
+      const list: Store[] = JSON.parse(raw);
+      const idx = list.findIndex(s => s.slug === slug);
+      if (idx >= 0) {
+        list[idx].orderQuota = (list[idx].orderQuota || 0) + addedTokens;
+        localStorage.setItem(STORAGE_STORES_KEY, JSON.stringify(list));
+        return { success: true, newQuota: list[idx].orderQuota };
+      }
+    }
+  } catch {}
+  return { success: false, newQuota: 0 };
+}
+
+export async function deductStoreTransactionQuota(slug: string): Promise<{ success: boolean; remainingQuota: number }> {
+  try {
+    const raw = localStorage.getItem(STORAGE_STORES_KEY);
+    if (raw) {
+      const list: Store[] = JSON.parse(raw);
+      const idx = list.findIndex(s => s.slug === slug);
+      if (idx >= 0) {
+        const currentQuota = list[idx].orderQuota || 0;
+        if (currentQuota <= 0) {
+          return { success: false, remainingQuota: 0 };
+        }
+        list[idx].orderQuota = currentQuota - 1;
+        list[idx].totalTx = (list[idx].totalTx || 0) + 1;
+        localStorage.setItem(STORAGE_STORES_KEY, JSON.stringify(list));
+        return { success: true, remainingQuota: list[idx].orderQuota };
+      }
+    }
+  } catch {}
+  return { success: true, remainingQuota: 99 };
+}
+
+export async function redeemTokenVoucher(slug: string, code: string): Promise<{ success: boolean; message: string; addedTokens?: number }> {
+  const cleanCode = code.trim().toUpperCase();
+  if (!cleanCode) return { success: false, message: 'Masukkan kode voucher token!' };
+
+  // Example valid voucher formats:
+  // SR12-TOKEN50, SR12-TOKEN100, SR12-TOKEN250, SR12-VIP
+  let tokens = 0;
+  if (cleanCode.includes('50')) tokens = 50;
+  else if (cleanCode.includes('100')) tokens = 100;
+  else if (cleanCode.includes('250')) tokens = 250;
+  else if (cleanCode.includes('500')) tokens = 500;
+  else if (cleanCode === 'SR12-BONUS' || cleanCode === 'BONUS-MITRA') tokens = 25;
+  else {
+    return { success: false, message: 'Kode voucher tidak valid atau sudah kadaluarsa.' };
+  }
+
+  const res = await topupStoreQuota(slug, tokens);
+  if (res.success) {
+    return { success: true, message: `Selamat! Voucher berhasil digunakan. +${tokens} Token Transaksi ditambahkan ke toko Anda.`, addedTokens: tokens };
+  }
+  return { success: false, message: 'Gagal mengklaim voucher.' };
+}
+
