@@ -1,0 +1,11 @@
+{
+  "remoteName": "origin",
+  "projects": [
+    {
+      "id": "prj_bVFlLyvW39W5gscPCyiBJ3h0f8xq",
+      "name": "sr12-partner-store",
+      "directory": ".",
+      "orgId": "team_xd1pH3XpOpQKtNpQSmzOubsN"
+    }
+  ]
+}

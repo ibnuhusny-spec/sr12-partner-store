@@ -1,0 +1,8103 @@
+/* ========================================================
+   SR12 PARTNER HUB - PREMIUM DESIGN SYSTEM (V4 MULTI-THEME & ROLE SEPARATED)
+   Theme Engine: Emerald, Velvet Rose, Royal Blue, Charcoal, Terracotta
+   ======================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap');
+
+:root {
+  /* Default Theme: Herbal Emerald (Khas SR12) */
+  --primary-900: #064e3b;
+  --primary-800: #065f46;
+  --primary-700: #047857;
+  --primary-600: #059669;
+  --primary-500: #10b981;
+  --primary-100: #d1fae5;
+  --primary-50:  #ecfdf5;
+
+  /* Accent Gold */
+  --gold-700: #b45309;
+  --gold-600: #d97706;
+  --gold-500: #f59e0b;
+  --gold-400: #fbbf24;
+  --gold-100: #fef3c7;
+  --gold-50:  #fffbeb;
+
+  /* Neutrals */
+  --dark-950: #090d16;
+  --dark-900: #0f172a;
+  --dark-800: #1e293b;
+  --dark-700: #334155;
+  --dark-500: #64748b;
+  --dark-400: #94a3b8;
+  --dark-200: #e2e8f0;
+  --dark-100: #f1f5f9;
+  --dark-50:  #f8fafc;
+  --white:    #ffffff;
+
+  --bg-main: #f8fafc;
+  --card-bg: #ffffff;
+  --border-subtle: #e2e8f0;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
+
+  --shadow-sm: 0 2px 6px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 8px 24px rgba(6, 78, 59, 0.08);
+  --shadow-lg: 0 16px 40px rgba(6, 78, 59, 0.14);
+
+  --font-main: 'Plus Jakarta Sans', sans-serif;
+  --font-heading: 'Outfit', sans-serif;
+}
+
+/* ========================================================
+   THEME PRESETS (DIKUSTOMISASI TIAP TOKO)
+   ======================================================== */
+body.theme-rose {
+  --primary-900: #831843;
+  --primary-800: #9d174d;
+  --primary-700: #be185d;
+  --primary-600: #db2777;
+  --primary-500: #ec4899;
+  --primary-100: #fce7f3;
+  --primary-50:  #fdf2f8;
+  --gold-500: #f43f5e;
+  --gold-600: #e11d48;
+}
+
+body.theme-blue {
+  --primary-900: #0c4a6e;
+  --primary-800: #075985;
+  --primary-700: #0369a1;
+  --primary-600: #0284c7;
+  --primary-500: #0ea5e9;
+  --primary-100: #e0f2fe;
+  --primary-50:  #f0f9ff;
+  --gold-500: #0284c7;
+}
+
+body.theme-charcoal {
+  --primary-900: #18181b;
+  --primary-800: #27272a;
+  --primary-700: #3f3f46;
+  --primary-600: #52525b;
+  --primary-500: #71717a;
+  --primary-100: #e4e4e7;
+  --primary-50:  #f4f4f5;
+  --gold-500: #d97706;
+}
+
+body.theme-terracotta {
+  --primary-900: #7c2d12;
+  --primary-800: #9a3412;
+  --primary-700: #c2410c;
+  --primary-600: #ea580c;
+  --primary-500: #f97316;
+  --primary-100: #ffedd5;
+  --primary-50:  #fff7ed;
+  --gold-500: #d97706;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  font-family: var(--font-main);
+  background-color: var(--bg-main);
+  color: var(--dark-800);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  padding-bottom: 90px;
+  max-width: 100vw;
+  overflow-x: hidden;
+  position: relative;
+  width: 100%;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  color: var(--dark-900);
+  line-height: 1.25;
+}
+
+/* ========================================================
+   PLATFORM TOPBAR (MULTI-TENANT SAAS SWITCHER & REGISTRATION)
+   ======================================================== */
+.platform-topbar {
+  background: #090d16;
+  color: #94a3b8;
+  border-bottom: 1px solid #1e293b;
+  font-size: 0.76rem;
+  padding: 6px 16px;
+  position: relative;
+  z-index: 100;
+}
+
+.platform-topbar-inner {
+  max-width: 1360px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.platform-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
+.platform-badge {
+  background: #0284c7;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.platform-store-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.active-store-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #1e293b;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid #334155;
+}
+
+.store-select-dropdown {
+  background: transparent;
+  color: #38bdf8;
+  border: none;
+  font-size: 0.76rem;
+  font-weight: 700;
+  font-family: var(--font-main);
+  outline: none;
+  cursor: pointer;
+}
+
+.store-select-dropdown option {
+  background: #0f172a;
+  color: #fff;
+}
+
+.btn-topbar-action {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #e2e8f0;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.btn-topbar-action:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+.btn-topbar-primary {
+  background: linear-gradient(135deg, #059669, #10b981);
+  border: none;
+  color: #fff;
+  padding: 5px 14px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.btn-topbar-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.btn-topbar-dev {
+  background: #0f172a;
+  border: 1px solid #0284c7;
+  color: #38bdf8;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);
+  transition: all 0.2s ease;
+}
+
+.btn-topbar-dev:hover {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #38bdf8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.4);
+}
+
+.dev-tabs-bar {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid #334155;
+  margin-bottom: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.dev-tabs-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.dev-tab-btn {
+  background: #1e293b;
+  color: #94a3b8;
+  border: 1px solid #334155;
+  padding: 7px 16px;
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.dev-tab-btn:hover {
+  background: #334155;
+  color: #f8fafc;
+}
+
+.dev-tab-btn.active {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #ffffff;
+  border-color: #38bdf8;
+  box-shadow: 0 2px 10px rgba(2, 132, 199, 0.4);
+}
+
+/* Modern Dev Pill Buttons */
+.btn-dev-pill-danger {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+}
+
+.btn-dev-pill-danger:hover {
+  background: #ef4444;
+  color: #fff;
+}
+
+.btn-dev-pill-primary {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  border: 1px solid #38bdf8;
+  color: #ffffff;
+  padding: 6px 16px;
+  border-radius: var(--radius-full);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3);
+  transition: all 0.2s ease;
+}
+
+.btn-dev-pill-primary:hover {
+  background: #0284c7;
+  transform: translateY(-1px);
+}
+
+.btn-dev-action-pill {
+  width: 100%;
+  margin-top: 14px;
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #fff;
+  border: 1px solid #38bdf8;
+  padding: 10px 18px;
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-dev-action-pill:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(2, 132, 199, 0.45);
+}
+
+/* ========================================================
+   DEDICATED DEVELOPER SUPER ADMIN PLATFORM (WORKSPACE & NAVBAR)
+   ======================================================== */
+.dev-preview-strip {
+  background: #090d16;
+  border-bottom: 1.5px solid #0284c7;
+  color: #e2e8f0;
+  padding: 8px 18px;
+  font-size: 0.78rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 9999;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dev-preview-strip .dev-master-tag {
+  background: #0284c7;
+  color: #fff;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  font-size: 0.68rem;
+  letter-spacing: 0.5px;
+}
+
+.dev-preview-strip .dev-cloud-pill {
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid #10b981;
+  color: #a7f3d0;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.btn-dev-strip-primary {
+  background: #0284c7;
+  color: #fff;
+  border: 1px solid #38bdf8;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s;
+}
+
+.btn-dev-strip-primary:hover {
+  background: #0369a1;
+  transform: translateY(-1px);
+}
+
+.btn-dev-strip-green {
+  background: #059669;
+  color: #fff;
+  border: 1px solid #34d399;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s;
+}
+
+.btn-dev-strip-green:hover {
+  background: #047857;
+  transform: translateY(-1px);
+}
+
+.btn-dev-strip-danger {
+  background: rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+  border: 1px solid #ef4444;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-dev-strip-danger:hover {
+  background: #ef4444;
+  color: #fff;
+}
+
+/* Developer Console Top Navbar */
+.dev-app-navbar {
+  background: #090d16;
+  border-bottom: 1.5px solid #0284c7;
+  padding: 12px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.dev-nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dev-nav-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  box-shadow: 0 0 15px rgba(2, 132, 199, 0.4);
+}
+
+.dev-nav-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #f8fafc;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dev-nav-badge {
+  background: #0284c7;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+}
+
+.dev-nav-sub {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.dev-nav-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dev-nav-stats {
+  background: #1e293b;
+  border: 1px solid #334155;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  color: #cbd5e1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dev-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-dev-nav-icon,
+.btn-dev-switch-storefront {
+  background: #1e293b;
+  color: #38bdf8;
+  border: 1px solid #0284c7;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-dev-nav-icon:hover,
+.btn-dev-switch-storefront:hover {
+  background: #0284c7;
+  color: #fff;
+}
+
+.btn-dev-logout,
+.btn-dev-nav-icon.btn-dev-logout {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border: 1px solid #ef4444;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.btn-dev-logout:hover,
+.btn-dev-nav-icon.btn-dev-logout:hover {
+  background: #ef4444;
+  color: #fff;
+}
+
+/* Workspace Container & Mode Developer Scroll Unlock */
+body.dev-mode-active,
+html.dev-mode-active,
+html:has(body.dev-mode-active) {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  height: auto !important;
+  min-height: 100% !important;
+  touch-action: auto !important;
+  overscroll-behavior-y: auto !important;
+}
+
+body.dev-mode-active {
+  background: #090d16 !important;
+}
+
+/* Sembunyikan TOTAL etalase publik & Official Central Hub saat Developer Workspace aktif (HP & Desktop) */
+body.dev-mode-active #publicStorefrontMain,
+body.dev-mode-active #siteStorefrontFooter,
+body.dev-mode-active #officialCentralHubHero,
+body.dev-mode-active #officialDistributorDirectorySection,
+body.dev-mode-active .site-header,
+body.dev-mode-active .tier-quick-banner,
+body.dev-mode-active .platform-topbar,
+body.dev-mode-active #distributorCommerceWrapper,
+body.dev-mode-active #distributorStoreHeroCard,
+body.dev-mode-active #genericStoreHeroBanner {
+  display: none !important;
+}
+
+.dev-workspace-container {
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 14px;
+  border: 1px solid #334155;
+  padding: 24px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  min-height: calc(100vh - 120px);
+  overflow-y: visible !important;
+  touch-action: auto !important;
+}
+
+.dev-tab-pane {
+  overflow-y: visible !important;
+  touch-action: auto !important;
+}
+
+.dev-table-scroll-wrap {
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  max-height: none !important;
+  touch-action: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+.dev-store-select-input,
+#devStoreSelect_ws,
+#devStoreSelect {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* ========================================================
+   SELLER ADMIN CONTROL BAR (HANYA MUNCUL DI MODE ADMIN)
+   ======================================================== */
+.admin-mode-banner {
+  background: #1e1b4b;
+  color: #fff;
+  padding: 8px 20px;
+  font-size: 0.8rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.admin-mode-banner b {
+  color: #a5b4fc;
+}
+
+.admin-mode-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-admin-pill {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-admin-pill:hover {
+  background: #4f46e5;
+}
+
+/* Floating Switcher: Beralih Mode Pembeli vs Admin Toko */
+.floating-role-switch {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  z-index: 998;
+  background: #ffffff;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  padding: 6px 14px;
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mode-badge-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #10b981;
+}
+
+.mode-badge-indicator.admin {
+  background: #6366f1;
+}
+
+.btn-toggle-viewmode {
+  background: var(--dark-100);
+  border: none;
+  font-family: var(--font-main);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--dark-800);
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-toggle-viewmode:hover {
+  background: var(--primary-100);
+  color: var(--primary-900);
+}
+
+/* ========================================================
+   BERSIH TOTAL: SEMBUNYIKAN STRIP ADMIN/TOPBAR GELAP BERTUMPUK
+   (SITE HEADER TETAP TAMPIL SEBAGAI NAVBAR KONSISTEN)
+   ======================================================== */
+.platform-topbar,
+#platformTopbar,
+.tier-quick-banner,
+#devPreviewStrip,
+.admin-mode-banner,
+#adminModeBanner {
+  display: none !important;
+}
+
+/* Pastikan di dalam Portal Olsera (Kasir, Transaksi, Pengaturan Toko), SEMUA etalase publik & elemen toko pembeli 100% MATI TOTAL */
+body.olsera-portal-active #publicStorefrontMain,
+body.olsera-portal-active .main-wrapper,
+body.olsera-portal-active #siteStorefrontFooter,
+body.olsera-portal-active #distributorCommerceWrapper,
+body.olsera-portal-active #distributorStoreHeroCard,
+body.olsera-portal-active #catalogSection,
+body.olsera-portal-active #rewardsSection,
+body.olsera-portal-active #marketingKitSection,
+body.olsera-portal-active #officialCentralHubHero,
+body.olsera-portal-active #officialDistributorDirectorySection,
+body.olsera-portal-active .site-header,
+body.olsera-portal-active #siteHeaderStorefront,
+body.olsera-portal-active #distributorPreviewStrip,
+body.olsera-portal-active #btnFloatingAdminMenu,
+body.olsera-portal-active #btnHeaderAdminMenu,
+body.olsera-portal-active #btnOpenDashboardFromCatalog,
+body.olsera-portal-active #btnOpenDashboardFromRewards {
+  display: none !important;
+}
+
+/* Sembunyikan tombol floating admin menu secara menyeluruh */
+#btnFloatingAdminMenu {
+  display: none !important;
+}
+
+body.dev-mode-active .site-header {
+  display: none !important;
+}
+
+/* Tombol Navbar Tambahan */
+.btn-header-wa {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1.5px solid #a7f3d0;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+.btn-header-wa:hover {
+  background: #059669;
+  color: #fff;
+  border-color: #059669;
+}
+.btn-header-switch-store {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1.5px solid #bfdbfe;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s;
+}
+.btn-header-switch-store:hover {
+  background: #2563eb;
+  color: #fff;
+}
+.btn-header-cart {
+  position: relative;
+  background: #065f46;
+  color: #fff;
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(6, 95, 70, 0.3);
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.btn-header-cart:hover {
+  transform: scale(1.05);
+}
+.badge-cart-counter {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 9999px;
+  border: 2px solid #fff;
+}
+
+/* ========================================================
+   IDENTITAS NAMA TOKO DI BANNER (HERO COVER OVERLAY)
+   ======================================================== */
+.distributor-hero-cover-wrap {
+  position: relative !important;
+}
+.distributor-hero-banner-overlay-text {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  right: 20px;
+  z-index: 3;
+  color: #ffffff;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.75);
+  pointer-events: none;
+}
+.banner-store-badge {
+  display: inline-block;
+  background: rgba(16, 185, 129, 0.92);
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 4px 11px;
+  border-radius: 9999px;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  margin-bottom: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(4px);
+}
+.banner-store-title {
+  font-size: 1.65rem;
+  font-weight: 900;
+  color: #ffffff;
+  margin: 0 0 5px 0;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+.banner-store-tagline {
+  font-size: 0.84rem;
+  color: #f1f5f9;
+  margin: 0;
+  max-width: 650px;
+  line-height: 1.45;
+  font-weight: 500;
+}
+@media (max-width: 768px) {
+  .distributor-hero-banner-overlay-text {
+    top: 14px;
+    left: 14px;
+    right: 14px;
+  }
+  .banner-store-badge {
+    font-size: 0.65rem;
+    padding: 3px 8px;
+  }
+  .banner-store-title {
+    font-size: 1.15rem;
+  }
+  .banner-store-tagline {
+    font-size: 0.74rem;
+    line-height: 1.35;
+  }
+  .hide-on-mobile {
+    display: none !important;
+  }
+}
+
+/* ========================================================
+   FOOTER RESMI TOKO (KONSISTEN & MODERN)
+   ======================================================== */
+.site-storefront-footer {
+  margin-top: 40px;
+  padding: 28px 20px 36px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #64748b;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.footer-inner-content {
+  max-width: 800px;
+  margin: 0 auto;
+  text-align: center;
+}
+.footer-simple-brand {
+  margin-bottom: 12px;
+}
+.footer-brand-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+.footer-brand-desc {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin: 4px 0 0 0;
+}
+.footer-action-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 18px 0;
+}
+.btn-footer-pill {
+  padding: 8px 16px;
+  border-radius: 9999px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  border: 1.5px solid transparent;
+  text-decoration: none;
+}
+.btn-footer-wa {
+  background: #ecfdf5;
+  color: #065f46;
+  border-color: #a7f3d0;
+}
+.btn-footer-wa:hover {
+  background: #d1fae5;
+}
+.btn-footer-central {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fcd34d;
+}
+.btn-footer-central:hover {
+  background: #fde68a;
+}
+.btn-footer-switch {
+  background: #eff6ff;
+  color: #1e40af;
+  border-color: #bfdbfe;
+}
+.btn-footer-switch:hover {
+  background: #dbeafe;
+}
+.btn-footer-settings {
+  background: #f8fafc;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+.btn-footer-settings:hover {
+  background: #e2e8f0;
+}
+.btn-footer-dev {
+  background: #0f172a !important;
+  color: #38bdf8 !important;
+  border-color: #0284c7 !important;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);
+}
+.btn-footer-dev:hover {
+  background: #1e293b !important;
+  border-color: #38bdf8 !important;
+}
+
+.footer-simple-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+.footer-simple-copy {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin: 0;
+}
+.footer-simple-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.footer-link-btn {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+.footer-link-btn:hover {
+  color: #0284c7;
+  background: #e0f2fe;
+}
+.footer-dev-link {
+  color: #94a3b8;
+}
+.footer-dev-link:hover {
+  color: #0369a1;
+}
+.footer-sep {
+  color: #cbd5e1;
+  font-size: 0.75rem;
+}
+
+/* Tombol Akses Tunggal Menu Distributor di Depan (Hero) */
+.btn-dist-open-drawer-action {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #ffffff;
+  border: none;
+  border-radius: 9999px;
+  padding: 8px 18px;
+  font-weight: 800;
+  font-size: 0.82rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+.btn-dist-open-drawer-action:hover {
+  background: linear-gradient(135deg, #0369a1, #075985);
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 6px 18px rgba(2, 132, 199, 0.45);
+}
+
+/* Top Utility Bar Terintegrasi (Statis dalam Dokumen - Rapi, Sejajar, Tidak Berantakan) */
+.olsera-static-topbar {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 100 !important;
+  background: rgba(255, 255, 255, 0.98) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border-bottom: 1.5px solid #e2e8f0;
+  border-radius: 0 0 14px 14px;
+  padding: 10px 18px;
+  margin-top: 0 !important;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+  box-sizing: border-box;
+}
+.olsera-static-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex-shrink: 1;
+}
+.btn-olsera-static-menu {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #ffffff;
+  border: none;
+  border-radius: 9999px;
+  height: 36px;
+  padding: 0 14px;
+  font-weight: 800;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.btn-olsera-static-menu:hover {
+  background: linear-gradient(135deg, #0369a1, #075985);
+  transform: translateY(-1px);
+}
+.olsera-static-menu-order-badge {
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  margin-left: 4px;
+  box-shadow: 0 1px 4px rgba(239, 68, 68, 0.4);
+}
+.olsera-static-store-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #0f172a;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.olsera-static-store-sub {
+  font-size: 0.72rem;
+  color: #64748b;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.olsera-static-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+.btn-olsera-static-quota {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1.5px solid #fde68a;
+  border-radius: 9999px;
+  height: 36px;
+  padding: 0 12px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+.btn-olsera-static-quota:hover {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  transform: translateY(-1px);
+}
+.btn-olsera-static-cashier {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1.5px solid #a7f3d0;
+  border-radius: 9999px;
+  height: 36px;
+  padding: 0 14px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+.btn-olsera-static-cashier:hover {
+  background: #d1fae5;
+  border-color: #34d399;
+  transform: translateY(-1px);
+}
+.btn-olsera-static-cfd {
+  background: #f0f9ff;
+  color: #0284c7;
+  border: 1.5px solid #bae6fd;
+  border-radius: 9999px;
+  height: 36px;
+  padding: 0 14px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+.btn-olsera-static-cfd:hover {
+  background: #e0f2fe;
+  border-color: #38bdf8;
+  transform: translateY(-1px);
+}
+.btn-olsera-static-logout {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1.5px solid #fecaca;
+  border-radius: 9999px;
+  height: 36px;
+  padding: 0 14px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+.btn-olsera-static-logout:hover {
+  background: #fee2e2;
+  border-color: #f87171;
+  transform: translateY(-1px);
+}
+
+.header-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.brand-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+
+.brand-logo-badge {
+  width: 48px;
+  height: 48px;
+  background: transparent;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none;
+  overflow: visible;
+  flex-shrink: 0;
+}
+
+.brand-text h1 {
+  font-size: 1.25rem;
+  letter-spacing: -0.5px;
+  color: var(--primary-900);
+  margin-bottom: -2px;
+}
+
+.brand-text p {
+  font-size: 0.72rem;
+  color: var(--dark-500);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.header-tier-box {
+  background: var(--dark-50);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tier-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--dark-500);
+  white-space: nowrap;
+}
+
+.tier-select {
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  font-family: var(--font-main);
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--primary-800);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  outline: none;
+  cursor: pointer;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-store-settings {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: var(--dark-800);
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.btn-store-settings:hover {
+  background: var(--primary-50);
+  color: var(--primary-800);
+  border-color: var(--primary-500);
+}
+
+.btn-dist-settings-action {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1.5px solid #a7f3d0;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(5, 150, 105, 0.1);
+}
+
+.btn-dist-settings-action:hover {
+  background: #059669;
+  color: #ffffff;
+  border-color: #059669;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(5, 150, 105, 0.3);
+}
+
+.btn-cart-bubble {
+  position: relative;
+  background: linear-gradient(135deg, var(--primary-700), var(--primary-800));
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.btn-cart-bubble:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(6, 78, 59, 0.3);
+}
+
+.cart-count-badge {
+  background: var(--gold-500);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  border-radius: var(--radius-full);
+  min-width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+
+/* ========================================================
+   ROLE BAR & QUICK INSIGHTS
+   ======================================================== */
+.tier-quick-banner {
+  background: #ffffff;
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 12px 24px;
+}
+
+.tier-quick-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.tier-status-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pill-role-badge {
+  background: var(--primary-100);
+  color: var(--primary-800);
+  font-weight: 800;
+  font-size: 0.82rem;
+  padding: 4px 14px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--primary-500);
+}
+
+.tier-status-desc {
+  font-size: 0.85rem;
+  color: var(--dark-700);
+}
+
+.tier-rules-hint {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 0.82rem;
+}
+
+.rule-chip {
+  background: var(--dark-50);
+  border: 1px solid var(--border-subtle);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--dark-700);
+  font-weight: 600;
+}
+
+/* ========================================================
+   MAIN CONTAINER & HERO SECTION
+   ======================================================== */
+.main-wrapper {
+  max-width: 1280px;
+  margin: 24px auto;
+  padding: 0 20px;
+}
+
+.hero-single-banner {
+  position: relative;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  background: #0f172a;
+  margin-bottom: 28px;
+}
+
+.hero-single-banner img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.88;
+}
+
+.hero-single-overlay {
+  position: relative;
+  z-index: 2;
+  background: linear-gradient(0deg, rgba(15, 23, 42, 0.95) 0%, rgba(15, 23, 42, 0.4) 60%, transparent 100%);
+  padding: 28px 30px;
+  color: #fff;
+}
+
+.hero-tag {
+  display: inline-block;
+  background: var(--primary-500);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.72rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  margin-bottom: 8px;
+}
+
+.hero-single-overlay h2 {
+  color: #fff;
+  font-size: 1.85rem;
+  margin-bottom: 6px;
+}
+
+.hero-single-overlay p {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.95rem;
+  max-width: 650px;
+  margin-bottom: 14px;
+}
+
+/* ========================================================
+   1. TOKO DISTRIBUTOR HERO PROFILE CARD (COVER LATAR BELAKANG + LOGO DI TENGAH, NAMA TOKO DI BAWAHNYA)
+   ======================================================== */
+.distributor-store-hero-card {
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1.5px solid var(--border-subtle);
+  padding: 0;
+  margin-bottom: 26px;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Cover Banner Latar Belakang Toko (Diperbesar Luas & Elegan) */
+.distributor-hero-cover-wrap {
+  position: relative;
+  width: 100%;
+  height: 240px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #064e3b, #047857);
+  border-radius: 18px 18px 0 0;
+}
+body.theme-navy .distributor-hero-cover-wrap { background: linear-gradient(135deg, #0f172a, #1e3a8a); }
+body.theme-rose .distributor-hero-cover-wrap { background: linear-gradient(135deg, #881337, #be123c); }
+body.theme-amber .distributor-hero-cover-wrap { background: linear-gradient(135deg, #78350f, #b45309); }
+body.theme-amethyst .distributor-hero-cover-wrap { background: linear-gradient(135deg, #4c1d95, #6d28d9); }
+body.theme-gold .distributor-hero-cover-wrap { background: linear-gradient(135deg, #713f12, #a16207); }
+body.theme-dark .distributor-hero-cover-wrap { background: linear-gradient(135deg, #18181b, #27272a); }
+
+.distributor-hero-cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+  transition: transform 0.4s ease;
+}
+
+.distributor-hero-cover-wrap:hover .distributor-hero-cover-img {
+  transform: scale(1.02);
+}
+
+.distributor-hero-cover-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.45) 100%);
+  pointer-events: none;
+}
+
+.btn-edit-cover-quick {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(8px);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 5px 12px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+  z-index: 5;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.btn-edit-cover-quick:hover {
+  background: rgba(15, 23, 42, 0.95);
+  border-color: #38bdf8;
+  transform: translateY(-1px);
+}
+
+/* Content Area di Bawah Cover - Ringkas, Rapi & Tidak Kosong */
+.distributor-hero-content-wrap {
+  padding: 0 18px 14px 18px;
+  position: relative;
+}
+
+/* Logo / Foto Profil Toko di Tengah (Menimpa Cover) */
+.distributor-hero-logo-box {
+  width: 82px;
+  height: 82px;
+  margin: -41px auto 6px auto;
+  border-radius: 50%;
+  padding: 3px;
+  background: #ffffff;
+  border: 3px solid #ffffff;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 4;
+}
+
+.distributor-hero-logo-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 50%;
+  display: block;
+}
+
+.btn-edit-logo-quick {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #059669;
+  color: #ffffff;
+  border: 2px solid #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  transition: all 0.2s ease;
+  z-index: 6;
+}
+.btn-edit-logo-quick:hover {
+  background: #047857;
+  transform: scale(1.1);
+}
+
+/* Nama Toko Tepat di Bawah Logo - Jauh Lebih Besar & Menonjol */
+.distributor-hero-store-name {
+  font-size: 1.85rem;
+  font-weight: 900;
+  color: var(--dark-900);
+  margin: 0 0 3px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  letter-spacing: -0.6px;
+  line-height: 1.25;
+}
+
+.badge-verified-tick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: #0284c7;
+  color: #ffffff;
+  border-radius: 50%;
+  font-size: 0.72rem;
+  font-weight: 900;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
+}
+
+/* Badge Kemitraan - Lebih Ringkas & Elegan */
+.distributor-hero-tier-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+  color: #065f46;
+  border: 1px solid #86efac;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 5px;
+}
+
+/* Slogan & Deskripsi Toko */
+.distributor-hero-tagline {
+  font-size: 0.85rem;
+  color: var(--dark-600);
+  max-width: 580px;
+  margin: 0 auto 8px auto;
+  line-height: 1.35;
+}
+
+/* Metadata Toko (Pemilik, Kota, WhatsApp) */
+.distributor-hero-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  font-size: 0.76rem;
+  color: var(--dark-700);
+}
+
+.distributor-hero-chip {
+  background: #f8fafc;
+  border: 1px solid var(--border-subtle);
+  padding: 3px 10px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+  font-size: 0.72rem;
+}
+
+/* ========================================================
+   HERO 3 ICON BUTTONS ONLY (Pesan WA, Home, Dashboard Admin)
+   Tanpa teks, icon presisi, lingkaran elegan, responsif
+   ======================================================== */
+.distributor-hero-3icons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 14px auto 8px auto;
+  width: auto;
+}
+
+.btn-hero-icon-only {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  max-width: 48px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
+  padding: 0;
+  flex-shrink: 0;
+  border: 1.5px solid transparent;
+}
+
+.btn-hero-icon-only:hover {
+  transform: translateY(-3px) scale(1.08);
+}
+
+.btn-hero-icon-only:active {
+  transform: scale(0.92);
+}
+
+/* 1. Icon WhatsApp: Official WhatsApp green */
+.btn-hero-icon-wa {
+  background: linear-gradient(135deg, #25D366, #128C7E);
+  color: #ffffff !important;
+  border-color: #128C7E;
+  box-shadow: 0 4px 14px rgba(37, 211, 102, 0.35);
+}
+.btn-hero-icon-wa:hover {
+  background: linear-gradient(135deg, #1fa855, #075e54);
+  box-shadow: 0 8px 22px rgba(37, 211, 102, 0.48);
+}
+
+/* 2. Icon Home: Emerald / Clean White */
+.btn-hero-icon-home {
+  background: #ffffff;
+  color: #065f46 !important;
+  border-color: #86efac;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+.btn-hero-icon-home:hover {
+  background: #ecfdf5;
+  border-color: #34d399;
+  color: #047857 !important;
+  box-shadow: 0 8px 18px rgba(6, 95, 70, 0.15);
+}
+
+/* 3. Icon Dashboard Admin: Blue / Clean White */
+.btn-hero-icon-admin {
+  background: #ffffff;
+  color: #0284c7 !important;
+  border-color: #93c5fd;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+.btn-hero-icon-admin:hover {
+  background: #eff6ff;
+  border-color: #38bdf8;
+  color: #0369a1 !important;
+  box-shadow: 0 8px 18px rgba(2, 132, 199, 0.18);
+}
+
+/* 4. Icon Bagikan Toko (Viral Marketing Ramah Pembeli Ala Shopee) */
+.btn-hero-icon-share {
+  background: #ffffff;
+  color: #0284c7 !important;
+  border-color: #bae6fd;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+.btn-hero-icon-share:hover {
+  background: #f0f9ff;
+  border-color: #38bdf8;
+  color: #0369a1 !important;
+  box-shadow: 0 8px 18px rgba(2, 132, 199, 0.18);
+  transform: translateY(-2px);
+}
+
+/* Banner Preset Selector Styles */
+.banner-presets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+.banner-preset-card {
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  background: #ffffff;
+  transition: all 0.2s ease;
+  text-align: left;
+  padding: 0;
+}
+.banner-preset-card:hover {
+  border-color: #059669;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(5, 150, 105, 0.15);
+}
+.banner-preset-card.active {
+  border-color: #059669;
+  outline: 2px solid #059669;
+}
+.banner-preset-thumb {
+  width: 100%;
+  height: 48px;
+  object-fit: cover;
+  display: block;
+}
+.banner-preset-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #334155;
+  padding: 4px 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+/* Tombol Aksi Simbol Toko - Sebaris Rapi, Kompak, Tanpa Wrap */
+.distributor-hero-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 10px auto 4px auto;
+  max-width: 100%;
+}
+
+/* Tombol Aksi Pill Elegan di Bawah Profil Toko */
+.btn-dist-icon-action {
+  width: auto;
+  min-height: 38px;
+  padding: 7px 15px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  text-decoration: none;
+  border: 1.5px solid transparent;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.dist-action-label {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.btn-dist-icon-action[style*="display: none"],
+.btn-dist-icon-action[hidden],
+.btn-edit-cover-quick[style*="display: none"],
+.btn-edit-logo-quick[style*="display: none"] {
+  display: none !important;
+}
+
+.btn-dist-icon-action:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+.btn-dist-icon-action:active {
+  transform: scale(0.96);
+}
+
+.btn-dist-wa-action {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 3px 10px rgba(16, 185, 129, 0.35);
+}
+.btn-dist-wa-action:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+}
+
+.btn-dist-central-action {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1.5px solid #fde68a;
+}
+.btn-dist-central-action:hover {
+  background: #fef3c7;
+  border-color: #f59e0b;
+}
+
+.btn-dist-login-action {
+  background: #0f172a;
+  color: #38bdf8;
+  border: 1.5px solid #0284c7;
+}
+.btn-dist-login-action:hover {
+  background: #0284c7;
+  color: #ffffff;
+}
+
+.btn-dist-sk-action {
+  background: linear-gradient(135deg, #0ea5e9, #0284c7);
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 3px 10px rgba(2, 132, 199, 0.35);
+}
+.btn-dist-sk-action:hover {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+}
+
+.btn-dist-settings-action {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 3px 10px rgba(99, 102, 241, 0.35);
+}
+.btn-dist-settings-action:hover {
+  background: linear-gradient(135deg, #4f46e5, #4338ca);
+}
+
+.btn-dist-olsera-action {
+  background: linear-gradient(135deg, #ec4899, #db2777);
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 3px 10px rgba(236, 72, 153, 0.35);
+}
+.btn-dist-olsera-action:hover {
+  background: linear-gradient(135deg, #db2777, #be185d);
+}
+
+.btn-dist-share-action {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 3px 10px rgba(245, 158, 11, 0.35);
+}
+.btn-dist-share-action:hover {
+  background: linear-gradient(135deg, #d97706, #b45309);
+}
+
+.btn-dist-central-action {
+  background: linear-gradient(135deg, #0f766e, #115e59);
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 3px 10px rgba(15, 118, 110, 0.35);
+}
+.btn-dist-central-action:hover {
+  background: linear-gradient(135deg, #115e59, #134e4a);
+}
+
+.btn-dist-login-action {
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  color: #38bdf8;
+  border: 1.5px solid #0284c7;
+  box-shadow: 0 3px 10px rgba(2, 132, 199, 0.35);
+}
+.btn-dist-login-action:hover {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #ffffff;
+}
+
+.btn-dist-logout-action {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 3px 10px rgba(239, 68, 68, 0.35);
+}
+.btn-dist-logout-action:hover {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+}
+
+.catalog-tier-selector-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f8fafc;
+  border: 1.5px solid var(--border-subtle);
+  padding: 6px 14px;
+  border-radius: 9999px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+/* ========================================================
+   2. OFFICIAL CENTRAL HUB HERO SHOWCASE
+   ======================================================== */
+.official-central-hub-hero {
+  background: linear-gradient(135deg, #064e3b, #047857);
+  border-radius: 20px;
+  padding: 30px 28px;
+  margin-bottom: 26px;
+  color: #ffffff;
+  box-shadow: 0 10px 30px rgba(6, 78, 59, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+
+.official-central-hub-hero::before {
+  content: '';
+  position: absolute;
+  top: -60px;
+  right: -60px;
+  width: 280px;
+  height: 280px;
+  background: radial-gradient(circle, rgba(251, 191, 36, 0.18) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.central-hub-header-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(251, 191, 36, 0.2);
+  color: #fde68a;
+  border: 1px solid #fbbf24;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+
+.central-hub-title {
+  font-size: 1.8rem;
+  font-weight: 900;
+  color: #ffffff;
+  margin: 0 0 8px 0;
+  line-height: 1.3;
+}
+
+.central-hub-subtitle {
+  font-size: 0.92rem;
+  color: #d1fae5;
+  max-width: 720px;
+  margin: 0 0 18px 0;
+  line-height: 1.6;
+}
+
+.central-hub-trust-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+  margin-bottom: 20px;
+}
+
+.central-trust-item {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 8px 12px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.central-hub-switch-notice {
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 12px 16px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* ========================================================
+   2.B OFFICIAL CENTRAL HUB - DIREKTORI DISTRIBUTOR & AGEN RESMI SE-INDONESIA
+   ======================================================== */
+.official-distributor-directory-section {
+  margin-bottom: 45px;
+}
+
+.directory-header-box {
+  background: #ffffff;
+  border: 1.5px solid var(--border-subtle);
+  border-radius: 18px;
+  padding: 24px 26px;
+  margin-bottom: 22px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+}
+
+.directory-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.directory-title {
+  font-size: 1.45rem;
+  font-weight: 900;
+  color: var(--dark-900);
+  margin: 0 0 6px 0;
+  letter-spacing: -0.3px;
+}
+
+.directory-subtitle {
+  font-size: 0.88rem;
+  color: var(--dark-600);
+  margin: 0 0 18px 0;
+  line-height: 1.5;
+  max-width: 820px;
+}
+
+.directory-controls-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 14px;
+  width: 100%;
+}
+
+.directory-search-input-group {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+}
+
+.directory-search-input-group svg {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.directory-search-input {
+  width: 100%;
+  padding: 10px 16px 10px 42px;
+  border: 1.5px solid var(--border-subtle);
+  border-radius: 9999px;
+  font-size: 0.84rem;
+  background: #f8fafc;
+  color: var(--dark-900);
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.directory-search-input:focus {
+  outline: none;
+  border-color: #10b981;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
+
+.directory-filter-tabs {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.directory-tab-pill {
+  background: #f1f5f9;
+  color: var(--dark-700);
+  border: 1.5px solid var(--border-subtle);
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.directory-tab-pill:hover {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+}
+
+.directory-tab-pill.active {
+  background: linear-gradient(135deg, #059669, #047857);
+  color: #ffffff;
+  border-color: #047857;
+  box-shadow: 0 3px 10px rgba(5, 150, 105, 0.25);
+}
+
+.official-distributors-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.distributor-card {
+  background: #ffffff;
+  border: 1.5px solid var(--border-subtle);
+  border-radius: 18px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+}
+
+.distributor-card:hover {
+  transform: translateY(-4px);
+  border-color: #10b981;
+  box-shadow: 0 14px 30px rgba(16, 185, 129, 0.15);
+}
+
+/* Mini Cover Banner Toko di Card Direktori (Diperbesar) */
+.dist-card-cover-wrap {
+  width: 100%;
+  height: 125px;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #064e3b, #047857);
+}
+.dist-card-cover-wrap.theme-navy { background: linear-gradient(135deg, #0f172a, #1e3a8a); }
+.dist-card-cover-wrap.theme-rose { background: linear-gradient(135deg, #881337, #be123c); }
+.dist-card-cover-wrap.theme-amber { background: linear-gradient(135deg, #78350f, #b45309); }
+.dist-card-cover-wrap.theme-amethyst { background: linear-gradient(135deg, #4c1d95, #6d28d9); }
+.dist-card-cover-wrap.theme-gold { background: linear-gradient(135deg, #713f12, #a16207); }
+.dist-card-cover-wrap.theme-dark { background: linear-gradient(135deg, #18181b, #27272a); }
+
+.dist-card-cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+  transition: transform 0.3s ease;
+}
+
+.distributor-card:hover .dist-card-cover-img {
+  transform: scale(1.04);
+}
+
+.dist-card-cover-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.55) 100%);
+}
+
+.dist-card-logo-box {
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 3.5px solid #ffffff;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.16);
+  margin: -39px auto 10px auto;
+  padding: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 2;
+}
+
+.dist-card-logo-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 50%;
+  display: block;
+}
+
+.dist-card-name {
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: var(--dark-900);
+  margin: 0 0 5px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.dist-card-tier-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.dist-card-tier-pill.tier-distributor {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.dist-card-tier-pill.tier-agen {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+.dist-card-tier-pill.tier-sub_agen {
+  background: #fdf4ff;
+  color: #86198f;
+  border: 1px solid #f5d0fe;
+}
+
+.dist-card-info-box {
+  background: #f8fafc;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 8px 12px;
+  width: 100%;
+  margin-bottom: 12px;
+  font-size: 0.78rem;
+  color: var(--dark-700);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.dist-card-body {
+  width: 100%;
+  padding: 0 16px 18px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.dist-card-stock-status {
+  font-size: 0.72rem;
+  color: #059669;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+
+.dist-card-actions {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+}
+
+.btn-card-enter-store {
+  width: 100%;
+  max-width: 100%;
+  background: linear-gradient(135deg, #059669, #047857);
+  color: #ffffff;
+  border: none;
+  padding: 9px 14px;
+  border-radius: 9999px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-shadow: 0 3px 10px rgba(5, 150, 105, 0.22);
+  transition: all 0.2s ease;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.btn-card-enter-store:hover {
+  background: linear-gradient(135deg, #047857, #064e3b);
+  transform: translateY(-1px);
+}
+
+.dist-card-sub-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.btn-card-sub {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  border-radius: 50%;
+  background: #f8fafc;
+  color: var(--dark-700);
+  border: 1.5px solid var(--border-subtle);
+  padding: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  box-sizing: border-box;
+  flex: none;
+}
+
+.btn-card-sub:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.btn-card-sub-wa {
+  background: #ecfdf5;
+  color: #059669;
+  border-color: #a7f3d0;
+}
+.btn-card-sub-wa:hover {
+  background: #25d366;
+  color: #ffffff;
+  border-color: #20bd5a;
+}
+
+.btn-card-sub-sk {
+  background: #f0f9ff;
+  color: #0284c7;
+  border-color: #bae6fd;
+}
+.btn-card-sub-sk:hover {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0369a1;
+}
+
+.btn-card-sub-settings {
+  background: #fefce8;
+  color: #a16207;
+  border-color: #fef08a;
+}
+.btn-card-sub-settings:hover {
+  background: #eab308;
+  color: #ffffff;
+  border-color: #ca8a04;
+}
+
+.directory-register-callout {
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  border-radius: 16px;
+  padding: 22px 24px;
+  color: #ffffff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  border: 1px solid #334155;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.btn-header-back-central {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+  margin-left: 6px;
+}
+
+.btn-header-back-central:hover {
+  background: #fde68a;
+  transform: translateY(-1px);
+}
+
+/* ========================================================
+   3. DEVELOPER SUPER ADMIN WORKSPACE HEADER
+   ======================================================== */
+.dev-mode-hero-header {
+  background: linear-gradient(135deg, #090d16, #1e293b);
+  border: 1.5px solid #0284c7;
+  border-radius: 14px;
+  padding: 18px 22px;
+  margin-bottom: 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+}
+
+.dev-cyber-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid #0284c7;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.dev-hero-title {
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: #f8fafc;
+  margin: 0 0 4px 0;
+}
+
+.dev-hero-subtitle {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin: 0;
+  max-width: 650px;
+  line-height: 1.5;
+}
+
+.dev-status-pill {
+  background: #064e3b;
+  color: #a7f3d0;
+  border: 1px solid #10b981;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.dev-pin-pill {
+  background: #0f172a;
+  color: #38bdf8;
+  border: 1px solid #334155;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 0.76rem;
+  font-family: monospace;
+}
+
+/* ========================================================
+   NAVIGATION TABS
+   ======================================================== */
+.section-tabs-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 2px solid var(--border-subtle);
+  margin-bottom: 24px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.tab-btn {
+  background: transparent;
+  border: none;
+  padding: 10px 18px;
+  font-family: var(--font-main);
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--dark-500);
+  cursor: pointer;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.tab-btn:hover {
+  color: var(--primary-700);
+}
+
+.tab-btn.active {
+  color: var(--primary-800);
+  background: #ffffff;
+}
+
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--primary-600);
+  border-radius: var(--radius-full);
+}
+
+.tab-counter {
+  background: var(--dark-100);
+  font-size: 0.72rem;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  color: var(--dark-700);
+}
+
+.tab-btn.active .tab-counter {
+  background: var(--primary-100);
+  color: var(--primary-800);
+}
+
+/* ========================================================
+   CATALOG TOOLBAR
+   ======================================================== */
+.catalog-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.search-input-group {
+  position: relative;
+  flex: 1;
+  min-width: 260px;
+}
+
+.search-input-group svg {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--dark-400);
+}
+
+.search-input-group input {
+  width: 100%;
+  padding: 10px 14px 10px 42px;
+  background: #fff;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font-family: var(--font-main);
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.category-chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  max-width: 100%;
+  padding-bottom: 4px;
+}
+
+.chip-btn {
+  background: #fff;
+  border: 1px solid var(--border-subtle);
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--dark-700);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.chip-btn:hover {
+  border-color: var(--primary-500);
+  color: var(--primary-700);
+}
+
+.chip-btn.active {
+  background: var(--primary-800);
+  border-color: var(--primary-800);
+  color: #fff;
+}
+
+/* ========================================================
+   PRODUCT GRID & CARDS
+   ======================================================== */
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 22px;
+}
+
+.product-card {
+  background: #ffffff;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  transition: all 0.25s ease;
+  position: relative;
+}
+
+.product-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+  border-color: #cbd5e1;
+}
+
+.product-thumb-box {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: #ffffff;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.product-thumb-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 8px;
+  transition: transform 0.4s ease;
+}
+
+.badge-bpom-clean {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(16, 185, 129, 0.95);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+}
+
+.badge-disc-clean {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #ef4444;
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.65rem;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  box-shadow: 0 1px 4px rgba(239, 68, 68, 0.3);
+}
+
+.badge-stock-clean {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(15, 23, 42, 0.72);
+  color: #f8fafc;
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  z-index: 2;
+}
+
+.badge-stock-clean.low {
+  background: rgba(220, 38, 38, 0.9);
+  color: #fff;
+}
+
+/* Quick Edit Button (HANYA MUNCUL DI MODE ADMIN DISTRIBUTOR) */
+.btn-quick-edit-image {
+  position: absolute !important;
+  bottom: 8px !important;
+  left: 8px !important;
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  padding: 0 !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  color: #0284c7 !important;
+  border: 1.5px solid #7dd3fc !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12) !important;
+  backdrop-filter: blur(4px) !important;
+  z-index: 5 !important;
+  transition: all 0.2s ease !important;
+}
+
+.btn-quick-edit-image:hover {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+  border-color: #0284c7 !important;
+  transform: scale(1.1) !important;
+}
+
+.product-body {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.product-category-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.product-cat-name {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--primary-700);
+  text-transform: uppercase;
+}
+
+.product-rating {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--gold-500);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.product-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--dark-900);
+  margin-bottom: 4px;
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.product-summary-text {
+  font-size: 0.78rem;
+  color: var(--dark-500);
+  line-height: 1.4;
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Shopee-style Price Block */
+.price-block {
+  background: #f8fafc;
+  border: 1px solid #edf2f7;
+  border-radius: 8px;
+  padding: 6px 10px;
+  margin-top: auto;
+  margin-bottom: 10px;
+}
+
+.price-main-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: nowrap;
+  white-space: nowrap !important;
+}
+
+.tier-price-val {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #ef4444;
+  font-family: var(--font-heading);
+  white-space: nowrap !important;
+  letter-spacing: -0.3px;
+}
+
+.badge-mini-disc {
+  background: #fee2e2;
+  color: #ef4444;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 4px;
+  white-space: nowrap !important;
+}
+
+.price-sub-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: #94a3b8;
+  gap: 4px;
+  margin-top: 2px;
+  white-space: nowrap !important;
+  overflow: hidden;
+}
+
+.het-text del {
+  color: #94a3b8;
+  text-decoration: line-through;
+  white-space: nowrap !important;
+}
+
+.het-text-plain {
+  color: #059669;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap !important;
+}
+
+.tier-profit-margin {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #059669;
+  background: #ecfdf5;
+  padding: 1px 5px;
+  border-radius: 4px;
+  white-space: nowrap !important;
+}
+
+.card-actions {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 6px !important;
+  width: 100% !important;
+  margin-top: 2px !important;
+}
+
+/* 3 Tombol Aksi Produk Berbentuk Kapsul Seragam & Sebaris */
+.btn-product-capsule {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  height: 35px !important;
+  border-radius: 9999px !important; /* Bentuk Kapsul Sempurna */
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  cursor: pointer !important;
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-sizing: border-box !important;
+  border: none !important;
+}
+
+.btn-product-capsule:hover {
+  transform: translateY(-2px) !important;
+}
+
+.btn-product-capsule:active {
+  transform: scale(0.94) !important;
+}
+
+/* 1. Tombol Keranjang (Emerald Green Kapsul) */
+.btn-product-capsule-cart {
+  background: linear-gradient(135deg, #059669, #047857) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 7px rgba(5, 150, 105, 0.28) !important;
+}
+
+.btn-product-capsule-cart:hover {
+  background: linear-gradient(135deg, #047857, #065f46) !important;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.4) !important;
+}
+
+/* 2. Tombol Mata / Detail (Slate Gray Kapsul Elegan) */
+.btn-product-capsule-detail {
+  background: #f1f5f9 !important;
+  color: #334155 !important;
+  border: 1.5px solid #cbd5e1 !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04) !important;
+}
+
+.btn-product-capsule-detail:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+  border-color: #94a3b8 !important;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* 3. Tombol Tanda Panah / Share (Herbal Emerald Kapsul Khas SR12) */
+.btn-product-capsule-share {
+  background: var(--primary-50, #ecfdf5) !important;
+  color: var(--primary-700, #047857) !important;
+  border: 1.5px solid var(--primary-100, #a7f3d0) !important;
+  box-shadow: 0 2px 7px rgba(5, 150, 105, 0.15) !important;
+}
+
+.btn-product-capsule-share:hover {
+  background: linear-gradient(135deg, var(--primary-700, #047857), var(--primary-600, #059669)) !important;
+  color: #ffffff !important;
+  border-color: var(--primary-700, #047857) !important;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.35) !important;
+}
+
+/* Backward compatibility */
+.btn-add-cart,
+.btn-detail-preview,
+.btn-product-share-icon {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  height: 35px !important;
+  border-radius: 9999px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* Modal Promo Share Icon-Only Actions */
+.promo-share-actions-row {
+  display: flex !important;
+  gap: 10px !important;
+  justify-content: center !important;
+  align-items: center !important;
+  width: 100% !important;
+}
+
+.btn-promo-icon-action {
+  flex: 1 1 0 !important;
+  height: 44px !important;
+  border-radius: 9999px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-sizing: border-box !important;
+  font-size: 1.25rem !important;
+}
+
+.btn-promo-icon-action:hover {
+  transform: translateY(-2px) !important;
+}
+
+.btn-promo-icon-action:active {
+  transform: scale(0.95) !important;
+}
+
+.btn-promo-wa {
+  background: #25d366 !important;
+  color: #ffffff !important;
+  box-shadow: 0 3px 12px rgba(37, 211, 102, 0.35) !important;
+}
+
+.btn-promo-wa:hover {
+  background: #20ba59 !important;
+  box-shadow: 0 6px 18px rgba(37, 211, 102, 0.45) !important;
+}
+
+.btn-promo-copy {
+  background: linear-gradient(135deg, var(--primary-700, #047857), var(--primary-600, #059669)) !important;
+  color: #ffffff !important;
+  box-shadow: 0 3px 12px rgba(5, 150, 105, 0.35) !important;
+}
+
+.btn-promo-copy:hover {
+  background: linear-gradient(135deg, var(--primary-800, #065f46), var(--primary-700, #047857)) !important;
+  box-shadow: 0 6px 18px rgba(5, 150, 105, 0.45) !important;
+}
+
+.btn-promo-share {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+  box-shadow: 0 3px 12px rgba(2, 132, 199, 0.3) !important;
+}
+
+.btn-promo-share:hover {
+  background: #0369a1 !important;
+  box-shadow: 0 6px 18px rgba(2, 132, 199, 0.45) !important;
+}
+
+.btn-promo-download {
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  color: #ffffff !important;
+  box-shadow: 0 3px 12px rgba(245, 158, 11, 0.35) !important;
+}
+
+.btn-promo-download:hover {
+  background: linear-gradient(135deg, #d97706, #b45309) !important;
+  box-shadow: 0 6px 18px rgba(245, 158, 11, 0.45) !important;
+}
+
+/* Animasi Pulse Ketika Produk Dibuka via Deep Link (?product=...) */
+.product-card-highlighted {
+  animation: pulseCardHighlight 2.5s ease-out !important;
+  border-color: #059669 !important;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.35), 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+}
+
+@keyframes pulseCardHighlight {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.6); }
+  30% { transform: scale(1.02); box-shadow: 0 0 0 8px rgba(5, 150, 105, 0.3); }
+  60% { transform: scale(1); box-shadow: 0 0 0 4px rgba(5, 150, 105, 0.2); }
+  100% { transform: scale(1); box-shadow: var(--shadow-sm); }
+}
+
+/* ========================================================
+/* ========================================================
+   REWARD & PROMO TAB VIEW & STOREFRONT SECTION TABS
+   ======================================================== */
+.section-tabs-bar {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 20px 0;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 6px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.reward-filter-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+  width: 100%;
+}
+
+.reward-scope-chips-wrap {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn-create-promo-header {
+  background: linear-gradient(135deg, #d97706, #b45309);
+  color: #fff;
+  border: none;
+  padding: 9px 16px;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.3);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-create-promo-header:active {
+  transform: scale(0.97);
+}
+
+@media (max-width: 640px) {
+  .section-tabs-bar {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    padding-bottom: 4px !important;
+    margin: 8px 0 16px 0 !important;
+  }
+  .section-tabs-bar .tab-btn {
+    width: 100% !important;
+    padding: 10px 4px !important;
+    font-size: 0.84rem !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 4px !important;
+    white-space: nowrap !important;
+    text-align: center !important;
+  }
+  .reward-filter-bar {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+  .reward-scope-chips-wrap {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr 1fr !important;
+    gap: 4px !important;
+    width: 100% !important;
+  }
+  .reward-scope-chips-wrap .chip-btn {
+    width: 100% !important;
+    padding: 8px 2px !important;
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    justify-content: center !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    border-radius: var(--radius-full) !important;
+  }
+  .btn-create-promo-header {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 10px 14px !important;
+    font-size: 0.82rem !important;
+  }
+  .reward-cards-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+}
+
+.reward-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 20px;
+}
+
+.reward-card {
+  background: #ffffff;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.reward-badge-tag {
+  display: inline-block;
+  background: var(--primary-100);
+  color: var(--primary-800);
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  margin-bottom: 10px;
+}
+
+.reward-points-required {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--gold-500);
+  font-family: var(--font-heading);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-claim-reward {
+  background: var(--primary-700);
+  color: #fff;
+  border: none;
+  padding: 9px 14px;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+/* ========================================================
+   MARKETING KIT / BANK KONTEN TAB VIEW
+   ======================================================== */
+.mkit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 20px;
+}
+
+.mkit-card {
+  background: #ffffff;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+}
+
+.copywriting-box {
+  background: var(--dark-50);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  font-size: 0.85rem;
+  color: var(--dark-700);
+  white-space: pre-wrap;
+  line-height: 1.5;
+  margin-bottom: 14px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.btn-copy-caption {
+  width: 100%;
+  background: var(--primary-100);
+  color: var(--primary-800);
+  border: 1px solid var(--primary-500);
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* ========================================================
+   MODAL WINDOWS & DRAWERS (WITH GESTURE & SCROLL LOCK)
+   ======================================================== */
+body.modal-open {
+  overflow: hidden;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 99999 !important;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: max(24px, env(safe-area-inset-top, 20px)) 16px max(24px, env(safe-area-inset-bottom, 20px)) 16px;
+  opacity: 0;
+  transition: opacity 0.22s ease;
+  overscroll-behavior: contain !important;
+  overflow-y: auto !important; /* Memungkinkan backdrop di-scroll leluasa saat modal tinggi atau keyboard muncul */
+  -webkit-overflow-scrolling: touch !important;
+  user-select: auto;
+  -webkit-user-select: auto;
+}
+
+.modal-backdrop.open {
+  display: flex !important;
+  opacity: 1;
+  z-index: 99999 !important;
+}
+
+#modalPosReceipt.open {
+  z-index: 100060 !important;
+}
+#modalPosReceipt .modal-dialog {
+  z-index: 100070 !important;
+}
+
+.modal-dialog,
+.modal-container {
+  background: #ffffff;
+  border-radius: var(--radius-lg);
+  max-width: 620px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
+  position: relative;
+  border: 1px solid var(--border-subtle);
+  z-index: 100000 !important;
+  overscroll-behavior: contain !important;
+  touch-action: pan-y !important; /* Hanya izinkan scroll vertikal pada isi modal */
+  will-change: transform, opacity;
+  user-select: auto;
+  -webkit-user-select: auto;
+}
+
+#modalSwitchStore .modal-container {
+  max-width: 740px !important;
+  width: 95% !important;
+  background: #ffffff !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4) !important;
+  z-index: 100000 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  max-height: 88vh !important;
+}
+
+@media (min-width: 769px) {
+  #modalSwitchStore .modal-container {
+    max-width: 740px !important;
+    width: 90% !important;
+    margin: auto !important;
+  }
+}
+
+/* Responsif Mobile & Layar Pendek: Mencegah modal tertutup keyboard HP */
+@media (max-width: 640px), (max-height: 720px) {
+  .modal-backdrop {
+    align-items: flex-start !important; /* Letakkan modal mulai dari atas agar tidak terpotong saat keyboard muncul */
+    justify-content: center !important;
+    padding: max(28px, calc(env(safe-area-inset-top, 20px) + 16px)) 10px calc(280px + env(safe-area-inset-bottom, 20px)) 10px !important; /* Ruang scroll ekstra 280px di bawah untuk keyboard HP */
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
+  }
+
+  .modal-backdrop.open {
+    display: flex !important;
+  }
+
+  .modal-dialog {
+    margin: 16px auto 30px auto !important;
+    max-height: none !important; /* Biarkan modal bernapas dan scroll bersama backdrop */
+    width: 100% !important;
+  }
+}
+
+/* KHUSUS MODAL TOP UP KUOTA: Mencegah bagian atas terpotong oleh browser bar pada semua ukuran layar */
+#modalTopupQuota {
+  align-items: flex-start !important;
+  justify-content: center !important;
+  padding-top: max(48px, calc(env(safe-area-inset-top, 24px) + 36px)) !important;
+  padding-bottom: max(40px, calc(env(safe-area-inset-bottom, 24px) + 32px)) !important;
+  padding-left: 14px !important;
+  padding-right: 14px !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+#modalTopupQuota .modal-dialog {
+  margin: 16px auto 36px auto !important;
+  max-height: calc(100vh - 110px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-shadow: 0 25px 65px rgba(0, 0, 0, 0.45) !important;
+  border-radius: 16px !important;
+  overflow: hidden !important;
+}
+
+#modalTopupQuota .modal-header {
+  flex-shrink: 0 !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 20 !important;
+  padding: 16px 20px !important;
+}
+
+#modalTopupQuota .modal-body {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  flex: 1 1 auto !important;
+  padding: 20px 22px !important;
+}
+
+/* KHUSUS MODAL DAFTAR BUKA TOKO (#modalRegisterStore): Mencegah tombol bawah terpotong pada semua layar */
+#modalRegisterStore {
+  align-items: flex-start !important;
+  justify-content: center !important;
+  padding-top: max(32px, calc(env(safe-area-inset-top, 20px) + 20px)) !important;
+  padding-bottom: max(60px, calc(env(safe-area-inset-bottom, 20px) + 50px)) !important;
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+#modalRegisterStore .modal-dialog {
+  margin: 16px auto 44px auto !important;
+  max-height: calc(100vh - 90px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4) !important;
+  border-radius: 16px !important;
+  overflow: hidden !important;
+}
+
+#modalRegisterStore .modal-header {
+  flex-shrink: 0 !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 20 !important;
+}
+
+#modalRegisterStore .modal-body {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  flex: 1 1 auto !important;
+  padding: 20px 22px 50px 22px !important;
+  scroll-padding-bottom: 60px !important;
+}
+
+/* Indikator geser (Swipe handle) di smartphone */
+.modal-swipe-bar {
+  display: none;
+  width: 44px;
+  height: 4.5px;
+  background: rgba(255, 255, 255, 0.55);
+  border-radius: 9999px;
+  margin: 0 auto 8px;
+  cursor: grab;
+}
+
+@media (max-width: 768px) {
+  .modal-swipe-bar {
+    display: block !important;
+  }
+}
+
+.modal-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--dark-50);
+}
+
+.btn-close-modal {
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--dark-400);
+  cursor: pointer;
+}
+
+.modal-body {
+  padding: 24px;
+}
+
+.modal-img-preview-box {
+  width: 100%;
+  height: 180px;
+  border-radius: var(--radius-md);
+  border: 2px dashed #cbd5e1;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.modal-img-preview-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Theme Color Picker Swatches */
+.theme-picker-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.theme-swatch-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 2px solid var(--border-subtle);
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.theme-swatch-btn.active {
+  border-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.swatch-color-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+}
+
+/* ========================================================
+   CART DRAWER & CHECKOUT SYSTEM
+   ======================================================== */
+.cart-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 99998;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.25s ease, visibility 0.25s ease;
+}
+
+.cart-backdrop.open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.cart-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 100%;
+  max-width: 460px;
+  height: 100vh;
+  background: #ffffff;
+  z-index: 100000; /* Selalu di atas backdrop (99998) agar tidak tertutup layar buram */
+  box-shadow: -8px 0 35px rgba(0, 0, 0, 0.25);
+  transform: translateX(100%);
+  visibility: hidden;
+  pointer-events: none;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.cart-drawer.open {
+  transform: translateX(0);
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.cart-drawer-header {
+  flex-shrink: 0;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--primary-900);
+  color: #fff;
+}
+
+.cart-drawer-header h3 {
+  color: #fff;
+  font-size: 1.15rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Middle body scrolls smoothly, ensuring product list and options never get squeezed */
+.cart-drawer-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 16px;
+  scroll-behavior: smooth;
+}
+
+.cart-drawer-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.cart-drawer-body::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.cart-drawer-body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
+.cart-items-container {
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 0 0 auto !important;
+  width: 100%;
+}
+
+.cart-item-card {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  align-items: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  flex-shrink: 0 !important;
+  width: 100%;
+}
+
+.cart-item-card img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+}
+
+.cart-item-info h5 {
+  font-size: 0.88rem;
+  margin-bottom: 2px;
+  line-height: 1.3;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.cart-item-price {
+  font-size: 0.82rem;
+  color: var(--primary-800);
+  font-weight: 700;
+}
+
+.cart-qty-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.qty-btn {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.qty-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.qty-val {
+  font-weight: 700;
+  font-size: 0.88rem;
+  min-width: 20px;
+  text-align: center;
+  color: #0f172a;
+}
+
+.dropship-toggle-box {
+  background: #fdf2f8;
+  border: 1px solid #fbcfe8;
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  margin: 0 16px;
+  flex-shrink: 0 !important;
+}
+
+.toggle-switch-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #9d174d;
+  cursor: pointer;
+}
+
+.dropship-fields {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dropship-fields input {
+  padding: 7px 10px;
+  border: 1px solid #f472b6;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  background: #fff;
+}
+
+.cart-drawer-footer {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border-subtle);
+  padding: 14px 20px 18px 20px;
+  background: #ffffff;
+  box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.05);
+}
+
+.summary-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  color: var(--dark-700);
+  margin-bottom: 6px;
+}
+
+/* Biaya Layanan Sistem (Tampil wajar tanpa menyebut nama developer) */
+.platform-fee-row {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--dark-700);
+  font-weight: 600;
+}
+
+.summary-total {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 8px;
+  margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.summary-total-label {
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--dark-900);
+}
+
+.summary-total-val {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--primary-800);
+  font-family: var(--font-heading);
+}
+
+.cart-checkout-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.btn-checkout-wa {
+  background: #25d366;
+  color: #fff;
+  border: none;
+  padding: 11px;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 0.92rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-checkout-wa:hover {
+  background: #1da851;
+}
+
+.btn-print-label {
+  background: var(--dark-100);
+  color: var(--dark-800);
+  border: 1px solid var(--border-subtle);
+  padding: 9px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* ========================================================
+   DEV SUPER ADMIN DASHBOARD (PORTAL PENGEMBANG RAHASIA)
+   ======================================================== */
+.dev-portal-box {
+  background: #0f172a;
+  color: #f8fafc;
+  border-radius: var(--radius-md);
+  padding: 18px;
+  margin-bottom: 20px;
+}
+
+.dev-metric-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.dev-m-card {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 14px;
+  padding: 12px 14px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dev-m-card:hover {
+  transform: translateY(-2px);
+}
+
+.dev-m-label {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 4px;
+}
+
+.dev-m-val {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #38bdf8;
+  font-family: var(--font-heading);
+}
+
+.split-payment-diagram {
+  background: #1e293b;
+  border: 1px dashed #475569;
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+/* ========================================================
+   TOP-UP KUOTA TRANSAKSI (PREPAID ORDER WALLET - MODEL 1)
+   ======================================================== */
+.topup-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.topup-pkg-card {
+  border: 2px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px 10px;
+  text-align: center;
+  cursor: pointer;
+  background: #fff;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.topup-pkg-card:hover {
+  border-color: var(--primary-600);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.topup-pkg-card.active {
+  border-color: var(--primary-700);
+  background: var(--primary-50);
+  box-shadow: 0 0 0 1px var(--primary-700);
+}
+
+.topup-pkg-badge {
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--gold-600);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.topup-quota-num {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--primary-800);
+  font-family: var(--font-heading);
+}
+
+.topup-price-num {
+  font-size: 0.85rem;
+  color: var(--dark-600);
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.qris-pay-box {
+  background: #fff;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.quota-pill-badge {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid #10b981;
+  color: #065f46;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* ========================================================
+   DISTRIBUTOR RESELLER CRM STYLES (90-DAY MAINTENANCE)
+   ======================================================== */
+.crm-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.crm-stat-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.crm-stat-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.crm-stat-val {
+  font-size: 1.5rem;
+  font-weight: 800;
+  font-family: var(--font-heading);
+  color: var(--dark-900);
+}
+
+.crm-stat-sub {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.crm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  text-align: left;
+}
+
+.crm-table th {
+  background: #f1f5f9;
+  padding: 10px 12px;
+  color: #475569;
+  font-weight: 700;
+  border-bottom: 1px solid #cbd5e1;
+}
+
+.crm-table td {
+  padding: 12px;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+
+.crm-table tr:hover {
+  background: #f8fafc;
+}
+
+.progress-bar-bg {
+  width: 100%;
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: #10b981;
+  border-radius: 9999px;
+  transition: width 0.3s ease;
+}
+
+.badge-crm {
+  padding: 3px 8px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ========================================================
+   RESPONSIVE MEDIA QUERIES
+   ======================================================== */
+@media (max-width: 640px) {
+  /* 1. SaaS Top Bar on Mobile */
+  .platform-topbar {
+    padding: 6px 10px;
+  }
+  .platform-topbar-inner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  .platform-brand {
+    font-size: 0.7rem;
+    justify-content: space-between;
+  }
+  .platform-store-tools {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .active-store-chip {
+    padding: 3px 8px !important;
+    font-size: 0.7rem !important;
+    border-radius: 9999px !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+  .btn-topbar-action,
+  .btn-topbar-primary,
+  .btn-topbar-dev {
+    padding: 4px 8px !important;
+    font-size: 0.72rem !important;
+    border-radius: 6px !important;
+  }
+
+  /* 2. Site Header on Mobile */
+  .site-header {
+    padding: 8px 12px;
+  }
+  .header-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .brand-wrapper {
+    gap: 10px;
+  }
+  .brand-logo-badge {
+    width: 38px;
+    height: 38px;
+  }
+  .brand-text h1 {
+    font-size: 1.05rem;
+    margin-bottom: 0;
+  }
+  .brand-text p {
+    font-size: 0.68rem;
+  }
+  .header-tier-box {
+    width: 100%;
+    justify-content: space-between;
+    padding: 5px 10px;
+    margin: 0;
+  }
+  .tier-label {
+    font-size: 0.72rem;
+  }
+  .tier-select {
+    font-size: 0.78rem;
+    padding: 4px 8px;
+    flex: 1;
+    max-width: 210px;
+  }
+  .header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 6px;
+  }
+  .btn-store-settings {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+  }
+  .btn-cart-bubble {
+    padding: 6px 12px;
+    font-size: 0.78rem;
+  }
+  #btnDistributorLogin {
+    padding: 6px 10px !important;
+    font-size: 0.75rem !important;
+  }
+
+  /* 3. Tier Quick Status Banner */
+  .tier-quick-banner {
+    padding: 6px 12px;
+  }
+  .tier-quick-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+  }
+  .tier-status-pill {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .pill-role-badge {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+  }
+  .tier-status-desc {
+    font-size: 0.68rem;
+    line-height: 1.3;
+  }
+  .tier-rules-hint {
+    gap: 4px;
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .rule-chip {
+    font-size: 0.68rem;
+    padding: 2px 6px;
+  }
+
+  /* 4. Hero Banner on Mobile */
+  .hero-banner {
+    min-height: 200px !important;
+    padding: 20px 14px !important;
+    border-radius: 12px !important;
+    margin-bottom: 20px !important;
+  }
+  .hero-content h2 {
+    font-size: 1.25rem !important;
+    line-height: 1.3 !important;
+    margin-bottom: 8px !important;
+  }
+  .hero-content p {
+    font-size: 0.8rem !important;
+    line-height: 1.4 !important;
+    margin-bottom: 14px !important;
+  }
+
+  /* 5. Product Grid (2 columns on mobile - divided equally 50-50 without clipping) */
+  .product-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    padding: 0 !important;
+  }
+  .product-card {
+    border-radius: 10px;
+  }
+  .product-card-body {
+    padding: 10px 8px !important;
+  }
+  .product-card-badge {
+    font-size: 0.65rem !important;
+    padding: 2px 6px !important;
+  }
+  .product-title {
+    font-size: 0.82rem !important;
+    line-height: 1.3 !important;
+  }
+  .product-price {
+    font-size: 0.92rem !important;
+  }
+  .btn-add-cart {
+    padding: 6px 10px !important;
+    font-size: 0.75rem !important;
+  }
+
+  /* 6. Cart Drawer & Modals */
+  .cart-drawer {
+    max-width: 100%;
+  }
+  .modal-dialog {
+    width: 95% !important;
+    max-height: 92vh !important;
+    margin: 10px auto !important;
+    border-radius: 12px !important;
+  }
+  .modal-body {
+    padding: 14px 12px !important;
+  }
+  .dev-metric-cards {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+  .dev-tabs-bar {
+    gap: 4px !important;
+  }
+  .dev-tab-btn {
+    padding: 6px 10px !important;
+    font-size: 0.74rem !important;
+  }
+
+  /* 7. Developer Super Admin on Mobile */
+  .dev-preview-strip {
+    padding: 6px 10px !important;
+    font-size: 0.72rem !important;
+  }
+  .dev-app-navbar {
+    padding: 10px 12px !important;
+  }
+  .dev-nav-brand {
+    gap: 8px !important;
+  }
+  .dev-nav-logo {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 1.1rem !important;
+  }
+  .dev-nav-title {
+    font-size: 0.95rem !important;
+  }
+  .dev-workspace-container {
+    padding: 14px 10px !important;
+    margin: 10px auto !important;
+    border-radius: 10px !important;
+  }
+}
+
+/* ========================================================
+   OLSERA-STYLE DISTRIBUTOR MANAGEMENT SUITE (POS & CRM)
+   Aesthetic inspired by Olsera POS with SR12 native features
+   ======================================================== */
+.distributor-portal-container {
+  display: flex;
+  min-height: calc(100vh - 120px);
+  background: #f1f5f9;
+  border-radius: 16px;
+  overflow: visible !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
+  margin: 16px auto 40px auto;
+  border: 1px solid #e2e8f0;
+  position: relative;
+}
+
+/* Olsera Left Sidebar Navigation (Drawer) */
+.olsera-sidebar {
+  width: 290px;
+  background: #ffffff;
+  border-right: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.28s ease;
+  z-index: 40;
+}
+
+/* Olsera Header Banner (Signature SR12 Rich Herbal Emerald Gradient) */
+.olsera-header-banner {
+  background: linear-gradient(135deg, #064e3b 0%, #047857 50%, #059669 100%);
+  position: relative;
+  padding: 24px 18px 20px 18px;
+  color: #ffffff;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(6, 78, 59, 0.2);
+}
+
+.olsera-header-banner::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 150px;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0%, rgba(52, 211, 153, 0.04) 80%);
+  clip-path: polygon(100% 0, 0% 100%, 100% 100%);
+  pointer-events: none;
+}
+
+.olsera-header-banner::after {
+  content: '';
+  position: absolute;
+  bottom: -15px;
+  right: 25px;
+  width: 100px;
+  height: 75%;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0) 70%);
+  clip-path: polygon(50% 0, 0% 100%, 100% 100%);
+  pointer-events: none;
+}
+
+.olsera-brand-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  z-index: 2;
+}
+
+.olsera-logo-emblem {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 3.5px solid #10b981; /* SR12 Emerald border */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+  overflow: hidden;
+  padding: 2px;
+  box-sizing: border-box;
+}
+
+.olsera-logo-emblem img {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain !important;
+  object-position: center center !important;
+  display: block;
+  margin: 0 auto;
+  border-radius: 50%;
+}
+
+.olsera-logo-emblem span {
+  font-size: 1.8rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.olsera-store-meta {
+  width: 100%;
+}
+
+.olsera-store-title {
+  font-family: var(--font-heading);
+  font-size: 1.18rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.olsera-store-owner {
+  font-size: 0.88rem;
+  color: #ecfdf5;
+  font-weight: 500;
+  margin: 0;
+}
+
+.olsera-owner-caret {
+  font-size: 0.65rem;
+  color: #a7f3d0;
+  transform: scaleY(0.85);
+  margin-left: 5px;
+}
+
+/* Olsera Nav Menu Items (Signature SR12 Emerald Theme) */
+.olsera-menu-list {
+  padding: 8px 0;
+  list-style: none;
+  margin: 0;
+  flex: 1;
+  overflow-y: auto;
+  background: #ffffff;
+}
+
+.olsera-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 13px 20px;
+  color: #334155;
+  font-size: 0.94rem;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border-left: 4px solid transparent;
+}
+
+.olsera-menu-item:hover {
+  background: #f0fdf4;
+  color: #047857;
+}
+
+.olsera-menu-item.active {
+  background: #ecfdf5; /* Soft herbal emerald highlight */
+  color: #047857;
+  font-weight: 700;
+  border-left-color: #059669;
+}
+
+.olsera-menu-item.active .olsera-menu-icon {
+  color: #059669;
+}
+
+.olsera-menu-icon {
+  font-size: 1.25rem;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.olsera-menu-divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 8px 0;
+}
+
+.olsera-menu-badge {
+  margin-left: auto;
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+  background: #d1fae5;
+  color: #065f46;
+}
+
+/* Sidebar Footer */
+.olsera-sidebar-footer {
+  padding: 14px 18px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+/* Mobile Slide-out Drawer Overlay & Rules */
+.olsera-drawer-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(2px);
+  z-index: 10000;
+  opacity: 0;
+  transition: opacity 0.28s ease;
+}
+
+.olsera-drawer-backdrop.open {
+  display: block !important;
+  opacity: 1 !important;
+}
+
+.btn-olsera-drawer-toggle {
+  background: none;
+  border: none;
+  color: #ffffff;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 6px;
+  transition: background 0.15s ease;
+}
+
+.btn-olsera-drawer-toggle:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.btn-topbar-olsera {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #ffffff;
+  border: 1px solid #38bdf8;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  font-weight: 800;
+  font-size: 0.76rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
+  transition: all 0.2s ease;
+}
+
+.btn-topbar-olsera:hover {
+  background: #0284c7;
+  transform: translateY(-1px);
+}
+
+/* Pastikan portal Olsera & Dev Workspace TIDAK PERNAH bocor ke pembeli jika hidden */
+.distributor-portal-container[style*="display: none"],
+#distributorOlseraPortal[style*="display: none"],
+.dev-workspace-container[style*="display: none"],
+#devSuperAdminWorkspace[style*="display: none"] {
+  display: none !important;
+}
+
+@media (max-width: 992px) {
+  .distributor-portal-container {
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #f8fafc !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
+    overflow-x: visible !important;
+  }
+
+  .distributor-portal-container:not([style*="display: none"]) {
+    display: block !important;
+  }
+
+  .olsera-drawer-backdrop {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(15, 23, 42, 0.65) !important;
+    backdrop-filter: blur(3px) !important;
+    -webkit-backdrop-filter: blur(3px) !important;
+    z-index: 10000 !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    transition: opacity 0.25s ease, visibility 0.25s ease !important;
+    overscroll-behavior: none !important;
+    touch-action: none !important;
+  }
+
+  .olsera-drawer-backdrop.open {
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  html.olsera-drawer-open,
+  body.olsera-drawer-open {
+    overflow: hidden !important;
+    height: 100% !important;
+    max-height: 100vh !important;
+    touch-action: none !important;
+    overscroll-behavior: none !important;
+  }
+
+  body.olsera-drawer-open .olsera-main-content,
+  body.olsera-drawer-open #distributorOlseraWorkspace,
+  body.olsera-drawer-open .app-main,
+  body.olsera-drawer-open main {
+    pointer-events: none !important;
+    touch-action: none !important;
+    overflow: hidden !important;
+    user-select: none !important;
+  }
+
+  body.olsera-drawer-open #olseraSidebar,
+  body.olsera-drawer-open #olseraDrawerBackdrop {
+    pointer-events: auto !important;
+  }
+
+  .olsera-drawer-backdrop {
+    touch-action: none !important;
+  }
+
+  .olsera-sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    width: 310px !important;
+    max-width: 86vw !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    background: #ffffff !important;
+    z-index: 10001 !important;
+    transform: translateX(-100%) !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+    overscroll-behavior: contain !important;
+    touch-action: pan-y !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .olsera-sidebar.open {
+    transform: translateX(0) !important;
+    box-shadow: 16px 0 45px rgba(0, 0, 0, 0.4) !important;
+  }
+
+  .olsera-header-banner {
+    flex-shrink: 0 !important;
+  }
+
+  .olsera-menu-list {
+    flex: 1 1 auto !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: contain !important;
+    touch-action: pan-y !important;
+    padding-bottom: 24px !important;
+  }
+
+  .olsera-sidebar-footer {
+    flex-shrink: 0 !important;
+    position: sticky !important;
+    bottom: 0 !important;
+    background: #ffffff !important;
+    border-top: 1px solid #e2e8f0 !important;
+    padding: 12px 16px !important;
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 16px)) !important;
+    z-index: 20 !important;
+    box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.06) !important;
+  }
+
+  .olsera-main-content {
+    padding: 10px 8px !important;
+    padding-top: 70px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: visible !important;
+  }
+}
+
+/* Main Content Area */
+.olsera-main-content {
+  flex: 1;
+  background: #ffffff;
+  padding: 24px 28px;
+  overflow-y: auto;
+  min-width: 0;
+}
+
+.olsera-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.olsera-page-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ========================================================
+   POINT OF SALE (POS) DEDICATED LAYOUT
+   ======================================================== */
+.pos-layout {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .pos-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pos-products-panel {
+  background: #ffffff;
+}
+
+.pos-toolbar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.pos-search-input {
+  flex: 1;
+  min-width: 200px;
+  padding: 10px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.88rem;
+}
+
+.pos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+  max-height: 620px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.pos-product-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.pos-product-card:hover {
+  border-color: #0284c7;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.12);
+}
+
+.pos-product-thumb-box {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: #ffffff;
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.pos-product-thumb {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+  padding: 4px;
+  box-sizing: border-box;
+}
+
+.pos-badge-qty-floating {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: #10b981;
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.35);
+  z-index: 2;
+}
+
+.pos-product-card.in-cart {
+  border-color: #10b981;
+  background: #f0fdf4;
+}
+
+.pos-product-name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.3;
+  margin-bottom: 4px;
+  flex: 1;
+}
+
+.pos-product-netto {
+  font-size: 0.72rem;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+
+.pos-product-price {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #0284c7;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pos-btn-kasir-pill {
+  background: #e0f2fe;
+  color: #0284c7;
+  border: 1px solid #bae6fd;
+  font-size: 0.72rem;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  transition: all 0.15s ease;
+}
+
+.pos-btn-kasir-pill:hover {
+  background: #0284c7;
+  color: #ffffff;
+}
+
+.pos-btn-kasir-pill:active {
+  background: #10b981;
+  color: #ffffff;
+  border-color: #059669;
+}
+
+/* Unified POS Active Card Badges & Buttons */
+.product-card.pos-card-active {
+  border-color: #10b981 !important;
+  box-shadow: 0 2px 10px rgba(16, 185, 129, 0.2) !important;
+}
+
+.btn-add-cart.btn-pos-active {
+  background: linear-gradient(135deg, #059669, #047857) !important;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35) !important;
+}
+
+.btn-add-cart.btn-pos-active .btn-add-cart-text {
+  display: inline !important;
+  font-size: 0.68rem !important;
+  margin-left: 2px !important;
+}
+
+.pos-mobile-bottom-bar {
+  display: none;
+}
+
+/* Absensi & Kasir Shift Badges */
+.pos-cashier-badge-pill {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+.pos-cashier-badge-pill:hover {
+  background: #d1fae5;
+  border-color: #34d399;
+  transform: translateY(-1px);
+}
+.badge-online-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  display: inline-block;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+  animation: pulseDot 2s infinite;
+}
+@keyframes pulseDot {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+/* Topbar Active Cashier Pill */
+.btn-topbar-cashier-active {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.btn-topbar-cashier-active:hover {
+  background: #d1fae5;
+  border-color: #34d399;
+}
+.topbar-cashier-text b {
+  color: #047857;
+}
+
+/* POS Register Cashier Duty Card */
+.pos-cashier-duty-card {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+.pos-cashier-duty-card:hover {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+.cashier-avatar-badge {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #10b981;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+.badge-shift-pill {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+/* Minimalist Dev Preview Strip */
+.dev-preview-strip {
+  background: #090d16;
+  border-bottom: 1px solid #1e293b;
+  padding: 6px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #ffffff;
+  font-size: 0.78rem;
+  z-index: 1000;
+  flex-wrap: nowrap;
+}
+.dev-strip-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+.dev-strip-store {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dev-strip-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.btn-dev-strip-icon {
+  background: #1e293b;
+  color: #38bdf8;
+  border: 1px solid #334155;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+}
+.btn-dev-strip-icon:hover {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #38bdf8;
+}
+.btn-dev-strip-icon.btn-dev-strip-green {
+  color: #34d399;
+}
+.btn-dev-strip-icon.btn-dev-strip-green:hover {
+  background: #059669;
+  color: #ffffff;
+}
+.btn-dev-strip-icon.btn-dev-strip-danger {
+  color: #f87171;
+}
+.btn-dev-strip-icon.btn-dev-strip-danger:hover {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.absensi-tab-btn {
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.absensi-tab-btn.active {
+  color: #0284c7;
+  border-bottom-color: #0284c7;
+}
+.absensi-tab-btn:hover {
+  color: #0f172a;
+}
+
+/* Kasir Register Panel (Right side) */
+.pos-register-panel {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
+  position: sticky;
+  top: 20px;
+}
+
+.pos-register-header {
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 12px;
+  margin-bottom: 14px;
+}
+
+.pos-customer-select {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.pos-cart-list {
+  max-height: 260px;
+  overflow-y: auto;
+  margin-bottom: 14px;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 10px;
+}
+
+.pos-cart-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px dashed #f1f5f9;
+}
+
+.pos-cart-item:last-child {
+  border-bottom: none;
+}
+
+.pos-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  color: #475569;
+  margin-bottom: 6px;
+}
+
+.pos-summary-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+  padding-top: 10px;
+  margin-top: 8px;
+  border-top: 2px solid #e2e8f0;
+}
+
+.pos-action-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+/* ========================================================
+   INVENTORI & KAS MASUK-KELUAR STYLES
+   ======================================================== */
+.inv-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.inv-table th {
+  background: #f8fafc;
+  padding: 12px 14px;
+  text-align: left;
+  font-weight: 700;
+  color: #475569;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.inv-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
+  vertical-align: middle;
+}
+
+.inv-stock-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.inv-stock-ready {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.inv-stock-low {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  box-shadow: 0 1px 3px rgba(217, 119, 6, 0.12);
+}
+
+.inv-stock-out {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.stock-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.stock-dot.green { background: #10b981; }
+.stock-dot.amber { background: #f59e0b; }
+.stock-dot.red { background: #ef4444; }
+
+/* Olsera Dedicated Top Navbar (Satu Bar Tunggal Mewah) */
+.olsera-app-navbar {
+  background: #0f172a;
+  color: #ffffff;
+  padding: 8px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1.5px solid #0284c7;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  max-width: 100vw;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+.olsera-app-navbar .brand-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.olsera-app-navbar .brand-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid #10b981;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  flex-shrink: 0;
+  padding: 2px;
+  box-sizing: border-box;
+}
+
+.olsera-app-navbar .brand-logo img {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain !important;
+  object-position: center center !important;
+  display: block;
+  margin: 0 auto;
+  border-radius: 50%;
+}
+
+.olsera-app-navbar .brand-logo span {
+  font-size: 1.3rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.olsera-app-navbar .brand-meta-container {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.olsera-app-navbar .brand-text-name {
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap !important;
+}
+
+#olseraTopbarStoreName {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  display: inline-block;
+  max-width: 220px;
+}
+
+.olsera-app-navbar .brand-badge {
+  background: #0284c7;
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.olsera-app-navbar .brand-sub {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 280px;
+}
+
+.olsera-app-navbar .tools-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Icon Buttons in Topbar (✉️ Pesanan, 🔗 Salin Link, 🚪 Logout) */
+.btn-topbar-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50% !important;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer;
+  position: relative;
+  font-size: 1rem;
+  padding: 0 !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+
+.btn-topbar-icon:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.btn-topbar-icon .badge-icon-counter {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 999px;
+  border: 1.5px solid #0f172a;
+  min-width: 14px;
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* Sisa Kuota Pill Button (⚡ 15 / ⚡ 999) */
+.btn-topbar-quota-pill {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid #10b981;
+  color: #a7f3d0;
+  padding: 4px 10px !important;
+  border-radius: var(--radius-full) !important;
+  font-size: 0.76rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  height: 34px;
+}
+
+.btn-topbar-quota-pill:hover {
+  background: rgba(16, 185, 129, 0.28);
+  border-color: #34d399;
+}
+
+.btn-topbar-cloud-status {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #10b981;
+  padding: 4px 10px !important;
+  border-radius: var(--radius-full) !important;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  height: 32px;
+  user-select: none;
+}
+
+.btn-topbar-cloud-status:hover {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+}
+
+.cloud-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.cloud-status-dot.online {
+  background: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+  animation: pulseCloudOnline 2s infinite ease-in-out;
+}
+
+.cloud-status-dot.connecting {
+  background: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25);
+  animation: pulseCloudConnecting 1.2s infinite ease-in-out;
+}
+
+.cloud-status-dot.offline {
+  background: #ef4444;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.25);
+}
+
+@keyframes pulseCloudOnline {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.25); opacity: 0.75; }
+}
+
+@keyframes pulseCloudConnecting {
+  0%, 100% { transform: scale(0.9); opacity: 0.6; }
+  50% { transform: scale(1.3); opacity: 1; }
+}
+
+@media (max-width: 640px) {
+  .btn-topbar-cloud-status {
+    padding: 3px 8px !important;
+    font-size: 0.68rem;
+    height: 30px;
+  }
+}
+
+.btn-logout-icon {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: rgba(239, 68, 68, 0.35) !important;
+  color: #fca5a5 !important;
+}
+
+.btn-logout-icon:hover {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+}
+
+.olsera-app-navbar .btn-switch-storefront {
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  padding: 7px 15px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4);
+  transition: all 0.2s ease;
+}
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+}
+
+.olsera-app-navbar .btn-logout:hover {
+  background: rgba(239, 68, 68, 0.35);
+  color: #ffffff;
+}
+
+/* Sembunyikan TOTAL Header Menu Toko, Topbar & Strip Preview di Central Hub dan Beranda Toko Pembeli */
+.distributor-preview-strip,
+#distributorPreviewStrip,
+#btnOpenDashboardFromCatalog,
+#btnOpenDashboardFromRewards,
+#btnHeaderAdminMenu {
+  display: none !important;
+}
+
+body.is-central-hub .site-header,
+body.is-central-hub #siteHeaderStorefront,
+body.is-central-hub .platform-topbar,
+body.is-central-hub #platformTopbar,
+body.is-central-hub .tier-quick-banner,
+body.is-partner-store .site-header,
+body.is-partner-store #siteHeaderStorefront,
+body.is-partner-store .platform-topbar,
+body.is-partner-store #platformTopbar,
+body.is-partner-store .tier-quick-banner {
+  display: none !important;
+}
+
+body.is-central-hub #publicStorefrontMain {
+  padding-top: 20px !important;
+}
+
+body.is-partner-store #publicStorefrontMain {
+  padding-top: 0 !important;
+}
+
+/* Tombol Pena / Edit Produk Khusus Distributor (Sky Blue Kapsul Menarik) */
+.btn-product-capsule-edit {
+  background: #e0f2fe !important;
+  color: #0369a1 !important;
+  border: 1.5px solid #38bdf8 !important;
+  box-shadow: 0 1px 4px rgba(2, 132, 199, 0.18) !important;
+}
+.btn-product-capsule-edit:hover {
+  background: linear-gradient(135deg, #0284c7, #0369a1) !important;
+  color: #ffffff !important;
+  border-color: #0284c7 !important;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.4) !important;
+}
+
+/* Mencegah Modal Tambah/Edit Mitra dan Edit Produk Terpotong di Bagian Bawah */
+#modalAddMitra,
+#modalEditMitra,
+#modalEditProduct {
+  align-items: flex-start !important;
+  overflow-y: auto !important;
+  padding: max(24px, env(safe-area-inset-top, 20px)) 12px 60px 12px !important;
+}
+
+#modalAddMitra .modal-dialog,
+#modalEditMitra .modal-dialog,
+#modalEditProduct .modal-dialog {
+  max-height: calc(100vh - 70px) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  margin: 16px auto 40px auto !important;
+}
+
+#modalAddMitra .modal-body,
+#modalEditMitra .modal-body,
+#modalEditProduct .modal-body {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  flex: 1 1 auto !important;
+  padding-bottom: 30px !important;
+}
+
+.btn-preview-icon {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  font-size: 0.78rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+}
+
+.btn-preview-icon:hover {
+  background: rgba(255, 255, 255, 0.28);
+  transform: translateY(-1px);
+}
+
+.btn-preview-icon.btn-preview-logout {
+  background: rgba(239, 68, 68, 0.35);
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #fecaca;
+}
+
+.btn-preview-icon.btn-preview-logout:hover {
+  background: rgba(239, 68, 68, 0.55);
+}
+
+.btn-admin-icon-pill {
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  font-size: 0.76rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-admin-icon-pill:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+/* Grids for Cashflow, Reports, Transactions, and Metrics */
+.cashflow-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.trx-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.report-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.report-analytics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.cashflow-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 18px;
+  border: 1px solid #e2e8f0;
+}
+
+.cashflow-label {
+  font-size: 0.78rem;
+  color: #64748b;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.cashflow-val {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+/* ========================================================
+   MOBILE APP MODERNIZATION (CLEAN SYMBOLS, NO HEAVY BOXES)
+   ======================================================== */
+@media (max-width: 768px) {
+  /* 1. Header & Cart: Simbol Keranjang Bulat Modern Tanpa Teks */
+  .site-header {
+    padding: 8px 14px !important;
+  }
+
+  .header-inner {
+    gap: 8px !important;
+  }
+
+  .brand-logo-badge {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  .brand-text h1 {
+    font-size: 0.95rem !important;
+  }
+
+  .brand-text p {
+    display: none !important;
+  }
+
+  .header-actions {
+    gap: 6px !important;
+  }
+
+  /* Hilangkan tulisan "Keranjang" di HP, cukup simbol keranjang bulat */
+  .btn-cart-text {
+    display: none !important;
+  }
+
+  .btn-cart-bubble {
+    width: 42px !important;
+    height: 42px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: 0 4px 12px rgba(6, 78, 59, 0.25) !important;
+    position: relative !important;
+    flex-shrink: 0 !important;
+  }
+
+  .cart-count-badge {
+    position: absolute !important;
+    top: -2px !important;
+    right: -2px !important;
+    min-width: 18px !important;
+    height: 18px !important;
+    font-size: 0.65rem !important;
+    border: 2px solid #ffffff !important;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2) !important;
+  }
+
+  /* Hilangkan teks poin yang kepanjangan */
+  .header-points-text {
+    display: none !important;
+  }
+
+  .header-points-chip {
+    padding: 4px 8px !important;
+    font-size: 0.72rem !important;
+  }
+
+  /* Tombol login distributor jadi ikon bersih bulat */
+  .btn-login-text {
+    display: none !important;
+  }
+
+  #btnDistributorLogin {
+    width: 38px !important;
+    height: 38px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 0.95rem !important;
+  }
+
+  /* Tombol notifikasi pesanan masuk jadi ikon bulat */
+  .btn-notif-text {
+    display: none !important;
+  }
+
+  #btnAdminOrderNotif {
+    width: 38px !important;
+    height: 38px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    position: relative !important;
+  }
+
+  #adminPendingOrderCountBadge {
+    position: absolute !important;
+    top: -2px !important;
+    right: -2px !important;
+    min-width: 18px !important;
+    height: 18px !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border: 2px solid #fff !important;
+  }
+
+  /* Selector tier harga ramping */
+  .header-tier-box .tier-label {
+    display: none !important;
+  }
+
+  .header-tier-box {
+    padding: 3px 8px !important;
+    border-radius: var(--radius-full) !important;
+  }
+
+  .tier-select {
+    font-size: 0.75rem !important;
+    padding: 3px 6px !important;
+    border: none !important;
+    background: transparent !important;
+  }
+
+  /* 2. Platform Topbar & Dev Strip Disembunyikan di HP agar Bebas Kotak Hitam & Sangat Rapi */
+  .platform-topbar,
+  #platformTopbar,
+  .dev-preview-strip,
+  #devPreviewStrip {
+    display: none !important;
+  }
+
+  /* 3. Developer Portal Modal di HP (Tab Bersih & Kartu Halus) */
+  #modalDevPortal .modal-dialog {
+    margin: 8px !important;
+    max-height: calc(100vh - 16px) !important;
+    border-radius: 16px !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
+  }
+
+  #modalDevPortal .modal-header {
+    padding: 12px 14px !important;
+  }
+
+  #modalDevPortal .modal-body {
+    padding: 14px 12px !important;
+    overflow-y: visible !important;
+    touch-action: pan-y !important;
+  }
+
+  .dev-tabs-bar {
+    gap: 6px !important;
+    padding-bottom: 6px !important;
+  }
+
+  .dev-tab-btn {
+    padding: 6px 12px !important;
+    font-size: 0.76rem !important;
+    border-radius: var(--radius-full) !important;
+  }
+
+  .dev-metric-cards {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  .dev-m-card {
+    padding: 10px 12px !important;
+    border-radius: 12px !important;
+  }
+
+  .dev-m-label {
+    font-size: 0.68rem !important;
+  }
+
+  .dev-m-val {
+    font-size: 1.1rem !important;
+  }
+
+  /* 4. Katalog Produk di HP: Shopee Style Compact & 50-50 Merata Tanpa Terpotong */
+  .main-wrapper {
+    padding: 0 8px !important;
+    margin: 10px auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+
+  .catalog-toolbar {
+    margin-bottom: 12px !important;
+    gap: 8px !important;
+  }
+
+  .product-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .product-card {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    border-radius: 12px !important;
+    border: 1px solid #f1f5f9 !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04) !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    background: #ffffff !important;
+  }
+
+  .product-thumb-box {
+    width: 100% !important;
+    max-width: 100% !important;
+    aspect-ratio: 1 / 1 !important;
+    height: auto !important;
+    max-height: none !important;
+    background: #ffffff !important;
+    position: relative !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  .product-thumb-box img {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    object-fit: contain !important;
+    padding: 6px !important;
+    box-sizing: border-box !important;
+  }
+
+  .badge-bpom-clean {
+    top: 6px !important;
+    left: 6px !important;
+    font-size: 0.58rem !important;
+    padding: 1px 5px !important;
+  }
+
+  .badge-disc-clean {
+    top: 6px !important;
+    right: 6px !important;
+    font-size: 0.58rem !important;
+    padding: 1px 5px !important;
+  }
+
+  .badge-stock-clean {
+    bottom: 6px !important;
+    right: 6px !important;
+    font-size: 0.56rem !important;
+    padding: 1px 5px !important;
+  }
+
+  .product-body {
+    padding: 6px 8px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+
+  .product-category-row {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    margin-bottom: 2px !important;
+    gap: 4px !important;
+    min-width: 0 !important;
+  }
+
+  .product-cat-name {
+    font-size: 0.62rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    min-width: 0 !important;
+    flex: 1 !important;
+  }
+
+  .product-rating {
+    font-size: 0.65rem !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  .product-title {
+    font-size: 0.78rem !important;
+    line-height: 1.25 !important;
+    height: 2.5em !important;
+    overflow: hidden !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    margin-bottom: 4px !important;
+    color: #1e293b !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    min-width: 0 !important;
+  }
+
+  .product-summary-text {
+    display: none !important;
+  }
+
+  .price-block {
+    padding: 4px 6px !important;
+    margin-top: auto !important;
+    margin-bottom: 6px !important;
+    border-radius: 6px !important;
+    background: #f8fafc !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    min-width: 0 !important;
+  }
+
+  .price-main-row {
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 3px !important;
+    flex-wrap: wrap !important;
+    min-width: 0 !important;
+  }
+
+  .tier-price-val {
+    font-size: 0.88rem !important;
+    font-weight: 800 !important;
+    color: #ef4444 !important;
+    white-space: nowrap !important;
+    letter-spacing: -0.2px !important;
+  }
+
+  .badge-mini-disc {
+    font-size: 0.6rem !important;
+    padding: 1px 3px !important;
+    white-space: nowrap !important;
+  }
+
+  .price-sub-row {
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    gap: 2px 4px !important;
+    font-size: 0.62rem !important;
+    margin-top: 1px !important;
+    min-width: 0 !important;
+    white-space: normal !important;
+  }
+
+  .het-text,
+  .het-text del,
+  .het-text-plain,
+  .tier-profit-margin {
+    white-space: nowrap !important;
+    font-size: 0.62rem !important;
+  }
+
+  .card-actions {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 4px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    min-width: 0 !important;
+  }
+
+  .btn-product-capsule,
+  .btn-add-cart,
+  .btn-detail-preview,
+  .btn-product-share-icon {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    height: 32px !important;
+    border-radius: 9999px !important;
+    padding: 0 !important;
+    justify-content: center !important;
+    align-items: center !important;
+    display: inline-flex !important;
+    box-sizing: border-box !important;
+  }
+
+  .btn-product-capsule svg,
+  .btn-add-cart svg,
+  .btn-product-share-icon svg {
+    width: 15px !important;
+    height: 15px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .btn-add-cart-text {
+    display: none !important;
+  }
+}
+
+/* Floating Toast Halus, Kompak & Unobtrusive di Mobile & Desktop */
+#globalToast {
+  bottom: 24px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  font-size: 0.74rem !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  padding: 6px 14px !important;
+  border-radius: 8px !important;
+  background: rgba(15, 23, 42, 0.88) !important;
+  color: #f8fafc !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  max-width: 86vw !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  pointer-events: none !important;
+  z-index: 100005 !important;
+}
+
+/* ========================================================
+   HARMONIZED BUTTON DESIGN SYSTEM (ADMIN & DEVELOPER SUITE)
+   Menyelaraskan semua tombol agar rapi, modern (pill), kompak, tidak kaku/raksasa
+   ======================================================== */
+.btn-dev-switch-storefront,
+.btn-dev-logout,
+.btn-dev-simulation,
+.btn-dev-strip-primary,
+.btn-dev-strip-green,
+.btn-dev-strip-danger,
+.btn-dev-pill-primary,
+.btn-dev-pill-danger,
+.btn-dev-action-pill,
+.olsera-app-navbar .btn-switch-storefront,
+.olsera-app-navbar .btn-logout,
+.olsera-app-navbar .btn-topbar-link,
+.olsera-app-navbar .btn-quota-topup,
+.olsera-sidebar-footer button,
+.pos-action-btns button,
+.pos-register-panel button,
+.olsera-page-header button,
+.dev-workspace-container button,
+.dev-tab-btn,
+.btn-admin-pill,
+.admin-mode-actions button,
+.modal-footer button,
+.modal-body button:not(.btn-quick-edit-image) {
+  border-radius: var(--radius-full) !important;
+  font-family: var(--font-main) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.1px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* Tombol Simulasi Split Payment (tidak lagi raksasa) */
+.btn-dev-simulation {
+  background: linear-gradient(135deg, #0284c7, #0369a1) !important;
+  color: #fff !important;
+  border: 1px solid #38bdf8 !important;
+  padding: 8px 18px !important;
+  border-radius: var(--radius-full) !important;
+  font-weight: 700 !important;
+  font-size: 0.8rem !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  width: auto !important;
+  max-width: 100% !important;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3) !important;
+}
+
+.btn-dev-simulation:hover {
+  background: #0284c7 !important;
+  transform: translateY(-1px);
+}
+
+/* ========================================================
+   RESPONSIVE MOBILE STYLES: ADMIN & DEVELOPER BUTTON HARMONY
+   ======================================================== */
+@media (max-width: 768px) {
+  /* 1. Header Olsera POS di HP (Single Bar, Icon-Only, Single-Line Store Name) */
+  .olsera-app-navbar {
+    padding: 7px 10px !important;
+    gap: 8px !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .olsera-app-navbar .brand-section {
+    gap: 6px !important;
+    min-width: 0 !important;
+    flex: 1 !important;
+  }
+
+  .olsera-app-navbar .brand-logo {
+    width: 32px !important;
+    height: 32px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .olsera-app-navbar .brand-text-name {
+    font-size: 0.82rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    line-height: 1.2 !important;
+  }
+
+  #olseraTopbarStoreName {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 130px !important;
+    display: inline-block !important;
+    font-size: 0.82rem !important;
+  }
+
+  .desktop-only-badge,
+  .desktop-only-sub,
+  .desktop-only-btn {
+    display: none !important;
+  }
+
+  .olsera-app-navbar .tools-section {
+    gap: 5px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .btn-topbar-icon {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 0.92rem !important;
+  }
+
+  .btn-topbar-quota-pill {
+    height: 32px !important;
+    padding: 3px 8px !important;
+    font-size: 0.74rem !important;
+    gap: 3px !important;
+  }
+
+  /* 2. Tombol Navigasi Footer Drawer Sidebar Olsera */
+  .olsera-sidebar-footer {
+    padding: 10px 14px !important;
+  }
+
+  .olsera-sidebar-footer button {
+    padding: 8px 12px !important;
+    font-size: 0.78rem !important;
+    border-radius: var(--radius-full) !important;
+    margin-bottom: 6px !important;
+  }
+
+  /* 3. Olsera Page Headers & Action Buttons */
+  .olsera-page-header {
+    gap: 8px !important;
+    margin-bottom: 12px !important;
+    padding-bottom: 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .olsera-page-title {
+    font-size: 1.05rem !important;
+    word-break: break-word !important;
+  }
+
+  .olsera-page-header button,
+  .olsera-main-content button:not(.chip-btn) {
+    padding: 6px 12px !important;
+    font-size: 0.76rem !important;
+    border-radius: var(--radius-full) !important;
+  }
+
+  /* 4. POS Layout & Register di HP (No Horizontal Scroll) */
+  .pos-layout {
+    display: grid !important;
+    grid-template-columns: 100% !important;
+    gap: 14px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+
+  .pos-products-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+
+  .pos-toolbar {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .pos-search-input {
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    font-size: 0.82rem !important;
+    padding: 8px 12px !important;
+  }
+
+  .pos-toolbar .category-chips {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 6px !important;
+    padding-bottom: 4px !important;
+    scrollbar-width: none !important;
+  }
+
+  .pos-toolbar .category-chips::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .pos-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    max-height: 520px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 2px !important;
+    margin: 0 !important;
+  }
+
+  .pos-product-card {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 6px !important;
+    border-radius: 12px !important;
+    border: 1px solid #f1f5f9 !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04) !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    background: #ffffff !important;
+    position: relative !important;
+    transition: transform 0.15s ease, border-color 0.15s ease !important;
+  }
+
+  .pos-product-card:active {
+    transform: scale(0.97) !important;
+  }
+
+  .pos-product-card.in-cart {
+    border-color: #10b981 !important;
+    background: #f0fdf4 !important;
+  }
+
+  .pos-product-thumb-box {
+    width: 100% !important;
+    max-width: 100% !important;
+    aspect-ratio: 1 / 1 !important;
+    height: auto !important;
+    max-height: none !important;
+    background: #ffffff !important;
+    position: relative !important;
+    overflow: hidden !important;
+    border-radius: 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+    margin-bottom: 4px !important;
+  }
+
+  .pos-product-thumb {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    object-fit: contain !important;
+    padding: 4px !important;
+    box-sizing: border-box !important;
+  }
+
+  .pos-badge-qty-floating {
+    position: absolute !important;
+    top: 4px !important;
+    right: 4px !important;
+    background: #10b981 !important;
+    color: #ffffff !important;
+    font-size: 0.58rem !important;
+    font-weight: 800 !important;
+    padding: 2px 6px !important;
+    border-radius: var(--radius-full) !important;
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3) !important;
+    z-index: 2 !important;
+  }
+
+  .pos-product-name {
+    font-size: 0.74rem !important;
+    line-height: 1.25 !important;
+    height: 2.5em !important;
+    overflow: hidden !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    min-width: 0 !important;
+    margin-bottom: 2px !important;
+    color: #1e293b !important;
+  }
+
+  .pos-product-netto {
+    font-size: 0.62rem !important;
+    margin-bottom: 4px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    color: #64748b !important;
+  }
+
+  .pos-product-price {
+    font-size: 0.8rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-wrap: wrap !important;
+    gap: 2px !important;
+    margin-top: auto !important;
+    min-width: 0 !important;
+  }
+
+  .pos-product-price .pos-price-val {
+    font-size: 0.8rem !important;
+    font-weight: 800 !important;
+    color: #0284c7 !important;
+    white-space: nowrap !important;
+  }
+
+  .pos-btn-kasir-pill {
+    background: #e0f2fe !important;
+    color: #0284c7 !important;
+    border: 1px solid #bae6fd !important;
+    font-size: 0.65rem !important;
+    padding: 2px 8px !important;
+    border-radius: var(--radius-full) !important;
+    font-weight: 700 !important;
+    white-space: nowrap !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 3px !important;
+  }
+
+  .pos-btn-kasir-pill.active {
+    background: #10b981 !important;
+    color: #ffffff !important;
+    border-color: #059669 !important;
+  }
+
+  /* Floating Mobile Cart Bar for POS (Hanya muncul jika kasir aktif dan ada item; otomatis sembunyi jika modal dibuka) */
+  .pos-mobile-bottom-bar {
+    position: fixed !important;
+    bottom: 12px !important;
+    left: 12px !important;
+    right: 12px !important;
+    background: #0f172a !important;
+    color: #ffffff !important;
+    padding: 10px 16px !important;
+    border-radius: var(--radius-full) !important;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45) !important;
+    border: 1px solid #334155 !important;
+    z-index: 900 !important;
+    display: none !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    cursor: pointer !important;
+    animation: slideUpBottom 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
+  .pos-mobile-bottom-bar.active {
+    display: flex !important;
+  }
+
+  /* Jika modal apapun sedang terbuka, sembunyikan total bar kasir floating agar tidak menutupi tombol simpan */
+  body:has(.modal-backdrop.open) .pos-mobile-bottom-bar,
+  body.modal-open .pos-mobile-bottom-bar {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    opacity: 0 !important;
+  }
+
+  .pos-bottom-bar-info {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+
+  .pos-bottom-bar-qty {
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    color: #38bdf8 !important;
+  }
+
+  .pos-bottom-bar-total {
+    font-size: 0.92rem !important;
+    font-weight: 800 !important;
+    color: #10b981 !important;
+  }
+
+  .pos-bottom-bar-btn {
+    background: #0284c7 !important;
+    color: #ffffff !important;
+    border: none !important;
+    padding: 6px 12px !important;
+    border-radius: var(--radius-full) !important;
+    font-size: 0.74rem !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+  }
+
+  .pos-register-panel {
+    padding: 12px 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+    position: static !important;
+    border-radius: 12px !important;
+    margin-top: 10px !important;
+  }
+
+  .pos-customer-select {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    font-size: 0.8rem !important;
+    padding: 8px 10px !important;
+  }
+
+  .pos-cart-list {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .pos-cart-item {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    gap: 6px !important;
+  }
+
+  .pos-summary-row {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    font-size: 0.8rem !important;
+  }
+
+  .pos-summary-total {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    font-size: 1.05rem !important;
+    padding-top: 8px !important;
+    margin-top: 6px !important;
+  }
+
+  .pos-action-btns {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    margin-top: 10px !important;
+  }
+
+  .pos-action-btns button {
+    padding: 8px 6px !important;
+    font-size: 0.74rem !important;
+    border-radius: var(--radius-full) !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .pos-register-panel button[onclick*="whatsapp"] {
+    padding: 9px 12px !important;
+    font-size: 0.78rem !important;
+    border-radius: var(--radius-full) !important;
+    margin-top: 6px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* 5. Developer Workspace Tabs & Buttons di HP */
+  .dev-tabs-bar {
+    gap: 4px !important;
+    padding-bottom: 6px !important;
+  }
+
+  .dev-tab-btn {
+    padding: 5px 10px !important;
+    font-size: 0.72rem !important;
+    border-radius: var(--radius-full) !important;
+  }
+
+  .dev-workspace-container button {
+    padding: 6px 12px !important;
+    font-size: 0.75rem !important;
+    border-radius: var(--radius-full) !important;
+  }
+
+  .dev-workspace-container {
+    padding: 10px 8px !important;
+  }
+
+  /* 6. Mode Tinjau Toko & Admin Banner di HP (Icon-Only, Tanpa Kapsul Raksasa) */
+  .distributor-preview-strip {
+    padding: 6px 10px !important;
+    gap: 6px !important;
+    flex-wrap: nowrap !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .preview-strip-info {
+    font-size: 0.74rem !important;
+    gap: 6px !important;
+    min-width: 0 !important;
+    flex: 1 !important;
+    overflow: hidden !important;
+  }
+
+  .preview-user-text {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    font-size: 0.74rem !important;
+  }
+
+  .preview-strip-actions {
+    gap: 4px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .btn-preview-icon {
+    padding: 6px 8px !important;
+    font-size: 0.85rem !important;
+    min-width: 32px !important;
+    height: 32px !important;
+    border-radius: 8px !important;
+    gap: 0 !important;
+  }
+
+  .btn-preview-icon .preview-btn-label {
+    display: none !important;
+  }
+
+  .admin-mode-banner {
+    padding: 8px 10px !important;
+    gap: 6px !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .admin-mode-actions {
+    display: flex !important;
+    overflow-x: auto !important;
+    gap: 5px !important;
+    padding: 2px 0 !important;
+    scrollbar-width: none !important;
+    -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .admin-mode-actions::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .btn-admin-icon-pill {
+    padding: 6px 8px !important;
+    font-size: 0.82rem !important;
+    border-radius: 8px !important;
+    min-width: 32px !important;
+    height: 32px !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+    gap: 0 !important;
+  }
+
+  .btn-admin-icon-pill .btn-pill-label {
+    display: none !important;
+  }
+
+  .btn-admin-pill {
+    padding: 4px 10px !important;
+    font-size: 0.7rem !important;
+    border-radius: var(--radius-full) !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* 7. Modal Action Buttons di HP */
+  .modal-dialog {
+    border-radius: 14px !important;
+    margin: 8px auto !important;
+  }
+
+  .modal-footer {
+    padding: 10px 14px !important;
+    gap: 6px !important;
+  }
+
+  .modal-footer button,
+  .modal-body button[type="submit"] {
+    padding: 7px 14px !important;
+    font-size: 0.78rem !important;
+    border-radius: var(--radius-full) !important;
+  }
+
+  /* 8. Responsive Metrics & Analytics Grids di HP */
+  .trx-metric-grid,
+  .report-metrics-grid,
+  .crm-stat-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    margin-bottom: 12px !important;
+  }
+
+  .cashflow-grid {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    margin-bottom: 12px !important;
+  }
+
+  .report-analytics-grid {
+    display: grid !important;
+    grid-template-columns: 100% !important;
+    gap: 12px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .cashflow-card,
+  .crm-stat-card {
+    padding: 10px !important;
+    border-radius: 10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .cashflow-label,
+  .crm-stat-label {
+    font-size: 0.72rem !important;
+  }
+
+  .cashflow-val,
+  .crm-stat-val {
+    font-size: 1.02rem !important;
+    word-break: break-word !important;
+  }
+
+  /* 9. Universal Mobile Table-to-Card Transformation (Transaksi, Inventori, Kas, Mitra, Marketer) */
+  #olseraViewTransactions div[style*="overflow-x: auto"],
+  #olseraViewInventory div[style*="overflow-x: auto"],
+  #olseraViewCashflow div[style*="overflow-x: auto"],
+  #resellersSection div[style*="overflow-x: auto"],
+  #marketersSection div[style*="overflow-x: auto"],
+  .olsera-main-content div[style*="overflow-x: auto"] {
+    overflow-x: visible !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .inv-table,
+  .crm-table {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    border: none !important;
+    border-collapse: separate !important;
+    background: transparent !important;
+  }
+
+  .inv-table thead,
+  .crm-table thead {
+    display: none !important;
+  }
+
+  .inv-table tbody,
+  .crm-table tbody {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .inv-table tr,
+  .crm-table tr {
+    display: block !important;
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 12px !important;
+    padding: 12px 10px !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04) !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .inv-table td,
+  .crm-table td {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 6px 0 !important;
+    border: none !important;
+    border-bottom: 1px dashed #f1f5f9 !important;
+    font-size: 0.78rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    gap: 8px !important;
+    text-align: right !important;
+  }
+
+  .inv-table td::before,
+  .crm-table td::before {
+    content: attr(data-label) !important;
+    font-weight: 700 !important;
+    font-size: 0.72rem !important;
+    color: #64748b !important;
+    text-align: left !important;
+    flex-shrink: 0 !important;
+    max-width: 48% !important;
+  }
+
+  .inv-table td {
+    padding: 3.5px 0 !important;
+    line-height: 1.25 !important;
+  }
+
+  .inv-table td::before {
+    line-height: 1.25 !important;
+  }
+
+  /* Baris Header pada Card (No Transaksi, Produk SR12, ID Mitra, ID Marketer) */
+  .inv-table td[data-label="No. Transaksi"],
+  .inv-table td[data-label="Nama Produk"],
+  .inv-table td[data-label="Produk"] {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    background: #f8fafc !important;
+    margin: -4px -4px 6px -4px !important;
+    padding: 8px 10px !important;
+    border-radius: 8px !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    text-align: left !important;
+    width: calc(100% + 8px) !important;
+    box-sizing: border-box !important;
+  }
+
+  .inv-table td[data-label="Produk"]::before {
+    display: none !important;
+  }
+
+  .crm-table td {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 5px 0 !important;
+    border: none !important;
+    border-bottom: 1px dashed #f1f5f9 !important;
+    font-size: 0.78rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    gap: 8px !important;
+    text-align: right !important;
+    line-height: 1.3 !important;
+  }
+
+  .crm-table td::before {
+    content: attr(data-label) !important;
+    font-weight: 700 !important;
+    font-size: 0.72rem !important;
+    color: #64748b !important;
+    text-align: left !important;
+    flex-shrink: 0 !important;
+    max-width: 42% !important;
+    line-height: 1.3 !important;
+  }
+
+  .crm-table td[data-label="ID & Nama Mitra"],
+  .crm-table td[data-label="ID & Nama Marketer"] {
+    display: block !important;
+    width: 100% !important;
+    background: #f8fafc !important;
+    margin: -4px -4px 8px -4px !important;
+    padding: 10px 12px !important;
+    border-radius: 8px !important;
+    border-bottom: 1.5px solid #e2e8f0 !important;
+    text-align: left !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  .crm-table td[data-label="ID & Nama Mitra"]::before,
+  .crm-table td[data-label="ID & Nama Marketer"]::before {
+    display: none !important;
+  }
+
+  /* Hapus duplikasi Tingkat dan Status di mobile card karena sudah ada di header card */
+  .crm-table td[data-label="Tingkat"],
+  .crm-table td[data-label="Status"] {
+    display: none !important;
+  }
+
+  .crm-table td[data-label="Rekening Bank"],
+  .crm-table td[data-label="Rekening Transfer"],
+  .crm-table td[data-label="Masa Aktif"],
+  .crm-table td[data-label="Masa Aktif & Evaluasi"],
+  .crm-table td[data-label="Akumulasi Belanja"] {
+    align-items: flex-start !important;
+    padding: 6px 0 !important;
+  }
+
+  .crm-td-cell-wrapper {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    text-align: right !important;
+    min-width: 0 !important;
+    max-width: 65% !important;
+    gap: 3px !important;
+    box-sizing: border-box !important;
+  }
+
+  .crm-table td[data-label="Pesanan Terjual"],
+  .crm-table td[data-label="Total Omset (HET)"],
+  .crm-table td[data-label="Bonus Marketer (15%)"],
+  .crm-table td[data-label="Status Pembayaran"] {
+    padding: 7px 0 !important;
+  }
+
+  /* Hilangkan label untuk foto produk & posisikan ke atas */
+  .inv-table td[data-label="Foto"] {
+    justify-content: flex-start !important;
+    border-bottom: none !important;
+    padding-bottom: 2px !important;
+  }
+
+  .inv-table td[data-label="Foto"]::before {
+    display: none !important;
+  }
+
+  /* Baris Aksi / Tombol di bagian bawah Card */
+  .inv-table td[data-label="Aksi"],
+  .inv-table td[data-label="Aksi Cepat"],
+  .crm-table td[data-label="Aksi"],
+  .crm-table td[data-label="Aksi Distributor"] {
+    border-bottom: none !important;
+    padding-top: 10px !important;
+    margin-top: 4px !important;
+    justify-content: flex-end !important;
+    text-align: right !important;
+  }
+
+  .inv-table td[data-label="Aksi"]::before,
+  .inv-table td[data-label="Aksi Cepat"]::before,
+  .crm-table td[data-label="Aksi"]::before,
+  .crm-table td[data-label="Aksi Distributor"]::before {
+    display: none !important;
+  }
+
+  /* 10. Toolbar & Filter Section di HP */
+  .crm-search-box,
+  #crmSearchInput {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  #resellersSection,
+  #marketersSection {
+    padding: 12px 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+
+  #resellersSection > div,
+  #marketersSection > div {
+    padding: 12px 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* 11. Topbar Active Cashier Pill di HP */
+  .btn-topbar-cashier-active {
+    padding: 4px 8px !important;
+    font-size: 0.72rem !important;
+    gap: 4px !important;
+  }
+  .topbar-cashier-text {
+    max-width: 85px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  /* 12. Kop Tinjau Etalase Pembeli (Dev Preview Strip) Disembunyikan di HP */
+  .dev-preview-strip,
+  #devPreviewStrip {
+    display: none !important;
+  }
+
+  /* 13. Kop Dashboard Developer Console di HP */
+  .dev-app-navbar {
+    padding: 8px 10px !important;
+    gap: 8px !important;
+  }
+  .dev-nav-brand .dev-nav-title {
+    font-size: 0.88rem !important;
+  }
+  .dev-nav-sub {
+    font-size: 0.68rem !important;
+  }
+  .dev-nav-stats {
+    font-size: 0.7rem !important;
+    gap: 4px !important;
+    padding: 3px 6px !important;
+  }
+  .btn-dev-nav-icon .desktop-only-label,
+  .btn-dev-nav-link .desktop-only-label {
+    display: none !important;
+  }
+  .btn-dev-nav-icon {
+    padding: 6px 9px !important;
+    min-width: 32px !important;
+    height: 32px !important;
+    justify-content: center !important;
+    font-size: 0.92rem !important;
+  }
+  .btn-dev-nav-link {
+    padding: 5px 8px !important;
+    font-size: 0.72rem !important;
+  }
+
+  /* 14. Form Buka Toko Online (#modalRegisterStore) & Semua Modal Bebas Geser Kiri-Kanan */
+  .modal-dialog {
+    max-width: calc(100vw - 16px) !important;
+    width: 100% !important;
+    margin: 8px auto !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+  .modal-body {
+    padding: 14px 10px !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+  .modal-body form {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .modal-body [style*="grid-template-columns: 1fr 1fr"],
+  .modal-body [style*="grid-template-columns: repeat(2"],
+  #modalRegisterStore [style*="grid-template-columns: 1fr 1fr"],
+  #modalRegisterStore [style*="grid-template-columns: repeat(2"],
+  #modalRegisterStore .grid-2col-resp,
+  .grid-2col-resp {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .modal-body input,
+  .modal-body select,
+  .modal-body textarea,
+  .modal-body input[type="file"],
+  #modalRegisterStore input,
+  #modalRegisterStore select,
+  #modalRegisterStore textarea,
+  #modalRegisterStore input[type="file"] {
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Developer Workspace & Switcher Box di Layar HP */
+  .dev-workspace-container {
+    padding: 12px 10px !important;
+    margin: 8px auto 40px auto !important;
+    border-radius: 12px !important;
+    max-width: calc(100vw - 16px) !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+
+  .dev-store-switcher-box {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 12px 10px !important;
+    gap: 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
+
+  .dev-store-switcher-box > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: none !important;
+    box-sizing: border-box !important;
+  }
+
+  .dev-store-select-input,
+  #devStoreSelect_ws,
+  #devStoreSelect {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    font-size: 0.8rem !important;
+  }
+
+  /* 15. Tabel Pengajuan Toko & Jaringan Mitra Developer (Responsif Card View di Layar HP) */
+  #devTabPane_ws_pending div[style*="overflow-x: auto"],
+  #devTabPane_ws_stores div[style*="overflow-x: auto"],
+  #devTabPane_ws_networkMitra div[style*="overflow-x: auto"],
+  #modalDevPortal div[style*="overflow-x: auto"] {
+    overflow-x: visible !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .dev-table-responsive,
+  #devTabPane_ws_pending table,
+  #devTabPane_ws_stores table,
+  #devTabPane_ws_networkMitra table {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    border: none !important;
+    background: transparent !important;
+  }
+
+  .dev-table-responsive thead,
+  #devTabPane_ws_pending table thead,
+  #devTabPane_ws_stores table thead,
+  #devTabPane_ws_networkMitra table thead {
+    display: none !important;
+  }
+
+  .dev-table-responsive tbody,
+  #devTabPane_ws_pending table tbody,
+  #devTabPane_ws_stores table tbody,
+  #devTabPane_ws_networkMitra table tbody {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .dev-table-responsive tr,
+  #devTabPane_ws_pending table tr,
+  #devTabPane_ws_stores table tr,
+  #devTabPane_ws_networkMitra table tr {
+    display: block !important;
+    background: #0f172a !important;
+    border: 1.5px solid #334155 !important;
+    border-radius: 12px !important;
+    padding: 12px 10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25) !important;
+  }
+
+  .dev-table-responsive td,
+  #devTabPane_ws_pending table td,
+  #devTabPane_ws_stores table td,
+  #devTabPane_ws_networkMitra table td {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 6px 0 !important;
+    border: none !important;
+    border-bottom: 1px dashed #1e293b !important;
+    font-size: 0.78rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    text-align: right !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+
+  .dev-table-responsive td::before,
+  #devTabPane_ws_pending table td::before,
+  #devTabPane_ws_stores table td::before,
+  #devTabPane_ws_networkMitra table td::before {
+    content: attr(data-label) !important;
+    font-weight: 700 !important;
+    color: #94a3b8 !important;
+    font-size: 0.72rem !important;
+    text-align: left !important;
+    flex-shrink: 0 !important;
+  }
+
+  #devTabPane_ws_pending table td:last-child,
+  #devTabPane_ws_stores table td:last-child,
+  #devTabPane_ws_networkMitra table td:last-child {
+    border-bottom: none !important;
+    padding-top: 8px !important;
+    justify-content: center !important;
+  }
+
+  #devTabPane_ws_pending table td:last-child > div,
+  #devTabPane_ws_stores table td:last-child > div {
+    width: 100% !important;
+    justify-content: space-between !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+
+  /* 16. Responsif Toko Distributor & Central Hub di Layar HP */
+  .distributor-store-hero-card {
+    padding: 0 !important;
+    border-radius: 16px !important;
+    margin-bottom: 20px !important;
+  }
+  .distributor-hero-cover-wrap {
+    height: 190px !important;
+    border-radius: 14px 14px 0 0 !important;
+  }
+  .distributor-hero-content-wrap {
+    padding: 0 12px 10px 12px !important;
+  }
+  .distributor-hero-logo-box {
+    width: 72px !important;
+    height: 72px !important;
+    margin: -36px auto 4px auto !important;
+  }
+  .dist-card-cover-wrap {
+    height: 110px !important;
+  }
+  .dist-card-logo-box {
+    width: 70px !important;
+    height: 70px !important;
+    margin: -35px auto 8px auto !important;
+  }
+  .distributor-hero-store-name {
+    font-size: 1.55rem !important;
+    font-weight: 900 !important;
+    margin: 0 0 2px 0 !important;
+  }
+  .distributor-hero-tier-badge {
+    font-size: 0.68rem !important;
+    padding: 2px 8px !important;
+    margin-bottom: 3px !important;
+  }
+  .distributor-hero-tagline {
+    font-size: 0.8rem !important;
+    margin: 0 auto 5px auto !important;
+    line-height: 1.3 !important;
+  }
+  .distributor-hero-meta-row {
+    gap: 4px !important;
+    margin-bottom: 8px !important;
+  }
+  .distributor-hero-chip {
+    padding: 2px 8px !important;
+    font-size: 0.7rem !important;
+  }
+  .distributor-hero-3icons {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 14px !important;
+    margin: 10px auto 4px auto !important;
+    width: auto !important;
+  }
+  .btn-hero-icon-only {
+    width: 46px !important;
+    height: 46px !important;
+    min-width: 46px !important;
+    max-width: 46px !important;
+    border-radius: 50% !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  .btn-hero-icon-only svg {
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  /* Sembunyikan identitas ganda / penanggung jawab di footer saat mode toko mitra distributor */
+  body.is-partner-store .footer-store-branding,
+  body.is-partner-store .footer-meta-cards {
+    display: none !important;
+  }
+
+  .official-central-hub-hero {
+    padding: 22px 14px !important;
+    border-radius: 14px !important;
+    margin-bottom: 20px !important;
+  }
+  .central-hub-title {
+    font-size: 1.35rem !important;
+  }
+  .central-hub-subtitle {
+    font-size: 0.84rem !important;
+  }
+  .central-hub-trust-grid {
+    grid-template-columns: 1fr !important;
+    gap: 6px !important;
+  }
+  .central-hub-switch-notice {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .dev-mode-hero-header {
+    padding: 14px !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  /* 17. Responsif Direktori Distributor di Layar HP */
+  .directory-header-box {
+    padding: 16px 12px !important;
+    border-radius: 14px !important;
+  }
+  .directory-title {
+    font-size: 1.2rem !important;
+  }
+  .directory-subtitle {
+    font-size: 0.82rem !important;
+  }
+  .directory-controls-row {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 10px !important;
+  }
+  .directory-search-input-group {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  .directory-filter-tabs {
+    justify-content: center !important;
+    gap: 6px !important;
+    flex-wrap: wrap !important;
+  }
+  .directory-tab-pill {
+    padding: 5px 12px !important;
+    font-size: 0.74rem !important;
+  }
+  .official-distributors-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+  .directory-register-callout {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    text-align: center !important;
+    padding: 16px !important;
+  }
+  .directory-register-callout button {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+}
+
+/* ========================================================
+   18. PEMBERSIHAN KHUSUS TAMPILAN TOKO PEMBELI (BANNER DI PALING ATAS & BEBAS OVERLAY TEKS)
+   ======================================================== */
+body.is-partner-store .site-header,
+body.is-partner-store .platform-topbar,
+body.is-partner-store .tier-quick-banner,
+body.is-partner-store .admin-mode-banner,
+body.is-partner-store #siteHeaderStorefront,
+body.is-partner-store #platformTopbar,
+body.is-partner-store #adminModeBanner {
+  display: none !important;
+}
+
+body.is-partner-store .main-wrapper {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+body.is-partner-store .distributor-store-hero-card {
+  margin-top: 0 !important;
+  border-top: none !important;
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+}
+
+body.is-partner-store .distributor-hero-cover-wrap {
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+  height: 280px;
+}
+
+/* HILANGKAN SEMUA TEKS DAN SHADOW OVERLAY PADA BANNER (KARENA SUDAH ADA DI BAWAH FOTO PROFIL) */
+.distributor-hero-banner-overlay-text,
+#bannerStoreTierBadge,
+#bannerStoreName,
+#bannerStoreTagline,
+.distributor-hero-cover-gradient {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  body.is-partner-store .main-wrapper {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  body.is-partner-store .distributor-store-hero-card {
+    border-radius: 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+  }
+  body.is-partner-store .distributor-hero-cover-wrap {
+    height: 180px !important;
+    border-radius: 0 !important;
+  }
+  body.is-partner-store #distributorCommerceWrapper {
+    padding: 0 12px !important;
+  }
+}
+
+/* ========================================================
+   19. CLEAN & SEAMLESS DASHBOARD ADMIN DISTRIBUTOR (OLSERA PORTAL)
+   ======================================================== */
+body.olsera-portal-active {
+  padding-bottom: 0 !important;
+  background: #f8fafc !important;
+}
+
+body.olsera-portal-active .site-header,
+body.olsera-portal-active #siteHeaderStorefront,
+body.olsera-portal-active #adminActiveTopBar,
+body.olsera-portal-active .platform-topbar,
+body.olsera-portal-active .tier-quick-banner,
+body.olsera-portal-active .admin-mode-banner,
+body.olsera-portal-active .main-wrapper,
+body.olsera-portal-active #publicStorefrontMain,
+body.olsera-portal-active #olseraAppNavbar {
+  display: none !important;
+}
+
+.distributor-portal-container {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background: #f8fafc;
+  border-radius: 0;
+  margin: 0;
+  border: none;
+  box-shadow: none;
+  position: relative;
+}
+
+.olsera-main-content {
+  background: #f8fafc;
+  padding: 20px 24px;
+}
+
+.btn-olsera-static-quota:hover {
+  background: rgba(16, 185, 129, 0.22) !important;
+  transform: translateY(-1px);
+}
+.btn-olsera-static-cashier:hover {
+  background: #f1f5f9 !important;
+  border-color: #94a3b8 !important;
+  transform: translateY(-1px);
+}
+.btn-olsera-static-cfd:hover {
+  background: #e0f2fe !important;
+  border-color: #7dd3fc !important;
+  transform: translateY(-1px);
+}
+.btn-olsera-static-logout:hover {
+  background: #fecaca !important;
+  border-color: #f87171 !important;
+  transform: translateY(-1px);
+}
+
+/* ========================================================
+   TOMBOL MENU TOKO & OLSERA SIDEBAR DRAWER RESMI
+   Sesuai persis screenshot: Drawer meluncur dari kiri dengan backdrop blur
+   ======================================================== */
+.olsera-drawer-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  z-index: 10000;
+  opacity: 0;
+  transition: opacity 0.28s ease;
+  pointer-events: none;
+}
+
+.olsera-drawer-backdrop.open {
+  display: block !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* Di Laptop & Desktop (> 992px), Olsera adalah 2-column dashboard; Drawer Backdrop TIDAK PERNAH aktif & TIDAK PERNAH memburamkan layar */
+@media (min-width: 993px) {
+  .olsera-drawer-backdrop,
+  #olseraDrawerBackdrop,
+  .olsera-drawer-backdrop.open,
+  #olseraDrawerBackdrop.open {
+    display: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    visibility: hidden !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  html.olsera-drawer-open,
+  body.olsera-drawer-open {
+    overflow: auto !important;
+    height: auto !important;
+    max-height: none !important;
+    touch-action: auto !important;
+  }
+  body.olsera-drawer-open .olsera-main-content,
+  body.olsera-drawer-open #distributorOlseraWorkspace,
+  body.olsera-drawer-open .app-main,
+  body.olsera-drawer-open main {
+    pointer-events: auto !important;
+    touch-action: auto !important;
+    overflow: visible !important;
+    user-select: auto !important;
+  }
+}
+
+/* Tombol Menu Toko di Topbar (Jelas, Terlihat Menarik, Tidak Melayang di Atas Konten) */
+.btn-olsera-static-menu {
+  background: linear-gradient(135deg, #0284c7, #0369a1) !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 9999px !important;
+  height: 38px !important;
+  padding: 0 16px !important;
+  font-weight: 800 !important;
+  font-size: 0.82rem !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  box-shadow: 0 3px 10px rgba(2, 132, 199, 0.35) !important;
+  transition: all 0.2s ease !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+
+.btn-olsera-static-menu:hover {
+  background: linear-gradient(135deg, #0369a1, #075985) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 5px 14px rgba(2, 132, 199, 0.45) !important;
+}
+
+.btn-olsera-static-menu:active {
+  transform: scale(0.96);
+}
+
+@media (max-width: 992px) {
+  .distributor-portal-container {
+    display: block !important;
+    min-height: 100vh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    border: none !important;
+    overflow-x: visible !important;
+  }
+  .olsera-main-content {
+    padding: 12px 10px !important;
+    padding-top: 70px !important;
+    overflow-x: visible !important;
+  }
+
+  /* Olsera Mobile Drawer (Sesuai Persis Tampilan Olsera di Screenshot User) */
+  .olsera-sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    width: 310px !important;
+    max-width: 86vw !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    background: #ffffff !important;
+    z-index: 10001 !important;
+    transform: translateX(-100%) !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+    overscroll-behavior: contain !important;
+    touch-action: pan-y !important;
+    display: flex !important;
+    flex-direction: column !important;
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.28s ease !important;
+  }
+
+  .olsera-sidebar.open {
+    transform: translateX(0) !important;
+    box-shadow: 16px 0 45px rgba(0, 0, 0, 0.45) !important;
+  }
+
+  .olsera-header-banner {
+    flex-shrink: 0 !important;
+  }
+
+  .olsera-menu-list {
+    flex: 1 1 auto !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: contain !important;
+    touch-action: pan-y !important;
+    padding-bottom: 24px !important;
+  }
+
+  .olsera-sidebar-footer {
+    flex-shrink: 0 !important;
+    position: sticky !important;
+    bottom: 0 !important;
+    background: #ffffff !important;
+    border-top: 1px solid #e2e8f0 !important;
+    padding: 12px 16px !important;
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 16px)) !important;
+    z-index: 20 !important;
+    box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.06) !important;
+  }
+}
+
+/* ========================================================
+   RESPONSIF TOPBAR UTILITY ADMIN PORTAL DI HP (<= 768px)
+   2 Baris Bersih & Seimbang:
+   - Baris 1: Tombol [Menu Toko] (kiri) & Nama Toko (kanan)
+   - Garis Pembatas Lembut
+   - Baris 2: Tombol Kapsul Aksi [15 Kuota] [Lihat Toko] [Logout]
+   DIJAMIN 100% TIDAK PERNAH BERTUMPUK / MENUTUPI SATU SAMA LAIN
+   ======================================================== */
+@media (max-width: 768px) {
+  .olsera-static-topbar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    z-index: 1000 !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 10px !important;
+    padding: 10px 14px !important;
+    border-radius: 0 0 14px 14px !important;
+    margin: 0 !important;
+    background: rgba(255, 255, 255, 0.98) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08) !important;
+    border-bottom: 1.5px solid #e2e8f0 !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Indikator Animasi Geser Layar HP untuk Kembali / Keluar */
+  .edge-swipe-back-pill {
+    position: fixed;
+    top: 50%;
+    left: 12px;
+    transform: translateY(-50%) translateX(-80px) scale(0.9);
+    background: rgba(15, 23, 42, 0.94);
+    color: #ffffff;
+    border: 1.5px solid rgba(56, 189, 248, 0.6);
+    border-radius: 9999px;
+    padding: 10px 18px;
+    font-size: 0.85rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), 0 0 18px rgba(56, 189, 248, 0.35);
+    z-index: 999999;
+    pointer-events: none;
+    opacity: 0;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .edge-swipe-back-pill.active {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0px) scale(1);
+  }
+
+  /* Menu Toko di kiri, Identitas Toko di kanan (1 baris bersih) */
+  .olsera-static-topbar-left {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    gap: 10px !important;
+    min-width: 0 !important;
+  }
+
+  .btn-olsera-static-menu {
+    height: 38px !important;
+    padding: 0 16px !important;
+    font-size: 0.82rem !important;
+    flex-shrink: 0 !important;
+    box-shadow: 0 3px 10px rgba(2, 132, 199, 0.35) !important;
+  }
+
+  .btn-olsera-static-back {
+    height: 38px !important;
+    padding: 0 14px !important;
+    font-size: 0.8rem !important;
+    font-weight: 800 !important;
+    background: linear-gradient(135deg, #ecfdf5, #d1fae5) !important;
+    border: 1.5px solid #10b981 !important;
+    color: #047857 !important;
+    border-radius: 9999px !important;
+    cursor: pointer !important;
+    display: none;
+    align-items: center !important;
+    gap: 5px !important;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3) !important;
+    flex-shrink: 0 !important;
+    transition: all 0.2s ease !important;
+  }
+
+  .btn-olsera-static-back:hover {
+    background: #a7f3d0 !important;
+    border-color: #059669 !important;
+    transform: translateY(-1px) !important;
+  }
+
+  .olsera-static-store-info {
+    text-align: right !important;
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+  }
+
+  .olsera-static-store-title {
+    font-size: 0.88rem !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .olsera-static-store-sub {
+    font-size: 0.68rem !important;
+    color: #64748b !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* Sembunyikan deretan kapsul yang mencolok di topbar luar (sudah termuat lengkap di Menu Toko) */
+  .olsera-static-topbar-right {
+    display: none !important;
+  }
+}
+
+/* =========================================================
+   TOMBOL MENU TOKO UNTUK DISTRIBUTOR SAAT MENINJAU ETALASE
+   ========================================================= */
+.btn-header-admin-menu {
+  background: #065f46;
+  border: 1px solid #047857;
+  color: #ffffff;
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(6, 95, 70, 0.25);
+}
+
+.btn-header-admin-menu:hover {
+  background: #047857;
+  transform: translateY(-1px);
+}
+
+.btn-floating-admin-menu {
+  position: fixed;
+  bottom: 85px;
+  right: 20px;
+  z-index: 9995;
+  background: linear-gradient(135deg, #065f46, #047857);
+  color: #ffffff;
+  border: 2px solid #34d399;
+  padding: 10px 18px;
+  border-radius: 9999px;
+  font-weight: 800;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 6px 20px rgba(6, 95, 70, 0.45);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-floating-admin-menu:hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 25px rgba(6, 95, 70, 0.55);
+}
+
+/* ==========================================================================
+   17. MODAL MONITOR PESANAN MASUK (ADMIN REAL-TIME ORDER MONITOR)
+   ========================================================================== */
+#modalAdminOrders .modal-container {
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.4);
+  animation: modalOrdersPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalOrdersPop {
+  0% { opacity: 0; transform: scale(0.96) translateY(8px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+#adminOrdersListBody::-webkit-scrollbar {
+  width: 6px;
+}
+
+#adminOrdersListBody::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
+#adminOrdersListBody::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Hard rule: pastikan subtitle pada header modal pesanan masuk selalu disembunyikan */
+#modalAdminOrders .modal-header p {
+  display: none !important;
+}
+
+@media (max-width: 640px) {
+  #modalAdminOrders {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+  #modalAdminOrders .modal-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 8px auto !important;
+    border-radius: 16px !important;
+  }
+  #modalAdminOrders .modal-header {
+    padding: 12px 14px !important;
+  }
+  .modal-orders-action-group {
+    gap: 4px !important;
+    padding-right: 0 !important;
+    margin-left: 4px !important;
+  }
+  .modal-orders-action-group button {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 0.85rem !important;
+  }
+}
+
+/* Fullscreen In-App Document Viewer */
+#modalDocFullscreenViewer.open {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Security PIN Modal Styling */
+#modalChangeSecurityPin .modal-dialog {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#secPinCurrent:focus, #secPinNew:focus, #secPinConfirm:focus {
+  outline: none;
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25);
+}
+
+#modalChangeSecurityPin.theme-store #secPinCurrent:focus,
+#modalChangeSecurityPin.theme-store #secPinNew:focus,
+#modalChangeSecurityPin.theme-store #secPinConfirm:focus {
+  border-color: #10b981 !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+}
+
