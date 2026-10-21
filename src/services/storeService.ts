@@ -5,6 +5,15 @@ import { PendingStore, Store } from '../types';
 const STORAGE_STORES_KEY = 'sr12_partner_stores_v3';
 const STORAGE_PENDING_KEY = 'sr12_pending_store_apps_v2';
 
+function cleanTaglineText(text: string | null | undefined, fallback: string): string {
+  if (!text || typeof text !== 'string') return fallback;
+  const trimmed = text.trim();
+  if (trimmed.startsWith('{') || trimmed.includes('bankName') || trimmed.includes('activeTokens') || trimmed.includes('platformFee')) {
+    return fallback;
+  }
+  return trimmed;
+}
+
 export async function fetchStores(): Promise<Store[]> {
   try {
     const { data, error } = await supabase
@@ -16,10 +25,10 @@ export async function fetchStores(): Promise<Store[]> {
         id: d.id,
         slug: d.slug,
         storeName: d.store_name,
-        storeTagline: d.store_tagline || '',
+        storeTagline: cleanTaglineText(d.store_tagline, 'Direktori Kemitraan & Pasokan Resmi SR12 Skin Care'),
         storeTheme: d.store_theme || 'emerald',
         heroTitle: d.hero_title || d.store_name,
-        heroSubtitle: d.hero_subtitle || '',
+        heroSubtitle: cleanTaglineText(d.hero_subtitle, 'Dapatkan produk herbal & skin care resmi SR12 terverifikasi BPOM dan Halal MUI dengan harga resmi, jaminan keaslian 100%, serta pengiriman cepat ke seluruh Indonesia.'),
         heroBannerUrl: d.hero_banner_url || '/assets/hero-banner.jpg',
         storeLogoText: d.store_logo_text || 'SR12',
         storeLogoUrl: d.store_logo_url || '/assets/sr12-logo.png',

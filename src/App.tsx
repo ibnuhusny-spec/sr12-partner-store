@@ -21,11 +21,12 @@ import { CartDrawer } from './components/storefront/CartDrawer';
 import { RegisterStoreModal } from './components/storefront/RegisterStoreModal';
 import { DevConsoleModal } from './components/dev/DevConsoleModal';
 import { DistributorLoginModal } from './components/dev/DistributorLoginModal';
+import { StoreAdminLoginModal } from './components/dev/StoreAdminLoginModal';
 import { AffiliateBanner } from './components/storefront/AffiliateBanner';
 import { PosLayout } from './components/pos/PosLayout';
 
 export function App() {
-  const { isPosOpen, currentStore } = useApp();
+  const { isPosOpen, setIsPosOpen, currentStore } = useApp();
 
   // Load isolated catalog specific to the current active store
   const [products, setProducts] = useState<Product[]>(() => {
@@ -42,6 +43,7 @@ export function App() {
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [isDevConsoleOpen, setIsDevConsoleOpen] = useState(false);
   const [isDistributorLoginOpen, setIsDistributorLoginOpen] = useState(false);
+  const [isStoreLoginOpen, setIsStoreLoginOpen] = useState(false);
 
   // When active store switches (via ?store=... or switcher), load that store's custom catalog
   useEffect(() => {
@@ -118,6 +120,7 @@ export function App() {
         onOpenRegister={() => setIsRegisterOpen(true)}
         onOpenDevConsole={() => setIsDevConsoleOpen(true)}
         onOpenDistributorLogin={() => setIsDistributorLoginOpen(true)}
+        onOpenStoreLogin={() => setIsStoreLoginOpen(true)}
       />
 
       {/* 3. Site Navbar */}
@@ -195,6 +198,12 @@ export function App() {
       <DistributorLoginModal
         isOpen={isDistributorLoginOpen}
         onClose={() => setIsDistributorLoginOpen(false)}
+      />
+
+      <StoreAdminLoginModal
+        isOpen={isStoreLoginOpen}
+        onClose={() => setIsStoreLoginOpen(false)}
+        onSuccessLogin={() => setIsPosOpen(true)}
       />
     </div>
   );

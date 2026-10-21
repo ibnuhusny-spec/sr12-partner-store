@@ -17,6 +17,8 @@ export const DEFAULT_PARTNER_STORES: Store[] = [
     partnerTier: 'distributor',
     feePayer: 'buyer',
     storeAdminPin: '1234',
+    ownerEmail: 'admin@sr12.co.id',
+    adminPassword: 'AdminSR12@2026!',
     orderQuota: 999,
     walletBalance: 500000,
     totalTopupPaid: 0,
@@ -38,11 +40,12 @@ export const DEFAULT_PARTNER_STORES: Store[] = [
     partnerTier: 'distributor',
     feePayer: 'buyer',
     storeAdminPin: '1234',
+    ownerEmail: 'aisyah@sr12.co.id',
+    adminPassword: 'Aisyah@2026!',
     orderQuota: 50,
     walletBalance: 250000,
     totalTopupPaid: 0,
-    totalTx: 14,
-    ownerEmail: 'aisyah-herbal@sr12.co.id'
+    totalTx: 14
   },
   {
     slug: 'toko-cantik-berkah',
@@ -61,6 +64,8 @@ export const DEFAULT_PARTNER_STORES: Store[] = [
     recommenderDistributor: 'Aisyah Herbal Store',
     feePayer: 'buyer',
     storeAdminPin: '1234',
+    ownerEmail: 'berkah@sr12.co.id',
+    adminPassword: 'Berkah@2026!',
     orderQuota: 25,
     walletBalance: 120000,
     totalTopupPaid: 0,

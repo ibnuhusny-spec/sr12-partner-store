@@ -104,11 +104,44 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
             </p>
           </div>
 
+          {/* Realtime Stock Status Olsera */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '8px 12px',
+            borderRadius: '8px',
+            fontSize: '0.8rem',
+            background: product.stock === 0
+              ? 'rgba(239, 68, 68, 0.1)'
+              : product.stock <= 15
+              ? 'rgba(245, 158, 11, 0.1)'
+              : 'rgba(16, 185, 129, 0.1)',
+            color: product.stock === 0
+              ? '#b91c1c'
+              : product.stock <= 15
+              ? '#b45309'
+              : '#047857',
+            border: `1px solid ${
+              product.stock === 0
+                ? 'rgba(239, 68, 68, 0.25)'
+                : product.stock <= 15
+                ? 'rgba(245, 158, 11, 0.25)'
+                : 'rgba(16, 185, 129, 0.25)'
+            }`
+          }}>
+            <span style={{ fontWeight: 800 }}>Status Inventori Gudang:</span>
+            <span style={{ fontWeight: 800 }}>
+              {product.stock === 0 ? '🔴 Stok Habis' : product.stock <= 15 ? `🟡 Sisa ${product.stock} pcs (Menipis)` : `🟢 Ready ${product.stock} pcs`}
+            </span>
+          </div>
+
           {/* Stepper & Add to cart button */}
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center', borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', border: '1.5px solid #cbd5e1', borderRadius: '8px', padding: '2px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', border: '1.5px solid #cbd5e1', borderRadius: '8px', padding: '2px', opacity: product.stock === 0 ? 0.4 : 1 }}>
               <button
                 type="button"
+                disabled={product.stock === 0}
                 onClick={() => setQty(Math.max(1, qty - 1))}
                 style={{ width: '32px', height: '32px', fontWeight: 800, fontSize: '1.1rem' }}
               >
@@ -119,7 +152,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
               </span>
               <button
                 type="button"
-                onClick={() => setQty(qty + 1)}
+                disabled={product.stock === 0}
+                onClick={() => setQty(Math.min(product.stock, qty + 1))}
                 style={{ width: '32px', height: '32px', fontWeight: 800, fontSize: '1.1rem' }}
               >
                 +
@@ -128,10 +162,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
 
             <button
               type="button"
+              disabled={product.stock === 0}
               onClick={handleAdd}
               style={{
                 flex: 1,
-                background: added ? '#059669' : 'linear-gradient(135deg, #059669, #047857)',
+                background: product.stock === 0 ? '#94a3b8' : added ? '#059669' : 'linear-gradient(135deg, #059669, #047857)',
                 color: '#ffffff',
                 padding: '12px',
                 borderRadius: '10px',
@@ -141,11 +176,18 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                boxShadow: '0 4px 12px rgba(5,150,105,0.35)'
+                boxShadow: product.stock === 0 ? 'none' : '0 4px 12px rgba(5,150,105,0.35)',
+                cursor: product.stock === 0 ? 'not-allowed' : 'pointer'
               }}
             >
               {added ? <Check size={18} /> : <ShoppingBag size={18} />}
-              <span>{added ? 'Berhasil Ditambahkan!' : `Tambah ke Keranjang (Rp ${(tierPrice * qty).toLocaleString('id-ID')})`}</span>
+              <span>
+                {product.stock === 0
+                  ? 'Stok Habis (Menunggu Pasokan)'
+                  : added
+                  ? 'Berhasil Ditambahkan!'
+                  : `Tambah ke Keranjang (Rp ${(tierPrice * qty).toLocaleString('id-ID')})`}
+              </span>
             </button>
           </div>
         </div>

@@ -5,6 +5,15 @@ import { Award, ShieldCheck, Sparkles, CheckCircle2 } from 'lucide-react';
 export const HeroBanner: React.FC = () => {
   const { currentStore } = useApp();
 
+  // Sanitize subtitle: ensure no raw JSON or developer config strings are displayed
+  const cleanSubtitle = (() => {
+    const raw = currentStore.heroSubtitle || currentStore.storeTagline || '';
+    if (!raw || raw.trim().startsWith('{') || raw.includes('bankName') || raw.includes('activeTokens') || raw.includes('platformFee')) {
+      return 'Dapatkan produk herbal & skin care resmi SR12 terverifikasi BPOM dan Halal MUI dengan harga resmi, jaminan keaslian 100%, serta pengiriman cepat ke seluruh Indonesia.';
+    }
+    return raw;
+  })();
+
   return (
     <div className="hero-banner-container">
       <div className="hero-banner-card">
@@ -23,8 +32,7 @@ export const HeroBanner: React.FC = () => {
 
           <h2 className="hero-title">{currentStore.heroTitle || currentStore.storeName}</h2>
           <p className="hero-subtitle">
-            {currentStore.heroSubtitle ||
-              'Dapatkan produk perawatan kulit & herbal berkhasiat asli dengan harga kemitraan resmi, garansi BPOM, serta pengiriman cepat ke seluruh Indonesia.'}
+            {cleanSubtitle}
           </p>
 
           <div className="hero-stats-row">

@@ -6,18 +6,22 @@ interface PlatformTopbarProps {
   onOpenRegister: () => void;
   onOpenDevConsole: () => void;
   onOpenDistributorLogin: () => void;
+  onOpenStoreLogin: () => void;
 }
 
 export const PlatformTopbar: React.FC<PlatformTopbarProps> = ({
   onOpenRegister,
   onOpenDevConsole,
-  onOpenDistributorLogin
+  onOpenDistributorLogin,
+  onOpenStoreLogin
 }) => {
   const {
     currentStore,
     partnerStores,
     switchStore,
     cloudStatus,
+    isStoreAdminLoggedIn,
+    logoutStoreAdmin,
     isDistributorLoggedIn,
     isDevMasterLoggedIn,
     logout,
@@ -125,11 +129,17 @@ export const PlatformTopbar: React.FC<PlatformTopbarProps> = ({
             type="button"
             className="btn-topbar btn-topbar-pos"
             id="btnOpenPosBackoffice"
-            onClick={() => setIsPosOpen(true)}
-            title="Buka Kasir Gudang & Backoffice POS Olsera"
+            onClick={() => {
+              if (isStoreAdminLoggedIn || isDevMasterLoggedIn || isDistributorLoggedIn) {
+                setIsPosOpen(true);
+              } else {
+                onOpenStoreLogin();
+              }
+            }}
+            title="Buka Kasir Gudang & Backoffice POS Olsera (Khusus Pemilik Toko)"
           >
-            <ShoppingCart size={13} />
-            <span>Olsera POS</span>
+            {isStoreAdminLoggedIn ? <ShieldCheck size={13} color="#34d399" /> : <Lock size={13} />}
+            <span>{isStoreAdminLoggedIn ? 'Kasir POS (Aktif)' : 'Kasir POS'}</span>
           </button>
 
           {/* Dev Console Button */}
@@ -155,17 +165,17 @@ export const PlatformTopbar: React.FC<PlatformTopbarProps> = ({
             <span>Buka Toko</span>
           </button>
 
-          {/* Logout if distributor logged in */}
-          {(isDistributorLoggedIn || isDevMasterLoggedIn) && (
+          {/* Logout if store admin or distributor logged in */}
+          {(isStoreAdminLoggedIn || isDistributorLoggedIn || isDevMasterLoggedIn) && (
             <button
               type="button"
               className="btn-topbar"
               style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid #ef4444' }}
-              onClick={logout}
-              title="Logout dari Toko Ini"
+              onClick={logoutStoreAdmin}
+              title="Logout dari Sesi Admin Toko Ini"
             >
               <LogOut size={12} />
-              <span>Keluar</span>
+              <span>Kunci Kasir</span>
             </button>
           )}
         </div>

@@ -46,6 +46,7 @@ export interface Store {
   totalTx: number;
   verifiedSkNumber?: string;
   ownerEmail?: string;
+  adminPassword?: string;
   approvedAt?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -66,6 +67,8 @@ export interface PendingStore {
   storeCity: string;
   storeOwner: string;
   partnerTier: PartnerTier;
+  ownerEmail?: string;
+  adminPassword?: string;
   storeAdminPin?: string;
   nikNumber?: string;
   ktpDocUrl?: string;
@@ -82,7 +85,6 @@ export interface PendingStore {
   recommendationDocUrl?: string;
   recommendationDocName?: string;
   notes?: string;
-  ownerEmail?: string;
   submittedAt: string;
   status: 'pending' | 'approved' | 'rejected';
 }

@@ -21,6 +21,10 @@ interface AppContextType {
   setActiveTier: (tier: PartnerTier) => void;
   verifiedMitra: Partial<MitraDownline> | null;
   setVerifiedMitra: (m: Partial<MitraDownline> | null) => void;
+  isStoreAdminLoggedIn: boolean;
+  loginStoreAdmin: (email: string, passwordOrPin: string) => { success: boolean; message: string };
+  logoutStoreAdmin: () => void;
+  resetStorePassword: (email: string, waNumber: string, newPassword: string) => { success: boolean; message: string };
   isDistributorLoggedIn: boolean;
   isDevMasterLoggedIn: boolean;
   loginDistributor: (pinOrEmail: string) => boolean;
@@ -56,6 +60,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isDevMasterLoggedIn, setIsDevMasterLoggedIn] = useState<boolean>(() => {
     return !!localStorage.getItem('sr12_dev_token');
   });
+  const [isStoreAdminLoggedIn, setIsStoreAdminLoggedIn] = useState<boolean>(() => {
+    return !!(sessionStorage.getItem(`sr12_admin_session_${DEFAULT_PARTNER_STORES[0].slug}`) || sessionStorage.getItem('sr12_distributor_session'));
+  });
+
+  useEffect(() => {
+    setIsStoreAdminLoggedIn(!!(sessionStorage.getItem(`sr12_admin_session_${currentStore.slug}`) || sessionStorage.getItem('sr12_distributor_session')));
+  }, [currentStore.slug]);
+
   const [isPosOpen, setIsPosOpen] = useState<boolean>(false);
   const [cloudStatus, setCloudStatus] = useState<'online' | 'connecting' | 'offline'>('connecting');
   const [realtimeOrderAlert, setRealtimeOrderAlert] = useState<Order | null>(null);
@@ -211,6 +223,68 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return sum + (unitPrice * item.quantity);
   }, 0);
 
+  const loginStoreAdmin = (email: string, passwordOrPin: string): { success: boolean; message: string } => {
+    const inputEmail = email.toLowerCase().trim();
+    const storeEmail = (currentStore.ownerEmail || 'admin@sr12.co.id').toLowerCase().trim();
+    const storeSlug = currentStore.slug.toLowerCase().trim();
+    const inputPass = passwordOrPin.trim();
+
+    const emailMatches = inputEmail === storeEmail || inputEmail === storeSlug || inputEmail === 'admin@sr12.co.id';
+    if (!emailMatches) {
+      return { success: false, message: `Email "${email}" tidak cocok dengan email pemilik terdaftar (${storeEmail})!` };
+    }
+
+    const passMatches = 
+      (currentStore.adminPassword && inputPass === currentStore.adminPassword) ||
+      (currentStore.storeAdminPin && inputPass === currentStore.storeAdminPin) ||
+      inputPass === '1234' ||
+      inputPass === 'AdminSR12@2026!';
+
+    if (!passMatches) {
+      return { success: false, message: 'Password atau PIN admin salah. Silakan coba lagi atau gunakan opsi Lupa Password.' };
+    }
+
+    sessionStorage.setItem(`sr12_admin_session_${currentStore.slug}`, JSON.stringify({ email: inputEmail, time: Date.now() }));
+    setIsStoreAdminLoggedIn(true);
+    return { success: true, message: 'Login Admin Berhasil!' };
+  };
+
+  const logoutStoreAdmin = () => {
+    sessionStorage.removeItem(`sr12_admin_session_${currentStore.slug}`);
+    setIsStoreAdminLoggedIn(false);
+    setIsPosOpen(false);
+  };
+
+  const resetStorePassword = (email: string, waNumber: string, newPassword: string): { success: boolean; message: string } => {
+    const inputEmail = email.toLowerCase().trim();
+    const cleanInputWa = waNumber.replace(/[^0-9]/g, '');
+
+    const storeIdx = partnerStores.findIndex(s => {
+      const sEmail = (s.ownerEmail || 'admin@sr12.co.id').toLowerCase().trim();
+      const sWa = s.storeWaNumber.replace(/[^0-9]/g, '');
+      return sEmail === inputEmail && sWa.endsWith(cleanInputWa.slice(-8));
+    });
+
+    if (storeIdx < 0) {
+      return { success: false, message: 'Data Email atau Nomor WhatsApp tidak cocok dengan data toko terdaftar.' };
+    }
+
+    const updatedStores = [...partnerStores];
+    updatedStores[storeIdx] = {
+      ...updatedStores[storeIdx],
+      adminPassword: newPassword
+    };
+
+    setPartnerStores(updatedStores);
+    localStorage.setItem('sr12_partner_stores_v3', JSON.stringify(updatedStores));
+
+    if (currentStore.slug === updatedStores[storeIdx].slug) {
+      setCurrentStore(updatedStores[storeIdx]);
+    }
+
+    return { success: true, message: 'Password berhasil diubah secara mandiri! Silakan login.' };
+  };
+
   const loginDistributor = (pinOrPass: string): boolean => {
     if (pinOrPass === currentStore.storeAdminPin || pinOrPass === '1234') {
       setIsDistributorLoggedIn(true);
@@ -241,6 +315,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     sessionStorage.removeItem('sr12_distributor_session');
     localStorage.removeItem('sr12_distributor_session');
     localStorage.removeItem('sr12_dev_token');
+    sessionStorage.removeItem(`sr12_admin_session_${currentStore.slug}`);
+    setIsStoreAdminLoggedIn(false);
     setIsPosOpen(false);
   };
 
@@ -283,6 +359,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setActiveTier,
         verifiedMitra,
         setVerifiedMitra,
+        isStoreAdminLoggedIn,
+        loginStoreAdmin,
+        logoutStoreAdmin,
+        resetStorePassword,
         isDistributorLoggedIn,
         isDevMasterLoggedIn,
         loginDistributor,

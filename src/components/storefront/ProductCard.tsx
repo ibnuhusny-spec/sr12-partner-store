@@ -83,21 +83,72 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           )}
         </div>
 
+        {/* Realtime Stock Indicator Connected to Olsera Inventory */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '4px 8px',
+          borderRadius: '6px',
+          fontSize: '0.72rem',
+          fontWeight: 700,
+          marginBottom: '10px',
+          background: product.stock === 0
+            ? 'rgba(239, 68, 68, 0.1)'
+            : product.stock <= 15
+            ? 'rgba(245, 158, 11, 0.1)'
+            : 'rgba(16, 185, 129, 0.1)',
+          color: product.stock === 0
+            ? '#ef4444'
+            : product.stock <= 15
+            ? '#d97706'
+            : '#059669',
+          border: `1px solid ${
+            product.stock === 0
+              ? 'rgba(239, 68, 68, 0.25)'
+              : product.stock <= 15
+              ? 'rgba(245, 158, 11, 0.25)'
+              : 'rgba(16, 185, 129, 0.25)'
+          }`
+        }}>
+          <span style={{
+            width: '7px',
+            height: '7px',
+            borderRadius: '50%',
+            background: product.stock === 0 ? '#ef4444' : product.stock <= 15 ? '#f59e0b' : '#10b981',
+            boxShadow: product.stock === 0 ? '0 0 6px #ef4444' : product.stock <= 15 ? '0 0 6px #f59e0b' : '0 0 6px #10b981'
+          }} />
+          <span>
+            {product.stock === 0 ? (
+              <b>Stok Habis (Gudang Olsera)</b>
+            ) : product.stock <= 15 ? (
+              <>Sisa Stok: <b>{product.stock} pcs</b> (Menipis!)</>
+            ) : (
+              <>Stok: <b>{product.stock} pcs</b> (Tersedia)</>
+            )}
+          </span>
+        </div>
+
         {/* 3 TOMBOL KAPSUL SEBARIS (CRITICAL SPECIFICATION) */}
         <div className="product-actions-capsule-row">
           {/* Tombol 1: Keranjang */}
           <button
             type="button"
-            className="btn-capsule btn-capsule-cart"
+            className={`btn-capsule btn-capsule-cart ${product.stock === 0 ? 'disabled' : ''}`}
             id={`btn-cart-${product.id}`}
+            disabled={product.stock === 0}
             onClick={(e) => {
               e.stopPropagation();
-              addToCart(product, 1);
+              if (product.stock > 0) addToCart(product, 1);
             }}
-            title="Tambah ke Keranjang"
+            style={{
+              opacity: product.stock === 0 ? 0.45 : 1,
+              cursor: product.stock === 0 ? 'not-allowed' : 'pointer'
+            }}
+            title={product.stock === 0 ? 'Stok produk habis di gudang' : 'Tambah ke Keranjang'}
           >
             <ShoppingBag size={14} />
-            <span style={{ fontSize: '0.72rem' }}>Beli</span>
+            <span style={{ fontSize: '0.72rem' }}>{product.stock === 0 ? 'Habis' : 'Beli'}</span>
           </button>
 
           {/* Tombol 2: Detail Produk */}

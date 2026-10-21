@@ -33,7 +33,7 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
   onUpdateProduct,
   onResetCatalogToMaster
 }) => {
-  const { currentStore, setIsPosOpen } = useApp();
+  const { currentStore, setIsPosOpen, logoutStoreAdmin } = useApp();
   const [activeTab, setActiveTab] = useState<'cashier' | 'transactions' | 'inventory' | 'cashflow' | 'reports' | 'downlines'>('cashier');
   const [cashierName, setCashierName] = useState('Siti Aminah');
   const [isClockedIn, setIsClockedIn] = useState(true);
@@ -110,6 +110,29 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
               {isClockedIn ? 'SHIFT AKTIF' : 'CLOCK-OUT'}
             </span>
           </div>
+
+          {/* Lock Screen / Logout Kasir */}
+          <button
+            type="button"
+            onClick={logoutStoreAdmin}
+            style={{
+              background: 'rgba(239, 68, 68, 0.18)',
+              color: '#fca5a5',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              padding: '5px 10px',
+              borderRadius: '8px',
+              fontSize: '0.72rem',
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              cursor: 'pointer'
+            }}
+            title="Kunci Olsera POS & Keluar Sesi Admin"
+          >
+            <Lock size={12} />
+            <span>Kunci POS</span>
+          </button>
         </div>
       </header>
 
