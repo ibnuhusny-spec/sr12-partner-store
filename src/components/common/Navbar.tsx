@@ -1,14 +1,15 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
-import { ShoppingBag, MessageCircle, Building2 } from 'lucide-react';
+import { ShoppingBag, MessageCircle, Store as StoreIcon } from 'lucide-react';
 
 interface NavbarProps {
   onOpenCart: () => void;
   onOpenDistributorLogin: () => void;
+  onOpenDirectory?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenDistributorLogin }) => {
-  const { currentStore, switchStore, cartCount } = useApp();
+export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenDistributorLogin, onOpenDirectory }) => {
+  const { currentStore, cartCount } = useApp();
 
   const handleLogoDblClick = () => {
     onOpenDistributorLogin();
@@ -51,18 +52,19 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenDistributorLog
 
         {/* Header Actions */}
         <div className="navbar-actions">
-          {!isCentral && (
+          {onOpenDirectory && (
             <button
               type="button"
-              className="btn-topbar hide-on-mobile"
-              style={{ background: '#f8fafc', color: '#065f46', border: '1px solid #a7f3d0' }}
-              onClick={() => switchStore('sr12-central')}
-              title="Kembali belanja di Toko Pusat SR12"
+              className="btn-topbar"
+              style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0' }}
+              onClick={onOpenDirectory}
+              title="Cari Toko Mitra SR12 Lain di Kota Anda"
             >
-              <Building2 size={13} />
-              <span>Belanja di Pusat</span>
+              <StoreIcon size={13} />
+              <span><span className="hide-on-mobile">Pilih </span>Toko Lain</span>
             </button>
           )}
+
 
           {/* WhatsApp CS Link (Desktop view, on mobile it is in BottomNav) */}
           {currentStore.storeWaNumber && (

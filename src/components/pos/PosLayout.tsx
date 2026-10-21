@@ -42,7 +42,7 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
     <div className="pos-wrapper">
       {/* POS Topbar Header */}
       <header className="pos-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button
             type="button"
             onClick={() => setIsPosOpen(false)}
@@ -50,64 +50,67 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
               background: '#0f172a',
               color: '#38bdf8',
               border: '1px solid #334155',
-              padding: '6px 12px',
+              padding: '6px 10px',
               borderRadius: '8px',
-              fontSize: '0.76rem',
+              fontSize: '0.74rem',
               fontWeight: 800,
               display: 'flex',
               alignItems: 'center',
-              gap: '6px'
+              gap: '4px',
+              cursor: 'pointer'
             }}
             title="Kembali ke Etalase Toko Online Pembeli"
           >
             <ChevronLeft size={16} />
-            <span>Etalase Toko</span>
+            <span><span className="hide-on-mobile">Etalase </span>Toko</span>
           </button>
 
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontWeight: 900, fontSize: '0.96rem', color: '#f8fafc' }}>{currentStore.storeName}</span>
-              <span style={{ fontSize: '0.65rem', background: '#0369a1', color: '#e0f2fe', padding: '1px 7px', borderRadius: '4px', fontWeight: 800 }}>
-                OLSERA POS BACKOFFICE
+              <span style={{ fontWeight: 900, fontSize: '0.92rem', color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '160px' }}>
+                {currentStore.storeName}
+              </span>
+              <span style={{ fontSize: '0.62rem', background: '#0369a1', color: '#e0f2fe', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
+                POS
               </span>
             </div>
-            <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-              Gudang Distributor &bull; {currentStore.storeCity}
+            <div className="hide-on-mobile" style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+              Gudang &bull; {currentStore.storeCity}
             </div>
           </div>
         </div>
 
         {/* Cashier Attendance & Shift Info */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div
             style={{
               background: '#0f172a',
               border: '1px solid #334155',
-              padding: '4px 12px',
+              padding: '4px 10px',
               borderRadius: '999px',
-              fontSize: '0.74rem',
+              fontSize: '0.72rem',
               display: 'flex',
               alignItems: 'center',
               gap: '6px'
             }}
           >
-            <Clock size={13} color={isClockedIn ? '#34d399' : '#f59e0b'} />
-            <span style={{ color: '#94a3b8' }}>Kasir:</span>
+            <Clock size={12} color={isClockedIn ? '#34d399' : '#f59e0b'} />
+            <span className="hide-on-mobile" style={{ color: '#94a3b8' }}>Kasir:</span>
             <b style={{ color: '#f8fafc' }}>{cashierName}</b>
             <span
               onClick={() => setIsClockedIn(!isClockedIn)}
               style={{
-                fontSize: '0.65rem',
+                fontSize: '0.62rem',
                 fontWeight: 800,
                 color: isClockedIn ? '#34d399' : '#f59e0b',
                 background: isClockedIn ? 'rgba(52,211,153,0.15)' : 'rgba(245,158,11,0.15)',
-                padding: '1px 6px',
+                padding: '1px 5px',
                 borderRadius: '4px',
                 cursor: 'pointer'
               }}
               title="Klik untuk ubah status Clock-In / Clock-Out"
             >
-              {isClockedIn ? 'SHIFT AKTIF' : 'CLOCK-OUT'}
+              {isClockedIn ? 'AKTIF' : 'OFF'}
             </span>
           </div>
 
@@ -125,133 +128,135 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
               fontWeight: 800,
               display: 'flex',
               alignItems: 'center',
-              gap: '5px',
+              gap: '4px',
               cursor: 'pointer'
             }}
             title="Kunci Olsera POS & Keluar Sesi Admin"
           >
             <Lock size={12} />
-            <span>Kunci POS</span>
+            <span className="hide-on-mobile">Kunci POS</span>
           </button>
         </div>
       </header>
 
       {/* Navigation Sub-Tabs */}
-      <nav style={{ background: '#0f172a', borderBottom: '1px solid #334155', padding: '0 16px', display: 'flex', gap: '4px', overflowX: 'auto' }}>
+      <nav style={{ background: '#0f172a', borderBottom: '1px solid #334155', padding: '0 8px', display: 'flex', gap: '2px', overflowX: 'auto', scrollbarWidth: 'none' }}>
         <button
           type="button"
           onClick={() => setActiveTab('cashier')}
           style={{
-            padding: '10px 16px',
-            fontSize: '0.8rem',
+            padding: '10px 12px',
+            fontSize: '0.78rem',
             fontWeight: 800,
             color: activeTab === 'cashier' ? '#38bdf8' : '#94a3b8',
             borderBottom: activeTab === 'cashier' ? '2.5px solid #38bdf8' : '2.5px solid transparent',
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
+            gap: '5px',
             whiteSpace: 'nowrap'
           }}
         >
-          <ShoppingCart size={15} />
-          <span>Kasir POS Cepat</span>
+          <ShoppingCart size={14} />
+          <span>Kasir</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('transactions')}
           style={{
-            padding: '10px 16px',
-            fontSize: '0.8rem',
+            padding: '10px 12px',
+            fontSize: '0.78rem',
             fontWeight: 800,
             color: activeTab === 'transactions' ? '#38bdf8' : '#94a3b8',
             borderBottom: activeTab === 'transactions' ? '2.5px solid #38bdf8' : '2.5px solid transparent',
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
+            gap: '5px',
             whiteSpace: 'nowrap'
           }}
         >
-          <Receipt size={15} />
-          <span>Pesanan &amp; Transaksi</span>
+          <Receipt size={14} />
+          <span>Transaksi</span>
         </button>
+
 
         <button
           type="button"
           onClick={() => setActiveTab('inventory')}
           style={{
-            padding: '10px 16px',
-            fontSize: '0.8rem',
+            padding: '10px 12px',
+            fontSize: '0.78rem',
             fontWeight: 800,
             color: activeTab === 'inventory' ? '#38bdf8' : '#94a3b8',
             borderBottom: activeTab === 'inventory' ? '2.5px solid #38bdf8' : '2.5px solid transparent',
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
+            gap: '5px',
             whiteSpace: 'nowrap'
           }}
         >
-          <Package size={15} />
-          <span>Inventori &amp; Stok Olsera</span>
+          <Package size={14} />
+          <span>Inventori &amp; Stok</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('cashflow')}
           style={{
-            padding: '10px 16px',
-            fontSize: '0.8rem',
+            padding: '10px 12px',
+            fontSize: '0.78rem',
             fontWeight: 800,
             color: activeTab === 'cashflow' ? '#38bdf8' : '#94a3b8',
             borderBottom: activeTab === 'cashflow' ? '2.5px solid #38bdf8' : '2.5px solid transparent',
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
+            gap: '5px',
             whiteSpace: 'nowrap'
           }}
         >
-          <Wallet size={15} />
-          <span>Buku Kas (Masuk/Keluar)</span>
+          <Wallet size={14} />
+          <span>Buku Kas</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('reports')}
           style={{
-            padding: '10px 16px',
-            fontSize: '0.8rem',
+            padding: '10px 12px',
+            fontSize: '0.78rem',
             fontWeight: 800,
             color: activeTab === 'reports' ? '#38bdf8' : '#94a3b8',
             borderBottom: activeTab === 'reports' ? '2.5px solid #38bdf8' : '2.5px solid transparent',
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
+            gap: '5px',
             whiteSpace: 'nowrap'
           }}
         >
-          <BarChart3 size={15} />
-          <span>Laporan Laba/Rugi &amp; CSV</span>
+          <BarChart3 size={14} />
+          <span>Laporan</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('downlines')}
           style={{
-            padding: '10px 16px',
-            fontSize: '0.8rem',
+            padding: '10px 12px',
+            fontSize: '0.78rem',
             fontWeight: 800,
             color: activeTab === 'downlines' ? '#38bdf8' : '#94a3b8',
             borderBottom: activeTab === 'downlines' ? '2.5px solid #38bdf8' : '2.5px solid transparent',
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
+            gap: '5px',
             whiteSpace: 'nowrap'
           }}
         >
-          <Users size={15} />
-          <span>Database Mitra &amp; Gaji Marketer</span>
+          <Users size={14} />
+          <span>Mitra &amp; Downline</span>
         </button>
       </nav>
+
 
       {/* Main Tab Content */}
       <main style={{ flex: 1, overflow: 'hidden' }}>

@@ -25,15 +25,22 @@ import { StoreAdminLoginModal } from './components/dev/StoreAdminLoginModal';
 import { AffiliateBanner } from './components/storefront/AffiliateBanner';
 import { PosLayout } from './components/pos/PosLayout';
 import { BottomNav } from './components/common/BottomNav';
+import { StoreDirectoryView } from './components/directory/StoreDirectoryView';
 
 export function App() {
-  const { isPosOpen, setIsPosOpen, currentStore } = useApp();
+  const { isPosOpen, setIsPosOpen, currentStore, switchStore } = useApp();
 
+  // Mode: 'directory' for finding nearby partner stores, 'storefront' for active store catalog
+  const [viewMode, setViewMode] = useState<'directory' | 'storefront'>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('store') ? 'storefront' : 'directory';
+  });
 
   // Load isolated catalog specific to the current active store
   const [products, setProducts] = useState<Product[]>(() => {
     return getStoreCatalog(currentStore.slug);
   });
+
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -112,6 +119,42 @@ export function App() {
     );
   }
 
+  // 1. DIRECTORY MODE: Show official partners directory when visitor lands on root without specific store
+  if (viewMode === 'directory') {
+    return (
+      <>
+        <StoreDirectoryView
+          onSelectStore={(store) => {
+            switchStore(store.slug);
+            try {
+              localStorage.setItem('sr12_last_visited_store', store.slug);
+            } catch {}
+            setViewMode('storefront');
+          }}
+          onOpenRegister={() => setIsRegisterOpen(true)}
+          onOpenStoreLogin={() => setIsStoreLoginOpen(true)}
+        />
+
+        <RegisterStoreModal
+          isOpen={isRegisterOpen}
+          onClose={() => setIsRegisterOpen(false)}
+        />
+
+        <StoreAdminLoginModal
+          isOpen={isStoreLoginOpen}
+          onClose={() => setIsStoreLoginOpen(false)}
+          onSuccessLogin={() => setIsPosOpen(true)}
+        />
+
+        <DevConsoleModal
+          isOpen={isDevConsoleOpen}
+          onClose={() => setIsDevConsoleOpen(false)}
+        />
+      </>
+    );
+  }
+
+  // 2. STOREFRONT MODE: Show selected partner store's personal storefront
   return (
     <div className="storefront-page">
       {/* 1. Affiliate Top Banner if ref present */}
@@ -125,11 +168,18 @@ export function App() {
         onOpenStoreLogin={() => setIsStoreLoginOpen(true)}
       />
 
-      {/* 3. Site Navbar */}
+      {/* 3. Site Navbar with Directory Switcher */}
       <Navbar
         onOpenCart={() => setIsCartOpen(true)}
         onOpenDistributorLogin={() => setIsDistributorLoginOpen(true)}
+        onOpenDirectory={() => {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('store');
+          window.history.pushState({}, '', url.pathname);
+          setViewMode('directory');
+        }}
       />
+
 
       {/* 4. Realtime Audio Chime Alert */}
       <NotificationChime />
