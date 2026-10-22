@@ -72,7 +72,7 @@ export const PosTransactionsView: React.FC = () => {
           <p style={{ margin: 0, fontSize: '0.78rem', color: '#94a3b8' }}>Pantau pesanan web masuk dan penjualan kasir langsung</p>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <button
             type="button"
             onClick={() => setFilter('all')}
@@ -83,7 +83,8 @@ export const PosTransactionsView: React.FC = () => {
               fontWeight: 700,
               background: filter === 'all' ? '#0284c7' : '#1e293b',
               color: '#fff',
-              border: '1px solid #334155'
+              border: '1px solid #334155',
+              cursor: 'pointer'
             }}
           >
             Semua ({orders.length})
@@ -92,31 +93,43 @@ export const PosTransactionsView: React.FC = () => {
             type="button"
             onClick={() => setFilter('pending')}
             style={{
-              padding: '6px 12px',
+              padding: '6px 10px',
               borderRadius: '6px',
               fontSize: '0.76rem',
               fontWeight: 700,
               background: filter === 'pending' ? '#f59e0b' : '#1e293b',
               color: '#fff',
-              border: '1px solid #334155'
+              border: '1px solid #334155',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              cursor: 'pointer'
             }}
+            title="Pesanan Perlu Diproses"
           >
-            Perlu Diproses
+            <Clock size={13} />
+            <span className="hide-on-mobile">Perlu Diproses</span>
           </button>
           <button
             type="button"
             onClick={() => setFilter('done')}
             style={{
-              padding: '6px 12px',
+              padding: '6px 10px',
               borderRadius: '6px',
               fontSize: '0.76rem',
               fontWeight: 700,
               background: filter === 'done' ? '#059669' : '#1e293b',
               color: '#fff',
-              border: '1px solid #334155'
+              border: '1px solid #334155',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              cursor: 'pointer'
             }}
+            title="Pesanan Selesai / Lunas"
           >
-            Selesai
+            <CheckCircle2 size={13} />
+            <span className="hide-on-mobile">Selesai</span>
           </button>
           <button
             type="button"
@@ -131,7 +144,7 @@ export const PosTransactionsView: React.FC = () => {
             type="button"
             onClick={handleClearAll}
             style={{
-              padding: '6px 12px',
+              padding: '6px 10px',
               borderRadius: '6px',
               fontSize: '0.76rem',
               fontWeight: 800,
@@ -146,7 +159,7 @@ export const PosTransactionsView: React.FC = () => {
             title="Hapus seluruh riwayat transaksi toko ini untuk mulai simulasi baru"
           >
             <Trash2 size={13} />
-            <span>Bersihkan Semua Transaksi</span>
+            <span className="hide-on-mobile">Bersihkan Transaksi</span>
           </button>
         </div>
       </div>

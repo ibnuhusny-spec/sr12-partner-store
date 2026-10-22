@@ -68,18 +68,19 @@ export const PosReportsView: React.FC = () => {
               background: 'rgba(239, 68, 68, 0.15)',
               color: '#f87171',
               border: '1px solid rgba(239, 68, 68, 0.4)',
-              padding: '8px 14px',
+              padding: '8px 12px',
               borderRadius: '8px',
               fontSize: '0.8rem',
               fontWeight: 800,
               display: 'flex',
               alignItems: 'center',
-              gap: '6px'
+              gap: '6px',
+              cursor: 'pointer'
             }}
             title="Bersihkan seluruh data transaksi dan reset laporan omzet ke nol"
           >
             <Trash2 size={14} />
-            <span>Reset Laporan ke Nol</span>
+            <span className="hide-on-mobile">Reset Laporan</span>
           </button>
           <button
             type="button"
@@ -87,17 +88,19 @@ export const PosReportsView: React.FC = () => {
             style={{
               background: 'linear-gradient(135deg, #0284c7, #0369a1)',
               color: '#fff',
-              padding: '8px 16px',
+              padding: '8px 14px',
               borderRadius: '8px',
               fontSize: '0.8rem',
               fontWeight: 800,
               display: 'flex',
               alignItems: 'center',
-              gap: '6px'
+              gap: '6px',
+              cursor: 'pointer'
             }}
+            title="Ekspor Laporan Transaksi ke CSV"
           >
             <Download size={15} />
-            <span>Ekspor Data ke CSV</span>
+            <span className="hide-on-mobile">Ekspor CSV</span>
           </button>
         </div>
       </div>

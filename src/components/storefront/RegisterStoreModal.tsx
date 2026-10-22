@@ -34,11 +34,29 @@ export const RegisterStoreModal: React.FC<RegisterStoreModalProps> = ({ isOpen, 
   const [storeCity, setStoreCity] = useState('');
   const [partnerTier, setPartnerTier] = useState<PartnerTier>('sub_agen');
   const [recommenderDistributor, setRecommenderDistributor] = useState('');
+  const [skNumber, setSkNumber] = useState('');
   const [nikNumber, setNikNumber] = useState('');
 
   const [validationError, setValidationError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
+
+  const handleCloseModal = () => {
+    if (submittedSuccess) {
+      setStoreName('');
+      setStoreOwner('');
+      setOwnerEmail('');
+      setAdminPassword('');
+      setConfirmPassword('');
+      setStoreWaNumber('');
+      setStoreCity('');
+      setSkNumber('');
+      setNikNumber('');
+      setSubmittedSuccess(false);
+    }
+    setValidationError('');
+    onClose();
+  };
 
   if (!isOpen) return null;
 
@@ -98,7 +116,8 @@ export const RegisterStoreModal: React.FC<RegisterStoreModalProps> = ({ isOpen, 
         storeCity: storeCity.trim() || 'Indonesia',
         partnerTier,
         recommenderDistributor: recommenderDistributor || undefined,
-        nikNumber
+        skNumber: skNumber.trim(),
+        nikNumber: nikNumber.trim()
       });
 
       if (res.success) {
@@ -115,7 +134,7 @@ export const RegisterStoreModal: React.FC<RegisterStoreModalProps> = ({ isOpen, 
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={handleCloseModal}>
       <div
         className="modal-content"
         onClick={(e) => e.stopPropagation()}
@@ -128,7 +147,7 @@ export const RegisterStoreModal: React.FC<RegisterStoreModalProps> = ({ isOpen, 
               Pendaftaran Toko Online Mitra SR12 (Aman &amp; Terverifikasi)
             </h3>
           </div>
-          <button type="button" className="btn-close-modal" onClick={onClose}>
+          <button type="button" className="btn-close-modal" onClick={handleCloseModal}>
             <X size={18} />
           </button>
         </div>
@@ -156,10 +175,7 @@ export const RegisterStoreModal: React.FC<RegisterStoreModalProps> = ({ isOpen, 
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  setSubmittedSuccess(false);
-                  onClose();
-                }}
+                onClick={handleCloseModal}
                 style={{
                   background: '#059669',
                   color: '#ffffff',
@@ -381,8 +397,8 @@ export const RegisterStoreModal: React.FC<RegisterStoreModalProps> = ({ isOpen, 
                     type="text"
                     required
                     placeholder="Contoh: SK-SR12-DIST-2026-089 / ID Mitra Resmi"
-                    value={nikNumber}
-                    onChange={(e) => setNikNumber(e.target.value)}
+                    value={skNumber}
+                    onChange={(e) => setSkNumber(e.target.value)}
                     style={{ width: '100%', padding: '9px 12px 9px 36px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
                   />
                 </div>

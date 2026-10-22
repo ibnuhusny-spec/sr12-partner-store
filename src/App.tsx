@@ -104,6 +104,26 @@ export function App() {
     }
   }, [products]);
 
+  // Hidden developer access listener: Ctrl + Shift + D or ?dev=true or #dev
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
+        e.preventDefault();
+        setIsDevConsoleOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('dev') === 'true' || window.location.hash === '#dev') {
+        setIsDevConsoleOpen(true);
+      }
+    } catch {}
+
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const handleUpdateStock = (productId: string, newStock: number) => {
     const nextCatalog = updateStoreProductStock(currentStore.slug, productId, newStock);
     setProducts(nextCatalog);
@@ -158,6 +178,7 @@ export function App() {
           }}
           onOpenRegister={() => setIsRegisterOpen(true)}
           onOpenStoreLogin={() => setIsStoreLoginOpen(true)}
+          onSecretDevOpen={() => setIsDevConsoleOpen(true)}
         />
 
         <RegisterStoreModal
@@ -244,8 +265,8 @@ export function App() {
         )}
       </main>
 
-      {/* 8. Footer */}
-      <Footer />
+      {/* 8. Footer (Secret 5-click on copyright opens Developer Console) */}
+      <Footer onSecretDevOpen={() => setIsDevConsoleOpen(true)} />
 
       {/* MODALS */}
       <ProductDetailModal

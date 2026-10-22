@@ -223,7 +223,7 @@ export const PosDownlinesView: React.FC = () => {
             type="button"
             onClick={() => setActiveTab('downlines')}
             style={{
-              padding: '8px 14px',
+              padding: '8px 12px',
               borderRadius: '8px',
               fontSize: '0.78rem',
               fontWeight: 800,
@@ -233,13 +233,13 @@ export const PosDownlinesView: React.FC = () => {
               cursor: 'pointer'
             }}
           >
-            👥 Database Mitra ({downlines.length})
+            👥 <span className="hide-on-mobile">Database </span>Mitra ({downlines.length})
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('payroll')}
             style={{
-              padding: '8px 14px',
+              padding: '8px 12px',
               borderRadius: '8px',
               fontSize: '0.78rem',
               fontWeight: 800,
@@ -249,7 +249,7 @@ export const PosDownlinesView: React.FC = () => {
               cursor: 'pointer'
             }}
           >
-            💼 Komisi Marketer 15% ({sales.length})
+            💼 <span className="hide-on-mobile">Komisi </span>Marketer ({sales.length})
           </button>
           {activeTab === 'downlines' && (
             <>
@@ -260,7 +260,7 @@ export const PosDownlinesView: React.FC = () => {
                   background: 'rgba(239, 68, 68, 0.18)',
                   color: '#f87171',
                   border: '1px solid rgba(239, 68, 68, 0.45)',
-                  padding: '8px 12px',
+                  padding: '8px 10px',
                   borderRadius: '8px',
                   fontSize: '0.78rem',
                   fontWeight: 800,
@@ -272,7 +272,7 @@ export const PosDownlinesView: React.FC = () => {
                 title="Hapus seluruh mitra downline untuk mengosongkan database menjadi 0 mitra"
               >
                 <Trash2 size={14} />
-                <span>Kosongkan Semua Mitra</span>
+                <span className="hide-on-mobile">Kosongkan Semua Mitra</span>
               </button>
 
               <button
@@ -282,7 +282,7 @@ export const PosDownlinesView: React.FC = () => {
                   background: '#1e293b',
                   color: '#fbbf24',
                   border: '1px solid #475569',
-                  padding: '8px 12px',
+                  padding: '8px 10px',
                   borderRadius: '8px',
                   fontSize: '0.78rem',
                   fontWeight: 800,
@@ -294,7 +294,7 @@ export const PosDownlinesView: React.FC = () => {
                 title="Reset seluruh akumulasi belanja mitra ke Rp 0 untuk simulasi baru"
               >
                 <RotateCcw size={14} />
-                <span>Reset Belanja ke 0</span>
+                <span className="hide-on-mobile">Reset Belanja ke 0</span>
               </button>
 
               <button
@@ -304,7 +304,7 @@ export const PosDownlinesView: React.FC = () => {
                   background: '#0f172a',
                   border: '1px solid #475569',
                   color: '#94a3b8',
-                  padding: '8px 12px',
+                  padding: '8px 10px',
                   borderRadius: '8px',
                   fontSize: '0.78rem',
                   fontWeight: 700,
@@ -316,7 +316,7 @@ export const PosDownlinesView: React.FC = () => {
                 title="Kembalikan daftar mitra bawaan contoh SR12"
               >
                 <Users size={14} />
-                <span>Mitra Default</span>
+                <span className="hide-on-mobile">Mitra Default</span>
               </button>
 
               <button
@@ -326,7 +326,7 @@ export const PosDownlinesView: React.FC = () => {
                   background: 'rgba(56, 189, 248, 0.15)',
                   color: '#38bdf8',
                   border: '1px solid rgba(56, 189, 248, 0.35)',
-                  padding: '8px 14px',
+                  padding: '8px 10px',
                   borderRadius: '8px',
                   fontSize: '0.78rem',
                   fontWeight: 800,
@@ -338,7 +338,7 @@ export const PosDownlinesView: React.FC = () => {
                 title="Lihat Aturan Baku Kemitraan SR12 2026 Resmi (CK SWORD)"
               >
                 <Award size={14} />
-                <span>📜 Rules 2026</span>
+                <span className="hide-on-mobile">Rules 2026</span>
               </button>
 
               <button
@@ -347,7 +347,7 @@ export const PosDownlinesView: React.FC = () => {
                 style={{
                   background: '#059669',
                   color: '#fff',
-                  padding: '8px 14px',
+                  padding: '8px 12px',
                   borderRadius: '8px',
                   fontSize: '0.78rem',
                   fontWeight: 800,
@@ -356,9 +356,10 @@ export const PosDownlinesView: React.FC = () => {
                   gap: '5px',
                   cursor: 'pointer'
                 }}
+                title="Tambah Mitra Baru"
               >
                 <UserPlus size={14} />
-                <span>Tambah Mitra</span>
+                <span className="hide-on-mobile">Tambah Mitra</span>
               </button>
             </>
           )}
@@ -371,7 +372,7 @@ export const PosDownlinesView: React.FC = () => {
                 background: 'rgba(239, 68, 68, 0.15)',
                 color: '#f87171',
                 border: '1px solid rgba(239, 68, 68, 0.4)',
-                padding: '8px 14px',
+                padding: '8px 12px',
                 borderRadius: '8px',
                 fontSize: '0.78rem',
                 fontWeight: 800,
@@ -383,7 +384,7 @@ export const PosDownlinesView: React.FC = () => {
               title="Hapus seluruh riwayat komisi dan penjualan Marketer"
             >
               <Trash2 size={14} />
-              <span>Bersihkan Riwayat Komisi</span>
+              <span className="hide-on-mobile">Bersihkan Riwayat Komisi</span>
             </button>
           )}
         </div>

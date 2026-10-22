@@ -160,14 +160,14 @@ export const DevConsoleModal: React.FC<DevConsoleModalProps> = ({ isOpen, onClos
               Masukkan Master PIN Developer
             </h3>
             <p style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '16px' }}>
-              Akses khusus Super Admin (PIN Demo: <b>8899</b>)
+              Akses Terbatas: Khusus Developer &amp; Super Admin
             </p>
             <form onSubmit={handlePinSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <input
                 type="password"
                 maxLength={6}
                 autoFocus
-                placeholder="PIN 4 Digit (8899)"
+                placeholder="Masukkan Master PIN"
                 value={pinInput}
                 onChange={(e) => setPinInput(e.target.value)}
                 style={{

@@ -215,8 +215,8 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
         </div>
       </header>
 
-      {/* Navigation Sub-Tabs */}
-      <nav style={{ background: '#0f172a', borderBottom: '1px solid #334155', padding: '0 8px', display: 'flex', gap: '2px', overflowX: 'auto', scrollbarWidth: 'none' }}>
+      {/* Navigation Sub-Tabs (Desktop only) */}
+      <nav className="hide-on-mobile" style={{ background: '#0f172a', borderBottom: '1px solid #334155', padding: '0 8px', display: 'flex', gap: '2px', overflowX: 'auto', scrollbarWidth: 'none' }}>
         <button
           type="button"
           onClick={() => setActiveTab('cashier')}
@@ -254,7 +254,6 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
           <Receipt size={14} />
           <span>Transaksi</span>
         </button>
-
 
         <button
           type="button"
@@ -333,9 +332,8 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
         </button>
       </nav>
 
-
       {/* Main Tab Content */}
-      <main style={{ flex: 1, overflow: 'hidden' }}>
+      <main className="pos-main-container" style={{ flex: 1, overflow: 'hidden' }}>
         {activeTab === 'cashier' && (
           <PosCashierView
             products={products}
@@ -357,6 +355,81 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
         {activeTab === 'reports' && <PosReportsView />}
         {activeTab === 'downlines' && <PosDownlinesView />}
       </main>
+
+      {/* Mobile Bottom Navigation Dock (OLSERA APP STYLE) */}
+      <nav className="pos-mobile-bottom-nav">
+        <button
+          type="button"
+          onClick={() => setActiveTab('cashier')}
+          className={`pos-bottom-nav-item ${activeTab === 'cashier' ? 'active' : ''}`}
+          title="Kasir POS"
+        >
+          <div className="pos-nav-icon-wrap">
+            <ShoppingCart size={18} />
+          </div>
+          <span className="pos-bottom-nav-label">Kasir</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('transactions')}
+          className={`pos-bottom-nav-item ${activeTab === 'transactions' ? 'active' : ''}`}
+          title="Riwayat Pesanan & Transaksi"
+        >
+          <div className="pos-nav-icon-wrap">
+            <Receipt size={18} />
+          </div>
+          <span className="pos-bottom-nav-label">Transaksi</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('inventory')}
+          className={`pos-bottom-nav-item ${activeTab === 'inventory' ? 'active' : ''}`}
+          title="Inventori & Stok"
+        >
+          <div className="pos-nav-icon-wrap">
+            <Package size={18} />
+          </div>
+          <span className="pos-bottom-nav-label">Stok</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('cashflow')}
+          className={`pos-bottom-nav-item ${activeTab === 'cashflow' ? 'active' : ''}`}
+          title="Buku Kas Masuk/Keluar"
+        >
+          <div className="pos-nav-icon-wrap">
+            <Wallet size={18} />
+          </div>
+          <span className="pos-bottom-nav-label">Buku Kas</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('reports')}
+          className={`pos-bottom-nav-item ${activeTab === 'reports' ? 'active' : ''}`}
+          title="Laporan Omset & Laba"
+        >
+          <div className="pos-nav-icon-wrap">
+            <BarChart3 size={18} />
+          </div>
+          <span className="pos-bottom-nav-label">Laporan</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('downlines')}
+          className={`pos-bottom-nav-item ${activeTab === 'downlines' ? 'active' : ''}`}
+          title="Database Mitra & Downline"
+        >
+          <div className="pos-nav-icon-wrap">
+            <Users size={18} />
+          </div>
+          <span className="pos-bottom-nav-label">Mitra</span>
+        </button>
+      </nav>
 
       {/* Token Topup & Settings Modal */}
       <TokenTopupModal

@@ -30,12 +30,35 @@ export const PlatformTopbar: React.FC<PlatformTopbarProps> = ({
   } = useApp();
 
   const [showStoreDropdown, setShowStoreDropdown] = useState(false);
+  const [brandClicks, setBrandClicks] = useState(0);
+  const [lastBrandClickTime, setLastBrandClickTime] = useState(0);
+
+  const handleSecretBrandClick = () => {
+    const now = Date.now();
+    if (now - lastBrandClickTime > 2500) {
+      setBrandClicks(1);
+    } else {
+      const count = brandClicks + 1;
+      if (count >= 5) {
+        setBrandClicks(0);
+        onOpenDevConsole();
+      } else {
+        setBrandClicks(count);
+      }
+    }
+    setLastBrandClickTime(now);
+  };
 
   return (
     <aside className="platform-topbar" id="platformTopbar">
       <div className="platform-topbar-inner">
-        {/* Left: Brand Platform */}
-        <div className="platform-brand">
+        {/* Left: Brand Platform (Secret 5-click opens Developer Console) */}
+        <div
+          className="platform-brand"
+          onClick={handleSecretBrandClick}
+          style={{ cursor: 'pointer', userSelect: 'none' }}
+          title="SR12 Partner Ecosystem"
+        >
           <span className="badge-official">🌿 Resmi</span>
           <span className="hide-on-mobile">Jaringan Toko Online Mitra SR12</span>
         </div>
@@ -141,18 +164,6 @@ export const PlatformTopbar: React.FC<PlatformTopbarProps> = ({
           >
             {isStoreAdminLoggedIn ? <ShieldCheck size={13} color="#34d399" /> : <Lock size={13} />}
             <span>{isStoreAdminLoggedIn ? 'Kasir POS (Aktif)' : 'Kasir POS'}</span>
-          </button>
-
-          {/* Dev Console Button (Desktop only) */}
-          <button
-            type="button"
-            className="btn-topbar hide-on-mobile"
-            style={{ background: '#1e293b', color: '#fde68a', border: '1px solid rgba(253, 230, 138, 0.3)' }}
-            onClick={onOpenDevConsole}
-            title="Buka Console Super Admin Developer (PIN 8899)"
-          >
-            <Lock size={12} />
-            <span>Dev</span>
           </button>
 
           {/* Buka Toko Baru */}

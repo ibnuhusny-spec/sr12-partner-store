@@ -952,6 +952,84 @@
   color: #15803d !important;
 }
 
+/* ========================================================
+   POS MOBILE BOTTOM NAVIGATION DOCK (OLSERA APP STYLE)
+   ======================================================== */
+.pos-mobile-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  height: 60px;
+  background: #090f1d;
+  border-top: 1px solid #1e293b;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 4px calc(env(safe-area-inset-bottom, 0px) + 2px);
+}
+
+@media (min-width: 769px) {
+  .pos-mobile-bottom-nav {
+    display: none !important;
+  }
+}
+
+.pos-bottom-nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 2px;
+  color: #64748b;
+  text-decoration: none;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.pos-bottom-nav-item:active {
+  transform: scale(0.92);
+}
+
+.pos-bottom-nav-item.active {
+  color: #38bdf8;
+}
+
+.pos-bottom-nav-item.active .pos-nav-icon-wrap {
+  background: rgba(56, 189, 248, 0.15);
+  border-radius: 8px;
+  color: #38bdf8;
+}
+
+.pos-nav-icon-wrap {
+  width: 32px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.pos-bottom-nav-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .pos-main-container {
+    padding-bottom: 74px !important;
+  }
+}
+
 /* Tier Selector refinements */
 .tier-header-info {
   display: flex;
@@ -2046,7 +2124,7 @@
   }
 
   .pos-catalog-area {
-    padding: 10px 10px 80px !important;
+    padding: 10px 10px 130px !important;
   }
 
   .pos-products-grid {
@@ -2057,10 +2135,10 @@
   /* Floating Bar */
   .pos-mobile-floating-bar {
     position: fixed;
-    bottom: 0;
+    bottom: calc(60px + env(safe-area-inset-bottom, 0px));
     left: 0;
     right: 0;
-    z-index: 999;
+    z-index: 9998;
     background: #0f172a;
     border-top: 1px solid #334155;
     padding: 10px 14px;

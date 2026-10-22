@@ -325,7 +325,7 @@ Mohon segera diproses pengirimannya dari gudang pusat PT SR12. Terima kasih! ðŸ™
             title="Kosongkan seluruh stok produk toko ini menjadi 0 pcs untuk simulasi habis"
           >
             <Package size={14} />
-            <span>Kosongkan Semua Stok (0 pcs)</span>
+            <span className="hide-on-mobile">Kosongkan Semua Stok (0 pcs)</span>
           </button>
 
           <button
@@ -335,18 +335,19 @@ Mohon segera diproses pengirimannya dari gudang pusat PT SR12. Terima kasih! ðŸ™
               background: 'rgba(16, 185, 129, 0.15)',
               border: '1px solid rgba(16, 185, 129, 0.4)',
               color: '#34d399',
-              padding: '8px 12px',
+              padding: '8px 10px',
               borderRadius: '8px',
               fontSize: '0.76rem',
               fontWeight: 800,
               display: 'flex',
               alignItems: 'center',
-              gap: '6px'
+              gap: '6px',
+              cursor: 'pointer'
             }}
             title="Setel stok semua produk menjadi 50 pcs"
           >
             <Check size={14} />
-            <span>Setel Semua Stok (50 pcs)</span>
+            <span className="hide-on-mobile">Setel Semua Stok (50 pcs)</span>
           </button>
 
           <button
@@ -356,18 +357,19 @@ Mohon segera diproses pengirimannya dari gudang pusat PT SR12. Terima kasih! ðŸ™
               background: '#0f172a',
               border: '1px solid #475569',
               color: '#94a3b8',
-              padding: '8px 12px',
+              padding: '8px 10px',
               borderRadius: '8px',
               fontSize: '0.76rem',
               fontWeight: 700,
               display: 'flex',
               alignItems: 'center',
-              gap: '6px'
+              gap: '6px',
+              cursor: 'pointer'
             }}
             title="Hapus riwayat mutasi stok keluar-masuk"
           >
             <Trash2 size={14} />
-            <span>Bersihkan Mutasi</span>
+            <span className="hide-on-mobile">Bersihkan Mutasi</span>
           </button>
 
           {onResetCatalogToMaster && (
@@ -382,18 +384,19 @@ Mohon segera diproses pengirimannya dari gudang pusat PT SR12. Terima kasih! ðŸ™
                 background: '#0f172a',
                 border: '1px solid #475569',
                 color: '#38bdf8',
-                padding: '8px 12px',
+                padding: '8px 10px',
                 borderRadius: '8px',
                 fontSize: '0.76rem',
                 fontWeight: 700,
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '6px',
+                cursor: 'pointer'
               }}
               title="Kloning ulang 160+ produk resmi dari Master SR12"
             >
               <RotateCcw size={14} />
-              <span>Reset Master SR12</span>
+              <span className="hide-on-mobile">Reset Master SR12</span>
             </button>
           )}
         </div>

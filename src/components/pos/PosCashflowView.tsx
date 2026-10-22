@@ -81,18 +81,19 @@ export const PosCashflowView: React.FC = () => {
               background: 'rgba(239, 68, 68, 0.15)',
               color: '#f87171',
               border: '1px solid rgba(239, 68, 68, 0.4)',
-              padding: '8px 14px',
+              padding: '8px 12px',
               borderRadius: '8px',
               fontSize: '0.78rem',
               fontWeight: 800,
               display: 'flex',
               alignItems: 'center',
-              gap: '6px'
+              gap: '6px',
+              cursor: 'pointer'
             }}
             title="Kosongkan seluruh mutasi buku kas"
           >
             <Trash2 size={14} />
-            <span>Kosongkan Buku Kas</span>
+            <span className="hide-on-mobile">Kosongkan Buku Kas</span>
           </button>
           <button
             type="button"
@@ -100,17 +101,19 @@ export const PosCashflowView: React.FC = () => {
             style={{
               background: 'linear-gradient(135deg, #059669, #047857)',
               color: '#fff',
-              padding: '8px 16px',
+              padding: '8px 14px',
               borderRadius: '8px',
               fontSize: '0.8rem',
               fontWeight: 800,
               display: 'flex',
               alignItems: 'center',
-              gap: '6px'
+              gap: '6px',
+              cursor: 'pointer'
             }}
+            title="Tambah Catatan Mutasi Kas Baru"
           >
             <Plus size={15} />
-            <span>Tambah Mutasi Kas</span>
+            <span className="hide-on-mobile">Tambah Kas</span>
           </button>
         </div>
       </div>

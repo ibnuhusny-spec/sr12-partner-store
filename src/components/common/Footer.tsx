@@ -2,8 +2,31 @@ import React from 'react';
 import { useApp } from '../../context/AppContext';
 import { ShieldCheck, Award, Heart, Phone, MapPin, Clock } from 'lucide-react';
 
-export const Footer: React.FC = () => {
+interface FooterProps {
+  onSecretDevOpen?: () => void;
+}
+
+export const Footer: React.FC<FooterProps> = ({ onSecretDevOpen }) => {
   const { currentStore } = useApp();
+  const [secretClicks, setSecretClicks] = React.useState(0);
+  const [lastClickTime, setLastClickTime] = React.useState(0);
+
+  const handleCopyrightClick = () => {
+    if (!onSecretDevOpen) return;
+    const now = Date.now();
+    if (now - lastClickTime > 2500) {
+      setSecretClicks(1);
+    } else {
+      const count = secretClicks + 1;
+      if (count >= 5) {
+        setSecretClicks(0);
+        onSecretDevOpen();
+      } else {
+        setSecretClicks(count);
+      }
+    }
+    setLastClickTime(now);
+  };
 
   return (
     <footer style={{ background: '#090d16', color: '#94a3b8', borderTop: '1px solid #1e293b', paddingTop: '40px', paddingBottom: '30px' }}>
@@ -60,7 +83,11 @@ export const Footer: React.FC = () => {
       </div>
 
       <div style={{ maxWidth: '1380px', margin: '30px auto 0', padding: '20px 20px 0', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', fontSize: '0.75rem', color: '#475569' }}>
-        <div>
+        <div
+          onClick={handleCopyrightClick}
+          style={{ cursor: 'pointer', userSelect: 'none' }}
+          title="SR12 Herbal Skin Care Partner Ecosystem"
+        >
           &copy; {new Date().getFullYear()} {currentStore.storeName} &bull; SR12 Herbal Skin Care Partner Ecosystem
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>

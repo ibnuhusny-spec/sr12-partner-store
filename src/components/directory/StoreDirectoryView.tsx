@@ -20,18 +20,32 @@ interface StoreDirectoryViewProps {
   onSelectStore: (store: Store) => void;
   onOpenRegister: () => void;
   onOpenStoreLogin: () => void;
+  onSecretDevOpen?: () => void;
 }
 
 export const StoreDirectoryView: React.FC<StoreDirectoryViewProps> = ({
   onSelectStore,
   onOpenRegister,
-  onOpenStoreLogin
+  onOpenStoreLogin,
+  onSecretDevOpen
 }) => {
   const { partnerStores, isStoreAdminLoggedIn, isDistributorLoggedIn, isDevMasterLoggedIn, setIsPosOpen } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCity, setSelectedCity] = useState('all');
   const [selectedTier, setSelectedTier] = useState<string>('all');
+  const [secretClickCount, setSecretClickCount] = useState(0);
+
+  const handleSecretClick = () => {
+    setSecretClickCount(prev => {
+      const next = prev + 1;
+      if (next >= 5) {
+        if (onSecretDevOpen) onSecretDevOpen();
+        return 0;
+      }
+      return next;
+    });
+  };
 
   // Check if visitor has a remembered / last visited store
   const lastVisitedSlug = useMemo(() => {
@@ -102,7 +116,12 @@ export const StoreDirectoryView: React.FC<StoreDirectoryViewProps> = ({
       {/* 1. Header Direktori */}
       <header className="directory-header">
         <div className="directory-header-inner">
-          <div className="directory-brand">
+          <div
+            className="directory-brand"
+            onClick={handleSecretClick}
+            style={{ cursor: 'pointer', userSelect: 'none' }}
+            title="Direktori Toko Resmi SR12"
+          >
             <div className="directory-logo-badge">
               <span>SR12</span>
             </div>
@@ -413,7 +432,12 @@ export const StoreDirectoryView: React.FC<StoreDirectoryViewProps> = ({
 
       {/* Directory Footer */}
       <footer className="directory-footer">
-        <p>&copy; {new Date().getFullYear()} SR12 Skin Care Official Partner Store Network &bull; Terverifikasi BPOM &amp; Halal MUI</p>
+        <p
+          onClick={handleSecretClick}
+          style={{ cursor: 'default', userSelect: 'none' }}
+        >
+          &copy; {new Date().getFullYear()} SR12 Skin Care Official Partner Store Network &bull; Terverifikasi BPOM &amp; Halal MUI
+        </p>
       </footer>
     </div>
   );
