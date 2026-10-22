@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Product } from '../../types';
 import { useApp } from '../../context/AppContext';
+import { uploadProductImageFile } from '../../services/catalogService';
+import { SR12_MASTER_CATALOG } from '../../data/sr12MasterCatalog';
 import {
   Package,
   AlertTriangle,
@@ -14,7 +16,8 @@ import {
   Image as ImageIcon,
   RotateCcw,
   Search,
-  Filter
+  Filter,
+  Loader2
 } from 'lucide-react';
 
 interface PosInventoryViewProps {
@@ -68,8 +71,12 @@ export const PosInventoryView: React.FC<PosInventoryViewProps> = ({
   const lowStockCount = products.filter(p => p.stock > 0 && p.stock <= 15).length;
   const emptyStockCount = products.filter(p => p.stock === 0).length;
 
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
   const handleOpenEdit = (p: Product) => {
     setEditProduct(p);
+    setUploadError(null);
     setEditForm({
       name: p.name,
       het: p.het,
@@ -80,23 +87,36 @@ export const PosInventoryView: React.FC<PosInventoryViewProps> = ({
     });
   };
 
-  const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !editForm) return;
+    if (!file || !editForm || !editProduct) return;
 
-    if (file.size > 2 * 1024 * 1024) {
-      alert('Ukuran file gambar maksimal 2 MB agar performa tetap cepat!');
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Ukuran file gambar maksimal 5 MB!');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (uploadEvent) => {
-      const base64 = uploadEvent.target?.result as string;
-      if (base64) {
-        setEditForm({ ...editForm, image: base64 });
-      }
-    };
-    reader.readAsDataURL(file);
+    setIsUploadingImage(true);
+    setUploadError(null);
+
+    try {
+      const publicUrl = await uploadProductImageFile(file, currentStore.slug, editProduct.id);
+      setEditForm(prev => prev ? { ...prev, image: publicUrl } : null);
+    } catch (err: any) {
+      console.error('Image upload failed:', err);
+      setUploadError(err.message || 'Gagal mengunggah foto ke Cloud Supabase');
+      alert(`Gagal mengunggah foto: ${err.message || 'Terjadi kesalahan'}`);
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const handleResetToStandardImage = () => {
+    if (!editProduct || !editForm) return;
+    const master = SR12_MASTER_CATALOG.find(m => m.id === editProduct.id || m.sku === editProduct.sku);
+    if (master) {
+      setEditForm({ ...editForm, image: master.image });
+    }
   };
 
   const handleSaveEdit = (e: React.FormEvent) => {
@@ -463,29 +483,56 @@ Mohon segera diproses pengirimannya dari gudang pusat PT SR12. Terima kasih! ðŸ™
                   />
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {/* File Upload Button */}
-                    <label style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px',
-                      background: '#334155',
-                      color: '#f8fafc',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontSize: '0.78rem',
-                      fontWeight: 700,
-                      border: '1px solid #475569'
-                    }}>
-                      <Upload size={14} />
-                      <span>Unggah Foto dari HP / PC</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        style={{ display: 'none' }}
-                        onChange={handleImageFileUpload}
-                      />
-                    </label>
+                    {isUploadingImage ? (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        background: '#0c4a6e',
+                        color: '#38bdf8',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        border: '1px solid #0284c7'
+                      }}>
+                        <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
+                        <span>Mengunggah ke Cloud Supabase...</span>
+                      </div>
+                    ) : (
+                      <label style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        background: '#334155',
+                        color: '#f8fafc',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        border: '1px solid #475569'
+                      }}>
+                        <Upload size={14} />
+                        <span>Unggah Foto dari HP / PC</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          style={{ display: 'none' }}
+                          onChange={handleImageFileUpload}
+                        />
+                      </label>
+                    )}
+
+                    {/* Status Pill Cloud */}
+                    {editForm.image.includes('supabase.co') && (
+                      <div style={{ fontSize: '0.7rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700 }}>
+                        <Check size={12} />
+                        <span>Foto Tersimpan di Cloud Supabase (Aman &amp; Permanen)</span>
+                      </div>
+                    )}
 
                     {/* URL Input */}
                     <input
@@ -502,6 +549,24 @@ Mohon segera diproses pengirimannya dari gudang pusat PT SR12. Terima kasih! ðŸ™
                         fontSize: '0.75rem'
                       }}
                     />
+
+                    {/* Reset to standard factory photo button */}
+                    <button
+                      type="button"
+                      onClick={handleResetToStandardImage}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#94a3b8',
+                        fontSize: '0.72rem',
+                        textDecoration: 'underline',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        padding: 0
+                      }}
+                    >
+                      â†º Kembalikan ke Foto Asli Pabrik SR12
+                    </button>
                   </div>
                 </div>
               </div>
@@ -640,10 +705,13 @@ Mohon segera diproses pengirimannya dari gudang pusat PT SR12. Terima kasih! ðŸ™
                 </button>
                 <button
                   type="submit"
+                  disabled={isUploadingImage}
                   style={{
                     flex: 2,
                     padding: '10px',
-                    background: 'linear-gradient(135deg, #059669, #047857)',
+                    background: isUploadingImage
+                      ? '#475569'
+                      : 'linear-gradient(135deg, #059669, #047857)',
                     color: '#ffffff',
                     borderRadius: '8px',
                     fontWeight: 800,
@@ -651,11 +719,17 @@ Mohon segera diproses pengirimannya dari gudang pusat PT SR12. Terima kasih! ðŸ™
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '6px'
+                    gap: '6px',
+                    opacity: isUploadingImage ? 0.7 : 1,
+                    cursor: isUploadingImage ? 'not-allowed' : 'pointer'
                   }}
                 >
-                  <Check size={16} />
-                  <span>Simpan Khusus Toko Ini</span>
+                  {isUploadingImage ? (
+                    <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                  ) : (
+                    <Check size={16} />
+                  )}
+                  <span>{isUploadingImage ? 'Mengunggah Foto Cloud...' : 'Simpan Khusus Toko Ini'}</span>
                 </button>
               </div>
             </form>

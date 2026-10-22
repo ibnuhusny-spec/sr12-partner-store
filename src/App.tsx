@@ -3,6 +3,7 @@ import { useApp } from './context/AppContext';
 import { Product } from './types';
 import {
   getStoreCatalog,
+  syncStoreCatalogFromCloud,
   updateStoreProduct,
   updateStoreProductStock,
   resetStoreCatalogToMaster
@@ -30,17 +31,25 @@ import { StoreDirectoryView } from './components/directory/StoreDirectoryView';
 export function App() {
   const { isPosOpen, setIsPosOpen, currentStore, switchStore } = useApp();
 
-  // Mode: 'directory' for finding nearby partner stores, 'storefront' for active store catalog
+  // Mode: 'directory' for finding nearby partner stores, 'storefront' for active store catalog.
+  // Toko Pusat (sr12-central) is strictly a directory/central supply hub and does not sell retail directly.
   const [viewMode, setViewMode] = useState<'directory' | 'storefront'>(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get('store') ? 'storefront' : 'directory';
+    const storeParam = params.get('store');
+    return storeParam && storeParam.toLowerCase() !== 'sr12-central' ? 'storefront' : 'directory';
   });
+
+  // Guard: whenever currentStore switches to 'sr12-central', ALWAYS ensure directory mode
+  useEffect(() => {
+    if (currentStore.slug === 'sr12-central') {
+      setViewMode('directory');
+    }
+  }, [currentStore.slug]);
 
   // Load isolated catalog specific to the current active store
   const [products, setProducts] = useState<Product[]>(() => {
     return getStoreCatalog(currentStore.slug);
   });
-
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -54,9 +63,23 @@ export function App() {
   const [isDistributorLoginOpen, setIsDistributorLoginOpen] = useState(false);
   const [isStoreLoginOpen, setIsStoreLoginOpen] = useState(false);
 
-  // When active store switches (via ?store=... or switcher), load that store's custom catalog
+  // When active store switches, load local catalog immediately, then sync cloud
   useEffect(() => {
+    // 1. Instant local load (0ms latency)
     setProducts(getStoreCatalog(currentStore.slug));
+
+    // 2. Cloud Sync: fetch overrides & custom images from Supabase Storage
+    // Ensures edited images persist even after browser history / cache is cleared
+    let isMounted = true;
+    syncStoreCatalogFromCloud(currentStore.slug).then((cloudCatalog) => {
+      if (isMounted && cloudCatalog && cloudCatalog.length > 0) {
+        setProducts(cloudCatalog);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
   }, [currentStore.slug]);
 
   // Check URL query parameters for ?product=id deep-linking
@@ -119,8 +142,10 @@ export function App() {
     );
   }
 
-  // 1. DIRECTORY MODE: Show official partners directory when visitor lands on root without specific store
-  if (viewMode === 'directory') {
+  // 1. DIRECTORY / CENTRAL HUB MODE:
+  // Toko Pusat (sr12-central) is the central directory hub and does NOT sell retail products.
+  // Whenever visitor selects Toko Pusat or viewMode is 'directory', ALWAYS render StoreDirectoryView.
+  if (viewMode === 'directory' || currentStore.slug === 'sr12-central') {
     return (
       <>
         <StoreDirectoryView
