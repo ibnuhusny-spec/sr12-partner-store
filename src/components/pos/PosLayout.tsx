@@ -18,9 +18,13 @@ import {
   Clock,
   Lock,
   ChevronLeft,
-  Coins
+  Coins,
+  RotateCcw
 } from 'lucide-react';
 import { TokenTopupModal } from './TokenTopupModal';
+import { clearAllOrders } from '../../services/orderService';
+import { clearAllCashflow, clearAllStockMutations } from '../../services/posService';
+import { resetDownlineAccumulatedSpent, clearAllMarketerSales } from '../../services/mitraService';
 
 interface PosLayoutProps {
   products: Product[];
@@ -40,6 +44,21 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
   const [cashierName, setCashierName] = useState('Siti Aminah');
   const [isClockedIn, setIsClockedIn] = useState(true);
   const [showTokenModal, setShowTokenModal] = useState(false);
+
+  const handleMasterResetSimulation = () => {
+    if (window.confirm(`⚠️ PERINGATAN MASTER RESET:\n\nApakah Anda ingin MERESET SEMUA data toko "${currentStore.storeName}"?\n\n• Seluruh riwayat transaksi akan dihapus\n• Seluruh catatan buku kas akan dihapus\n• Seluruh riwayat mutasi stok akan dibersihkan\n• Seluruh akumulasi belanja mitra akan direset ke Rp 0\n• Stok produk akan dikembalikan ke Master SR12 (50 pcs)\n\nSimulasi akan bersih dan kembali ke kondisi awal.`)) {
+      clearAllOrders(currentStore.slug);
+      clearAllCashflow(currentStore.slug);
+      clearAllStockMutations(currentStore.slug);
+      resetDownlineAccumulatedSpent();
+      clearAllMarketerSales();
+      if (onResetCatalogToMaster) {
+        onResetCatalogToMaster();
+      }
+      alert('Pembersihan Berhasil! Seluruh data simulasi toko telah direset ke nol.');
+      window.location.reload();
+    }
+  };
 
   return (
     <div className="pos-wrapper">
@@ -147,6 +166,29 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
               {isClockedIn ? 'AKTIF' : 'OFF'}
             </span>
           </div>
+
+          {/* Master Reset Simulasi */}
+          <button
+            type="button"
+            onClick={handleMasterResetSimulation}
+            style={{
+              background: 'rgba(239, 68, 68, 0.15)',
+              color: '#f87171',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              padding: '5px 10px',
+              borderRadius: '8px',
+              fontSize: '0.72rem',
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              cursor: 'pointer'
+            }}
+            title="Bersihkan semua data simulasi (transaksi, kas, mutasi, belanja mitra) untuk mulai dari nol"
+          >
+            <RotateCcw size={12} />
+            <span className="hide-on-mobile">Reset Toko (0)</span>
+          </button>
 
           {/* Lock Screen / Logout Kasir */}
           <button

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { getStoredCashflow, saveCashflowEntry } from '../../services/posService';
+import { getStoredCashflow, saveCashflowEntry, deleteCashflowEntry, clearAllCashflow } from '../../services/posService';
 import { CashflowEntry } from '../../types';
-import { TrendingUp, TrendingDown, Plus, Wallet } from 'lucide-react';
+import { TrendingUp, TrendingDown, Plus, Wallet, Trash2 } from 'lucide-react';
 
 export const PosCashflowView: React.FC = () => {
   const { currentStore } = useApp();
@@ -43,6 +43,24 @@ export const PosCashflowView: React.FC = () => {
     setCategory('');
   };
 
+  const handleDeleteEntry = (id: string) => {
+    if (window.confirm('Hapus catatan mutasi kas ini?')) {
+      const updated = deleteCashflowEntry(id, currentStore.slug);
+      setEntries(updated);
+    }
+  };
+
+  const handleClearAll = () => {
+    if (entries.length === 0) {
+      alert('Buku kas sudah kosong.');
+      return;
+    }
+    if (window.confirm(`⚠️ PERINGATAN: Apakah Anda yakin ingin MENGHAPUS SEMUA (${entries.length}) mutasi buku kas toko ini untuk mulai simulasi baru?`)) {
+      clearAllCashflow(currentStore.slug);
+      setEntries([]);
+    }
+  };
+
   const totalIn = entries.filter(e => e.type === 'in').reduce((sum, e) => sum + e.amount, 0);
   const totalOut = entries.filter(e => e.type === 'out').reduce((sum, e) => sum + e.amount, 0);
   const netCash = totalIn - totalOut;
@@ -55,24 +73,46 @@ export const PosCashflowView: React.FC = () => {
           <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>Buku Kas Masuk / Keluar (Arus Kas Toko)</h3>
           <p style={{ margin: 0, fontSize: '0.78rem', color: '#94a3b8' }}>Catat arus pemasukan dan pengeluaran operasional toko harian</p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowAddModal(true)}
-          style={{
-            background: 'linear-gradient(135deg, #059669, #047857)',
-            color: '#fff',
-            padding: '8px 16px',
-            borderRadius: '8px',
-            fontSize: '0.8rem',
-            fontWeight: 800,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}
-        >
-          <Plus size={15} />
-          <span>Tambah Mutasi Kas</span>
-        </button>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={handleClearAll}
+            style={{
+              background: 'rgba(239, 68, 68, 0.15)',
+              color: '#f87171',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              fontSize: '0.78rem',
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            title="Kosongkan seluruh mutasi buku kas"
+          >
+            <Trash2 size={14} />
+            <span>Kosongkan Buku Kas</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowAddModal(true)}
+            style={{
+              background: 'linear-gradient(135deg, #059669, #047857)',
+              color: '#fff',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              fontSize: '0.8rem',
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <Plus size={15} />
+            <span>Tambah Mutasi Kas</span>
+          </button>
+        </div>
       </div>
 
       {/* Metric Cards */}
@@ -119,12 +159,13 @@ export const PosCashflowView: React.FC = () => {
                 <th style={{ padding: '10px 14px' }}>Kategori</th>
                 <th style={{ padding: '10px 14px' }}>Keterangan</th>
                 <th style={{ padding: '10px 14px', textAlign: 'right' }}>Nominal</th>
+                <th style={{ padding: '10px 14px', textAlign: 'center', width: '50px' }}>Aksi</th>
               </tr>
             </thead>
             <tbody>
               {entries.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ padding: '30px', textAlign: 'center', color: '#64748b' }}>
+                  <td colSpan={6} style={{ padding: '30px', textAlign: 'center', color: '#64748b' }}>
                     Belum ada catatan mutasi kas untuk toko ini.
                   </td>
                 </tr>
@@ -150,6 +191,23 @@ export const PosCashflowView: React.FC = () => {
                     <td style={{ padding: '10px 14px', color: '#cbd5e1' }}>{e.description || '-'}</td>
                     <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 900, color: e.type === 'in' ? '#34d399' : '#f87171' }}>
                       {e.type === 'in' ? '+' : '-'}Rp {e.amount.toLocaleString('id-ID')}
+                    </td>
+                    <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteEntry(e.id)}
+                        style={{
+                          background: 'rgba(239, 68, 68, 0.1)',
+                          color: '#f87171',
+                          border: '1px solid rgba(239, 68, 68, 0.3)',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          cursor: 'pointer'
+                        }}
+                        title="Hapus baris mutasi kas ini"
+                      >
+                        <Trash2 size={13} />
+                      </button>
                     </td>
                   </tr>
                 ))

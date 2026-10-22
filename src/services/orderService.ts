@@ -130,6 +130,48 @@ export async function updateOrderStatus(orderId: string, newStatus: string, stor
   return true;
 }
 
+export function deleteOrder(orderId: string, storeSlug: string): void {
+  try {
+    const raw = localStorage.getItem('sr12_customer_orders');
+    if (raw) {
+      const list: Order[] = JSON.parse(raw);
+      const filtered = list.filter(o => o.orderId !== orderId);
+      localStorage.setItem('sr12_customer_orders', JSON.stringify(filtered));
+    }
+  } catch (e) {}
+
+  // Juga hapus dari cloud RPC jika ada token
+  const token = getActiveSessionToken(storeSlug);
+  if (token) {
+    Promise.resolve(supabase.rpc('rpc_delete_store_order', {
+      p_slug: storeSlug,
+      p_order_id: orderId,
+      p_token: token
+    })).catch(() => {});
+  }
+}
+
+export function clearAllOrders(storeSlug: string): void {
+  try {
+    const raw = localStorage.getItem('sr12_customer_orders');
+    if (raw) {
+      const list: Order[] = JSON.parse(raw);
+      // Hapus hanya order milik toko ini, sisakan order toko lain
+      const remaining = list.filter(o => o.storeSlug && o.storeSlug !== storeSlug);
+      localStorage.setItem('sr12_customer_orders', JSON.stringify(remaining));
+    }
+  } catch (e) {}
+
+  // Cloud clear
+  const token = getActiveSessionToken(storeSlug);
+  if (token) {
+    Promise.resolve(supabase.rpc('rpc_clear_store_orders', {
+      p_slug: storeSlug,
+      p_token: token
+    })).catch(() => {});
+  }
+}
+
 /**
  * Format pesan WhatsApp resmi untuk pemesanan toko
  */

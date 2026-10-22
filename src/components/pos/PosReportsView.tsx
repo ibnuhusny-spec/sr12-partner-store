@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { fetchStoreOrders } from '../../services/orderService';
+import { fetchStoreOrders, clearAllOrders } from '../../services/orderService';
 import { exportReportsToCSV } from '../../services/posService';
 import { Order } from '../../types';
-import { BarChart3, Download, DollarSign, ShoppingCart, Percent } from 'lucide-react';
+import { BarChart3, Download, DollarSign, ShoppingCart, Percent, Trash2 } from 'lucide-react';
 
 export const PosReportsView: React.FC = () => {
   const { currentStore } = useApp();
@@ -18,6 +18,18 @@ export const PosReportsView: React.FC = () => {
   const totalSubtotal = orders.reduce((sum, o) => sum + o.subtotalHet, 0);
   const totalDiscounts = orders.reduce((sum, o) => sum + o.discountAmount, 0);
   const estProfit = Math.round(totalGMV * 0.35); // Estimasi margin rata-rata distributor
+
+  const handleResetReports = () => {
+    if (orders.length === 0) {
+      alert('Laporan sudah bernilai 0 (belum ada transaksi).');
+      return;
+    }
+    if (window.confirm(`⚠️ PERINGATAN: Apakah Anda yakin ingin mereset laporan dan menghapus ${orders.length} transaksi untuk toko ${currentStore.storeName} ke nol?`)) {
+      clearAllOrders(currentStore.slug);
+      setOrders([]);
+      alert('Data transaksi dan laporan berhasil direset ke nol!');
+    }
+  };
 
   const handleExportCSV = () => {
     if (orders.length === 0) {
@@ -48,24 +60,46 @@ export const PosReportsView: React.FC = () => {
           <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>Laporan Laba/Rugi &amp; Rekapitulasi Omset</h3>
           <p style={{ margin: 0, fontSize: '0.78rem', color: '#94a3b8' }}>Rekap performa keuangan toko {currentStore.storeName}</p>
         </div>
-        <button
-          type="button"
-          onClick={handleExportCSV}
-          style={{
-            background: 'linear-gradient(135deg, #0284c7, #0369a1)',
-            color: '#fff',
-            padding: '8px 16px',
-            borderRadius: '8px',
-            fontSize: '0.8rem',
-            fontWeight: 800,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}
-        >
-          <Download size={15} />
-          <span>Ekspor Data ke CSV</span>
-        </button>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={handleResetReports}
+            style={{
+              background: 'rgba(239, 68, 68, 0.15)',
+              color: '#f87171',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              fontSize: '0.8rem',
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            title="Bersihkan seluruh data transaksi dan reset laporan omzet ke nol"
+          >
+            <Trash2 size={14} />
+            <span>Reset Laporan ke Nol</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            style={{
+              background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+              color: '#fff',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              fontSize: '0.8rem',
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <Download size={15} />
+            <span>Ekspor Data ke CSV</span>
+          </button>
+        </div>
       </div>
 
       {/* Metric Cards */}

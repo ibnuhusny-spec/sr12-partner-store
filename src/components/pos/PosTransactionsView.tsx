@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Order } from '../../types';
 import { useApp } from '../../context/AppContext';
-import { fetchStoreOrders, updateOrderStatus } from '../../services/orderService';
-import { CheckCircle2, Clock, Trash2, RefreshCw } from 'lucide-react';
+import { fetchStoreOrders, updateOrderStatus, deleteOrder, clearAllOrders } from '../../services/orderService';
+import { saveCashflowEntry } from '../../services/posService';
+import { CheckCircle2, Clock, Trash2, RefreshCw, AlertTriangle } from 'lucide-react';
 
 export const PosTransactionsView: React.FC = () => {
   const { currentStore } = useApp();
@@ -23,9 +24,40 @@ export const PosTransactionsView: React.FC = () => {
     setLoading(false);
   };
 
-  const handleConfirmOrder = async (orderId: string) => {
-    await updateOrderStatus(orderId, 'Lunas / Selesai', currentStore.slug);
+  const handleConfirmOrder = async (order: Order) => {
+    await updateOrderStatus(order.orderId, 'Lunas / Selesai', currentStore.slug);
+
+    // Otomatis catat kas masuk ke Buku Kas saat order web lunas
+    saveCashflowEntry({
+      id: 'CSH-WEB-' + Date.now(),
+      storeSlug: currentStore.slug,
+      date: new Date().toISOString(),
+      type: 'in',
+      category: 'Pelunasan Pesanan Web Toko',
+      amount: order.grandTotal,
+      description: `Order Web #${order.orderId} (${order.customerName})`,
+      operator: 'Admin Toko'
+    }, currentStore.slug);
+
     await loadOrders();
+  };
+
+  const handleDeleteOrder = (orderId: string) => {
+    if (window.confirm(`Hapus transaksi #${orderId} dari riwayat toko?`)) {
+      deleteOrder(orderId, currentStore.slug);
+      loadOrders();
+    }
+  };
+
+  const handleClearAll = () => {
+    if (orders.length === 0) {
+      alert('Tidak ada transaksi untuk dibersihkan.');
+      return;
+    }
+    if (window.confirm(`⚠️ PERINGATAN: Apakah Anda yakin ingin MENGHAPUS SEMUA (${orders.length}) riwayat transaksi toko ini untuk memulai simulasi dari nol?`)) {
+      clearAllOrders(currentStore.slug);
+      loadOrders();
+    }
   };
 
   const filtered = orders.filter(o => {
@@ -91,10 +123,31 @@ export const PosTransactionsView: React.FC = () => {
           <button
             type="button"
             onClick={loadOrders}
-            style={{ padding: '6px 10px', borderRadius: '6px', background: '#334155', color: '#fff' }}
+            style={{ padding: '6px 10px', borderRadius: '6px', background: '#334155', color: '#fff', border: '1px solid #475569' }}
             title="Refresh Pesanan"
           >
             <RefreshCw size={14} />
+          </button>
+
+          <button
+            type="button"
+            onClick={handleClearAll}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '6px',
+              fontSize: '0.76rem',
+              fontWeight: 800,
+              background: 'rgba(239, 68, 68, 0.15)',
+              color: '#f87171',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px'
+            }}
+            title="Hapus seluruh riwayat transaksi toko ini untuk mulai simulasi baru"
+          >
+            <Trash2 size={13} />
+            <span>Bersihkan Semua Transaksi</span>
           </button>
         </div>
       </div>
@@ -149,7 +202,7 @@ export const PosTransactionsView: React.FC = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: '1rem', fontWeight: 900, color: '#34d399' }}>
                     Rp {o.grandTotal.toLocaleString('id-ID')}
@@ -160,7 +213,7 @@ export const PosTransactionsView: React.FC = () => {
                 {o.status !== 'Lunas / Selesai' && (
                   <button
                     type="button"
-                    onClick={() => handleConfirmOrder(o.orderId)}
+                    onClick={() => handleConfirmOrder(o)}
                     style={{
                       background: '#059669',
                       color: '#fff',
@@ -178,6 +231,22 @@ export const PosTransactionsView: React.FC = () => {
                     <span>Konfirmasi Lunas</span>
                   </button>
                 )}
+
+                <button
+                  type="button"
+                  onClick={() => handleDeleteOrder(o.orderId)}
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    color: '#f87171',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    cursor: 'pointer'
+                  }}
+                  title="Hapus transaksi ini"
+                >
+                  <Trash2 size={14} />
+                </button>
               </div>
             </div>
           ))}

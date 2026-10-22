@@ -5,7 +5,11 @@ import {
   saveStoreDownline,
   fetchStoreMarketerSales,
   updateMitraTier,
-  updateMarketerSalePaidStatus
+  updateMarketerSalePaidStatus,
+  deleteStoreDownline,
+  resetDownlineAccumulatedSpent,
+  resetDownlinesToDefault,
+  clearAllMarketerSales
 } from '../../services/mitraService';
 import { MitraDownline, MarketerSale, PartnerTier } from '../../types';
 import {
@@ -30,7 +34,9 @@ import {
   Filter,
   Search,
   ChevronRight,
-  X
+  X,
+  Trash2,
+  RotateCcw
 } from 'lucide-react';
 
 export const PosDownlinesView: React.FC = () => {
@@ -113,6 +119,37 @@ export const PosDownlinesView: React.FC = () => {
     const nextStatus = sale.paidStatus === 'paid' ? 'unpaid' : 'paid';
     updateMarketerSalePaidStatus(sale.orderId, nextStatus);
     loadData();
+  };
+
+  const handleDeleteMitra = (partnerCode: string, name: string) => {
+    if (confirm(`Hapus mitra ${name} (${partnerCode}) dari database downline?`)) {
+      deleteStoreDownline(partnerCode);
+      loadData();
+    }
+  };
+
+  const handleResetSpent = () => {
+    if (confirm('Apakah Anda yakin ingin mereset total belanja akumulasi SEMUA mitra ke Rp 0 untuk memulai simulasi evaluasi level dari awal?')) {
+      resetDownlineAccumulatedSpent();
+      loadData();
+      alert('Akumulasi belanja semua mitra berhasil direset ke Rp 0!');
+    }
+  };
+
+  const handleResetDefaultDownlines = () => {
+    if (confirm('Kembalikan daftar mitra downline ke data contoh resmi bawaan SR12?')) {
+      resetDownlinesToDefault();
+      loadData();
+      alert('Daftar mitra berhasil dikembalikan ke standar SR12!');
+    }
+  };
+
+  const handleClearPayroll = () => {
+    if (confirm('Hapus seluruh riwayat komisi dan penjualan Marketer?')) {
+      clearAllMarketerSales();
+      loadData();
+      alert('Riwayat komisi marketer berhasil dibersihkan!');
+    }
   };
 
   // Evaluations mapping
@@ -205,6 +242,50 @@ export const PosDownlinesView: React.FC = () => {
             <>
               <button
                 type="button"
+                onClick={handleResetSpent}
+                style={{
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  color: '#f87171',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  fontSize: '0.78rem',
+                  fontWeight: 800,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  cursor: 'pointer'
+                }}
+                title="Reset seluruh akumulasi belanja mitra ke Rp 0 untuk simulasi baru"
+              >
+                <RotateCcw size={14} />
+                <span>Reset Belanja ke 0</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleResetDefaultDownlines}
+                style={{
+                  background: '#0f172a',
+                  border: '1px solid #475569',
+                  color: '#94a3b8',
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  cursor: 'pointer'
+                }}
+                title="Kembalikan daftar mitra bawaan contoh SR12"
+              >
+                <Users size={14} />
+                <span>Mitra Default</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setShowRulesModal(true)}
                 style={{
                   background: 'rgba(56, 189, 248, 0.15)',
@@ -222,7 +303,7 @@ export const PosDownlinesView: React.FC = () => {
                 title="Lihat Aturan Baku Kemitraan SR12 2026 Resmi (CK SWORD)"
               >
                 <Award size={14} />
-                <span>📜 Rules Kemitraan 2026</span>
+                <span>📜 Rules 2026</span>
               </button>
 
               <button
@@ -242,9 +323,33 @@ export const PosDownlinesView: React.FC = () => {
                 }}
               >
                 <UserPlus size={14} />
-                <span>Tambah Mitra Binaan</span>
+                <span>Tambah Mitra</span>
               </button>
             </>
+          )}
+
+          {activeTab === 'payroll' && (
+            <button
+              type="button"
+              onClick={handleClearPayroll}
+              style={{
+                background: 'rgba(239, 68, 68, 0.15)',
+                color: '#f87171',
+                border: '1px solid rgba(239, 68, 68, 0.4)',
+                padding: '8px 14px',
+                borderRadius: '8px',
+                fontSize: '0.78rem',
+                fontWeight: 800,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                cursor: 'pointer'
+              }}
+              title="Hapus seluruh riwayat komisi dan penjualan Marketer"
+            >
+              <Trash2 size={14} />
+              <span>Bersihkan Riwayat Komisi</span>
+            </button>
           )}
         </div>
       </div>
@@ -605,6 +710,22 @@ export const PosDownlinesView: React.FC = () => {
                             >
                               <Award size={13} />
                               <span>{isPromotable ? 'Promosikan 🚀' : 'Ubah Level'}</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMitra(mitra.partnerCode, mitra.name)}
+                              style={{
+                                background: 'rgba(239, 68, 68, 0.1)',
+                                color: '#f87171',
+                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                padding: '6px 8px',
+                                borderRadius: '6px',
+                                cursor: 'pointer'
+                              }}
+                              title="Hapus mitra ini dari database"
+                            >
+                              <Trash2 size={13} />
                             </button>
                           </div>
                         </td>

@@ -21,6 +21,17 @@ export function saveCashflowEntry(entry: CashflowEntry, storeSlug: string): void
   localStorage.setItem(`sr12_cashflow_${storeSlug}`, JSON.stringify(list));
 }
 
+export function deleteCashflowEntry(id: string, storeSlug: string): CashflowEntry[] {
+  const list = getStoredCashflow(storeSlug);
+  const next = list.filter(item => item.id !== id);
+  localStorage.setItem(`sr12_cashflow_${storeSlug}`, JSON.stringify(next));
+  return next;
+}
+
+export function clearAllCashflow(storeSlug: string): void {
+  localStorage.removeItem(`sr12_cashflow_${storeSlug}`);
+}
+
 export function getStoredStockMutations(storeSlug: string): StockMutation[] {
   try {
     const raw = localStorage.getItem(`sr12_mutations_${storeSlug}`);
@@ -34,6 +45,10 @@ export function recordStockMutation(mutation: StockMutation, storeSlug: string):
   const list = getStoredStockMutations(storeSlug);
   list.unshift(mutation);
   localStorage.setItem(`sr12_mutations_${storeSlug}`, JSON.stringify(list));
+}
+
+export function clearAllStockMutations(storeSlug: string): void {
+  localStorage.removeItem(`sr12_mutations_${storeSlug}`);
 }
 
 export function getStoredAttendanceLogs(storeSlug: string): CashierAttendanceLog[] {

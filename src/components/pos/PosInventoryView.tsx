@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Product } from '../../types';
 import { useApp } from '../../context/AppContext';
-import { uploadProductImageFile } from '../../services/catalogService';
+import { uploadProductImageFile, setAllStoreProductsStock } from '../../services/catalogService';
+import { clearAllStockMutations } from '../../services/posService';
 import { SR12_MASTER_CATALOG } from '../../data/sr12MasterCatalog';
 import {
   Package,
@@ -17,7 +18,8 @@ import {
   RotateCcw,
   Search,
   Filter,
-  Loader2
+  Loader2,
+  Trash2
 } from 'lucide-react';
 
 interface PosInventoryViewProps {
@@ -159,6 +161,21 @@ Mohon segera diproses pengirimannya dari gudang pusat PT SR12. Terima kasih! ðŸ™
     setRestockProduct(null);
   };
 
+  const handleSetAllStock = (targetStock: number) => {
+    if (confirm(`Apakah Anda yakin ingin menyetel stok SEMUA (${products.length}) produk toko ini menjadi ${targetStock} pcs?`)) {
+      const updated = setAllStoreProductsStock(currentStore.slug, targetStock);
+      updated.forEach(p => onUpdateStock(p.id, targetStock));
+      alert(`Stok semua produk berhasil diubah menjadi ${targetStock} pcs!`);
+    }
+  };
+
+  const handleClearMutations = () => {
+    if (confirm('Bersihkan seluruh riwayat mutasi stok toko ini?')) {
+      clearAllStockMutations(currentStore.slug);
+      alert('Riwayat mutasi stok berhasil dibersihkan!');
+    }
+  };
+
   return (
     <div style={{ padding: '20px', background: '#0b1329', minHeight: 'calc(100vh - 65px)', color: '#f8fafc' }}>
       {/* Save Toast Notification */}
@@ -288,15 +305,53 @@ Mohon segera diproses pengirimannya dari gudang pusat PT SR12. Terima kasih! ðŸ™
           </select>
         </div>
 
-        {/* Master Reset Button */}
-        {onResetCatalogToMaster && (
+        {/* Stock Reset & Clear Controls */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button
             type="button"
-            onClick={() => {
-              if (confirm(`Yakin ingin mereset seluruh katalog ${currentStore.storeName} kembali ke Master Data resmi SR12?`)) {
-                onResetCatalogToMaster();
-              }
+            onClick={() => handleSetAllStock(0)}
+            style={{
+              background: 'rgba(239, 68, 68, 0.15)',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              color: '#f87171',
+              padding: '8px 12px',
+              borderRadius: '8px',
+              fontSize: '0.76rem',
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
             }}
+            title="Kosongkan seluruh stok produk toko ini menjadi 0 pcs untuk simulasi habis"
+          >
+            <Package size={14} />
+            <span>Kosongkan Semua Stok (0 pcs)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleSetAllStock(50)}
+            style={{
+              background: 'rgba(16, 185, 129, 0.15)',
+              border: '1px solid rgba(16, 185, 129, 0.4)',
+              color: '#34d399',
+              padding: '8px 12px',
+              borderRadius: '8px',
+              fontSize: '0.76rem',
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            title="Setel stok semua produk menjadi 50 pcs"
+          >
+            <Check size={14} />
+            <span>Setel Semua Stok (50 pcs)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleClearMutations}
             style={{
               background: '#0f172a',
               border: '1px solid #475569',
@@ -309,12 +364,39 @@ Mohon segera diproses pengirimannya dari gudang pusat PT SR12. Terima kasih! ðŸ™
               alignItems: 'center',
               gap: '6px'
             }}
-            title="Kloning ulang 160+ produk resmi dari Master SR12"
+            title="Hapus riwayat mutasi stok keluar-masuk"
           >
-            <RotateCcw size={14} />
-            <span>Reset Master SR12</span>
+            <Trash2 size={14} />
+            <span>Bersihkan Mutasi</span>
           </button>
-        )}
+
+          {onResetCatalogToMaster && (
+            <button
+              type="button"
+              onClick={() => {
+                if (confirm(`Yakin ingin mereset seluruh katalog ${currentStore.storeName} kembali ke Master Data resmi SR12?`)) {
+                  onResetCatalogToMaster();
+                }
+              }}
+              style={{
+                background: '#0f172a',
+                border: '1px solid #475569',
+                color: '#38bdf8',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                fontSize: '0.76rem',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+              title="Kloning ulang 160+ produk resmi dari Master SR12"
+            >
+              <RotateCcw size={14} />
+              <span>Reset Master SR12</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Table */}

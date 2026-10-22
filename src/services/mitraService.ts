@@ -368,3 +368,40 @@ export function updateMarketerSalePaidStatus(orderId: string, newStatus: 'paid' 
   } catch {}
   return false;
 }
+
+export function deleteStoreDownline(partnerCode: string): void {
+  try {
+    const raw = localStorage.getItem('sr12_mitra_downlines_v2');
+    if (raw) {
+      const list: MitraDownline[] = JSON.parse(raw);
+      const filtered = list.filter(m => m.partnerCode !== partnerCode);
+      localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(filtered));
+    }
+  } catch {}
+}
+
+export function resetDownlineAccumulatedSpent(): void {
+  try {
+    const raw = localStorage.getItem('sr12_mitra_downlines_v2');
+    const list: MitraDownline[] = raw ? JSON.parse(raw) : [...DEFAULT_SAMPLE_DOWNLINES];
+    const resetList = list.map(m => ({
+      ...m,
+      accumulatedSpent90Days: 0,
+      totalOrdersCount: 0,
+      lastOrderDate: undefined
+    }));
+    localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(resetList));
+  } catch {}
+}
+
+export function resetDownlinesToDefault(): void {
+  try {
+    localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(DEFAULT_SAMPLE_DOWNLINES));
+  } catch {}
+}
+
+export function clearAllMarketerSales(): void {
+  try {
+    localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify([]));
+  } catch {}
+}

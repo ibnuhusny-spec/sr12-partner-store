@@ -261,6 +261,7 @@ export function App() {
       <CartDrawer
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
+        onUpdateStock={handleUpdateStock}
       />
 
       <RegisterStoreModal

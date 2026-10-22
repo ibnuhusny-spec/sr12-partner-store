@@ -12,9 +12,10 @@ import { X, Trash2, ShoppingBag, Truck, Check, MessageCircle, UserCheck } from '
 interface CartDrawerProps {
   isOpen: boolean;
   onClose: () => void;
+  onUpdateStock?: (productId: string, newStock: number) => void;
 }
 
-export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
+export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdateStock }) => {
   const {
     cart,
     updateCartQty,
@@ -153,6 +154,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
       // 2. DEDUKSI STOK PRODUK DI GUDANG SECARA OTOMATIS
       cart.forEach(item => {
         const nextStock = Math.max(0, item.product.stock - item.quantity);
+        onUpdateStock?.(item.product.id, nextStock);
         updateStoreProductStock(currentStore.slug, item.product.id, nextStock);
         recordStockMutation({
           id: 'MUT-' + Date.now() + '-' + Math.floor(Math.random() * 1000),

@@ -166,11 +166,21 @@ export async function syncStoreCatalogFromCloud(storeSlug: string): Promise<Prod
         localStorage.setItem(`${OVERRIDES_STORAGE_PREFIX}${safeSlug}`, JSON.stringify(cloudOverrides));
       } catch {}
 
-      // Ambil master data segar dan timpa dengan kustomisasi cloud yang tersimpan
-      const masterCloned: Product[] = JSON.parse(JSON.stringify(SR12_MASTER_CATALOG));
-      const mergedCatalog = masterCloned.map(p => {
+      // Pertahankan katalog lokal toko saat ini (termasuk pengurangan stok riil dari penjualan)
+      // dan hanya terapkan override cloud untuk properti yang diubah (seperti gambar, nama, atau stok spesifik)
+      const currentLocal = getStoreCatalog(safeSlug);
+      const mergedCatalog = currentLocal.map(p => {
         const ov = cloudOverrides[p.id] || cloudOverrides[p.sku];
-        return ov ? { ...p, ...ov } : p;
+        if (!ov) return p;
+        return {
+          ...p,
+          ...(ov.image ? { image: ov.image } : {}),
+          ...(ov.name ? { name: ov.name } : {}),
+          ...(ov.het ? { het: ov.het, price: ov.het } : {}),
+          ...(ov.summary ? { summary: ov.summary } : {}),
+          ...(ov.weightGram ? { weightGram: ov.weightGram } : {}),
+          ...(ov.stock !== undefined ? { stock: ov.stock } : {})
+        };
       });
 
       // Update penyimpanan lokal
@@ -285,4 +295,62 @@ export function resetStoreCatalogToMaster(storeSlug: string): Product[] {
   uploadOverridesToCloud(safeSlug, {}).catch(() => {});
 
   return cloned;
+}
+
+/**
+  * Setel stok semua produk toko ini ke nilai tertentu (misal: 0 untuk simulasi habis, atau 50 untuk default).
+  */
+export function setAllStoreProductsStock(storeSlug: string, targetStock: number): Product[] {
+  const safeSlug = (storeSlug || 'sr12-central').toLowerCase();
+  const currentCatalog = getStoreCatalog(safeSlug);
+  const nextCatalog = currentCatalog.map(p => ({
+    ...p,
+    stock: Math.max(0, targetStock)
+  }));
+
+  saveStoreCatalog(safeSlug, nextCatalog);
+
+  // Update overrides
+  const currentOverrides = getStoreOverrides(safeSlug);
+  nextCatalog.forEach(p => {
+    currentOverrides[p.id] = {
+      ...(currentOverrides[p.id] || {}),
+      stock: Math.max(0, targetStock)
+    };
+  });
+  saveStoreOverrides(safeSlug, currentOverrides);
+
+  return nextCatalog;
+}
+
+/**
+ * Update banyak stok produk sekaligus (batch)
+ */
+export function batchUpdateStoreProductStocks(
+  storeSlug: string,
+  updates: { productId: string; newStock: number }[]
+): Product[] {
+  const safeSlug = (storeSlug || 'sr12-central').toLowerCase();
+  const currentCatalog = getStoreCatalog(safeSlug);
+  const updateMap = new Map(updates.map(u => [u.productId, Math.max(0, u.newStock)]));
+
+  const nextCatalog = currentCatalog.map(p => {
+    if (updateMap.has(p.id)) {
+      return { ...p, stock: updateMap.get(p.id)! };
+    }
+    return p;
+  });
+
+  saveStoreCatalog(safeSlug, nextCatalog);
+
+  const currentOverrides = getStoreOverrides(safeSlug);
+  updates.forEach(u => {
+    currentOverrides[u.productId] = {
+      ...(currentOverrides[u.productId] || {}),
+      stock: Math.max(0, u.newStock)
+    };
+  });
+  saveStoreOverrides(safeSlug, currentOverrides);
+
+  return nextCatalog;
 }
