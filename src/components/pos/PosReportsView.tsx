@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { fetchStoreOrders, clearAllOrders } from '../../services/orderService';
+import { getLocalOrders, clearAllOrders } from '../../services/orderService';
 import { exportReportsToCSV } from '../../services/posService';
 import { Order } from '../../types';
 import { BarChart3, Download, DollarSign, ShoppingCart, Percent, Trash2 } from 'lucide-react';
 
 export const PosReportsView: React.FC = () => {
   const { currentStore } = useApp();
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<Order[]>(() => getLocalOrders(currentStore.slug));
   const [period, setPeriod] = useState<'all' | 'today' | 'month'>('all');
 
   useEffect(() => {
-    fetchStoreOrders(currentStore.slug).then(setOrders);
+    setOrders(getLocalOrders(currentStore.slug));
   }, [currentStore.slug]);
 
   const totalGMV = orders.reduce((sum, o) => sum + o.grandTotal, 0);

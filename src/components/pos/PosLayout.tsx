@@ -24,7 +24,7 @@ import {
 import { TokenTopupModal } from './TokenTopupModal';
 import { clearAllOrders } from '../../services/orderService';
 import { clearAllCashflow, clearAllStockMutations } from '../../services/posService';
-import { resetDownlineAccumulatedSpent, clearAllMarketerSales } from '../../services/mitraService';
+import { clearAllStoreDownlines, resetDownlineAccumulatedSpent, clearAllMarketerSales } from '../../services/mitraService';
 
 interface PosLayoutProps {
   products: Product[];
@@ -46,16 +46,16 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
   const [showTokenModal, setShowTokenModal] = useState(false);
 
   const handleMasterResetSimulation = () => {
-    if (window.confirm(`⚠️ PERINGATAN MASTER RESET:\n\nApakah Anda ingin MERESET SEMUA data toko "${currentStore.storeName}"?\n\n• Seluruh riwayat transaksi akan dihapus\n• Seluruh catatan buku kas akan dihapus\n• Seluruh riwayat mutasi stok akan dibersihkan\n• Seluruh akumulasi belanja mitra akan direset ke Rp 0\n• Stok produk akan dikembalikan ke Master SR12 (50 pcs)\n\nSimulasi akan bersih dan kembali ke kondisi awal.`)) {
+    if (window.confirm(`⚠️ PERINGATAN MASTER RESET:\n\nApakah Anda ingin MERESET SEMUA data toko "${currentStore.storeName}"?\n\n• Seluruh riwayat transaksi akan dihapus\n• Seluruh catatan buku kas akan dihapus\n• Seluruh riwayat mutasi stok akan dibersihkan\n• Seluruh mitra downline akan dikosongkan (0 mitra)\n• Seluruh komisi marketer akan dibersihkan\n• Stok produk akan dikembalikan ke Master SR12 (50 pcs)\n\nSimulasi akan bersih dan kembali ke kondisi awal.`)) {
       clearAllOrders(currentStore.slug);
       clearAllCashflow(currentStore.slug);
       clearAllStockMutations(currentStore.slug);
-      resetDownlineAccumulatedSpent();
+      clearAllStoreDownlines();
       clearAllMarketerSales();
       if (onResetCatalogToMaster) {
         onResetCatalogToMaster();
       }
-      alert('Pembersihan Berhasil! Seluruh data simulasi toko telah direset ke nol.');
+      alert('Pembersihan Berhasil! Seluruh data transaksi, mitra, kas, dan mutasi telah dikosongkan.');
       window.location.reload();
     }
   };

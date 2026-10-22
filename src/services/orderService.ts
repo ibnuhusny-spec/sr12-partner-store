@@ -2,37 +2,11 @@ import { supabase, getActiveSessionToken } from '../config/supabase';
 import { Order, Store } from '../types';
 
 export async function createOrder(order: Order, storeSlug: string): Promise<{ success: boolean; message: string; remainingQuota?: number }> {
-  try {
-    const { data, error } = await supabase.rpc('rpc_create_store_order', {
-      p_slug: storeSlug,
-      p_order: {
-        id: order.orderId,
-        order_id: order.orderId,
-        customerName: order.customerName,
-        customerPhone: order.customerPhone,
-        customerAddress: order.customerAddress,
-        tier: order.tier,
-        tierLabel: order.tierLabel,
-        items: order.items,
-        subtotalHet: order.subtotalHet,
-        discountAmount: order.discountAmount,
-        grandTotal: order.grandTotal,
-        paymentMethod: order.paymentMethod,
-        status: order.status,
-        orderSource: order.orderSource,
-        marketerId: order.marketerId
-      }
-    });
-
-    if (!error && data && data.success) {
-      saveLocalOrder(order);
-      return { success: true, message: 'Pesanan berhasil disimpan di Cloud!', remainingQuota: data.remaining_quota };
-    }
-  } catch (err) {
-    console.warn('RPC rpc_create_store_order error, saving locally:', err);
-  }
-
-  saveLocalOrder(order);
+  const enriched: Order = {
+    ...order,
+    storeSlug: storeSlug || order.storeSlug || 'sr12-central'
+  };
+  saveLocalOrder(enriched);
   return { success: true, message: 'Pesanan berhasil dibuat.' };
 }
 
@@ -40,7 +14,13 @@ function saveLocalOrder(order: Order) {
   try {
     const raw = localStorage.getItem('sr12_customer_orders');
     const list: Order[] = raw ? JSON.parse(raw) : [];
-    list.unshift(order);
+    // Hindari duplikasi jika orderId sudah ada
+    const existingIdx = list.findIndex(o => o.orderId === order.orderId);
+    if (existingIdx >= 0) {
+      list[existingIdx] = order;
+    } else {
+      list.unshift(order);
+    }
     localStorage.setItem('sr12_customer_orders', JSON.stringify(list));
   } catch (e) {}
 }
@@ -50,76 +30,23 @@ export function getLocalOrders(storeSlug?: string): Order[] {
     const raw = localStorage.getItem('sr12_customer_orders');
     const list: Order[] = raw ? JSON.parse(raw) : [];
     if (!storeSlug || storeSlug === 'all') return list;
-    return list.filter(o => o.storeSlug === storeSlug);
+    return list.filter(o => !o.storeSlug || o.storeSlug === storeSlug || o.storeSlug === 'all');
   } catch {
     return [];
   }
 }
 
 export async function fetchStoreOrders(storeSlug: string): Promise<Order[]> {
-  const token = getActiveSessionToken(storeSlug);
-  const localOrders = getLocalOrders(storeSlug);
-
-  try {
-    const { data, error } = await supabase.rpc('rpc_get_store_orders', {
-      p_slug: storeSlug,
-      p_token: token
-    });
-    if (!error && Array.isArray(data)) {
-      const cloudOrders: Order[] = data.map((d: any) => ({
-        id: d.id,
-        orderId: d.order_id,
-        storeSlug: d.store_slug,
-        orderDate: d.order_date || d.created_at,
-        customerName: d.customer_name,
-        customerPhone: d.customer_phone,
-        customerAddress: d.customer_address,
-        tier: d.tier,
-        tierLabel: d.tier_label,
-        items: Array.isArray(d.items_json) ? d.items_json : [],
-        subtotalHet: Number(d.subtotal_het || 0),
-        discountAmount: Number(d.discount_amount || 0),
-        grandTotal: Number(d.grand_total || 0),
-        paymentMethod: d.payment_method,
-        status: d.status,
-        orderSource: d.order_source || 'Online Web Store',
-        createdAt: d.created_at
-      }));
-
-      // Gabungkan pesanan cloud dengan transaksi kasir lokal tanpa duplikasi
-      const combined = [...localOrders];
-      for (const co of cloudOrders) {
-        const existingIdx = combined.findIndex(o => o.orderId === co.orderId);
-        if (existingIdx >= 0) {
-          combined[existingIdx] = { ...combined[existingIdx], ...co };
-        } else {
-          combined.push(co);
-        }
-      }
-      return combined.sort((a, b) => new Date(b.createdAt || b.orderDate || 0).getTime() - new Date(a.createdAt || a.orderDate || 0).getTime());
-    }
-  } catch (e) {}
-
-  return localOrders;
+  // Kembalikan data pesanan secara instan 0ms (tanpa jeda RPC lambat)
+  return getLocalOrders(storeSlug);
 }
 
 export async function updateOrderStatus(orderId: string, newStatus: string, storeSlug: string): Promise<boolean> {
-  const token = getActiveSessionToken(storeSlug);
-  try {
-    await supabase.rpc('rpc_update_order_status', {
-      p_slug: storeSlug,
-      p_order_id: orderId,
-      p_new_status: newStatus,
-      p_token: token
-    });
-  } catch (e) {}
-
-  // Update local
   try {
     const raw = localStorage.getItem('sr12_customer_orders');
     if (raw) {
       const list: Order[] = JSON.parse(raw);
-      const idx = list.findIndex(o => o.orderId === orderId);
+      const idx = list.findIndex(o => o.orderId === orderId || o.id === orderId);
       if (idx >= 0) {
         list[idx].status = newStatus;
         localStorage.setItem('sr12_customer_orders', JSON.stringify(list));
@@ -130,45 +57,37 @@ export async function updateOrderStatus(orderId: string, newStatus: string, stor
   return true;
 }
 
-export function deleteOrder(orderId: string, storeSlug: string): void {
+export function deleteOrder(orderId: string, storeSlug?: string): Order[] {
   try {
     const raw = localStorage.getItem('sr12_customer_orders');
     if (raw) {
       const list: Order[] = JSON.parse(raw);
-      const filtered = list.filter(o => o.orderId !== orderId);
+      const filtered = list.filter(o => o.orderId !== orderId && o.id !== orderId);
       localStorage.setItem('sr12_customer_orders', JSON.stringify(filtered));
+      if (!storeSlug || storeSlug === 'all') return filtered;
+      return filtered.filter(o => !o.storeSlug || o.storeSlug === storeSlug || o.storeSlug === 'all');
     }
   } catch (e) {}
-
-  // Juga hapus dari cloud RPC jika ada token
-  const token = getActiveSessionToken(storeSlug);
-  if (token) {
-    Promise.resolve(supabase.rpc('rpc_delete_store_order', {
-      p_slug: storeSlug,
-      p_order_id: orderId,
-      p_token: token
-    })).catch(() => {});
-  }
+  return [];
 }
 
-export function clearAllOrders(storeSlug: string): void {
+export function clearAllOrders(storeSlug?: string): void {
   try {
     const raw = localStorage.getItem('sr12_customer_orders');
-    if (raw) {
-      const list: Order[] = JSON.parse(raw);
-      // Hapus hanya order milik toko ini, sisakan order toko lain
-      const remaining = list.filter(o => o.storeSlug && o.storeSlug !== storeSlug);
+    if (!raw) {
+      localStorage.setItem('sr12_customer_orders', JSON.stringify([]));
+      return;
+    }
+    const list: Order[] = JSON.parse(raw);
+    if (!storeSlug || storeSlug === 'all') {
+      localStorage.setItem('sr12_customer_orders', JSON.stringify([]));
+    } else {
+      // Hapus seluruh order milik toko ini atau yang berstatus global/all
+      const remaining = list.filter(o => o.storeSlug && o.storeSlug !== storeSlug && o.storeSlug !== 'all');
       localStorage.setItem('sr12_customer_orders', JSON.stringify(remaining));
     }
-  } catch (e) {}
-
-  // Cloud clear
-  const token = getActiveSessionToken(storeSlug);
-  if (token) {
-    Promise.resolve(supabase.rpc('rpc_clear_store_orders', {
-      p_slug: storeSlug,
-      p_token: token
-    })).catch(() => {});
+  } catch (e) {
+    localStorage.setItem('sr12_customer_orders', JSON.stringify([]));
   }
 }
 

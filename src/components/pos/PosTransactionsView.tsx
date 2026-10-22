@@ -1,27 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { Order } from '../../types';
 import { useApp } from '../../context/AppContext';
-import { fetchStoreOrders, updateOrderStatus, deleteOrder, clearAllOrders } from '../../services/orderService';
+import { getLocalOrders, updateOrderStatus, deleteOrder, clearAllOrders } from '../../services/orderService';
 import { saveCashflowEntry } from '../../services/posService';
-import { CheckCircle2, Clock, Trash2, RefreshCw, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, Clock, Trash2, RefreshCw } from 'lucide-react';
 
 export const PosTransactionsView: React.FC = () => {
   const { currentStore } = useApp();
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [orders, setOrders] = useState<Order[]>(() => getLocalOrders(currentStore.slug));
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'done'>('all');
 
   useEffect(() => {
-    loadOrders();
+    setOrders(getLocalOrders(currentStore.slug));
   }, [currentStore.slug]);
 
-  const loadOrders = async () => {
-    setLoading(true);
-    try {
-      const data = await fetchStoreOrders(currentStore.slug);
-      setOrders(data);
-    } catch {}
-    setLoading(false);
+  const loadOrders = () => {
+    setIsRefreshing(true);
+    const data = getLocalOrders(currentStore.slug);
+    setOrders(data);
+    setTimeout(() => setIsRefreshing(false), 300);
   };
 
   const handleConfirmOrder = async (order: Order) => {
@@ -39,13 +37,13 @@ export const PosTransactionsView: React.FC = () => {
       operator: 'Admin Toko'
     }, currentStore.slug);
 
-    await loadOrders();
+    setOrders(prev => prev.map(o => (o.orderId === order.orderId || o.id === order.orderId) ? { ...o, status: 'Lunas / Selesai' } : o));
   };
 
   const handleDeleteOrder = (orderId: string) => {
     if (window.confirm(`Hapus transaksi #${orderId} dari riwayat toko?`)) {
       deleteOrder(orderId, currentStore.slug);
-      loadOrders();
+      setOrders(prev => prev.filter(o => o.orderId !== orderId && o.id !== orderId));
     }
   };
 
@@ -56,7 +54,7 @@ export const PosTransactionsView: React.FC = () => {
     }
     if (window.confirm(`⚠️ PERINGATAN: Apakah Anda yakin ingin MENGHAPUS SEMUA (${orders.length}) riwayat transaksi toko ini untuk memulai simulasi dari nol?`)) {
       clearAllOrders(currentStore.slug);
-      loadOrders();
+      setOrders([]);
     }
   };
 
@@ -123,10 +121,10 @@ export const PosTransactionsView: React.FC = () => {
           <button
             type="button"
             onClick={loadOrders}
-            style={{ padding: '6px 10px', borderRadius: '6px', background: '#334155', color: '#fff', border: '1px solid #475569' }}
+            style={{ padding: '6px 10px', borderRadius: '6px', background: '#334155', color: '#fff', border: '1px solid #475569', cursor: 'pointer' }}
             title="Refresh Pesanan"
           >
-            <RefreshCw size={14} />
+            <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
           </button>
 
           <button
@@ -142,7 +140,8 @@ export const PosTransactionsView: React.FC = () => {
               border: '1px solid rgba(239, 68, 68, 0.4)',
               display: 'flex',
               alignItems: 'center',
-              gap: '5px'
+              gap: '5px',
+              cursor: 'pointer'
             }}
             title="Hapus seluruh riwayat transaksi toko ini untuk mulai simulasi baru"
           >
@@ -152,9 +151,7 @@ export const PosTransactionsView: React.FC = () => {
         </div>
       </div>
 
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>Memuat pesanan...</div>
-      ) : filtered.length === 0 ? (
+      {filtered.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '50px 20px', background: '#1e293b', borderRadius: '12px', border: '1px dashed #334155' }}>
           <Clock size={36} color="#64748b" style={{ margin: '0 auto 10px' }} />
           <p style={{ fontWeight: 700, color: '#94a3b8' }}>Belum ada riwayat pesanan dengan filter ini.</p>

@@ -7,7 +7,7 @@ import { deductStoreTransactionQuota } from '../../services/storeService';
 import { createOrder } from '../../services/orderService';
 import { updateStoreProductStock } from '../../services/catalogService';
 import { recordStockMutation, saveCashflowEntry } from '../../services/posService';
-import { fetchStoreDownlines, saveStoreDownline, fetchStoreMarketerSales } from '../../services/mitraService';
+import { fetchStoreDownlines, saveStoreDownline, fetchStoreMarketerSales, getLocalDownlines } from '../../services/mitraService';
 import { Coins, AlertTriangle, Users, Sparkles, CheckCircle2 } from 'lucide-react';
 import {
   Search,
@@ -54,13 +54,13 @@ export const PosCashierView: React.FC<PosCashierViewProps> = ({
   const [cashReceived, setCashReceived] = useState<number>(0);
   const [completedTrx, setCompletedTrx] = useState<any | null>(null);
   const [showMobileCheckoutDrawer, setShowMobileCheckoutDrawer] = useState(false);
-  const [downlinesList, setDownlinesList] = useState<MitraDownline[]>([]);
+  const [downlinesList, setDownlinesList] = useState<MitraDownline[]>(() => getLocalDownlines());
   const [selectedDownlineCode, setSelectedDownlineCode] = useState('');
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
 
   // Load registered downlines for easy customer tagging
   useEffect(() => {
-    fetchStoreDownlines(currentStore.slug).then(setDownlinesList);
+    setDownlinesList(getLocalDownlines());
   }, [currentStore.slug]);
 
   const categories = ['all', ...Array.from(new Set(products.map(p => p.category)))];

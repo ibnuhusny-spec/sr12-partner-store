@@ -189,12 +189,11 @@ export async function verifyMitraDiscount(query: string, storeSlug: string): Pro
   const cleanQ = query.toUpperCase().trim();
   const raw = localStorage.getItem('sr12_mitra_downlines_v2');
   let list: MitraDownline[] = [];
-  if (raw) {
+  if (raw !== null) {
     try {
       list = JSON.parse(raw);
     } catch {}
-  }
-  if (list.length === 0) {
+  } else {
     list = DEFAULT_SAMPLE_DOWNLINES;
     localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(list));
   }
@@ -211,47 +210,24 @@ export async function verifyMitraDiscount(query: string, storeSlug: string): Pro
   return { found: false };
 }
 
-export async function fetchStoreDownlines(storeSlug: string): Promise<MitraDownline[]> {
-  const token = getActiveSessionToken(storeSlug);
-  try {
-    const { data, error } = await supabase.rpc('rpc_get_store_downlines', {
-      p_slug: storeSlug,
-      p_token: token
-    });
-    if (!error && Array.isArray(data) && data.length > 0) {
-      return data.map((d: any) => ({
-        id: d.id,
-        storeSlug: d.store_slug,
-        partnerCode: d.partner_code,
-        name: d.name,
-        phone: d.phone,
-        city: d.city,
-        tier: d.tier,
-        bankName: d.bank_name || 'BCA',
-        bankAccount: d.bank_account || '-',
-        bankHolder: d.bank_holder || d.name,
-        status: d.status || 'active',
-        accumulatedSpent90Days: Number(d.accumulated_spent_90_days || 0),
-        totalOrdersCount: Number(d.total_orders_count || 0)
-      }));
-    }
-  } catch (e) {}
-
-  // Fallback local
+export function getLocalDownlines(): MitraDownline[] {
   try {
     const raw = localStorage.getItem('sr12_mitra_downlines_v2');
-    if (raw) {
+    if (raw !== null) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
-      }
+      if (Array.isArray(parsed)) return parsed;
     }
-    // Seed initial demo downlines so user can see rank promotion / warning right away
+    // Seed HANYA jika raw belum pernah ada di browser (inisialisasi awal)
     localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(DEFAULT_SAMPLE_DOWNLINES));
     return DEFAULT_SAMPLE_DOWNLINES;
   } catch {
-    return DEFAULT_SAMPLE_DOWNLINES;
+    return [];
   }
+}
+
+export async function fetchStoreDownlines(storeSlug: string): Promise<MitraDownline[]> {
+  // Kembalikan seketika 0ms tanpa loading flicker
+  return getLocalDownlines();
 }
 
 export async function saveStoreDownline(mitra: Partial<MitraDownline>, storeSlug: string): Promise<boolean> {
@@ -306,54 +282,30 @@ export async function updateMitraTier(partnerCode: string, newTier: PartnerTier,
   return false;
 }
 
-export async function fetchStoreMarketerSales(storeSlug: string): Promise<MarketerSale[]> {
-  const token = getActiveSessionToken(storeSlug);
-  try {
-    const { data, error } = await supabase.rpc('rpc_get_store_marketer_sales', {
-      p_slug: storeSlug,
-      p_token: token
-    });
-    if (!error && Array.isArray(data) && data.length > 0) {
-      return data.map((d: any) => ({
-        id: d.id,
-        storeSlug: d.store_slug,
-        orderId: d.order_id,
-        marketerId: d.marketer_id,
-        orderDate: d.order_date,
-        monthPeriod: d.month_period,
-        customerName: d.customer_name,
-        customerPhone: d.customer_phone,
-        customerAddress: d.customer_address,
-        fulfillmentType: d.fulfillment_type || 'delivery',
-        itemsDesc: d.items_desc,
-        omsetHet: Number(d.omset_het || 0),
-        commissionPct: Number(d.commission_pct || 15),
-        commissionAmount: Number(d.commission_amount || 0),
-        paidStatus: d.paid_status || 'unpaid',
-        paidDate: d.paid_date
-      }));
-    }
-  } catch (e) {}
-
+export function getLocalMarketerSales(): MarketerSale[] {
   try {
     const raw = localStorage.getItem('sr12_marketer_sales_v1');
-    if (raw) {
+    if (raw !== null) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     }
     localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(DEFAULT_SAMPLE_MARKETER_SALES));
     return DEFAULT_SAMPLE_MARKETER_SALES;
   } catch {
-    return DEFAULT_SAMPLE_MARKETER_SALES;
+    return [];
   }
+}
+
+export async function fetchStoreMarketerSales(storeSlug: string): Promise<MarketerSale[]> {
+  return getLocalMarketerSales();
 }
 
 export function updateMarketerSalePaidStatus(orderId: string, newStatus: 'paid' | 'unpaid'): boolean {
   try {
     const raw = localStorage.getItem('sr12_marketer_sales_v1');
-    const list: MarketerSale[] = raw ? JSON.parse(raw) : [...DEFAULT_SAMPLE_MARKETER_SALES];
+    const list: MarketerSale[] = raw ? JSON.parse(raw) : [];
     const idx = list.findIndex(s => s.orderId === orderId);
     if (idx >= 0) {
       list[idx].paidStatus = newStatus;
@@ -369,14 +321,21 @@ export function updateMarketerSalePaidStatus(orderId: string, newStatus: 'paid' 
   return false;
 }
 
-export function deleteStoreDownline(partnerCode: string): void {
+export function deleteStoreDownline(partnerCode: string): MitraDownline[] {
   try {
     const raw = localStorage.getItem('sr12_mitra_downlines_v2');
-    if (raw) {
-      const list: MitraDownline[] = JSON.parse(raw);
-      const filtered = list.filter(m => m.partnerCode !== partnerCode);
-      localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(filtered));
-    }
+    const list: MitraDownline[] = raw ? JSON.parse(raw) : [];
+    const filtered = list.filter(m => m.partnerCode !== partnerCode && m.id !== partnerCode);
+    localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(filtered));
+    return filtered;
+  } catch {
+    return [];
+  }
+}
+
+export function clearAllStoreDownlines(): void {
+  try {
+    localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify([]));
   } catch {}
 }
 

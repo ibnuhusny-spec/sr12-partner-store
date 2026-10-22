@@ -7,9 +7,12 @@ import {
   updateMitraTier,
   updateMarketerSalePaidStatus,
   deleteStoreDownline,
+  clearAllStoreDownlines,
   resetDownlineAccumulatedSpent,
   resetDownlinesToDefault,
-  clearAllMarketerSales
+  clearAllMarketerSales,
+  getLocalDownlines,
+  getLocalMarketerSales
 } from '../../services/mitraService';
 import { MitraDownline, MarketerSale, PartnerTier } from '../../types';
 import {
@@ -42,8 +45,8 @@ import {
 export const PosDownlinesView: React.FC = () => {
   const { currentStore } = useApp();
   const [activeTab, setActiveTab] = useState<'downlines' | 'payroll'>('downlines');
-  const [downlines, setDownlines] = useState<MitraDownline[]>([]);
-  const [sales, setSales] = useState<MarketerSale[]>([]);
+  const [downlines, setDownlines] = useState<MitraDownline[]>(() => getLocalDownlines());
+  const [sales, setSales] = useState<MarketerSale[]>(() => getLocalMarketerSales());
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState<'all' | 'promotable' | 'warning' | 'reseller' | 'sub_agen' | 'agen' | 'marketer'>('all');
 
@@ -66,15 +69,9 @@ export const PosDownlinesView: React.FC = () => {
     loadData();
   }, [currentStore.slug]);
 
-  const loadData = async () => {
-    try {
-      const [m, s] = await Promise.all([
-        fetchStoreDownlines(currentStore.slug),
-        fetchStoreMarketerSales(currentStore.slug)
-      ]);
-      setDownlines(m);
-      setSales(s);
-    } catch {}
+  const loadData = () => {
+    setDownlines(getLocalDownlines());
+    setSales(getLocalMarketerSales());
   };
 
   const handleAddDownline = async (e: React.FormEvent) => {
@@ -84,7 +81,7 @@ export const PosDownlinesView: React.FC = () => {
       return;
     }
 
-    const newMitra: Partial<MitraDownline> = {
+    const newMitra: MitraDownline = {
       storeSlug: currentStore.slug,
       partnerCode: partnerCode.trim().toUpperCase(),
       name: name.trim(),
@@ -99,8 +96,8 @@ export const PosDownlinesView: React.FC = () => {
       totalOrdersCount: 0
     };
 
-    await saveStoreDownline(newMitra, currentStore.slug);
-    await loadData();
+    saveStoreDownline(newMitra, currentStore.slug);
+    setDownlines(prev => [...prev.filter(m => m.partnerCode !== newMitra.partnerCode), newMitra]);
     setShowAddModal(false);
     setName('');
     setPhone('');
@@ -111,20 +108,32 @@ export const PosDownlinesView: React.FC = () => {
   const handleConfirmTierChange = async () => {
     if (!promoteModalMitra) return;
     await updateMitraTier(promoteModalMitra.mitra.partnerCode, selectedNewTier, currentStore.slug);
-    await loadData();
+    loadData();
     setPromoteModalMitra(null);
   };
 
   const handleTogglePayrollStatus = (sale: MarketerSale) => {
     const nextStatus = sale.paidStatus === 'paid' ? 'unpaid' : 'paid';
     updateMarketerSalePaidStatus(sale.orderId, nextStatus);
-    loadData();
+    setSales(prev => prev.map(s => s.orderId === sale.orderId ? { ...s, paidStatus: nextStatus } : s));
   };
 
   const handleDeleteMitra = (partnerCode: string, name: string) => {
     if (confirm(`Hapus mitra ${name} (${partnerCode}) dari database downline?`)) {
       deleteStoreDownline(partnerCode);
-      loadData();
+      setDownlines(prev => prev.filter(m => m.partnerCode !== partnerCode && m.id !== partnerCode));
+    }
+  };
+
+  const handleClearAllDownlines = () => {
+    if (downlines.length === 0) {
+      alert('Database mitra sudah kosong (0 mitra).');
+      return;
+    }
+    if (confirm(`⚠️ PERINGATAN PENGOSONGAN DATABASE MITRA:\n\nApakah Anda yakin ingin MENGHAPUS SEMUA (${downlines.length}) mitra untuk mengosongkan database downline menjadi 0 mitra?\n\nSemua mitra akan dikosongkan agar Anda dapat memulai simulasi pendaftaran mitra dari nol.`)) {
+      clearAllStoreDownlines();
+      setDownlines([]);
+      alert('Semua mitra berhasil dihapus! Database mitra sekarang bersih dan kosong (0 mitra).');
     }
   };
 
@@ -145,9 +154,13 @@ export const PosDownlinesView: React.FC = () => {
   };
 
   const handleClearPayroll = () => {
-    if (confirm('Hapus seluruh riwayat komisi dan penjualan Marketer?')) {
+    if (sales.length === 0) {
+      alert('Riwayat komisi marketer sudah kosong.');
+      return;
+    }
+    if (confirm(`Hapus seluruh (${sales.length}) riwayat komisi dan penjualan Marketer?`)) {
       clearAllMarketerSales();
-      loadData();
+      setSales([]);
       alert('Riwayat komisi marketer berhasil dibersihkan!');
     }
   };
@@ -242,11 +255,33 @@ export const PosDownlinesView: React.FC = () => {
             <>
               <button
                 type="button"
+                onClick={handleClearAllDownlines}
+                style={{
+                  background: 'rgba(239, 68, 68, 0.18)',
+                  color: '#f87171',
+                  border: '1px solid rgba(239, 68, 68, 0.45)',
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  fontSize: '0.78rem',
+                  fontWeight: 800,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  cursor: 'pointer'
+                }}
+                title="Hapus seluruh mitra downline untuk mengosongkan database menjadi 0 mitra"
+              >
+                <Trash2 size={14} />
+                <span>Kosongkan Semua Mitra</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={handleResetSpent}
                 style={{
-                  background: 'rgba(239, 68, 68, 0.15)',
-                  color: '#f87171',
-                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  background: '#1e293b',
+                  color: '#fbbf24',
+                  border: '1px solid #475569',
                   padding: '8px 12px',
                   borderRadius: '8px',
                   fontSize: '0.78rem',
@@ -549,8 +584,28 @@ export const PosDownlinesView: React.FC = () => {
               <tbody>
                 {filteredDownlines.length === 0 ? (
                   <tr>
-                    <td colSpan={5} style={{ padding: '40px 20px', textAlign: 'center', color: '#64748b' }}>
-                      Tidak ada mitra yang sesuai dengan pencarian atau filter yang dipilih.
+                    <td colSpan={5} style={{ padding: '50px 20px', textAlign: 'center' }}>
+                      <div style={{ color: '#94a3b8', fontWeight: 700, marginBottom: '12px', fontSize: '0.88rem' }}>
+                        {downlines.length === 0 ? 'Database mitra saat ini kosong (0 mitra).' : 'Tidak ada mitra yang sesuai dengan pencarian atau filter yang dipilih.'}
+                      </div>
+                      {downlines.length === 0 && (
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            onClick={() => setShowAddModal(true)}
+                            style={{ padding: '8px 14px', borderRadius: '8px', background: '#059669', color: '#fff', border: 'none', fontWeight: 800, cursor: 'pointer' }}
+                          >
+                            + Tambah Mitra Baru
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleResetDefaultDownlines}
+                            style={{ padding: '8px 14px', borderRadius: '8px', background: '#334155', color: '#f8fafc', border: '1px solid #475569', fontWeight: 700, cursor: 'pointer' }}
+                          >
+                            Muat Mitra Contoh SR12
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ) : (
