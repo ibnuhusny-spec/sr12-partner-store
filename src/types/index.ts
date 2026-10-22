@@ -216,10 +216,14 @@ export interface StockMutation {
   date: string;
   productId: string;
   productName: string;
+  sku?: string;
   type: 'in' | 'out' | 'adjust';
   qty: number;
-  remainingStock: number;
-  notes: string;
+  beforeStock?: number;
+  afterStock?: number;
+  remainingStock?: number;
+  notes?: string;
+  reason?: string;
   operator: string;
 }
 

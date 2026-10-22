@@ -58,13 +58,15 @@ export function getLocalOrders(storeSlug?: string): Order[] {
 
 export async function fetchStoreOrders(storeSlug: string): Promise<Order[]> {
   const token = getActiveSessionToken(storeSlug);
+  const localOrders = getLocalOrders(storeSlug);
+
   try {
     const { data, error } = await supabase.rpc('rpc_get_store_orders', {
       p_slug: storeSlug,
       p_token: token
     });
     if (!error && Array.isArray(data)) {
-      return data.map((d: any) => ({
+      const cloudOrders: Order[] = data.map((d: any) => ({
         id: d.id,
         orderId: d.order_id,
         storeSlug: d.store_slug,
@@ -83,10 +85,22 @@ export async function fetchStoreOrders(storeSlug: string): Promise<Order[]> {
         orderSource: d.order_source || 'Online Web Store',
         createdAt: d.created_at
       }));
+
+      // Gabungkan pesanan cloud dengan transaksi kasir lokal tanpa duplikasi
+      const combined = [...localOrders];
+      for (const co of cloudOrders) {
+        const existingIdx = combined.findIndex(o => o.orderId === co.orderId);
+        if (existingIdx >= 0) {
+          combined[existingIdx] = { ...combined[existingIdx], ...co };
+        } else {
+          combined.push(co);
+        }
+      }
+      return combined.sort((a, b) => new Date(b.createdAt || b.orderDate || 0).getTime() - new Date(a.createdAt || a.orderDate || 0).getTime());
     }
   } catch (e) {}
 
-  return getLocalOrders(storeSlug);
+  return localOrders;
 }
 
 export async function updateOrderStatus(orderId: string, newStatus: string, storeSlug: string): Promise<boolean> {

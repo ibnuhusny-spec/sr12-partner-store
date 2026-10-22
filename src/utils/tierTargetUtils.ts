@@ -39,15 +39,16 @@ export const SR12_TIER_TARGETS: Record<PartnerTier, TierTargetConfig> = {
     discountPct: 15,
     firstOrderHet: 0,
     firstOrderNet: 0,
-    minMonthlyTarget: 300000,
-    accum3MonthsTarget: 900000,
-    careerTrackMin: 800000,
+    minMonthlyTarget: 0, // Marketer tidak memiliki target minimal bulanan (status mitra permanen aman)
+    accum3MonthsTarget: 0, // Tidak ada ancaman turun tingkat atau keluar dari kemitraan SR12
+    careerTrackMin: 800000, // Jalur omset minimal akumulasi untuk naik ke tingkat Reseller
     careerTrackPersonal: 300000,
     nextTier: 'reseller',
     prevTier: null,
     rulesNotes: [
       'Komisi penjualan 15% dari omset HET.',
-      'Kesempatan menjadi Reseller melalui jalur omset minimal Rp 800.000,- dengan omset pribadi minimal Rp 300.000,- berturut-turut selama 3 bulan, ATAU melakukan First Order Reseller Rp 500.000,-.'
+      'Kesempatan menjadi Reseller melalui First Order Rp 500.000,- HET ATAU jalur omset akumulasi Rp 800.000,- (omset pribadi min Rp 300.000,- berturut-turut 3 bulan).',
+      'Jika target belum tercapai, Marketer TETAP MENJADI MITRA AKTIF (tidak pernah turun level dan tidak pernah keluar dari kemitraan SR12).'
     ]
   },
   reseller: {
@@ -152,6 +153,47 @@ export function evaluateMitraRank(tier: PartnerTier, spentAmount: number): Mitra
   const nextCfg = cfg.nextTier ? SR12_TIER_TARGETS[cfg.nextTier] : null;
   const prevCfg = cfg.prevTier ? SR12_TIER_TARGETS[cfg.prevTier] : null;
 
+  // Aturan Khusus Marketer: Bisa naik ke Reseller (500rb FO / 800rb omset), tapi TIDAK PERNAH turun level / keluar mitra!
+  if (tier === 'marketer') {
+    const resellerTargetHet = 500000;
+    if (spentAmount >= resellerTargetHet) {
+      return {
+        status: 'promotable',
+        progressMonthlyPct: 100,
+        progress3MonthsPct: 100,
+        badgeLabel: '🚀 Layak Naik ke Reseller',
+        badgeColor: '#10b981',
+        badgeBg: 'rgba(16, 185, 129, 0.18)',
+        shortMessage: `Omset Rp ${spentAmount.toLocaleString('id-ID')} melampaui syarat First Order Reseller (Rp 500.000 HET). Berhak promosi naik ke Reseller (Diskon 20%)!`,
+        remainingMonthlyMin: 0,
+        remaining3MonthsMin: 0,
+        remainingToPromo: 0,
+        currentTierConfig: cfg,
+        nextTierConfig: nextCfg,
+        prevTierConfig: null
+      };
+    }
+
+    // Jika target belum tercapai: TETAP AMAN SEBAGAI MARKETER (Tidak ada warning / ancaman turun)
+    const remainingToPromo = Math.max(0, resellerTargetHet - spentAmount);
+    const progressPct = Math.min(100, Math.round((spentAmount / resellerTargetHet) * 100));
+    return {
+      status: 'safe',
+      progressMonthlyPct: progressPct,
+      progress3MonthsPct: progressPct,
+      badgeLabel: '⭐ Tetap Marketer Aktif (Komisi 15%)',
+      badgeColor: '#0ea5e9',
+      badgeBg: 'rgba(14, 165, 233, 0.18)',
+      shortMessage: `Target Reseller belum tercapai (kurang Rp ${remainingToPromo.toLocaleString('id-ID')}). Status TETAP AMAN sebagai Marketer resmi (komisi 15%, tidak turun level/keluar).`,
+      remainingMonthlyMin: 0,
+      remaining3MonthsMin: 0,
+      remainingToPromo,
+      currentTierConfig: cfg,
+      nextTierConfig: nextCfg,
+      prevTierConfig: null
+    };
+  }
+
   // Ambang promosi naik level:
   // Mitra bisa promosi jika omset mencapai syarat jalur karir next tier ATAU First Order next tier
   const promoTarget = nextCfg ? (nextCfg.firstOrderHet || nextCfg.minMonthlyTarget) : 0;
@@ -188,7 +230,7 @@ export function evaluateMitraRank(tier: PartnerTier, spentAmount: number): Mitra
   }
 
   // 2. WARNING: Belanja di bawah target minimal akumulasi 3 bulan (Bulan ke-4 akan diturunkan)
-  if (spentAmount < cfg.minMonthlyTarget || (spentAmount < cfg.accum3MonthsTarget && spentAmount < cfg.minMonthlyTarget * 2)) {
+  if (cfg.minMonthlyTarget > 0 && (spentAmount < cfg.minMonthlyTarget || (spentAmount < cfg.accum3MonthsTarget && spentAmount < cfg.minMonthlyTarget * 2))) {
     return {
       status: 'warning',
       progressMonthlyPct,
@@ -240,6 +282,31 @@ export function generateMitraWaReminderUrl(
   let message = '';
   const tierName = evaluation.currentTierConfig.name;
   const spentFormatted = `Rp ${mitra.accumulatedSpent90Days.toLocaleString('id-ID')}`;
+
+  // Kasus Khusus: Marketer
+  if (mitra.tier === 'marketer') {
+    if (evaluation.status === 'promotable') {
+      message = `Halo Kak *${mitra.name}* (Mitra Marketer SR12 ${mitra.partnerCode})! 🎉🌿\n\n` +
+        `Kabar gembira dari *${storeName}*!\n` +
+        `Akumulasi penjualan Kakak tercatat sebesar *${spentFormatted}* dan telah *MEMENUHI SYARAT NAIK LEVEL MENJADI RESELLER RESMI*! 🚀\n\n` +
+        `Keuntungan naik menjadi Reseller:\n` +
+        `✅ Langsung dapat DISKON 20% di muka (bukan komisi bulanan lagi)\n` +
+        `✅ Margin keuntungan bersih per produk jauh lebih besar\n` +
+        `✅ Berhak membina tim marketer sendiri\n\n` +
+        `Silakan konfirmasi ke kami untuk pengesahan posisi Reseller Kakak ya. Selamat atas kerja kerasnya! 🙏✨`;
+    } else {
+      message = `Halo Kak *${mitra.name}* (Mitra Marketer SR12 ${mitra.partnerCode})! 🌿\n\n` +
+        `Semangat terus berbisnis bersama *${storeName}*.\n` +
+        `Akumulasi penjualan Kakak saat ini tercatat *${spentFormatted}*.\n\n` +
+        `💡 *PELUANG NAIK LEVEL MENJADI RESELLER:*\n` +
+        `Sebagai Marketer, Kakak punya kesempatan emas untuk naik tingkat menjadi *RESELLER RESMI SR12*:\n` +
+        `• Cukup capai omset Rp 500.000,- HET (atau jalur prestasi Rp 800.000,-).\n` +
+        `• Dengan menjadi Reseller, Kakak langsung mendapatkan DISKON 20% di muka!\n\n` +
+        `Kurang *Rp ${evaluation.remainingToPromo.toLocaleString('id-ID')}* lagi untuk meraih posisi Reseller. Jangan khawatir, jika belum tercapai Kakak tetap aman sebagai Marketer resmi SR12 tanpa ada risiko turun level atau keluar.\n\n` +
+        `Yuk bagikan katalog & promo produk SR12 hari ini! Hubungi kami jika butuh bantuan stok atau info produk ya. Semangat terus! 🔥`;
+    }
+    return `https://wa.me/${phoneTarget}?text=${encodeURIComponent(message)}`;
+  }
 
   if (evaluation.status === 'promotable') {
     message = `Halo Kak *${mitra.name}* (Mitra SR12 ${mitra.partnerCode})! 🎉🌿\n\n` +

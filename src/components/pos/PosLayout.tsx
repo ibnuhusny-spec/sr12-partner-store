@@ -295,7 +295,12 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
       {/* Main Tab Content */}
       <main style={{ flex: 1, overflow: 'hidden' }}>
         {activeTab === 'cashier' && (
-          <PosCashierView products={products} activeCashierName={cashierName} />
+          <PosCashierView
+            products={products}
+            activeCashierName={cashierName}
+            onUpdateStock={onUpdateStock}
+            onSwitchTab={(tab) => setActiveTab(tab as any)}
+          />
         )}
         {activeTab === 'transactions' && <PosTransactionsView />}
         {activeTab === 'inventory' && (

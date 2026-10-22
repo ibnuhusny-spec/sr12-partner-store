@@ -88,9 +88,24 @@ export const DEFAULT_SAMPLE_DOWNLINES: MitraDownline[] = [
     bankAccount: '6040192837',
     bankHolder: 'Siti Rahmawati',
     status: 'active',
-    accumulatedSpent90Days: 950000, // >= 800rb jalur prestasi / 500rb FO -> LAYAK PROMOSI KE RESELLER!
+    accumulatedSpent90Days: 950000, // >= 500rb FO / 800rb prestasi -> LAYAK PROMOSI KE RESELLER!
     totalOrdersCount: 8,
     lastOrderDate: '2026-10-19'
+  },
+  {
+    storeSlug: 'all',
+    partnerCode: 'MK-302',
+    name: 'Mega Utami',
+    phone: '085712349988',
+    city: 'Bekasi',
+    tier: 'marketer',
+    bankName: 'Mandiri',
+    bankAccount: '167001928374',
+    bankHolder: 'Mega Utami',
+    status: 'active',
+    accumulatedSpent90Days: 220000, // Belum 500rb -> Status: Tetap Marketer Aktif (tidak turun / keluar)!
+    totalOrdersCount: 3,
+    lastOrderDate: '2026-10-14'
   }
 ];
 

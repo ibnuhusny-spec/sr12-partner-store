@@ -172,13 +172,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addToCart = (product: Product, quantity = 1) => {
+    if (product.stock <= 0) {
+      alert(`Mohon maaf, stok untuk "${product.name}" saat ini habis di gudang toko ini.`);
+      return;
+    }
+
     setCart(prev => {
       const idx = prev.findIndex(item => item.product.id === product.id);
       let nextCart: CartItem[];
       if (idx >= 0) {
+        const currentQty = prev[idx].quantity;
+        if (currentQty + quantity > product.stock) {
+          alert(`Jumlah melebihi stok yang tersedia di gudang (${product.stock} pcs).`);
+          return prev;
+        }
         nextCart = [...prev];
         nextCart[idx].quantity += quantity;
       } else {
+        if (quantity > product.stock) {
+          alert(`Jumlah melebihi stok yang tersedia di gudang (${product.stock} pcs).`);
+          return prev;
+        }
         nextCart = [...prev, { product, quantity }];
       }
       localStorage.setItem('sr12_user_cart', JSON.stringify(nextCart));
@@ -191,6 +205,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const nextCart = prev.map(item => {
         if (item.product.id === productId) {
           const newQty = item.quantity + delta;
+          if (newQty > item.product.stock) {
+            alert(`Maksimal stok yang tersedia di gudang hanya ${item.product.stock} pcs.`);
+            return item;
+          }
           return newQty > 0 ? { ...item, quantity: newQty } : null;
         }
         return item;

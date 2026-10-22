@@ -920,6 +920,22 @@ export const PosDownlinesView: React.FC = () => {
             </div>
 
             <div style={{ padding: '20px', maxHeight: '75vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* 0. MARKETER */}
+              <div style={{ background: '#1e293b', padding: '16px', borderRadius: '12px', border: '1.5px solid #0284c7' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '0.72rem', background: '#0284c7', color: '#fff', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>DASAR</span>
+                    <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 900, color: '#38bdf8' }}>MARKETER</h4>
+                  </div>
+                  <span style={{ fontSize: '1rem', fontWeight: 900, color: '#38bdf8' }}>15% Komisi</span>
+                </div>
+                <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '0.76rem', color: '#cbd5e1', lineHeight: 1.6 }}>
+                  <li>Mendapatkan <b>komisi 15%</b> dari seluruh omset belanja/penjualan HET yang dicairkan bulanan.</li>
+                  <li>Punya <b>kesempatan emas naik menjadi RESELLER</b> melalui <b>First Order Reseller Rp 500.000,- HET</b> (Rp 400.000,- net) ATAU jalur omset akumulasi <b>Rp 800.000,-</b> (dengan omset pribadi min Rp 300.000,- berturut-turut 3 bulan).</li>
+                  <li style={{ color: '#34d399', fontWeight: 800 }}>Jika target Reseller belum tercapai, <b>Marketer TETAP MENJADI MITRA AKTIF</b> (tidak turun tingkat dan tidak pernah dikeluarkan dari kemitraan SR12).</li>
+                </ul>
+              </div>
+
               {/* 1. RESELLER */}
               <div style={{ background: '#1e293b', padding: '16px', borderRadius: '12px', border: '1px solid #334155' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>

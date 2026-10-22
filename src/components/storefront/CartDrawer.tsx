@@ -4,6 +4,8 @@ import { SR12_SHIPPING_PROVIDERS, getProductTierPrice, SR12_TIERS } from '../../
 import { verifyMitraDiscount } from '../../services/mitraService';
 import { createOrder, formatWhatsAppOrderMessage } from '../../services/orderService';
 import { Order, OrderItemPayload } from '../../types';
+import { updateStoreProductStock } from '../../services/catalogService';
+import { recordStockMutation } from '../../services/posService';
 import confetti from 'canvas-confetti';
 import { X, Trash2, ShoppingBag, Truck, Check, MessageCircle, UserCheck } from 'lucide-react';
 
@@ -148,21 +150,43 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose }) => {
       // 1. Simpan order ke cloud Supabase
       await createOrder(orderData, currentStore.slug);
 
-      // 2. Format pesan WhatsApp
+      // 2. DEDUKSI STOK PRODUK DI GUDANG SECARA OTOMATIS
+      cart.forEach(item => {
+        const nextStock = Math.max(0, item.product.stock - item.quantity);
+        updateStoreProductStock(currentStore.slug, item.product.id, nextStock);
+        recordStockMutation({
+          id: 'MUT-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+          storeSlug: currentStore.slug,
+          productId: item.product.id,
+          productName: item.product.name,
+          sku: item.product.sku,
+          date: new Date().toISOString(),
+          type: 'out',
+          qty: item.quantity,
+          beforeStock: item.product.stock,
+          afterStock: nextStock,
+          remainingStock: nextStock,
+          notes: `Pesanan Web Online #${orderId} (${customerName.trim()})`,
+          reason: `Pesanan Web Online #${orderId} (${customerName.trim()})`,
+          operator: 'Online Web Store'
+        }, currentStore.slug);
+      });
+
+      // 3. Format pesan WhatsApp
       const waMsg = formatWhatsAppOrderMessage(orderData, currentStore);
       const waUrl = `https://wa.me/${currentStore.storeWaNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(waMsg)}`;
 
-      // 3. Trigger celebratory confetti
+      // 4. Trigger celebratory confetti
       confetti({
         particleCount: 80,
         spread: 70,
         origin: { y: 0.6 }
       });
 
-      // 4. Buka WhatsApp
+      // 5. Buka WhatsApp
       window.open(waUrl, '_blank');
 
-      // 5. Bersihkan keranjang
+      // 6. Bersihkan keranjang
       clearCart();
       onClose();
     } catch (e) {
