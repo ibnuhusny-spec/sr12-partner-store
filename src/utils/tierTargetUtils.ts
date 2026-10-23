@@ -153,6 +153,34 @@ export function evaluateMitraRank(tier: PartnerTier, spentAmount: number): Mitra
   const nextCfg = cfg.nextTier ? SR12_TIER_TARGETS[cfg.nextTier] : null;
   const prevCfg = cfg.prevTier ? SR12_TIER_TARGETS[cfg.prevTier] : null;
 
+  // Aturan Khusus Non Mitra (Pelanggan Langganan Tetap / Customer):
+  if (tier === 'konsumen') {
+    const minOfferTarget = 500000;
+    const isPromotable = spentAmount >= minOfferTarget;
+    const progressPct = Math.min(100, Math.round((spentAmount / minOfferTarget) * 100));
+    return {
+      status: isPromotable ? 'promotable' : 'safe',
+      progressMonthlyPct: progressPct,
+      progress3MonthsPct: progressPct,
+      badgeLabel: isPromotable ? '🎁 Layak Ditawari Mitra' : '🛍️ Pelanggan Tetap (Non-Mitra)',
+      badgeColor: isPromotable ? '#10b981' : '#a855f7',
+      badgeBg: isPromotable ? 'rgba(16, 185, 129, 0.18)' : 'rgba(168, 85, 247, 0.18)',
+      shortMessage: isPromotable
+        ? `Total belanja Rp ${spentAmount.toLocaleString('id-ID')} melampaui Rp 500rb. Sangat potensial ditawari gabung Reseller (Diskon 20%) atau Marketer (Komisi 15%)!`
+        : `Customer aktif tanpa beban target omset. Hubungi secara berkala untuk kirim promo produk terbaru via WhatsApp.`,
+      remainingMonthlyMin: 0,
+      remaining3MonthsMin: 0,
+      remainingToPromo: Math.max(0, minOfferTarget - spentAmount),
+      currentTierConfig: {
+        ...cfg,
+        name: 'Non Mitra (Langganan)',
+        discountPct: 0
+      },
+      nextTierConfig: SR12_TIER_TARGETS.reseller,
+      prevTierConfig: null
+    };
+  }
+
   // Aturan Khusus Marketer: Bisa naik ke Reseller (500rb FO / 800rb omset), tapi TIDAK PERNAH turun level / keluar mitra!
   if (tier === 'marketer') {
     const resellerTargetHet = 500000;
@@ -282,6 +310,30 @@ export function generateMitraWaReminderUrl(
   let message = '';
   const tierName = evaluation.currentTierConfig.name;
   const spentFormatted = `Rp ${mitra.accumulatedSpent90Days.toLocaleString('id-ID')}`;
+
+  // Kasus Khusus: Non Mitra / Langganan Tetap (Kirim Promo & Tawaran Gabung)
+  if (mitra.tier === 'konsumen') {
+    if (evaluation.status === 'promotable') {
+      message = `Halo Kak *${mitra.name}*! 🌿✨\n\n` +
+        `Salam hangat dari *${storeName}* (Mitra Resmi SR12 Skin Care).\n` +
+        `Terima kasih banyak sudah menjadi pelanggan setia kami (total belanja Kakak tercatat: *${spentFormatted}*)! 🎉\n\n` +
+        `💡 *KABAR BAIK & PELUANG PENGHEMATAN:*\n` +
+        `Karena Kakak sering berbelanja produk SR12, Kakak sudah sangat memenuhi syarat untuk bergabung menjadi *Mitra Resmi SR12* (Marketer / Reseller)!\n\n` +
+        `Keuntungan jika Kakak bergabung:\n` +
+        `✅ Beli produk untuk dipakai sendiri langsung dapat diskon hingga 20%\n` +
+        `✅ Bisa jualan ke teman / keluarga dan dapat keuntungan bersih langsung\n` +
+        `✅ Tanpa modal besar, langsung kami bimbing cara promosinya\n\n` +
+        `Apakah Kakak berminat kami daftarkan gratis hari ini? Silakan balas pesan ini ya Kak. Terima kasih! 🙏✨`;
+    } else {
+      message = `Halo Kak *${mitra.name}*! 🌿✨\n\n` +
+        `Salam hangat dari *${storeName}* (Mitra Resmi SR12 Skin Care).\n` +
+        `Terima kasih telah berbelanja di toko kami (total belanja: *${spentFormatted}*).\n\n` +
+        `🎁 *PROMO KHUSUS PELANGGAN SETIA HARI INI:*\n` +
+        `Kami sedang ada promo menarik & bonus untuk produk perawatan kecantikan dan herbal best seller SR12 (Deodorant Spray, Facial Wash, Manjakani, Sunscreen, Salimah Slim, & Paket Glowing)!\n\n` +
+        `Apakah stok produk perawatan Kakak di rumah sudah ada yang mulai habis dan ingin di-restock hari ini? Kami siap melayani dan kirimkan cepat untuk Kakak ya! 😊🙏`;
+    }
+    return `https://wa.me/${phoneTarget}?text=${encodeURIComponent(message)}`;
+  }
 
   // Kasus Khusus: Marketer
   if (mitra.tier === 'marketer') {

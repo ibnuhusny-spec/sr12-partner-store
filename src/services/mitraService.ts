@@ -2,6 +2,54 @@ import { supabase, getActiveSessionToken } from '../config/supabase';
 import { MarketerSale, MitraDownline, PartnerTier } from '../types';
 
 export const DEFAULT_SAMPLE_DOWNLINES: MitraDownline[] = [
+  // 1. AGEN RESMI SR12 (Diskon 40%)
+  {
+    storeSlug: 'all',
+    partnerCode: 'AG-001',
+    name: 'dr. H. Irfan Syarifuddin, Sp.KK',
+    phone: '081234567890',
+    city: 'Jakarta Timur',
+    tier: 'agen',
+    bankName: 'BCA',
+    bankAccount: '5210982341',
+    bankHolder: 'Irfan Syarifuddin',
+    status: 'active',
+    accumulatedSpent90Days: 48500000, // Target 3 bln 45jt tercapai aman (Diskon 40%)
+    totalOrdersCount: 38,
+    lastOrderDate: '2026-10-21'
+  },
+  // 2. SUB AGEN RESMI SR12 (Diskon 30%)
+  {
+    storeSlug: 'all',
+    partnerCode: 'SA-201',
+    name: 'Hj. Nurul Hidayah',
+    phone: '081399001122',
+    city: 'Surabaya',
+    tier: 'sub_agen',
+    bankName: 'BSI',
+    bankAccount: '7109283746',
+    bankHolder: 'Nurul Hidayah',
+    status: 'active',
+    accumulatedSpent90Days: 26500000, // >= 25jt -> LAYAK PROMOSI KE AGEN (First Order Agen 25jt)!
+    totalOrdersCount: 24,
+    lastOrderDate: '2026-10-20'
+  },
+  {
+    storeSlug: 'all',
+    partnerCode: 'SA-202',
+    name: 'Fitri Handayani',
+    phone: '082155667788',
+    city: 'Yogyakarta',
+    tier: 'sub_agen',
+    bankName: 'BCA',
+    bankAccount: '8830192847',
+    bankHolder: 'Fitri Handayani',
+    status: 'active',
+    accumulatedSpent90Days: 3200000, // < 4jt/bln (target 3 bln 12jt) -> PERINGATAN TURUN KE RESELLER!
+    totalOrdersCount: 4,
+    lastOrderDate: '2026-10-05'
+  },
+  // 3. RESELLER RESMI SR12 (Diskon 20%)
   {
     storeSlug: 'all',
     partnerCode: 'RS-101',
@@ -47,36 +95,7 @@ export const DEFAULT_SAMPLE_DOWNLINES: MitraDownline[] = [
     totalOrdersCount: 2,
     lastOrderDate: '2026-10-02'
   },
-  {
-    storeSlug: 'all',
-    partnerCode: 'SA-201',
-    name: 'Hj. Nurul Hidayah',
-    phone: '081399001122',
-    city: 'Surabaya',
-    tier: 'sub_agen',
-    bankName: 'BSI',
-    bankAccount: '7109283746',
-    bankHolder: 'Nurul Hidayah',
-    status: 'active',
-    accumulatedSpent90Days: 26500000, // >= 25jt -> LAYAK PROMOSI KE AGEN (First Order Agen 25jt)!
-    totalOrdersCount: 24,
-    lastOrderDate: '2026-10-20'
-  },
-  {
-    storeSlug: 'all',
-    partnerCode: 'SA-202',
-    name: 'Fitri Handayani',
-    phone: '082155667788',
-    city: 'Yogyakarta',
-    tier: 'sub_agen',
-    bankName: 'BCA',
-    bankAccount: '8830192847',
-    bankHolder: 'Fitri Handayani',
-    status: 'active',
-    accumulatedSpent90Days: 3200000, // < 4jt/bln (target 3 bln 12jt) -> PERINGATAN TURUN KE RESELLER!
-    totalOrdersCount: 4,
-    lastOrderDate: '2026-10-05'
-  },
+  // 4. MARKETER SR12 (Komisi 15%)
   {
     storeSlug: 'all',
     partnerCode: 'MK-301',
@@ -106,6 +125,37 @@ export const DEFAULT_SAMPLE_DOWNLINES: MitraDownline[] = [
     accumulatedSpent90Days: 220000, // Belum 500rb -> Status: Tetap Marketer Aktif (tidak turun / keluar)!
     totalOrdersCount: 3,
     lastOrderDate: '2026-10-14'
+  },
+  // 5. NON MITRA (LANGGANAN / CUSTOMER TETAP - HET)
+  {
+    storeSlug: 'all',
+    partnerCode: 'CUST-001',
+    name: 'Anisa Maharani (Pelanggan Setia)',
+    phone: '081388776655',
+    city: 'Jakarta Selatan',
+    tier: 'konsumen',
+    bankName: '-',
+    bankAccount: '-',
+    bankHolder: 'Anisa Maharani',
+    status: 'active',
+    accumulatedSpent90Days: 620000, // Sering belanja > 500rb -> LAYAK DITAWARI GABUNG JADI MITRA RESELLER!
+    totalOrdersCount: 5,
+    lastOrderDate: '2026-10-21'
+  },
+  {
+    storeSlug: 'all',
+    partnerCode: 'CUST-002',
+    name: 'Lestari Indah (Langganan Herbal)',
+    phone: '087711223344',
+    city: 'Depok',
+    tier: 'konsumen',
+    bankName: '-',
+    bankAccount: '-',
+    bankHolder: 'Lestari Indah',
+    status: 'active',
+    accumulatedSpent90Days: 250000, // Pelanggan aktif -> Siap dikirim promo produk baru via WA
+    totalOrdersCount: 3,
+    lastOrderDate: '2026-10-17'
   }
 ];
 
@@ -214,8 +264,23 @@ export function getLocalDownlines(): MitraDownline[] {
   try {
     const raw = localStorage.getItem('sr12_mitra_downlines_v2');
     if (raw !== null) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
+      const parsed: MitraDownline[] = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // Auto-migration: Tambahkan contoh Agen dan Non-Mitra jika belum pernah termuat di browser
+        const hasAgen = parsed.some(m => m.tier === 'agen');
+        const hasKonsumen = parsed.some(m => m.tier === 'konsumen');
+        if (!hasAgen || !hasKonsumen) {
+          const missing = DEFAULT_SAMPLE_DOWNLINES.filter(d => 
+            (!hasAgen && d.tier === 'agen') || (!hasKonsumen && d.tier === 'konsumen')
+          );
+          if (missing.length > 0) {
+            const updated = [...parsed, ...missing];
+            localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(updated));
+            return updated;
+          }
+        }
+        return parsed;
+      }
     }
     // Seed HANYA jika raw belum pernah ada di browser (inisialisasi awal)
     localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(DEFAULT_SAMPLE_DOWNLINES));
