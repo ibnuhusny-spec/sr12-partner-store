@@ -14,13 +14,13 @@ export const SR12_TIERS: Record<PartnerTier, TierInfo> = {
   marketer: {
     id: 'marketer',
     name: 'Mitra Marketer',
-    label: 'Marketer (15%)',
-    discountPct: 15,
+    label: 'Marketer (Gaji 15%)',
+    discountPct: 0,
     commissionPct: 15,
     minOrderNominal: 0,
     minOrderPcs: 1,
     badgeColor: '#6366f1',
-    description: 'Diskon 15% & gaji komisi bulanan 15% dari omset penjualan'
+    description: 'Membayar Full sesuai harga HET (tanpa diskon langsung). Hak komisi 15% masuk ke Gaji Bulanan.'
   },
   reseller: {
     id: 'reseller',
@@ -90,8 +90,8 @@ export const SR12_SHIPPING_PROVIDERS: ShippingProvider[] = [
 ];
 
 export function getProductTierPrice(het: number, tierId: PartnerTier): number {
-  if (tierId === 'konsumen') {
-    return het;
+  if (tierId === 'konsumen' || tierId === 'marketer') {
+    return het; // Konsumen dan Marketer membayar Full HET tanpa diskon langsung saat transaksi
   }
   const tier = SR12_TIERS[tierId] || SR12_TIERS.konsumen;
   const multiplier = 1 - (tier.discountPct / 100);

@@ -36,7 +36,7 @@ export const SR12_TIER_TARGETS: Record<PartnerTier, TierTargetConfig> = {
   marketer: {
     tier: 'marketer',
     name: 'Marketer',
-    discountPct: 15,
+    discountPct: 0, // Membayar Full sesuai harga HET saat transaksi belanja (tanpa diskon langsung)
     firstOrderHet: 0,
     firstOrderNet: 0,
     minMonthlyTarget: 0, // Marketer tidak memiliki target minimal bulanan (status mitra permanen aman)
@@ -46,7 +46,9 @@ export const SR12_TIER_TARGETS: Record<PartnerTier, TierTargetConfig> = {
     nextTier: 'reseller',
     prevTier: null,
     rulesNotes: [
-      'Komisi penjualan 15% dari omset HET.',
+      'Membayar Full sesuai harga HET saat belanja (tanpa diskon 15% langsung).',
+      'Komisi penjualan 15% dari omset HET masuk ke gaji bulanan.',
+      'Penerimaan gaji bulanan berlangsung serentak di hari yang sama setiap bulannya (setiap tanggal 25).',
       'Kesempatan menjadi Reseller melalui First Order Rp 500.000,- HET ATAU jalur omset akumulasi Rp 800.000,- (omset pribadi min Rp 300.000,- berturut-turut 3 bulan).',
       'Jika target belum tercapai, Marketer TETAP MENJADI MITRA AKTIF (tidak pernah turun level dan tidak pernah keluar dari kemitraan SR12).'
     ]
@@ -315,6 +317,137 @@ export function evaluateMitraRank(tier: PartnerTier, spentAmount: number): Mitra
   };
 }
 
+export interface MitraDueDateInfo {
+  isMarketer: boolean;
+  isCustomer: boolean;
+  dueDateStr: string;            // e.g. "15 Nov 2026" or "Tgl 25 Setiap Bulan"
+  rawDate: string;               // e.g. "2026-11-15"
+  daysRemaining: number;         // e.g. 23
+  status: 'safe' | 'warning' | 'expired' | 'monthly_fixed';
+  badgeLabel: string;            // e.g. "📅 Sisa 23 hr", "⚠️ Sisa 8 hr", "🔴 Lewat Jatuh Tempo", "💼 Gajian Tgl 25"
+  badgeColor: string;
+  badgeBg: string;
+  displayLine: string;           // "Jatuh Tempo: 15 Nov 2026 (Sisa 23 hari)"
+}
+
+/**
+ * Menghitung tanggal batas akhir perhitungan penghasilan / evaluasi target omset mitra
+ * Khusus Marketer menerima gaji serentak di hari yang sama setiap bulannya (Tanggal 25)
+ */
+export function getMitraDueDateInfo(mitra: MitraDownline): MitraDueDateInfo {
+  const now = new Date();
+
+  if (mitra.tier === 'konsumen') {
+    return {
+      isMarketer: false,
+      isCustomer: true,
+      dueDateStr: 'Bebas Target',
+      rawDate: '',
+      daysRemaining: 999,
+      status: 'safe',
+      badgeLabel: '🛍️ Bebas Target',
+      badgeColor: '#c084fc',
+      badgeBg: 'rgba(168, 85, 247, 0.15)',
+      displayLine: 'Pelanggan Langganan Tetap (Bebas Beban Target)'
+    };
+  }
+
+  if (mitra.tier === 'marketer') {
+    // Marketer menerima gaji serentak di hari yang sama setiap bulannya (Tanggal 25)
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const currentDay = now.getDate();
+
+    let payDate = new Date(currentYear, currentMonth, 25);
+    if (currentDay > 25) {
+      payDate = new Date(currentYear, currentMonth + 1, 25);
+    }
+
+    const diffTime = payDate.getTime() - now.getTime();
+    const daysRemaining = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    const formattedPayDate = `25 ${months[payDate.getMonth()]} ${payDate.getFullYear()}`;
+
+    return {
+      isMarketer: true,
+      isCustomer: false,
+      dueDateStr: 'Tgl 25 Setiap Bulan',
+      rawDate: payDate.toISOString().split('T')[0],
+      daysRemaining,
+      status: 'monthly_fixed',
+      badgeLabel: `💼 Gajian Tgl 25 (${daysRemaining === 0 ? 'Hari Ini!' : `Sisa ${daysRemaining} hr`})`,
+      badgeColor: '#818cf8',
+      badgeBg: 'rgba(99, 102, 241, 0.15)',
+      displayLine: `Gaji Serentak: ${formattedPayDate} (${daysRemaining === 0 ? 'Hari Ini' : `Sisa ${daysRemaining} hari`})`
+    };
+  }
+
+  // Reseller, Sub Agen, Agen, Distributor: Jatuh tempo evaluasi target masing-masing mitra
+  let rawDueDate = mitra.evaluationDueDate;
+  if (!rawDueDate) {
+    if (mitra.qualificationDate) {
+      const qDate = new Date(mitra.qualificationDate);
+      qDate.setDate(qDate.getDate() + 90);
+      rawDueDate = qDate.toISOString().split('T')[0];
+    } else {
+      const def = new Date(now);
+      def.setDate(def.getDate() + 60);
+      rawDueDate = def.toISOString().split('T')[0];
+    }
+  }
+
+  const dParts = rawDueDate.split('-');
+  const dueDateObj = new Date(parseInt(dParts[0]), parseInt(dParts[1]) - 1, parseInt(dParts[2]), 23, 59, 59);
+  const diffTime = dueDateObj.getTime() - now.getTime();
+  const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  const formattedDueDate = `${parseInt(dParts[2])} ${months[parseInt(dParts[1]) - 1]} ${dParts[0]}`;
+
+  if (daysRemaining < 0) {
+    const overdue = Math.abs(daysRemaining);
+    return {
+      isMarketer: false,
+      isCustomer: false,
+      dueDateStr: formattedDueDate,
+      rawDate: rawDueDate,
+      daysRemaining,
+      status: 'expired',
+      badgeLabel: `🔴 Lewat Jatuh Tempo (${overdue} hr lalu)`,
+      badgeColor: '#f43f5e',
+      badgeBg: 'rgba(244, 63, 94, 0.18)',
+      displayLine: `Batas Evaluasi: ${formattedDueDate} (Lewat ${overdue} hari)`
+    };
+  }
+
+  if (daysRemaining <= 14) {
+    return {
+      isMarketer: false,
+      isCustomer: false,
+      dueDateStr: formattedDueDate,
+      rawDate: rawDueDate,
+      daysRemaining,
+      status: 'warning',
+      badgeLabel: `⚠️ Jatuh Tempo: Sisa ${daysRemaining} hr`,
+      badgeColor: '#f59e0b',
+      badgeBg: 'rgba(245, 158, 11, 0.18)',
+      displayLine: `Jatuh Tempo: ${formattedDueDate} (Sisa ${daysRemaining} hari!)`
+    };
+  }
+
+  return {
+    isMarketer: false,
+    isCustomer: false,
+    dueDateStr: formattedDueDate,
+    rawDate: rawDueDate,
+    daysRemaining,
+    status: 'safe',
+    badgeLabel: `📅 Sisa ${daysRemaining} hr`,
+    badgeColor: '#34d399',
+    badgeBg: 'rgba(16, 185, 129, 0.15)',
+    displayLine: `Jatuh Tempo: ${formattedDueDate} (Sisa ${daysRemaining} hari)`
+  };
+}
+
 /**
  * Generate WhatsApp message URL for motivational reminder
  */
@@ -325,6 +458,7 @@ export function generateMitraWaReminderUrl(
 ): string {
   const cleanPhone = mitra.phone.replace(/[^0-9]/g, '');
   const phoneTarget = cleanPhone.startsWith('0') ? '62' + cleanPhone.slice(1) : cleanPhone;
+  const dueDateInfo = getMitraDueDateInfo(mitra);
 
   let message = '';
   const tierName = evaluation.currentTierConfig.name;
@@ -361,18 +495,19 @@ export function generateMitraWaReminderUrl(
         `Kabar gembira dari *${storeName}*!\n` +
         `Akumulasi penjualan Kakak tercatat sebesar *${spentFormatted}* dan telah *MEMENUHI SYARAT NAIK LEVEL MENJADI RESELLER RESMI*! 🚀\n\n` +
         `Keuntungan naik menjadi Reseller:\n` +
-        `✅ Langsung dapat DISKON 20% di muka (bukan komisi bulanan lagi)\n` +
+        `✅ Langsung dapat DISKON 20% di muka saat belanja (bukan komisi bulanan lagi)\n` +
         `✅ Margin keuntungan bersih per produk jauh lebih besar\n` +
         `✅ Berhak membina tim marketer sendiri\n\n` +
         `Silakan konfirmasi ke kami untuk pengesahan posisi Reseller Kakak ya. Selamat atas kerja kerasnya! 🙏✨`;
     } else {
       message = `Halo Kak *${mitra.name}* (Mitra Marketer SR12 ${mitra.partnerCode})! 🌿\n\n` +
         `Semangat terus berbisnis bersama *${storeName}*.\n` +
-        `Akumulasi penjualan Kakak saat ini tercatat *${spentFormatted}*.\n\n` +
+        `Akumulasi penjualan Kakak saat ini tercatat *${spentFormatted}*.\n` +
+        `🗓️ *Jadwal Pembayaran Gaji Bulanan:* Serentak tanggal 25 setiap bulan (${dueDateInfo.displayLine}).\n\n` +
         `💡 *PELUANG NAIK LEVEL MENJADI RESELLER:*\n` +
         `Sebagai Marketer, Kakak punya kesempatan emas untuk naik tingkat menjadi *RESELLER RESMI SR12*:\n` +
         `• Cukup capai omset Rp 500.000,- HET (atau jalur prestasi Rp 800.000,-).\n` +
-        `• Dengan menjadi Reseller, Kakak langsung mendapatkan DISKON 20% di muka!\n\n` +
+        `• Dengan menjadi Reseller, Kakak langsung mendapatkan DISKON 20% di muka saat belanja!\n\n` +
         `Kurang *Rp ${evaluation.remainingToPromo.toLocaleString('id-ID')}* lagi untuk meraih posisi Reseller. Jangan khawatir, jika belum tercapai Kakak tetap aman sebagai Marketer resmi SR12 tanpa ada risiko turun level atau keluar.\n\n` +
         `Yuk bagikan katalog & promo produk SR12 hari ini! Hubungi kami jika butuh bantuan stok atau info produk ya. Semangat terus! 🔥`;
     }
@@ -382,7 +517,7 @@ export function generateMitraWaReminderUrl(
   if (evaluation.status === 'promotable') {
     message = `Halo Kak *${mitra.name}* (Mitra SR12 ${mitra.partnerCode})! 🎉🌿\n\n` +
       `Kabar gembira dari *${storeName}*!\n` +
-      `Akumulasi pembelanjaan Kakak bulan ini tercatat sebesar *${spentFormatted}* dan telah *MEMENUHI SYARAT 2026 PROMOSI NAIK LEVEL KE ${evaluation.nextTierConfig?.name.toUpperCase()}*! 🚀\n\n` +
+      `Akumulasi pembelanjaan Kakak tercatat sebesar *${spentFormatted}* dan telah *MEMENUHI SYARAT 2026 PROMOSI NAIK LEVEL KE ${evaluation.nextTierConfig?.name.toUpperCase()}*! 🚀\n\n` +
       `Dengan naik level menjadi *${evaluation.nextTierConfig?.name}*:\n` +
       `✅ Diskon kemitraan meningkat jadi *${evaluation.nextTierConfig?.discountPct}%*\n` +
       `✅ Margin keuntungan per produk lebih tinggi\n` +
@@ -393,12 +528,13 @@ export function generateMitraWaReminderUrl(
     const target3Bulan = `Rp ${evaluation.currentTierConfig.accum3MonthsTarget.toLocaleString('id-ID')}`;
     message = `Halo Kak *${mitra.name}* (Mitra SR12 ${mitra.partnerCode} - ${tierName}) 🌿\n\n` +
       `Salam hangat dari tim *${storeName}*.\n` +
-      `Kami ingin menginformasikan akumulasi belanja Kakak saat ini tercatat *${spentFormatted}*.\n\n` +
+      `Kami ingin menginformasikan akumulasi belanja Kakak saat ini tercatat *${spentFormatted}*.\n` +
+      `🗓️ *Batas Akhir Evaluasi Target (Jatuh Tempo):* *${dueDateInfo.dueDateStr}* (${dueDateInfo.badgeLabel})\n\n` +
       `⚠️ *PENGINGAT ATURAN KEMITRAAN SR12 2026:*\n` +
       `Sesuai aturan resmi SR12 CK SWORD:\n` +
       `• Target omset minimal status *${tierName}* adalah Rp ${evaluation.currentTierConfig.minMonthlyTarget.toLocaleString('id-ID')}/bulan (atau akumulasi ${target3Bulan} selama 3 bulan).\n` +
-      `• Mitra yang tidak mencapai akumulasi minimal 3 bulan, pada *bulan ke-4 status mitra akan diturunkan ke tingkatan di bawahnya (${evaluation.prevTierConfig?.name || 'Marketer'})*.\n\n` +
-      `Kakak hanya memerlukan belanja *${sisaBulan}* lagi sebelum akhir bulan agar posisi Kakak tetap aman dan diskon *${evaluation.currentTierConfig.discountPct}%* tetap aktif! 💪\n\n` +
+      `• Mitra yang tidak mencapai akumulasi minimal 3 bulan sebelum tanggal jatuh tempo (*${dueDateInfo.dueDateStr}*), status mitra akan diturunkan ke tingkatan di bawahnya (${evaluation.prevTierConfig?.name || 'Marketer'}).\n\n` +
+      `Kakak hanya memerlukan belanja *${sisaBulan}* lagi sebelum batas waktu tersebut agar posisi Kakak tetap aman dan diskon *${evaluation.currentTierConfig.discountPct}%* tetap aktif! 💪\n\n` +
       `Yuk segera restock produk best seller (Deodorant, Manjakani, Salimah, Sunscreen, Paket Glowing) hari ini. Hubungi kami untuk bantu proses order ya Kak. Semangat terus! 🔥`;
   } else {
     // Safe
@@ -408,7 +544,8 @@ export function generateMitraWaReminderUrl(
 
     message = `Halo Kak *${mitra.name}* (Mitra SR12 ${mitra.partnerCode}) 🌿\n\n` +
       `Terima kasih atas keaktifan berbelanja di *${storeName}*.\n` +
-      `Akumulasi belanja Kakak saat ini sebesar *${spentFormatted}* (Status: Target Aman 🟢).\n\n` +
+      `Akumulasi belanja Kakak saat ini sebesar *${spentFormatted}* (Status: Target Aman 🟢).\n` +
+      `🗓️ *Batas Waktu Periode Evaluasi Target:* *${dueDateInfo.dueDateStr}* (${dueDateInfo.badgeLabel})\n\n` +
       `${sisaPromo}\n\n` +
       `Jika butuh tambahan materi promosi atau stok cepat, silakan kabari kami ya. Sukses selalu untuk bisnis Kakak! 🙏✨`;
   }

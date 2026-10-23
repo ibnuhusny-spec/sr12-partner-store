@@ -50,7 +50,7 @@ export const PosReportsView: React.FC = () => {
       case 'agen': return 40;
       case 'sub_agen': return 30;
       case 'reseller': return 20;
-      case 'marketer': return 15;
+      case 'marketer': return 0; // Marketer bayar Full HET (0% diskon langsung)
       default: return 0;
     }
   };
@@ -90,15 +90,18 @@ export const PosReportsView: React.FC = () => {
       const partnerCode = matchedMitra?.partnerCode || o.partnerCode || (o.tier && o.tier !== 'konsumen' ? o.customerName : 'NON-MITRA');
       const partnerName = matchedMitra?.name || o.customerName || 'Konsumen Retail';
       const tierKey = (matchedMitra?.tier || o.tier || 'konsumen') as PartnerTier;
-      const discountPct = SR12_TIERS[tierKey]?.discountPct ?? getDiscountPctByTier(tierKey);
+      const isMarketer = tierKey === 'marketer';
+      // Marketer bayar Full HET (0% diskon langsung), 15% masuk gaji bulanan
+      const discountPct = isMarketer ? 0 : (SR12_TIERS[tierKey]?.discountPct ?? getDiscountPctByTier(tierKey));
       const het = o.subtotalHet || o.grandTotal;
 
-      // Diskon level resmi: 15% (Marketer), 20% (Reseller), 30% (Sub Agen), 40% (Agen)
-      const discount = (o.discountAmount && o.discountAmount > 0)
-        ? o.discountAmount
-        : Math.round(het * (discountPct / 100));
-      const netPaid = (o.grandTotal && o.discountAmount) ? o.grandTotal : (het - discount);
-      const marketerComm = tierKey === 'marketer' ? Math.round(het * 0.15) : 0;
+      const discount = isMarketer
+        ? 0
+        : ((o.discountAmount && o.discountAmount > 0)
+          ? o.discountAmount
+          : Math.round(het * (discountPct / 100)));
+      const netPaid = isMarketer ? het : ((o.grandTotal && o.discountAmount) ? o.grandTotal : (het - discount));
+      const marketerComm = isMarketer ? Math.round(het * 0.15) : 0;
 
       const groupKey = `${dateKey}_${partnerCode}`;
       const existing = map.get(groupKey);
@@ -192,13 +195,16 @@ export const PosReportsView: React.FC = () => {
       );
 
       const resolvedTier = (matchedMitra?.tier || o.tier || 'konsumen') as PartnerTier;
-      const discPct = SR12_TIERS[resolvedTier]?.discountPct ?? getDiscountPctByTier(resolvedTier);
+      const isMarketer = resolvedTier === 'marketer';
+      const discPct = isMarketer ? 0 : (SR12_TIERS[resolvedTier]?.discountPct ?? getDiscountPctByTier(resolvedTier));
       const het = o.subtotalHet || o.grandTotal;
-      const discount = (o.discountAmount && o.discountAmount > 0)
-        ? o.discountAmount
-        : Math.round(het * (discPct / 100));
-      const netPaid = (o.grandTotal && o.discountAmount) ? o.grandTotal : (het - discount);
-      const mktComm = resolvedTier === 'marketer' ? Math.round(het * 0.15) : 0;
+      const discount = isMarketer
+        ? 0
+        : ((o.discountAmount && o.discountAmount > 0)
+          ? o.discountAmount
+          : Math.round(het * (discPct / 100)));
+      const netPaid = isMarketer ? het : ((o.grandTotal && o.discountAmount) ? o.grandTotal : (het - discount));
+      const mktComm = isMarketer ? Math.round(het * 0.15) : 0;
       const tierLabel = SR12_TIERS[resolvedTier]?.name || o.tierLabel || (resolvedTier === 'konsumen' ? 'Non-Mitra (HET)' : resolvedTier.toUpperCase());
 
       return {

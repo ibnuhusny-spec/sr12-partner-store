@@ -177,7 +177,9 @@ export interface MitraDownline {
   status: 'active' | 'inactive' | 'suspended';
   accumulatedSpent90Days: number;
   totalOrdersCount: number;
+  joinDate?: string;
   qualificationDate?: string;
+  evaluationDueDate?: string; // Tanggal Batas Akhir / Jatuh Tempo Evaluasi Target (YYYY-MM-DD)
   lastOrderDate?: string;
 }
 

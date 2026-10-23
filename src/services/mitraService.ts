@@ -16,6 +16,8 @@ export const DEFAULT_SAMPLE_DOWNLINES: MitraDownline[] = [
     status: 'active',
     accumulatedSpent90Days: 48500000, // Target 3 bln 45jt tercapai aman (Diskon 40%)
     totalOrdersCount: 38,
+    joinDate: '2026-08-20',
+    evaluationDueDate: '2026-11-20',
     lastOrderDate: '2026-10-21'
   },
   // 2. SUB AGEN RESMI SR12 (Diskon 30%)
@@ -32,6 +34,8 @@ export const DEFAULT_SAMPLE_DOWNLINES: MitraDownline[] = [
     status: 'active',
     accumulatedSpent90Days: 26500000, // >= 25jt -> LAYAK PROMOSI KE AGEN (First Order Agen 25jt)!
     totalOrdersCount: 24,
+    joinDate: '2026-08-15',
+    evaluationDueDate: '2026-11-15',
     lastOrderDate: '2026-10-20'
   },
   {
@@ -47,6 +51,8 @@ export const DEFAULT_SAMPLE_DOWNLINES: MitraDownline[] = [
     status: 'active',
     accumulatedSpent90Days: 3200000, // < 4jt/bln (target 3 bln 12jt) -> PERINGATAN TURUN KE RESELLER!
     totalOrdersCount: 4,
+    joinDate: '2026-08-01',
+    evaluationDueDate: '2026-10-31',
     lastOrderDate: '2026-10-05'
   },
   // 3. RESELLER RESMI SR12 (Diskon 20%)
@@ -63,6 +69,8 @@ export const DEFAULT_SAMPLE_DOWNLINES: MitraDownline[] = [
     status: 'active',
     accumulatedSpent90Days: 5200000, // >= 5jt -> LAYAK PROMOSI KE SUB AGEN (First Order Sub Agen 5jt)!
     totalOrdersCount: 16,
+    joinDate: '2026-09-05',
+    evaluationDueDate: '2026-12-05',
     lastOrderDate: '2026-10-18'
   },
   {
@@ -78,6 +86,8 @@ export const DEFAULT_SAMPLE_DOWNLINES: MitraDownline[] = [
     status: 'active',
     accumulatedSpent90Days: 1850000, // Target min 3 bln 1.5jt tercapai aman
     totalOrdersCount: 7,
+    joinDate: '2026-08-28',
+    evaluationDueDate: '2026-11-28',
     lastOrderDate: '2026-10-15'
   },
   {
@@ -93,9 +103,11 @@ export const DEFAULT_SAMPLE_DOWNLINES: MitraDownline[] = [
     status: 'active',
     accumulatedSpent90Days: 350000, // < 500rb/bln atau < 1.5jt/3 bln -> PERINGATAN TURUN KE MARKETER!
     totalOrdersCount: 2,
+    joinDate: '2026-08-05',
+    evaluationDueDate: '2026-11-05',
     lastOrderDate: '2026-10-02'
   },
-  // 4. MARKETER SR12 (Komisi 15%)
+  // 4. MARKETER SR12 (Komisi 15% - Gaji serentak tgl 25 bulanan)
   {
     storeSlug: 'all',
     partnerCode: 'MK-301',
@@ -109,6 +121,8 @@ export const DEFAULT_SAMPLE_DOWNLINES: MitraDownline[] = [
     status: 'active',
     accumulatedSpent90Days: 950000, // >= 500rb FO / 800rb prestasi -> LAYAK PROMOSI KE RESELLER!
     totalOrdersCount: 8,
+    joinDate: '2026-09-01',
+    evaluationDueDate: '2026-10-25',
     lastOrderDate: '2026-10-19'
   },
   {
@@ -124,6 +138,8 @@ export const DEFAULT_SAMPLE_DOWNLINES: MitraDownline[] = [
     status: 'active',
     accumulatedSpent90Days: 220000, // Belum 500rb -> Status: Tetap Marketer Aktif (tidak turun / keluar)!
     totalOrdersCount: 3,
+    joinDate: '2026-09-15',
+    evaluationDueDate: '2026-10-25',
     lastOrderDate: '2026-10-14'
   },
   // 5. NON MITRA (LANGGANAN / CUSTOMER TETAP - HET)
@@ -140,6 +156,7 @@ export const DEFAULT_SAMPLE_DOWNLINES: MitraDownline[] = [
     status: 'active',
     accumulatedSpent90Days: 620000, // Sering belanja > 500rb -> LAYAK DITAWARI GABUNG JADI MITRA RESELLER!
     totalOrdersCount: 5,
+    joinDate: '2026-07-10',
     lastOrderDate: '2026-10-21'
   },
   {
@@ -321,12 +338,24 @@ export async function saveStoreDownline(mitra: Partial<MitraDownline>, storeSlug
 }
 
 export async function updateMitraTier(partnerCode: string, newTier: PartnerTier, storeSlug: string): Promise<boolean> {
+  return updateMitraLevelAndDueDate(partnerCode, newTier, undefined, storeSlug);
+}
+
+export async function updateMitraLevelAndDueDate(
+  partnerCode: string,
+  newTier: PartnerTier,
+  newDueDate: string | undefined,
+  storeSlug: string
+): Promise<boolean> {
   try {
     const raw = localStorage.getItem('sr12_mitra_downlines_v2');
     const list: MitraDownline[] = raw ? JSON.parse(raw) : [];
     const idx = list.findIndex(m => m.partnerCode === partnerCode);
     if (idx >= 0) {
       list[idx].tier = newTier;
+      if (newDueDate !== undefined) {
+        list[idx].evaluationDueDate = newDueDate;
+      }
       localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(list));
       await saveStoreDownline(list[idx], storeSlug);
       return true;

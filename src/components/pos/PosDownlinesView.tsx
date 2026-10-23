@@ -5,6 +5,7 @@ import {
   saveStoreDownline,
   fetchStoreMarketerSales,
   updateMitraTier,
+  updateMitraLevelAndDueDate,
   updateMarketerSalePaidStatus,
   deleteStoreDownline,
   clearAllStoreDownlines,
@@ -20,7 +21,9 @@ import {
   SR12_TIER_TARGETS,
   evaluateMitraRank,
   generateMitraWaReminderUrl,
-  MitraRankEvaluation
+  getMitraDueDateInfo,
+  MitraRankEvaluation,
+  MitraDueDateInfo
 } from '../../utils/tierTargetUtils';
 import {
   Users,
@@ -44,7 +47,8 @@ import {
   MapPin,
   Phone,
   Gift,
-  ShoppingBag
+  ShoppingBag,
+  Calendar
 } from 'lucide-react';
 
 export const PosDownlinesView: React.FC = () => {
@@ -59,8 +63,9 @@ export const PosDownlinesView: React.FC = () => {
   // Modal State
   const [showAddModal, setShowAddModal] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
-  const [promoteModalMitra, setPromoteModalMitra] = useState<{ mitra: MitraDownline; evalData: MitraRankEvaluation } | null>(null);
-  const [selectedNewTier, setSelectedNewTier] = useState<PartnerTier>('sub_agen');
+  const [promoteModalMitra, setPromoteModalMitra] = useState<{ mitra: MitraDownline; evalData: MitraRankEvaluation; dueDateInfo: MitraDueDateInfo } | null>(null);
+  const [selectedNewTier, setSelectedNewTier] = useState<PartnerTier>('reseller');
+  const [selectedDueDate, setSelectedDueDate] = useState('');
 
   // New downline form state
   const [partnerCode, setPartnerCode] = useState('');
@@ -68,6 +73,7 @@ export const PosDownlinesView: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
   const [tier, setTier] = useState<PartnerTier>('reseller');
+  const [evaluationDueDate, setEvaluationDueDate] = useState('');
   const [bankName, setBankName] = useState('BCA');
   const [bankAccount, setBankAccount] = useState('');
 
@@ -87,6 +93,10 @@ export const PosDownlinesView: React.FC = () => {
     setPartnerCode('');
     setCity('');
     setTier('reseller');
+    // Default 90 hari dari hari ini untuk periode evaluasi target
+    const d = new Date();
+    d.setDate(d.getDate() + 90);
+    setEvaluationDueDate(d.toISOString().split('T')[0]);
     setShowAddModal(true);
   };
 
@@ -97,6 +107,7 @@ export const PosDownlinesView: React.FC = () => {
       return;
     }
 
+    const todayStr = new Date().toISOString().split('T')[0];
     const newMitra: MitraDownline = {
       storeSlug: currentStore.slug,
       partnerCode: partnerCode.trim().toUpperCase(),
@@ -109,7 +120,10 @@ export const PosDownlinesView: React.FC = () => {
       bankHolder: name.trim(),
       status: 'active',
       accumulatedSpent90Days: 0,
-      totalOrdersCount: 0
+      totalOrdersCount: 0,
+      joinDate: todayStr,
+      qualificationDate: todayStr,
+      evaluationDueDate: (tier === 'marketer' || tier === 'konsumen') ? undefined : (evaluationDueDate || undefined)
     };
 
     await saveStoreDownline(newMitra, currentStore.slug);
@@ -125,8 +139,9 @@ export const PosDownlinesView: React.FC = () => {
   const handleConfirmTierChange = async () => {
     if (!promoteModalMitra) return;
     const targetCode = promoteModalMitra.mitra.partnerCode;
-    await updateMitraTier(targetCode, selectedNewTier, currentStore.slug);
-    setDownlines(prev => prev.map(m => m.partnerCode === targetCode ? { ...m, tier: selectedNewTier } : m));
+    const dueDateToSave = (selectedNewTier === 'marketer' || selectedNewTier === 'konsumen') ? undefined : (selectedDueDate || undefined);
+    await updateMitraLevelAndDueDate(targetCode, selectedNewTier, dueDateToSave, currentStore.slug);
+    setDownlines(prev => prev.map(m => m.partnerCode === targetCode ? { ...m, tier: selectedNewTier, evaluationDueDate: dueDateToSave } : m));
     loadData();
     setPromoteModalMitra(null);
   };
@@ -296,7 +311,8 @@ export const PosDownlinesView: React.FC = () => {
   const evaluatedDownlines = downlines.map(m => ({
     mitra: m,
     evalData: evaluateMitraRank(m.tier, m.accumulatedSpent90Days),
-    bonusInfo: calculateMitraBonusAndDiscount(m)
+    bonusInfo: calculateMitraBonusAndDiscount(m),
+    dueDateInfo: getMitraDueDateInfo(m)
   }));
 
   // Filtering
@@ -377,14 +393,14 @@ export const PosDownlinesView: React.FC = () => {
         };
       case 'marketer':
         return {
-          label: '💼 MARKETER (15%)',
-          shortLabel: 'MARKETER 15%',
+          label: '💼 MARKETER (GAJI 15%)',
+          shortLabel: 'MARKETER (15%)',
           gradient: 'linear-gradient(135deg, #6366f1, #4f46e5)',
           color: '#e0e7ff',
           border: 'rgba(99, 102, 241, 0.4)',
           avatarBg: 'rgba(99, 102, 241, 0.15)',
           avatarColor: '#818cf8',
-          req: 'Status Permanen Aman (Komisi 15%)'
+          req: 'Bayar Full HET • Gaji Tgl 25'
         };
       case 'konsumen':
       default:
@@ -878,7 +894,7 @@ export const PosDownlinesView: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredDownlines.map(({ mitra, evalData, bonusInfo }) => {
+                    {filteredDownlines.map(({ mitra, evalData, bonusInfo, dueDateInfo }) => {
                       const waUrl = generateMitraWaReminderUrl(mitra, currentStore.storeName, evalData);
                       const isPromotable = evalData.status === 'promotable';
                       const isWarning = evalData.status === 'warning';
@@ -1003,6 +1019,27 @@ export const PosDownlinesView: React.FC = () => {
                             <div style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: '4px' }}>
                               {evalData.shortMessage}
                             </div>
+
+                            {/* Batas Waktu Evaluasi Target / Jatuh Tempo */}
+                            <div
+                              style={{
+                                marginTop: '6px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                background: dueDateInfo.badgeBg,
+                                border: `1px solid ${dueDateInfo.badgeColor}40`,
+                                fontSize: '0.69rem',
+                                color: dueDateInfo.badgeColor,
+                                fontWeight: 700
+                              }}
+                              title={dueDateInfo.displayLine}
+                            >
+                              <Calendar size={11} color={dueDateInfo.badgeColor} />
+                              <span>{dueDateInfo.displayLine}</span>
+                            </div>
                           </td>
 
                           {/* 4. Status Evaluasi Jenjang */}
@@ -1062,8 +1099,9 @@ export const PosDownlinesView: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setPromoteModalMitra({ mitra, evalData });
+                                  setPromoteModalMitra({ mitra, evalData, dueDateInfo });
                                   setSelectedNewTier(mitra.tier);
+                                  setSelectedDueDate(dueDateInfo.rawDate || '');
                                 }}
                                 className="mitra-pill-btn"
                                 style={{
@@ -1104,7 +1142,7 @@ export const PosDownlinesView: React.FC = () => {
 
               {/* 2. Mobile Card List (Ultra-Sleek Native App View on HP screens) */}
               <div className="hide-on-desktop" style={{ padding: '12px' }}>
-                {filteredDownlines.map(({ mitra, evalData, bonusInfo }) => {
+                {filteredDownlines.map(({ mitra, evalData, bonusInfo, dueDateInfo }) => {
                   const waUrl = generateMitraWaReminderUrl(mitra, currentStore.storeName, evalData);
                   const isPromotable = evalData.status === 'promotable';
                   const isWarning = evalData.status === 'warning';
@@ -1229,6 +1267,25 @@ export const PosDownlinesView: React.FC = () => {
                         </div>
                       </div>
 
+                      {/* Card Batas Evaluasi / Tanggal Gajian */}
+                      <div
+                        style={{
+                          background: dueDateInfo.badgeBg,
+                          border: `1px solid ${dueDateInfo.badgeColor}40`,
+                          padding: '7px 10px',
+                          borderRadius: '8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          color: dueDateInfo.badgeColor
+                        }}
+                      >
+                        <Calendar size={13} color={dueDateInfo.badgeColor} />
+                        <span>{dueDateInfo.displayLine}</span>
+                      </div>
+
                       {/* Card Action Buttons */}
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         <a
@@ -1253,8 +1310,9 @@ export const PosDownlinesView: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => {
-                            setPromoteModalMitra({ mitra, evalData });
+                            setPromoteModalMitra({ mitra, evalData, dueDateInfo });
                             setSelectedNewTier(mitra.tier);
+                            setSelectedDueDate(dueDateInfo.rawDate || '');
                           }}
                           className="mitra-pill-btn"
                           style={{
@@ -1465,6 +1523,33 @@ export const PosDownlinesView: React.FC = () => {
                 />
               </div>
 
+              {/* Tanggal Batas Jatuh Tempo Evaluasi Target */}
+              {tier === 'marketer' ? (
+                <div style={{ background: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.3)', borderRadius: '8px', padding: '9px 12px', fontSize: '0.75rem', color: '#cbd5e1' }}>
+                  💼 <b>Jadwal Gaji Marketer:</b> Marketer tidak memiliki batas target penurunan peringkat. Seluruh komisi 15% dibayarkan serentak pada <b>Tanggal 25 setiap bulannya</b>.
+                </div>
+              ) : tier === 'konsumen' ? (
+                <div style={{ background: 'rgba(148, 163, 184, 0.1)', border: '1px solid rgba(148, 163, 184, 0.3)', borderRadius: '8px', padding: '9px 12px', fontSize: '0.75rem', color: '#94a3b8' }}>
+                  🛍️ <b>Pelanggan Retail:</b> Bebas target omset (membeli dengan harga HET normal).
+                </div>
+              ) : (
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', display: 'block', marginBottom: '4px' }}>
+                    📅 Batas Akhir Evaluasi Target (Jatuh Tempo):
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={evaluationDueDate}
+                    onChange={(e) => setEvaluationDueDate(e.target.value)}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', background: '#0f172a', border: '1px solid #334155', color: '#fff', fontSize: '0.85rem' }}
+                  />
+                  <span style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '3px', display: 'block' }}>
+                    * Batas waktu perhitungan 3 bulan untuk evaluasi target omset mitra ini (bisa disesuaikan per mitra).
+                  </span>
+                </div>
+              )}
+
               <button
                 type="submit"
                 style={{
@@ -1533,7 +1618,7 @@ export const PosDownlinesView: React.FC = () => {
                   }}
                 >
                   <option value="konsumen">🛍️ Non Mitra (Langganan Customer Tetap - HET Penuh)</option>
-                  <option value="marketer">💼 Marketer (Komisi 15%)</option>
+                  <option value="marketer">💼 Marketer (Gaji 15% - Bayar Full HET)</option>
                   <option value="reseller">⭐ Reseller (Diskon 20%)</option>
                   <option value="sub_agen">💠 Sub Agen (Diskon 30%)</option>
                   <option value="agen">👑 Agen (Diskon 40%)</option>
@@ -1543,6 +1628,39 @@ export const PosDownlinesView: React.FC = () => {
                   * Mengubah level akan langsung memperbarui diskon belanja yang didapat mitra saat checkout.
                 </span>
               </div>
+
+              {selectedNewTier !== 'marketer' && selectedNewTier !== 'konsumen' ? (
+                <div>
+                  <label style={{ fontSize: '0.78rem', fontWeight: 800, color: '#cbd5e1', display: 'block', marginBottom: '6px' }}>
+                    📅 Batas Akhir Evaluasi Target (Jatuh Tempo):
+                  </label>
+                  <input
+                    type="date"
+                    value={selectedDueDate}
+                    onChange={(e) => setSelectedDueDate(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '9px 12px',
+                      borderRadius: '8px',
+                      background: '#0f172a',
+                      border: '1.5px solid #334155',
+                      color: '#fff',
+                      fontSize: '0.85rem'
+                    }}
+                  />
+                  <span style={{ fontSize: '0.7rem', color: '#64748b', display: 'block', marginTop: '4px' }}>
+                    * Anda dapat memperpanjang atau menyesuaikan batas akhir evaluasi target 3 bulan untuk mitra ini.
+                  </span>
+                </div>
+              ) : selectedNewTier === 'marketer' ? (
+                <div style={{ background: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.3)', borderRadius: '8px', padding: '9px 12px', fontSize: '0.75rem', color: '#cbd5e1' }}>
+                  💼 <b>Jadwal Gaji Marketer:</b> Bebas batas penurunan jenjang. Seluruh komisi 15% dicairkan serentak pada <b>Tanggal 25 setiap bulannya</b>.
+                </div>
+              ) : (
+                <div style={{ background: 'rgba(148, 163, 184, 0.1)', border: '1px solid rgba(148, 163, 184, 0.3)', borderRadius: '8px', padding: '9px 12px', fontSize: '0.75rem', color: '#94a3b8' }}>
+                  🛍️ <b>Pelanggan Retail:</b> Membeli produk secara retail harga normal (bebas target).
+                </div>
+              )}
 
               <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
                 <button
@@ -1610,9 +1728,10 @@ export const PosDownlinesView: React.FC = () => {
                   <span style={{ fontSize: '1rem', fontWeight: 900, color: '#38bdf8' }}>15% Komisi</span>
                 </div>
                 <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '0.76rem', color: '#cbd5e1', lineHeight: 1.6 }}>
-                  <li>Mendapatkan <b>komisi 15%</b> dari seluruh omset belanja/penjualan HET yang dicairkan bulanan.</li>
+                  <li>Marketer <b>membayar FULL sesuai harga HET</b> saat berbelanja di kasir atau toko online (tanpa potongan diskon 15% langsung).</li>
+                  <li>Potongan <b>15% dicatat sebagai gaji/komisi</b> yang diterima serentak pada <b>Tanggal 25 setiap bulannya</b>.</li>
                   <li>Punya <b>kesempatan emas naik menjadi RESELLER</b> melalui <b>First Order Reseller Rp 500.000,- HET</b> (Rp 400.000,- net) ATAU jalur omset akumulasi <b>Rp 800.000,-</b> (dengan omset pribadi min Rp 300.000,- berturut-turut 3 bulan).</li>
-                  <li style={{ color: '#34d399', fontWeight: 800 }}>Jika target Reseller belum tercapai, <b>Marketer TETAP MENJADI MITRA AKTIF</b> (tidak turun tingkat dan tidak pernah dikeluarkan dari kemitraan SR12).</li>
+                  <li style={{ color: '#34d399', fontWeight: 800 }}>Jika target Reseller belum tercapai, <b>Marketer TETAP MENJADI MITRA AKTIF</b> (tidak ada batas target evaluasi penurunan tingkat dan tidak pernah dikeluarkan dari kemitraan SR12).</li>
                 </ul>
               </div>
 
