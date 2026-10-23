@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Product } from '../../types';
 import { useApp } from '../../context/AppContext';
-import { uploadProductImageFile, setAllStoreProductsStock } from '../../services/catalogService';
+import { uploadProductImageFile, setAllStoreProductsStock, syncStoreCatalogFromCloud } from '../../services/catalogService';
 import { clearAllStockMutations } from '../../services/posService';
 import { SR12_MASTER_CATALOG } from '../../data/sr12MasterCatalog';
 import {
@@ -19,7 +19,8 @@ import {
   Search,
   Filter,
   Loader2,
-  Trash2
+  Trash2,
+  RefreshCw
 } from 'lucide-react';
 
 interface PosInventoryViewProps {
@@ -53,6 +54,7 @@ export const PosInventoryView: React.FC<PosInventoryViewProps> = ({
     summary: string;
   } | null>(null);
   const [showSaveToast, setShowSaveToast] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const categories = ['all', ...Array.from(new Set(products.map(p => p.category)))];
 
@@ -307,6 +309,37 @@ Mohon segera diproses pengirimannya dari gudang pusat PT SR12. Terima kasih! ðŸ™
 
         {/* Stock Reset & Clear Controls */}
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={async () => {
+              setIsSyncing(true);
+              try {
+                const refreshed = await syncStoreCatalogFromCloud(currentStore.slug);
+                if (refreshed && typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('sr12:stock_updated', { detail: { storeSlug: currentStore.slug } }));
+                }
+              } finally {
+                setIsSyncing(false);
+              }
+            }}
+            style={{
+              background: '#0f172a',
+              border: '1px solid #38bdf8',
+              color: '#38bdf8',
+              padding: '8px 12px',
+              borderRadius: '8px',
+              fontSize: '0.76rem',
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer'
+            }}
+            title="Tarik stok terbaru langsung dari Supabase Cloud"
+          >
+            <RefreshCw size={14} className={isSyncing ? 'spin-animate' : ''} />
+            <span>Segarkan Stok Cloud</span>
+          </button>
           <button
             type="button"
             onClick={() => handleSetAllStock(0)}

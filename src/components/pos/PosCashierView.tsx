@@ -5,7 +5,7 @@ import { getProductTierPrice, SR12_TIERS } from '../../config/tiers';
 import { PosReceiptModal } from './PosReceiptModal';
 import { deductStoreTransactionQuota } from '../../services/storeService';
 import { createOrder } from '../../services/orderService';
-import { updateStoreProductStock } from '../../services/catalogService';
+import { updateStoreProductStock, batchUpdateStoreProductStocks } from '../../services/catalogService';
 import { recordStockMutation, saveCashflowEntry } from '../../services/posService';
 import { fetchStoreDownlines, saveStoreDownline, fetchStoreMarketerSales, getLocalDownlines } from '../../services/mitraService';
 import { Coins, AlertTriangle, Users, Sparkles, CheckCircle2 } from 'lucide-react';
@@ -233,10 +233,11 @@ export const PosCashierView: React.FC<PosCashierViewProps> = ({
       await createOrder(orderData, currentStore.slug);
 
       // 4. TERHUBUNG KE INVENTORI & STOK: Kurangi stok dan catat mutasi stok keluar
+      const stockUpdates: { productId: string; newStock: number }[] = [];
       for (const line of posCart) {
         const nextStock = Math.max(0, line.product.stock - line.qty);
         onUpdateStock(line.product.id, nextStock);
-        updateStoreProductStock(currentStore.slug, line.product.id, nextStock);
+        stockUpdates.push({ productId: line.product.id, newStock: nextStock });
         recordStockMutation({
           id: 'MUT-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
           storeSlug: currentStore.slug,
@@ -254,8 +255,11 @@ export const PosCashierView: React.FC<PosCashierViewProps> = ({
           operator: activeCashierName
         }, currentStore.slug);
       }
+      if (stockUpdates.length > 0) {
+        batchUpdateStoreProductStocks(currentStore.slug, stockUpdates);
+      }
 
-      // 5. TERHUBUNG KE BUKU KAS: Catat mutasi kas masuk secara otomatis
+      // 5. TERHUBUNG KE BUKU KAS: Catat mutasi kas masuk secara otomatis ke Cloud Supabase
       const cashEntry: CashflowEntry = {
         id: 'CSH-' + Date.now(),
         storeSlug: currentStore.slug,
@@ -266,7 +270,7 @@ export const PosCashierView: React.FC<PosCashierViewProps> = ({
         description: `Penjualan Kasir #${trxId} (${custName}) - ${totalCartCount} pcs produk`,
         operator: activeCashierName
       };
-      saveCashflowEntry(cashEntry, currentStore.slug);
+      await saveCashflowEntry(cashEntry, currentStore.slug);
 
       // 6. TERHUBUNG KE MITRA / DOWNLINE: Perbarui akumulasi belanja & hitung komisi Marketer
       if (targetMitra) {

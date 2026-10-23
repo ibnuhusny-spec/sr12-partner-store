@@ -166,8 +166,8 @@ export async function syncStoreCatalogFromCloud(storeSlug: string): Promise<Prod
         localStorage.setItem(`${OVERRIDES_STORAGE_PREFIX}${safeSlug}`, JSON.stringify(cloudOverrides));
       } catch {}
 
-      // Pertahankan katalog lokal toko saat ini (termasuk pengurangan stok riil dari penjualan)
-      // dan hanya terapkan override cloud untuk properti yang diubah (seperti gambar, nama, atau stok spesifik)
+      // Pertahankan katalog lokal toko saat ini dan terapkan override cloud
+      // termasuk sinkronisasi stok riil, gambar, nama, harga, dan berat
       const currentLocal = getStoreCatalog(safeSlug);
       const mergedCatalog = currentLocal.map(p => {
         const ov = cloudOverrides[p.id] || cloudOverrides[p.sku];
@@ -177,6 +177,7 @@ export async function syncStoreCatalogFromCloud(storeSlug: string): Promise<Prod
           ...(ov.image ? { image: ov.image } : {}),
           ...(ov.name ? { name: ov.name } : {}),
           ...(ov.het ? { het: ov.het, price: ov.het } : {}),
+          ...(typeof ov.stock === 'number' ? { stock: Math.max(0, ov.stock) } : {}),
           ...(ov.summary ? { summary: ov.summary } : {}),
           ...(ov.weightGram ? { weightGram: ov.weightGram } : {})
         };
@@ -266,6 +267,12 @@ export function updateStoreProductStock(storeSlug: string, productId: string, ne
   };
   saveStoreOverrides(safeSlug, currentOverrides);
 
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('sr12:stock_updated', {
+      detail: { storeSlug: safeSlug, productId, stock: newStock }
+    }));
+  }
+
   return nextCatalog;
 }
 
@@ -350,6 +357,12 @@ export function batchUpdateStoreProductStocks(
     };
   });
   saveStoreOverrides(safeSlug, currentOverrides);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('sr12:stock_updated', {
+      detail: { storeSlug: safeSlug, updates }
+    }));
+  }
 
   return nextCatalog;
 }

@@ -48,12 +48,12 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
   const [showTokenModal, setShowTokenModal] = useState(false);
   const [showLogoutConfirmModal, setShowLogoutConfirmModal] = useState(false);
 
-  const handleMasterResetSimulation = () => {
+  const handleMasterResetSimulation = async () => {
     if (window.confirm(`⚠️ PERINGATAN MASTER RESET:\n\nApakah Anda ingin MERESET SEMUA data toko "${currentStore.storeName}"?\n\n• Seluruh riwayat transaksi akan dihapus\n• Seluruh catatan buku kas akan dihapus\n• Seluruh riwayat mutasi stok akan dibersihkan\n• Seluruh mitra downline akan dikosongkan (0 mitra)\n• Seluruh komisi marketer akan dibersihkan\n• Stok produk akan dikembalikan ke Master SR12 (50 pcs)\n\nSimulasi akan bersih dan kembali ke kondisi awal.`)) {
-      clearAllOrders(currentStore.slug);
-      clearAllCashflow(currentStore.slug);
-      clearAllStockMutations(currentStore.slug);
-      clearAllStoreDownlines();
+      await clearAllOrders(currentStore.slug);
+      await clearAllCashflow(currentStore.slug);
+      await clearAllStockMutations(currentStore.slug);
+      await clearAllStoreDownlines(currentStore.slug);
       clearAllMarketerSales();
       if (onResetCatalogToMaster) {
         onResetCatalogToMaster();

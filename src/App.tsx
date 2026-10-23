@@ -76,17 +76,28 @@ export function App() {
     // 1. Instant local load (0ms latency)
     setProducts(getStoreCatalog(currentStore.slug));
 
-    // 2. Cloud Sync: fetch overrides & custom images from Supabase Storage
-    // Ensures edited images persist even after browser history / cache is cleared
+    // 2. Cloud Sync: fetch overrides & custom images & real stock from Supabase Storage
     let isMounted = true;
-    syncStoreCatalogFromCloud(currentStore.slug).then((cloudCatalog) => {
-      if (isMounted && cloudCatalog && cloudCatalog.length > 0) {
-        setProducts(cloudCatalog);
-      }
-    });
+    const fetchCloud = () => {
+      syncStoreCatalogFromCloud(currentStore.slug).then((cloudCatalog) => {
+        if (isMounted && cloudCatalog && cloudCatalog.length > 0) {
+          setProducts(cloudCatalog);
+        }
+      });
+    };
+    fetchCloud();
+
+    const handleSync = () => {
+      fetchCloud();
+    };
+
+    window.addEventListener('sr12:cloud_sync_orders', handleSync);
+    window.addEventListener('sr12:stock_updated', handleSync);
 
     return () => {
       isMounted = false;
+      window.removeEventListener('sr12:cloud_sync_orders', handleSync);
+      window.removeEventListener('sr12:stock_updated', handleSync);
     };
   }, [currentStore.slug]);
 

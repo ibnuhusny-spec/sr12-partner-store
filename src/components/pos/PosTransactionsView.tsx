@@ -40,7 +40,7 @@ export const PosTransactionsView: React.FC = () => {
     await updateOrderStatus(order.orderId, 'Lunas / Selesai', currentStore.slug);
 
     // Otomatis catat kas masuk ke Buku Kas saat order web lunas
-    saveCashflowEntry({
+    await saveCashflowEntry({
       id: 'CSH-WEB-' + Date.now(),
       storeSlug: currentStore.slug,
       date: new Date().toISOString(),
