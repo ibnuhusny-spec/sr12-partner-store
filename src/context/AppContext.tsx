@@ -43,7 +43,16 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [partnerStores, setPartnerStores] = useState<Store[]>(DEFAULT_PARTNER_STORES);
-  const [currentStore, setCurrentStore] = useState<Store>(DEFAULT_PARTNER_STORES[0]);
+  const [currentStore, setCurrentStore] = useState<Store>(() => {
+    try {
+      const savedSlug = localStorage.getItem('sr12_selected_store_slug');
+      if (savedSlug) {
+        const found = DEFAULT_PARTNER_STORES.find(s => s.slug === savedSlug);
+        if (found) return found;
+      }
+    } catch {}
+    return DEFAULT_PARTNER_STORES[0];
+  });
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
       const raw = localStorage.getItem('sr12_user_cart');
@@ -84,10 +93,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     refreshStores().then((stores) => {
-      if (storeParam) {
-        const found = stores.find(s => s.slug === storeParam.toLowerCase());
+      const targetSlug = storeParam || localStorage.getItem('sr12_selected_store_slug');
+      if (targetSlug) {
+        const found = stores.find(s => s.slug === targetSlug.toLowerCase());
         if (found) {
           setCurrentStore(found);
+          try {
+            localStorage.setItem('sr12_selected_store_slug', found.slug);
+          } catch {}
           applyStoreTheme(found.storeTheme);
         }
       }
@@ -100,8 +113,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setPartnerStores(stores);
       setCloudStatus('online');
 
-      // Keep currentStore updated with latest server state
+      // Keep currentStore updated with latest server state and remembered selection
+      const savedSlug = localStorage.getItem('sr12_selected_store_slug');
       setCurrentStore(prev => {
+        if (savedSlug) {
+          const matched = stores.find(s => s.slug === savedSlug);
+          if (matched) return matched;
+        }
         const updated = stores.find(s => s.slug === prev.slug);
         return updated || prev;
       });
@@ -112,37 +130,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Realtime Supabase Channel subscription for instant incoming orders
+  // Realtime Supabase Channel subscription for instant incoming orders & downlines sync
   useEffect(() => {
-    const channel = supabase
-      .channel('public:orders')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
-        const newOrder = payload.new as any;
-        if (newOrder && (newOrder.store_slug === currentStore.slug || currentStore.slug === 'sr12-central')) {
-          const alertObj: Order = {
-            orderId: newOrder.order_id || 'ORD-NEW',
-            storeSlug: newOrder.store_slug,
-            customerName: newOrder.customer_name || 'Pelanggan',
-            customerPhone: newOrder.customer_phone || '-',
-            customerAddress: newOrder.customer_address || '-',
-            tier: newOrder.tier || 'konsumen',
-            tierLabel: newOrder.tier_label || 'Konsumen Retail',
-            items: newOrder.items_json || [],
-            subtotalHet: Number(newOrder.subtotal_het || 0),
-            discountAmount: Number(newOrder.discount_amount || 0),
-            grandTotal: Number(newOrder.grand_total || 0),
-            paymentMethod: newOrder.payment_method || 'Ekspedisi',
-            status: newOrder.status || 'Menunggu Konfirmasi',
-            orderSource: newOrder.order_source || 'Online Web'
-          };
-          setRealtimeOrderAlert(alertObj);
-          playOrderChime();
+    const ordersChannel = supabase
+      .channel(`public:orders:${currentStore.slug}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+        window.dispatchEvent(new CustomEvent('sr12:cloud_sync_orders', { detail: payload }));
+        if (payload.eventType === 'INSERT') {
+          const newOrder = payload.new as any;
+          if (newOrder && (newOrder.store_slug === currentStore.slug || currentStore.slug === 'sr12-central')) {
+            const alertObj: Order = {
+              orderId: newOrder.order_id || 'ORD-NEW',
+              storeSlug: newOrder.store_slug,
+              customerName: newOrder.customer_name || 'Pelanggan',
+              customerPhone: newOrder.customer_phone || '-',
+              customerAddress: newOrder.customer_address || '-',
+              tier: newOrder.tier || 'konsumen',
+              tierLabel: newOrder.tier_label || 'Konsumen Retail',
+              items: newOrder.items_json || [],
+              subtotalHet: Number(newOrder.subtotal_het || 0),
+              discountAmount: Number(newOrder.discount_amount || 0),
+              grandTotal: Number(newOrder.grand_total || 0),
+              paymentMethod: newOrder.payment_method || 'Ekspedisi',
+              status: newOrder.status || 'Menunggu Konfirmasi',
+              orderSource: newOrder.order_source || 'Online Web'
+            };
+            setRealtimeOrderAlert(alertObj);
+            playOrderChime();
+          }
         }
       })
       .subscribe();
 
+    const downlinesChannel = supabase
+      .channel(`public:downlines:${currentStore.slug}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mitra_downlines' }, (payload) => {
+        window.dispatchEvent(new CustomEvent('sr12:cloud_sync_downlines', { detail: payload }));
+      })
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(ordersChannel);
+      supabase.removeChannel(downlinesChannel);
     };
   }, [currentStore.slug]);
 
@@ -157,6 +186,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const found = partnerStores.find(s => s.slug === slug);
     if (found) {
       setCurrentStore(found);
+      try {
+        localStorage.setItem('sr12_selected_store_slug', found.slug);
+      } catch {}
       applyStoreTheme(found.storeTheme);
 
       // Update URL query string without reloading page

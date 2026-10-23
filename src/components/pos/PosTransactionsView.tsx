@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Order } from '../../types';
 import { useApp } from '../../context/AppContext';
-import { getLocalOrders, updateOrderStatus, deleteOrder, clearAllOrders } from '../../services/orderService';
+import { getLocalOrders, fetchStoreOrders, updateOrderStatus, deleteOrder, clearAllOrders } from '../../services/orderService';
 import { saveCashflowEntry } from '../../services/posService';
 import { CheckCircle2, Clock, Trash2, RefreshCw } from 'lucide-react';
 
@@ -12,14 +12,28 @@ export const PosTransactionsView: React.FC = () => {
   const [filter, setFilter] = useState<'all' | 'pending' | 'done'>('all');
 
   useEffect(() => {
-    setOrders(getLocalOrders(currentStore.slug));
+    loadOrders();
+
+    const handleSync = () => {
+      loadOrders();
+    };
+
+    window.addEventListener('sr12:cloud_sync_orders', handleSync);
+    return () => {
+      window.removeEventListener('sr12:cloud_sync_orders', handleSync);
+    };
   }, [currentStore.slug]);
 
-  const loadOrders = () => {
+  const loadOrders = async () => {
     setIsRefreshing(true);
-    const data = getLocalOrders(currentStore.slug);
-    setOrders(data);
-    setTimeout(() => setIsRefreshing(false), 300);
+    setOrders(getLocalOrders(currentStore.slug));
+    try {
+      const cloudOrders = await fetchStoreOrders(currentStore.slug);
+      if (cloudOrders) {
+        setOrders(cloudOrders);
+      }
+    } catch (e) {}
+    setIsRefreshing(false);
   };
 
   const handleConfirmOrder = async (order: Order) => {
@@ -40,20 +54,20 @@ export const PosTransactionsView: React.FC = () => {
     setOrders(prev => prev.map(o => (o.orderId === order.orderId || o.id === order.orderId) ? { ...o, status: 'Lunas / Selesai' } : o));
   };
 
-  const handleDeleteOrder = (orderId: string) => {
+  const handleDeleteOrder = async (orderId: string) => {
     if (window.confirm(`Hapus transaksi #${orderId} dari riwayat toko?`)) {
-      deleteOrder(orderId, currentStore.slug);
-      setOrders(prev => prev.filter(o => o.orderId !== orderId && o.id !== orderId));
+      const remaining = await deleteOrder(orderId, currentStore.slug);
+      setOrders(remaining);
     }
   };
 
-  const handleClearAll = () => {
+  const handleClearAll = async () => {
     if (orders.length === 0) {
       alert('Tidak ada transaksi untuk dibersihkan.');
       return;
     }
     if (window.confirm(`⚠️ PERINGATAN: Apakah Anda yakin ingin MENGHAPUS SEMUA (${orders.length}) riwayat transaksi toko ini untuk memulai simulasi dari nol?`)) {
-      clearAllOrders(currentStore.slug);
+      await clearAllOrders(currentStore.slug);
       setOrders([]);
     }
   };

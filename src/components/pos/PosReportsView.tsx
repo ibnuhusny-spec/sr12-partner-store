@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
-import { getLocalOrders, clearAllOrders } from '../../services/orderService';
-import { getLocalDownlines } from '../../services/mitraService';
+import { getLocalOrders, clearAllOrders, fetchStoreOrders } from '../../services/orderService';
+import { getLocalDownlines, fetchStoreDownlines } from '../../services/mitraService';
 import { exportReportsToCSV } from '../../services/posService';
 import { SR12_TIERS } from '../../config/tiers';
 import { Order, MitraDownline, PartnerTier } from '../../types';
@@ -35,13 +35,45 @@ interface DailyPartnerSummary {
 export const PosReportsView: React.FC = () => {
   const { currentStore } = useApp();
   const [orders, setOrders] = useState<Order[]>(() => getLocalOrders(currentStore.slug));
-  const [downlines, setDownlines] = useState<MitraDownline[]>(() => getLocalDownlines());
+  const [downlines, setDownlines] = useState<MitraDownline[]>(() => getLocalDownlines(currentStore.slug));
   const [activeTab, setActiveTab] = useState<'daily_mitra' | 'all_orders'>('daily_mitra');
   const [period, setPeriod] = useState<'all' | 'today' | 'month'>('all');
 
-  useEffect(() => {
+  const loadData = async () => {
+    // 1. Instant local cache
     setOrders(getLocalOrders(currentStore.slug));
-    setDownlines(getLocalDownlines());
+    setDownlines(getLocalDownlines(currentStore.slug));
+
+    // 2. Cloud sync via Supabase
+    try {
+      const [cloudOrders, cloudDownlines] = await Promise.all([
+        fetchStoreOrders(currentStore.slug),
+        fetchStoreDownlines(currentStore.slug)
+      ]);
+      setOrders(cloudOrders);
+      setDownlines(cloudDownlines);
+    } catch (e) {
+      console.warn('Failed to fetch cloud reports data:', e);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+
+    const handleSyncOrders = () => {
+      fetchStoreOrders(currentStore.slug).then(setOrders).catch(console.error);
+    };
+    const handleSyncDownlines = () => {
+      fetchStoreDownlines(currentStore.slug).then(setDownlines).catch(console.error);
+    };
+
+    window.addEventListener('sr12:cloud_sync_orders', handleSyncOrders);
+    window.addEventListener('sr12:cloud_sync_downlines', handleSyncDownlines);
+
+    return () => {
+      window.removeEventListener('sr12:cloud_sync_orders', handleSyncOrders);
+      window.removeEventListener('sr12:cloud_sync_downlines', handleSyncDownlines);
+    };
   }, [currentStore.slug]);
 
   const getDiscountPctByTier = (tier?: string) => {
@@ -141,13 +173,13 @@ export const PosReportsView: React.FC = () => {
     .filter(s => s.tier && s.tier !== 'konsumen')
     .reduce((sum, s) => sum + s.orderCount, 0);
 
-  const handleResetReports = () => {
+  const handleResetReports = async () => {
     if (orders.length === 0) {
       alert('Laporan sudah bernilai 0 (belum ada transaksi).');
       return;
     }
     if (window.confirm(`⚠️ PERINGATAN:\nApakah Anda yakin ingin mereset seluruh laporan dan menghapus ${orders.length} riwayat transaksi ke nol untuk memulai pencatatan baru?`)) {
-      clearAllOrders(currentStore.slug);
+      await clearAllOrders(currentStore.slug);
       setOrders([]);
       alert('Data transaksi dan laporan berhasil direset ke nol!');
     }

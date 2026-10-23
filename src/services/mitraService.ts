@@ -277,18 +277,22 @@ export async function verifyMitraDiscount(query: string, storeSlug: string): Pro
   return { found: false };
 }
 
-export function getLocalDownlines(): MitraDownline[] {
+export function getLocalDownlines(storeSlug?: string): MitraDownline[] {
   try {
+    if (storeSlug && storeSlug !== 'all') {
+      const specific = localStorage.getItem(`sr12_mitra_downlines_${storeSlug}`);
+      if (specific !== null) {
+        const parsed = JSON.parse(specific);
+        if (Array.isArray(parsed)) return parsed as MitraDownline[];
+      }
+    }
     const raw = localStorage.getItem('sr12_mitra_downlines_v2');
     if (raw !== null) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        // Kembalikan persis apa yang tersimpan di localStorage (termasuk jika kosong [] karena telah dihapus)
         return parsed as MitraDownline[];
       }
     }
-    // Seed HANYA jika storage belum pernah ada sama sekali di browser (first time visit)
-    localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(DEFAULT_SAMPLE_DOWNLINES));
     return DEFAULT_SAMPLE_DOWNLINES;
   } catch {
     return [];
@@ -296,15 +300,74 @@ export function getLocalDownlines(): MitraDownline[] {
 }
 
 export async function fetchStoreDownlines(storeSlug: string): Promise<MitraDownline[]> {
-  // Kembalikan seketika 0ms tanpa loading flicker
-  return getLocalDownlines();
+  const targetSlug = storeSlug || 'sr12-central';
+  const token = getActiveSessionToken(targetSlug);
+
+  try {
+    const { data, error } = await supabase.rpc('rpc_get_store_downlines', {
+      p_slug: targetSlug,
+      p_token: token
+    });
+
+    if (!error && Array.isArray(data)) {
+      const mapped: MitraDownline[] = data.map((d: any) => ({
+        id: d.id,
+        storeSlug: d.store_slug || targetSlug,
+        partnerCode: d.partner_code,
+        name: d.name,
+        phone: d.phone,
+        city: d.city || '',
+        tier: d.tier as PartnerTier,
+        bankName: d.bank_name || 'BCA',
+        bankAccount: d.bank_account || '',
+        bankHolder: d.bank_holder || d.name,
+        qualificationDate: d.qualification_date,
+        lastOrderDate: d.last_order_date,
+        accumulatedSpent90Days: Number(d.accumulated_spent_90_days || 0),
+        totalOrdersCount: Number(d.total_orders_count || 0),
+        status: d.status || 'active',
+        joinDate: d.qualification_date || undefined,
+        evaluationDueDate: d.evaluation_due_date || undefined
+      }));
+
+      // Simpan ke local cache untuk kedua device
+      try {
+        localStorage.setItem(`sr12_mitra_downlines_${targetSlug}`, JSON.stringify(mapped));
+        localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(mapped));
+      } catch {}
+
+      return mapped;
+    } else if (error) {
+      console.warn('rpc_get_store_downlines warning:', error.message);
+    }
+  } catch (err) {
+    console.warn('Network error in fetchStoreDownlines:', err);
+  }
+
+  return getLocalDownlines(targetSlug);
 }
 
 export async function saveStoreDownline(mitra: Partial<MitraDownline>, storeSlug: string): Promise<boolean> {
-  const token = getActiveSessionToken(storeSlug);
+  const targetSlug = storeSlug || mitra.storeSlug || 'sr12-central';
+  const token = getActiveSessionToken(targetSlug);
+
+  // 1. Simpan ke local cache untuk responsivitas instan di perangkat ini
   try {
-    await supabase.rpc('rpc_save_store_downline', {
-      p_slug: storeSlug,
+    const list: MitraDownline[] = getLocalDownlines(targetSlug);
+    const idx = list.findIndex(m => m.partnerCode === mitra.partnerCode);
+    if (idx >= 0) {
+      list[idx] = { ...list[idx], ...mitra } as MitraDownline;
+    } else {
+      list.push(mitra as MitraDownline);
+    }
+    localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(list));
+    localStorage.setItem(`sr12_mitra_downlines_${targetSlug}`, JSON.stringify(list));
+  } catch (e) {}
+
+  // 2. Simpan secara permanen ke Supabase Cloud
+  try {
+    const res = await supabase.rpc('rpc_save_store_downline', {
+      p_slug: targetSlug,
       p_token: token,
       p_mitra: {
         id: mitra.partnerCode,
@@ -316,25 +379,16 @@ export async function saveStoreDownline(mitra: Partial<MitraDownline>, storeSlug
         bankName: mitra.bankName,
         bankAccount: mitra.bankAccount,
         bankHolder: mitra.bankHolder,
-        status: mitra.status || 'active'
+        status: mitra.status || 'active',
+        accumulatedSpent90Days: mitra.accumulatedSpent90Days || 0,
+        totalOrdersCount: mitra.totalOrdersCount || 0
       }
     });
-  } catch (e) {}
-
-  // Update local
-  try {
-    const raw = localStorage.getItem('sr12_mitra_downlines_v2');
-    const list: MitraDownline[] = raw ? JSON.parse(raw) : [];
-    const idx = list.findIndex(m => m.partnerCode === mitra.partnerCode);
-    if (idx >= 0) {
-      list[idx] = { ...list[idx], ...mitra } as MitraDownline;
-    } else {
-      list.push(mitra as MitraDownline);
-    }
-    localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(list));
-  } catch (e) {}
-
-  return true;
+    return !!res.data?.success;
+  } catch (e) {
+    console.warn('Error saving downline to Supabase:', e);
+    return false;
+  }
 }
 
 export async function updateMitraTier(partnerCode: string, newTier: PartnerTier, storeSlug: string): Promise<boolean> {
@@ -347,9 +401,9 @@ export async function updateMitraLevelAndDueDate(
   newDueDate: string | undefined,
   storeSlug: string
 ): Promise<boolean> {
+  const targetSlug = storeSlug || 'sr12-central';
   try {
-    const raw = localStorage.getItem('sr12_mitra_downlines_v2');
-    const list: MitraDownline[] = raw ? JSON.parse(raw) : [];
+    const list: MitraDownline[] = getLocalDownlines(targetSlug);
     const idx = list.findIndex(m => m.partnerCode === partnerCode);
     if (idx >= 0) {
       list[idx].tier = newTier;
@@ -357,15 +411,23 @@ export async function updateMitraLevelAndDueDate(
         list[idx].evaluationDueDate = newDueDate;
       }
       localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(list));
-      await saveStoreDownline(list[idx], storeSlug);
+      localStorage.setItem(`sr12_mitra_downlines_${targetSlug}`, JSON.stringify(list));
+      await saveStoreDownline(list[idx], targetSlug);
       return true;
     }
   } catch (e) {}
   return false;
 }
 
-export function getLocalMarketerSales(): MarketerSale[] {
+export function getLocalMarketerSales(storeSlug?: string): MarketerSale[] {
   try {
+    if (storeSlug && storeSlug !== 'all') {
+      const specific = localStorage.getItem(`sr12_marketer_sales_${storeSlug}`);
+      if (specific !== null) {
+        const parsed = JSON.parse(specific);
+        if (Array.isArray(parsed)) return parsed as MarketerSale[];
+      }
+    }
     const raw = localStorage.getItem('sr12_marketer_sales_v1');
     if (raw !== null) {
       const parsed = JSON.parse(raw);
@@ -373,7 +435,6 @@ export function getLocalMarketerSales(): MarketerSale[] {
         return parsed;
       }
     }
-    localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(DEFAULT_SAMPLE_MARKETER_SALES));
     return DEFAULT_SAMPLE_MARKETER_SALES;
   } catch {
     return [];
@@ -381,13 +442,53 @@ export function getLocalMarketerSales(): MarketerSale[] {
 }
 
 export async function fetchStoreMarketerSales(storeSlug: string): Promise<MarketerSale[]> {
-  return getLocalMarketerSales();
+  const targetSlug = storeSlug || 'sr12-central';
+  const token = getActiveSessionToken(targetSlug);
+
+  try {
+    const { data, error } = await supabase.rpc('rpc_get_store_marketer_sales', {
+      p_slug: targetSlug,
+      p_token: token
+    });
+
+    if (!error && Array.isArray(data)) {
+      const mapped: MarketerSale[] = data.map((d: any) => ({
+        id: d.id,
+        storeSlug: d.store_slug || targetSlug,
+        orderId: d.order_id,
+        marketerId: d.marketer_id,
+        orderDate: d.order_date,
+        monthPeriod: d.month_period,
+        customerName: d.customer_name,
+        customerPhone: d.customer_phone,
+        customerAddress: d.customer_address,
+        fulfillmentType: d.fulfillment_type as 'pickup' | 'delivery',
+        itemsDesc: d.items_desc,
+        omsetHet: Number(d.omset_het || 0),
+        commissionPct: Number(d.commission_pct || 15),
+        commissionAmount: Number(d.commission_amount || 0),
+        paidStatus: d.paid_status as 'paid' | 'unpaid',
+        paidDate: d.paid_date
+      }));
+
+      try {
+        localStorage.setItem(`sr12_marketer_sales_${targetSlug}`, JSON.stringify(mapped));
+        localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(mapped));
+      } catch {}
+
+      return mapped;
+    }
+  } catch (err) {
+    console.warn('Error fetching marketer sales from Supabase:', err);
+  }
+
+  return getLocalMarketerSales(targetSlug);
 }
 
-export function updateMarketerSalePaidStatus(orderId: string, newStatus: 'paid' | 'unpaid'): boolean {
+export function updateMarketerSalePaidStatus(orderId: string, newStatus: 'paid' | 'unpaid', storeSlug?: string): boolean {
+  const targetSlug = storeSlug || 'sr12-central';
   try {
-    const raw = localStorage.getItem('sr12_marketer_sales_v1');
-    const list: MarketerSale[] = raw ? JSON.parse(raw) : [];
+    const list: MarketerSale[] = getLocalMarketerSales(targetSlug);
     const idx = list.findIndex(s => s.orderId === orderId);
     if (idx >= 0) {
       list[idx].paidStatus = newStatus;
@@ -397,28 +498,66 @@ export function updateMarketerSalePaidStatus(orderId: string, newStatus: 'paid' 
         delete list[idx].paidDate;
       }
       localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(list));
+      localStorage.setItem(`sr12_marketer_sales_${targetSlug}`, JSON.stringify(list));
       return true;
     }
   } catch {}
   return false;
 }
 
-export function deleteStoreDownline(partnerCode: string): MitraDownline[] {
+export async function deleteStoreDownline(partnerCode: string, storeSlug?: string): Promise<MitraDownline[]> {
+  const targetSlug = storeSlug || 'sr12-central';
+  const token = getActiveSessionToken(targetSlug);
+
+  // 1. Hapus dari local storage
+  let filtered: MitraDownline[] = [];
   try {
-    const raw = localStorage.getItem('sr12_mitra_downlines_v2');
-    const list: MitraDownline[] = raw ? JSON.parse(raw) : [];
-    const filtered = list.filter(m => m.partnerCode !== partnerCode && m.id !== partnerCode);
+    const list: MitraDownline[] = getLocalDownlines(targetSlug);
+    filtered = list.filter(m => m.partnerCode !== partnerCode && m.id !== partnerCode);
     localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(filtered));
-    return filtered;
-  } catch {
-    return [];
+    localStorage.setItem(`sr12_mitra_downlines_${targetSlug}`, JSON.stringify(filtered));
+  } catch {}
+
+  // 2. Hapus dari Supabase Cloud
+  try {
+    await supabase.rpc('rpc_delete_store_downline', {
+      p_slug: targetSlug,
+      p_token: token,
+      p_partner_code: partnerCode
+    });
+  } catch (e) {
+    console.warn('Error deleting downline in Supabase:', e);
   }
+
+  return filtered;
 }
 
-export function clearAllStoreDownlines(): void {
+export async function clearAllStoreDownlines(storeSlug?: string): Promise<void> {
+  const targetSlug = storeSlug || 'sr12-central';
+  const token = getActiveSessionToken(targetSlug);
+
   try {
     localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify([]));
+    localStorage.setItem(`sr12_mitra_downlines_${targetSlug}`, JSON.stringify([]));
   } catch {}
+
+  try {
+    const { data: list } = await supabase.rpc('rpc_get_store_downlines', {
+      p_slug: targetSlug,
+      p_token: token
+    });
+    if (Array.isArray(list)) {
+      for (const m of list) {
+        await supabase.rpc('rpc_delete_store_downline', {
+          p_slug: targetSlug,
+          p_token: token,
+          p_partner_code: m.partner_code
+        });
+      }
+    }
+  } catch (e) {
+    console.warn('Error clearing downlines in Supabase:', e);
+  }
 }
 
 export function resetDownlineAccumulatedSpent(): void {
@@ -446,3 +585,4 @@ export function clearAllMarketerSales(): void {
     localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify([]));
   } catch {}
 }
+

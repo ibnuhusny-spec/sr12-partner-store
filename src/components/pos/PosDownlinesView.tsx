@@ -15,7 +15,7 @@ import {
   getLocalDownlines,
   getLocalMarketerSales
 } from '../../services/mitraService';
-import { getLocalOrders } from '../../services/orderService';
+import { getLocalOrders, fetchStoreOrders } from '../../services/orderService';
 import { MitraDownline, MarketerSale, PartnerTier, Order } from '../../types';
 import {
   SR12_TIER_TARGETS,
@@ -79,12 +79,45 @@ export const PosDownlinesView: React.FC = () => {
 
   useEffect(() => {
     loadData();
+
+    const handleSync = () => {
+      loadData();
+    };
+
+    window.addEventListener('sr12:cloud_sync_downlines', handleSync);
+    window.addEventListener('sr12:cloud_sync_orders', handleSync);
+
+    return () => {
+      window.removeEventListener('sr12:cloud_sync_downlines', handleSync);
+      window.removeEventListener('sr12:cloud_sync_orders', handleSync);
+    };
   }, [currentStore.slug]);
 
-  const loadData = () => {
-    setDownlines(getLocalDownlines());
-    setSales(getLocalMarketerSales());
+  const loadData = async () => {
+    // 1. Tampilkan data lokal instan (0ms)
+    setDownlines(getLocalDownlines(currentStore.slug));
+    setSales(getLocalMarketerSales(currentStore.slug));
     setOrders(getLocalOrders(currentStore.slug));
+
+    // 2. Ambil data terbaru dari Supabase Cloud
+    try {
+      const [cloudDownlines, cloudSales, cloudOrders] = await Promise.all([
+        fetchStoreDownlines(currentStore.slug),
+        fetchStoreMarketerSales(currentStore.slug),
+        fetchStoreOrders(currentStore.slug)
+      ]);
+      if (cloudDownlines && cloudDownlines.length > 0) {
+        setDownlines(cloudDownlines);
+      }
+      if (cloudSales) {
+        setSales(cloudSales);
+      }
+      if (cloudOrders) {
+        setOrders(cloudOrders);
+      }
+    } catch (err) {
+      console.warn('Cloud sync error in PosDownlinesView:', err);
+    }
   };
 
   const handleOpenAddModal = () => {
@@ -148,26 +181,26 @@ export const PosDownlinesView: React.FC = () => {
 
   const handleTogglePayrollStatus = (sale: MarketerSale) => {
     const nextStatus = sale.paidStatus === 'paid' ? 'unpaid' : 'paid';
-    updateMarketerSalePaidStatus(sale.orderId, nextStatus);
+    updateMarketerSalePaidStatus(sale.orderId, nextStatus, currentStore.slug);
     setSales(prev => prev.map(s => s.orderId === sale.orderId ? { ...s, paidStatus: nextStatus } : s));
   };
 
-  const handleDeleteMitra = (partnerCode: string, name: string) => {
+  const handleDeleteMitra = async (partnerCode: string, name: string) => {
     if (confirm(`Hapus mitra ${name} (${partnerCode}) dari database downline?`)) {
-      deleteStoreDownline(partnerCode);
-      setDownlines(prev => prev.filter(m => m.partnerCode !== partnerCode && m.id !== partnerCode));
+      const filtered = await deleteStoreDownline(partnerCode, currentStore.slug);
+      setDownlines(filtered);
     }
   };
 
-  const handleClearAllDownlines = () => {
+  const handleClearAllDownlines = async () => {
     if (downlines.length === 0) {
       alert('Database mitra sudah kosong (0 mitra).');
       return;
     }
-    if (confirm(`⚠️ PERINGATAN PENGOSONGAN DATABASE MITRA:\n\nApakah Anda yakin ingin MENGHAPUS SEMUA (${downlines.length}) mitra untuk mengosongkan database downline menjadi 0 mitra?\n\nSemua mitra akan dikosongkan agar Anda dapat memulai simulasi pendaftaran mitra dari nol.`)) {
-      clearAllStoreDownlines();
+    if (confirm(`⚠️ PERINGATAN PENGOSONGAN DATABASE MITRA:\n\nApakah Anda yakin ingin MENGHAPUS SEMUA (${downlines.length}) mitra untuk mengosongkan database downline menjadi 0 mitra?\n\nSemua mitra akan dikosongkan dari database Cloud Supabase agar Anda dapat memulai simulasi pendaftaran mitra dari nol.`)) {
+      await clearAllStoreDownlines(currentStore.slug);
       setDownlines([]);
-      alert('Semua mitra berhasil dihapus! Database mitra sekarang bersih dan kosong (0 mitra).');
+      alert('Semua mitra berhasil dihapus dari Cloud Supabase! Database mitra sekarang bersih dan kosong (0 mitra).');
     }
   };
 
