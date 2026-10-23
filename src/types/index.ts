@@ -138,6 +138,7 @@ export interface Order {
   orderId: string;
   storeSlug: string;
   orderDate?: string;
+  partnerCode?: string;
   customerName: string;
   customerPhone: string;
   customerAddress: string;

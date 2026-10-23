@@ -1,184 +1,603 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { getLocalOrders, clearAllOrders } from '../../services/orderService';
 import { exportReportsToCSV } from '../../services/posService';
 import { Order } from '../../types';
-import { BarChart3, Download, DollarSign, ShoppingCart, Percent, Trash2 } from 'lucide-react';
+import {
+  Download,
+  Trash2,
+  Calendar,
+  Users,
+  DollarSign,
+  TrendingUp,
+  Percent,
+  FileSpreadsheet,
+  CheckCircle2,
+  Filter
+} from 'lucide-react';
+
+interface DailyPartnerSummary {
+  date: string; // YYYY-MM-DD
+  partnerCode: string;
+  partnerName: string;
+  tier: string;
+  tierLabel: string;
+  discountPct: number;
+  orderCount: number;
+  totalHet: number;
+  totalDiscount: number;
+  totalPaid: number;
+  marketerCommission: number;
+}
 
 export const PosReportsView: React.FC = () => {
   const { currentStore } = useApp();
   const [orders, setOrders] = useState<Order[]>(() => getLocalOrders(currentStore.slug));
+  const [activeTab, setActiveTab] = useState<'daily_mitra' | 'all_orders'>('daily_mitra');
   const [period, setPeriod] = useState<'all' | 'today' | 'month'>('all');
 
   useEffect(() => {
     setOrders(getLocalOrders(currentStore.slug));
   }, [currentStore.slug]);
 
-  const totalGMV = orders.reduce((sum, o) => sum + o.grandTotal, 0);
-  const totalSubtotal = orders.reduce((sum, o) => sum + o.subtotalHet, 0);
-  const totalDiscounts = orders.reduce((sum, o) => sum + o.discountAmount, 0);
-  const estProfit = Math.round(totalGMV * 0.35); // Estimasi margin rata-rata distributor
+  const getDiscountPctByTier = (tier?: string) => {
+    switch (tier) {
+      case 'agen': return 40;
+      case 'sub_agen': return 30;
+      case 'reseller': return 20;
+      case 'marketer': return 15;
+      default: return 0;
+    }
+  };
+
+  // Filter orders by period
+  const filteredOrders = useMemo(() => {
+    if (period === 'all') return orders;
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const monthStr = now.toISOString().slice(0, 7);
+
+    return orders.filter(o => {
+      const d = new Date(o.createdAt || o.orderDate || Date.now());
+      const dateStr = !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : '';
+      if (period === 'today') return dateStr === todayStr;
+      if (period === 'month') return dateStr.startsWith(monthStr);
+      return true;
+    });
+  }, [orders, period]);
+
+  // Daily Partner Aggregation
+  const dailyPartnerSummaries = useMemo(() => {
+    const map = new Map<string, DailyPartnerSummary>();
+
+    filteredOrders.forEach(o => {
+      const d = new Date(o.createdAt || o.orderDate || Date.now());
+      const dateKey = !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : 'Hari Ini';
+      const partnerCode = o.partnerCode || (o.tier && o.tier !== 'konsumen' ? o.customerName : 'NON-MITRA');
+      const partnerName = o.customerName || 'Konsumen Retail';
+      const tierKey = o.tier || 'konsumen';
+      const discountPct = getDiscountPctByTier(tierKey);
+      const marketerComm = tierKey === 'marketer' ? Math.round((o.subtotalHet || o.grandTotal) * 0.15) : 0;
+      const het = o.subtotalHet || o.grandTotal;
+      const discount = o.discountAmount || 0;
+      const netPaid = o.grandTotal;
+
+      const groupKey = `${dateKey}_${partnerCode}`;
+      const existing = map.get(groupKey);
+      if (existing) {
+        existing.orderCount += 1;
+        existing.totalHet += het;
+        existing.totalDiscount += discount;
+        existing.totalPaid += netPaid;
+        existing.marketerCommission += marketerComm;
+      } else {
+        map.set(groupKey, {
+          date: dateKey,
+          partnerCode: o.partnerCode || '-',
+          partnerName,
+          tier: tierKey,
+          tierLabel: o.tierLabel || (tierKey === 'konsumen' ? 'Non-Mitra (HET)' : tierKey.toUpperCase()),
+          discountPct,
+          orderCount: 1,
+          totalHet: het,
+          totalDiscount: discount,
+          totalPaid: netPaid,
+          marketerCommission: marketerComm
+        });
+      }
+    });
+
+    return Array.from(map.values()).sort((a, b) => b.date.localeCompare(a.date));
+  }, [filteredOrders]);
+
+  // Totals
+  const totalGMV = filteredOrders.reduce((sum, o) => sum + o.grandTotal, 0);
+  const totalSubtotalHet = filteredOrders.reduce((sum, o) => sum + (o.subtotalHet || o.grandTotal), 0);
+  const totalDiscounts = filteredOrders.reduce((sum, o) => sum + (o.discountAmount || 0), 0);
+  const totalMarketerCommission = filteredOrders
+    .filter(o => o.tier === 'marketer')
+    .reduce((sum, o) => sum + Math.round((o.subtotalHet || o.grandTotal) * 0.15), 0);
+  const totalMitraOrdersCount = filteredOrders.filter(o => o.tier && o.tier !== 'konsumen').length;
 
   const handleResetReports = () => {
     if (orders.length === 0) {
       alert('Laporan sudah bernilai 0 (belum ada transaksi).');
       return;
     }
-    if (window.confirm(`⚠️ PERINGATAN: Apakah Anda yakin ingin mereset laporan dan menghapus ${orders.length} transaksi untuk toko ${currentStore.storeName} ke nol?`)) {
+    if (window.confirm(`⚠️ PERINGATAN:\nApakah Anda yakin ingin mereset seluruh laporan dan menghapus ${orders.length} riwayat transaksi ke nol untuk memulai pencatatan baru?`)) {
       clearAllOrders(currentStore.slug);
       setOrders([]);
       alert('Data transaksi dan laporan berhasil direset ke nol!');
     }
   };
 
-  const handleExportCSV = () => {
-    if (orders.length === 0) {
-      alert('Belum ada data transaksi untuk diekspor.');
+  // Export 1: Daily Partner Sales Summary CSV
+  const handleExportDailyMitraCSV = () => {
+    if (dailyPartnerSummaries.length === 0) {
+      alert('Belum ada data penjualan mitra untuk diekspor.');
       return;
     }
 
-    const rows = orders.map(o => ({
-      'No Invoice': o.orderId,
-      'Waktu': new Date(o.createdAt || o.orderDate || Date.now()).toLocaleString('id-ID'),
-      'Pelanggan': o.customerName,
-      'No WhatsApp': o.customerPhone,
-      'Tier Harga': o.tierLabel,
-      'Subtotal HET': o.subtotalHet,
-      'Diskon Kemitraan': o.discountAmount,
-      'Total Bayar': o.grandTotal,
-      'Metode Pembayaran': o.paymentMethod,
-      'Status': o.status
+    const rows = dailyPartnerSummaries.map(s => ({
+      'Tanggal': s.date,
+      'Kode Mitra': s.partnerCode,
+      'Nama Mitra / Pelanggan': s.partnerName,
+      'Level Kemitraan': s.tierLabel,
+      'Diskon Level %': `${s.discountPct}%`,
+      'Jumlah Pesanan': s.orderCount,
+      'Total Omset HET (Rp)': s.totalHet,
+      'Potongan Diskon Level (Rp)': s.totalDiscount,
+      'Total Bayar Net (Rp)': s.totalPaid,
+      'Gaji/Komisi Marketer 15% (Rp)': s.marketerCommission > 0 ? s.marketerCommission : 0
     }));
 
-    exportReportsToCSV(rows, `laporan-omset-${currentStore.slug}.csv`);
+    exportReportsToCSV(rows, `laporan-harian-mitra-${currentStore.slug}-${new Date().toISOString().split('T')[0]}.csv`);
+  };
+
+  // Export 2: Complete Transaction-Level CSV
+  const handleExportAllOrdersCSV = () => {
+    if (filteredOrders.length === 0) {
+      alert('Belum ada transaksi untuk diekspor.');
+      return;
+    }
+
+    const rows = filteredOrders.map(o => {
+      const d = new Date(o.createdAt || o.orderDate || Date.now());
+      const dateStr = !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : '-';
+      const timeStr = !isNaN(d.getTime()) ? d.toLocaleTimeString('id-ID') : '-';
+      const discPct = getDiscountPctByTier(o.tier);
+      const mktComm = o.tier === 'marketer' ? Math.round((o.subtotalHet || o.grandTotal) * 0.15) : 0;
+
+      return {
+        'Tanggal': dateStr,
+        'Waktu': timeStr,
+        'No Invoice': o.orderId,
+        'Sumber Transaksi': o.orderSource || 'Kasir POS',
+        'Kode Mitra': o.partnerCode || '-',
+        'Nama Pelanggan': o.customerName,
+        'No WhatsApp': o.customerPhone || '-',
+        'Tier Kemitraan': o.tierLabel || 'Konsumen',
+        'Diskon %': `${discPct}%`,
+        'Subtotal HET (Rp)': o.subtotalHet || o.grandTotal,
+        'Potongan Diskon (Rp)': o.discountAmount || 0,
+        'Total Bayar Net (Rp)': o.grandTotal,
+        'Komisi Marketer 15% (Rp)': mktComm,
+        'Metode Pembayaran': o.paymentMethod || 'Tunai',
+        'Status': o.status
+      };
+    });
+
+    exportReportsToCSV(rows, `laporan-transaksi-lengkap-${currentStore.slug}-${new Date().toISOString().split('T')[0]}.csv`);
   };
 
   return (
     <div style={{ padding: '20px', background: '#0b1329', minHeight: 'calc(100vh - 65px)', color: '#f8fafc' }}>
+      {/* Top Header & Actions */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
         <div>
-          <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>Laporan Laba/Rugi &amp; Rekapitulasi Omset</h3>
-          <p style={{ margin: 0, fontSize: '0.78rem', color: '#94a3b8' }}>Rekap performa keuangan toko {currentStore.storeName}</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 900, color: '#f8fafc' }}>
+              Laporan Penjualan &amp; Rekap Mitra Harian
+            </h3>
+            <span style={{ fontSize: '0.68rem', fontWeight: 800, background: '#0284c7', color: '#e0f2fe', padding: '2px 8px', borderRadius: '999px' }}>
+              REKAP HARIAN &amp; KOMISI
+            </span>
+          </div>
+          <p style={{ margin: '3px 0 0', fontSize: '0.78rem', color: '#94a3b8' }}>
+            Rekap belanja mitra perhari, potongan diskon level (20%-40%), dan gaji bulanan marketer (15%) toko {currentStore.storeName}
+          </p>
         </div>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+
+        {/* Action Buttons */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
           <button
             type="button"
             onClick={handleResetReports}
             style={{
-              background: 'rgba(239, 68, 68, 0.15)',
+              background: 'rgba(239, 68, 68, 0.12)',
               color: '#f87171',
-              border: '1px solid rgba(239, 68, 68, 0.4)',
-              padding: '8px 12px',
-              borderRadius: '8px',
-              fontSize: '0.8rem',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              padding: '7px 12px',
+              borderRadius: '999px',
+              fontSize: '0.78rem',
               fontWeight: 800,
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
               cursor: 'pointer'
             }}
-            title="Bersihkan seluruh data transaksi dan reset laporan omzet ke nol"
+            title="Reset data transaksi ke nol"
           >
-            <Trash2 size={14} />
+            <Trash2 size={13} />
             <span className="hide-on-mobile">Reset Laporan</span>
           </button>
+
           <button
             type="button"
-            onClick={handleExportCSV}
+            onClick={handleExportDailyMitraCSV}
+            style={{
+              background: 'linear-gradient(135deg, #059669, #047857)',
+              color: '#fff',
+              border: 'none',
+              padding: '7px 14px',
+              borderRadius: '999px',
+              fontSize: '0.78rem',
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(5, 150, 105, 0.3)'
+            }}
+            title="Download file CSV rekapitulasi penjualan mitra harian"
+          >
+            <FileSpreadsheet size={14} />
+            <span>Download Rekap Harian Mitra (CSV)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExportAllOrdersCSV}
             style={{
               background: 'linear-gradient(135deg, #0284c7, #0369a1)',
               color: '#fff',
-              padding: '8px 14px',
-              borderRadius: '8px',
-              fontSize: '0.8rem',
+              border: 'none',
+              padding: '7px 14px',
+              borderRadius: '999px',
+              fontSize: '0.78rem',
               fontWeight: 800,
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(2, 132, 199, 0.3)'
             }}
-            title="Ekspor Laporan Transaksi ke CSV"
+            title="Download file CSV seluruh transaksi pesanan lengkap"
           >
-            <Download size={15} />
-            <span className="hide-on-mobile">Ekspor CSV</span>
+            <Download size={14} />
+            <span className="hide-on-mobile">Ekspor Semua Transaksi (CSV)</span>
           </button>
         </div>
       </div>
 
-      {/* Metric Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', marginBottom: '18px' }}>
-        <div style={{ background: '#1e293b', border: '1px solid #334155', padding: '16px', borderRadius: '12px' }}>
-          <div style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: 700 }}>Total Omset Kotor (GMV)</div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#38bdf8', marginTop: '4px' }}>
+      {/* Metric Cards Banner */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '12px', marginBottom: '18px' }}>
+        <div style={{ background: '#1e293b', border: '1px solid #334155', padding: '14px 16px', borderRadius: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: 700 }}>Total Omset Net (GMV)</span>
+            <DollarSign size={16} color="#38bdf8" />
+          </div>
+          <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#38bdf8', marginTop: '4px' }}>
             Rp {totalGMV.toLocaleString('id-ID')}
           </div>
-          <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px' }}>Dari {orders.length} pesanan tercatat</div>
+          <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '3px' }}>
+            Dari {filteredOrders.length} total transaksi
+          </div>
         </div>
 
-        <div style={{ background: '#1e293b', border: '1px solid #334155', padding: '16px', borderRadius: '12px' }}>
-          <div style={{ fontSize: '0.74rem', color: '#f59e0b', fontWeight: 700 }}>Total Diskon Kemitraan Diberikan</div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#f59e0b', marginTop: '4px' }}>
+        <div style={{ background: '#1e293b', border: '1px solid #334155', padding: '14px 16px', borderRadius: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: 700 }}>Potongan Diskon Mitra Diberikan</span>
+            <Percent size={16} color="#f59e0b" />
+          </div>
+          <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#f59e0b', marginTop: '4px' }}>
             Rp {totalDiscounts.toLocaleString('id-ID')}
           </div>
-          <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px' }}>Margin reseller/agen/marketer</div>
+          <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '3px' }}>
+            Margin diskon Reseller (20%), Sub Agen (30%), Agen (40%)
+          </div>
         </div>
 
-        <div style={{ background: '#1e293b', border: '1px solid #10b981', padding: '16px', borderRadius: '12px' }}>
-          <div style={{ fontSize: '0.74rem', color: '#34d399', fontWeight: 700 }}>Estimasi Laba Bersih Distributor</div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#34d399', marginTop: '4px' }}>
-            Rp {estProfit.toLocaleString('id-ID')}
+        <div style={{ background: 'rgba(99, 102, 241, 0.12)', border: '1.5px solid rgba(99, 102, 241, 0.4)', padding: '14px 16px', borderRadius: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.74rem', color: '#a5b4fc', fontWeight: 800 }}>💼 Hak Gaji Marketer (15%)</span>
+            <DollarSign size={16} color="#818cf8" />
           </div>
-          <div style={{ fontSize: '0.7rem', color: '#34d399', marginTop: '4px' }}>Margin ~35% dari omset</div>
+          <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#818cf8', marginTop: '4px' }}>
+            Rp {totalMarketerCommission.toLocaleString('id-ID')}
+          </div>
+          <div style={{ fontSize: '0.7rem', color: '#c7d2fe', marginTop: '3px' }}>
+            Komisi bulanan 15% hak marketer
+          </div>
+        </div>
+
+        <div style={{ background: '#1e293b', border: '1px solid #10b981', padding: '14px 16px', borderRadius: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.74rem', color: '#34d399', fontWeight: 700 }}>Total Belanja Jaringan Mitra</span>
+            <Users size={16} color="#34d399" />
+          </div>
+          <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#34d399', marginTop: '4px' }}>
+            {totalMitraOrdersCount} Pesanan
+          </div>
+          <div style={{ fontSize: '0.7rem', color: '#34d399', marginTop: '3px' }}>
+            Transaksi atas nama Agen, Sub Agen, Reseller &amp; Marketer
+          </div>
         </div>
       </div>
 
-      {/* Orders Table */}
-      <div style={{ background: '#1e293b', borderRadius: '12px', border: '1px solid #334155', overflow: 'hidden' }}>
-        <div style={{ padding: '14px 16px', borderBottom: '1px solid #334155' }}>
-          <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 800 }}>Rincian Transaksi Terakhir</h4>
+      {/* Navigation Tabs & Period Filter */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+        {/* Tab Switcher */}
+        <div style={{ display: 'inline-flex', background: '#090f1d', padding: '3px', borderRadius: '999px', border: '1px solid #334155' }}>
+          <button
+            type="button"
+            onClick={() => setActiveTab('daily_mitra')}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '999px',
+              fontSize: '0.78rem',
+              fontWeight: 800,
+              border: 'none',
+              background: activeTab === 'daily_mitra' ? '#0284c7' : 'transparent',
+              color: activeTab === 'daily_mitra' ? '#ffffff' : '#94a3b8',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <Calendar size={14} />
+            <span>Rekap Harian Mitra ({dailyPartnerSummaries.length})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('all_orders')}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '999px',
+              fontSize: '0.78rem',
+              fontWeight: 800,
+              border: 'none',
+              background: activeTab === 'all_orders' ? '#0284c7' : 'transparent',
+              color: activeTab === 'all_orders' ? '#ffffff' : '#94a3b8',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <TrendingUp size={14} />
+            <span>Rincian Per Transaksi ({filteredOrders.length})</span>
+          </button>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
-            <thead>
-              <tr style={{ background: '#0f172a', color: '#94a3b8', borderBottom: '1px solid #334155' }}>
-                <th style={{ padding: '10px 14px' }}>Invoice</th>
-                <th style={{ padding: '10px 14px' }}>Tanggal</th>
-                <th style={{ padding: '10px 14px' }}>Pelanggan</th>
-                <th style={{ padding: '10px 14px' }}>Tier</th>
-                <th style={{ padding: '10px 14px', textAlign: 'right' }}>Total Belanja</th>
-                <th style={{ padding: '10px 14px' }}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.length === 0 ? (
-                <tr>
-                  <td colSpan={6} style={{ padding: '30px', textAlign: 'center', color: '#64748b' }}>
-                    Belum ada riwayat transaksi.
-                  </td>
+        {/* Period Filter */}
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.72rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <Filter size={12} /> Periode:
+          </span>
+          {(['all', 'today', 'month'] as const).map(p => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setPeriod(p)}
+              style={{
+                padding: '4px 10px',
+                borderRadius: '999px',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                border: period === p ? '1px solid #38bdf8' : '1px solid #334155',
+                background: period === p ? '#0284c7' : '#0f172a',
+                color: period === p ? '#fff' : '#94a3b8',
+                cursor: 'pointer'
+              }}
+            >
+              {p === 'all' ? 'Semua' : p === 'today' ? 'Hari Ini' : 'Bulan Ini'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      {activeTab === 'daily_mitra' ? (
+        /* 1. Rekap Harian Mitra Table */
+        <div style={{ background: '#1e293b', borderRadius: '14px', border: '1px solid #334155', overflow: 'hidden' }}>
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: '#f8fafc' }}>
+                Rekapitulasi Pembelanjaan Mitra Per Hari
+              </h4>
+              <p style={{ margin: '2px 0 0', fontSize: '0.74rem', color: '#94a3b8' }}>
+                Tercatat per tanggal dan per mitra lengkap dengan diskon level dan komisi marketer
+              </p>
+            </div>
+            <span style={{ fontSize: '0.72rem', color: '#38bdf8', fontWeight: 700 }}>
+              {dailyPartnerSummaries.length} Baris Rekap Harian
+            </span>
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
+              <thead>
+                <tr style={{ background: '#090f1d', color: '#94a3b8', borderBottom: '1px solid #334155' }}>
+                  <th style={{ padding: '12px 14px' }}>Tanggal</th>
+                  <th style={{ padding: '12px 14px' }}>Mitra / Downline</th>
+                  <th style={{ padding: '12px 14px' }}>Level / Tier</th>
+                  <th style={{ padding: '12px 14px', textAlign: 'center' }}>Diskon %</th>
+                  <th style={{ padding: '12px 14px', textAlign: 'center' }}>Pesanan</th>
+                  <th style={{ padding: '12px 14px', textAlign: 'right' }}>Total Omset HET</th>
+                  <th style={{ padding: '12px 14px', textAlign: 'right' }}>Potongan Diskon</th>
+                  <th style={{ padding: '12px 14px', textAlign: 'right' }}>Total Bayar Net</th>
+                  <th style={{ padding: '12px 14px', textAlign: 'right' }}>Gaji Marketer (15%)</th>
                 </tr>
-              ) : (
-                orders.map(o => (
-                  <tr key={o.orderId} style={{ borderBottom: '1px solid #334155' }}>
-                    <td style={{ padding: '10px 14px', color: '#38bdf8', fontWeight: 800 }}>#{o.orderId}</td>
-                    <td style={{ padding: '10px 14px', color: '#94a3b8' }}>{new Date(o.createdAt || o.orderDate || Date.now()).toLocaleDateString('id-ID')}</td>
-                    <td style={{ padding: '10px 14px', fontWeight: 700 }}>{o.customerName}</td>
-                    <td style={{ padding: '10px 14px', color: '#cbd5e1' }}>{o.tierLabel}</td>
-                    <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 900, color: '#34d399' }}>
-                      Rp {o.grandTotal.toLocaleString('id-ID')}
-                    </td>
-                    <td style={{ padding: '10px 14px' }}>
-                      <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '999px', background: 'rgba(56,189,248,0.2)', color: '#38bdf8', fontWeight: 800 }}>
-                        {o.status}
-                      </span>
+              </thead>
+              <tbody>
+                {dailyPartnerSummaries.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} style={{ padding: '40px 20px', textAlign: 'center', color: '#64748b' }}>
+                      Belum ada transaksi pembelanjaan mitra pada periode ini.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  dailyPartnerSummaries.map((s, idx) => {
+                    const isMarketer = s.tier === 'marketer';
+                    const isReseller = s.tier === 'reseller';
+                    const isSubAgen = s.tier === 'sub_agen';
+                    const isAgen = s.tier === 'agen';
+
+                    return (
+                      <tr key={`${s.date}-${s.partnerCode}-${idx}`} style={{ borderBottom: '1px solid #334155' }}>
+                        <td style={{ padding: '12px 14px', fontWeight: 800, color: '#38bdf8', whiteSpace: 'nowrap' }}>
+                          {s.date}
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <div style={{ fontWeight: 800, color: '#f8fafc' }}>{s.partnerName}</div>
+                          <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>#{s.partnerCode}</div>
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <span
+                            style={{
+                              padding: '2px 8px',
+                              borderRadius: '999px',
+                              fontSize: '0.7rem',
+                              fontWeight: 800,
+                              background: isAgen
+                                ? 'rgba(245, 158, 11, 0.2)'
+                                : isSubAgen
+                                ? 'rgba(56, 189, 248, 0.2)'
+                                : isReseller
+                                ? 'rgba(16, 185, 129, 0.2)'
+                                : isMarketer
+                                ? 'rgba(99, 102, 241, 0.2)'
+                                : 'rgba(168, 85, 247, 0.2)',
+                              color: isAgen
+                                ? '#fbbf24'
+                                : isSubAgen
+                                ? '#38bdf8'
+                                : isReseller
+                                ? '#34d399'
+                                : isMarketer
+                                ? '#818cf8'
+                                : '#c084fc'
+                            }}
+                          >
+                            {s.tierLabel}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: 800, color: '#f8fafc' }}>
+                          {s.discountPct}%
+                        </td>
+                        <td style={{ padding: '12px 14px', textAlign: 'center', color: '#94a3b8' }}>
+                          {s.orderCount}x
+                        </td>
+                        <td style={{ padding: '12px 14px', textAlign: 'right', color: '#cbd5e1' }}>
+                          Rp {s.totalHet.toLocaleString('id-ID')}
+                        </td>
+                        <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 800, color: '#f59e0b' }}>
+                          Rp {s.totalDiscount.toLocaleString('id-ID')}
+                        </td>
+                        <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 900, color: '#34d399', fontSize: '0.88rem' }}>
+                          Rp {s.totalPaid.toLocaleString('id-ID')}
+                        </td>
+                        <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 900, color: isMarketer ? '#818cf8' : '#64748b' }}>
+                          {isMarketer ? `Rp ${s.marketerCommission.toLocaleString('id-ID')}` : '-'}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      ) : (
+        /* 2. Rincian Semua Transaksi Table */
+        <div style={{ background: '#1e293b', borderRadius: '14px', border: '1px solid #334155', overflow: 'hidden' }}>
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: '#f8fafc' }}>
+                Rincian Seluruh Transaksi Pesanan
+              </h4>
+              <p style={{ margin: '2px 0 0', fontSize: '0.74rem', color: '#94a3b8' }}>
+                Daftar transaksi kasir offline dan online order toko {currentStore.storeName}
+              </p>
+            </div>
+            <span style={{ fontSize: '0.72rem', color: '#38bdf8', fontWeight: 700 }}>
+              {filteredOrders.length} Pesanan
+            </span>
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
+              <thead>
+                <tr style={{ background: '#090f1d', color: '#94a3b8', borderBottom: '1px solid #334155' }}>
+                  <th style={{ padding: '12px 14px' }}>Invoice</th>
+                  <th style={{ padding: '12px 14px' }}>Waktu</th>
+                  <th style={{ padding: '12px 14px' }}>Pelanggan / Mitra</th>
+                  <th style={{ padding: '12px 14px' }}>Tier</th>
+                  <th style={{ padding: '12px 14px', textAlign: 'right' }}>Subtotal HET</th>
+                  <th style={{ padding: '12px 14px', textAlign: 'right' }}>Diskon</th>
+                  <th style={{ padding: '12px 14px', textAlign: 'right' }}>Total Bayar</th>
+                  <th style={{ padding: '12px 14px' }}>Sumber</th>
+                  <th style={{ padding: '12px 14px' }}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} style={{ padding: '40px 20px', textAlign: 'center', color: '#64748b' }}>
+                      Belum ada transaksi pada periode ini.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredOrders.map(o => (
+                    <tr key={o.orderId} style={{ borderBottom: '1px solid #334155' }}>
+                      <td style={{ padding: '12px 14px', color: '#38bdf8', fontWeight: 800 }}>#{o.orderId}</td>
+                      <td style={{ padding: '12px 14px', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                        {new Date(o.createdAt || o.orderDate || Date.now()).toLocaleString('id-ID')}
+                      </td>
+                      <td style={{ padding: '12px 14px' }}>
+                        <div style={{ fontWeight: 800, color: '#f8fafc' }}>{o.customerName}</div>
+                        {o.partnerCode && (
+                          <div style={{ fontSize: '0.7rem', color: '#38bdf8', fontWeight: 700 }}>#{o.partnerCode}</div>
+                        )}
+                      </td>
+                      <td style={{ padding: '12px 14px', color: '#cbd5e1' }}>{o.tierLabel || '-'}</td>
+                      <td style={{ padding: '12px 14px', textAlign: 'right', color: '#94a3b8' }}>
+                        Rp {(o.subtotalHet || o.grandTotal).toLocaleString('id-ID')}
+                      </td>
+                      <td style={{ padding: '12px 14px', textAlign: 'right', color: '#f59e0b', fontWeight: 700 }}>
+                        Rp {(o.discountAmount || 0).toLocaleString('id-ID')}
+                      </td>
+                      <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 900, color: '#34d399' }}>
+                        Rp {o.grandTotal.toLocaleString('id-ID')}
+                      </td>
+                      <td style={{ padding: '12px 14px', color: '#94a3b8', fontSize: '0.72rem' }}>
+                        {o.orderSource || 'Kasir POS'}
+                      </td>
+                      <td style={{ padding: '12px 14px' }}>
+                        <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '999px', background: 'rgba(56,189,248,0.2)', color: '#38bdf8', fontWeight: 800 }}>
+                          {o.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

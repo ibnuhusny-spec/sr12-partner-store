@@ -182,10 +182,24 @@ export const PosCashierView: React.FC<PosCashierViewProps> = ({
       const custName = buyerName.trim() || 'Konsumen Kasir Langsung';
       const custPhone = buyerPhone.trim() || '-';
 
+      // 2. IDENTIFIKASI MITRA / DOWNLINE: Cek apakah pembeli adalah Mitra Terdaftar
+      let targetMitra = selectedDownlineCode
+        ? downlinesList.find(m => m.partnerCode === selectedDownlineCode)
+        : null;
+
+      if (!targetMitra && (custPhone !== '-' || custName)) {
+        targetMitra = downlinesList.find(m => 
+          (custPhone !== '-' && m.phone.replace(/[^0-9]/g, '').endsWith(custPhone.replace(/[^0-9]/g, ''))) ||
+          (custName && m.name.toLowerCase() === custName.toLowerCase().trim()) ||
+          (custName && m.partnerCode.toUpperCase() === custName.toUpperCase().trim())
+        ) || null;
+      }
+
       // 3. TERHUBUNG KE MENU TRANSAKSI & LAPORAN: Simpan ke tabel Orders
       const orderData: Order = {
         orderId: trxId,
         storeSlug: currentStore.slug,
+        partnerCode: targetMitra ? targetMitra.partnerCode : (selectedDownlineCode || undefined),
         customerName: custName,
         customerPhone: custPhone,
         customerAddress: 'Transaksi Kasir Langsung di Toko / Gudang',
@@ -247,18 +261,6 @@ export const PosCashierView: React.FC<PosCashierViewProps> = ({
       saveCashflowEntry(cashEntry, currentStore.slug);
 
       // 6. TERHUBUNG KE MITRA / DOWNLINE: Perbarui akumulasi belanja & hitung komisi Marketer
-      let targetMitra = selectedDownlineCode
-        ? downlinesList.find(m => m.partnerCode === selectedDownlineCode)
-        : null;
-
-      if (!targetMitra && (custPhone !== '-' || custName)) {
-        targetMitra = downlinesList.find(m => 
-          (custPhone !== '-' && m.phone.replace(/[^0-9]/g, '').endsWith(custPhone.replace(/[^0-9]/g, ''))) ||
-          (custName && m.name.toLowerCase() === custName.toLowerCase().trim()) ||
-          (custName && m.partnerCode.toUpperCase() === custName.toUpperCase().trim())
-        ) || null;
-      }
-
       if (targetMitra) {
         targetMitra.accumulatedSpent90Days = (targetMitra.accumulatedSpent90Days || 0) + totalPayable;
         targetMitra.totalOrdersCount = (targetMitra.totalOrdersCount || 0) + 1;

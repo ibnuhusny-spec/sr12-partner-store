@@ -178,8 +178,7 @@ export async function syncStoreCatalogFromCloud(storeSlug: string): Promise<Prod
           ...(ov.name ? { name: ov.name } : {}),
           ...(ov.het ? { het: ov.het, price: ov.het } : {}),
           ...(ov.summary ? { summary: ov.summary } : {}),
-          ...(ov.weightGram ? { weightGram: ov.weightGram } : {}),
-          ...(ov.stock !== undefined ? { stock: ov.stock } : {})
+          ...(ov.weightGram ? { weightGram: ov.weightGram } : {})
         };
       });
 

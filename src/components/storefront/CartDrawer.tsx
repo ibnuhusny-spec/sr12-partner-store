@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { SR12_SHIPPING_PROVIDERS, getProductTierPrice, SR12_TIERS } from '../../config/tiers';
-import { verifyMitraDiscount } from '../../services/mitraService';
+import { verifyMitraDiscount, getLocalDownlines, saveStoreDownline, getLocalMarketerSales } from '../../services/mitraService';
 import { createOrder, formatWhatsAppOrderMessage } from '../../services/orderService';
-import { Order, OrderItemPayload } from '../../types';
-import { updateStoreProductStock } from '../../services/catalogService';
+import { Order, OrderItemPayload, MarketerSale } from '../../types';
+import { getStoreCatalog, saveStoreCatalog, updateStoreProductStock } from '../../services/catalogService';
 import { recordStockMutation } from '../../services/posService';
 import confetti from 'canvas-confetti';
 import { X, Trash2, ShoppingBag, Truck, Check, MessageCircle, UserCheck } from 'lucide-react';
@@ -60,16 +60,22 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
   const discountAmount = Math.max(0, subtotalHet - totalProductsPrice);
 
   // Dynamic Platform Fee: Ditentukan oleh pemilik toko (currentStore.feePayer)
+  // Bebas biaya admin (Rp 0) jika:
+  // a. Ditanggung Toko ('store' / sistem kuota token toko)
+  // b. Pembeli berbelanja sebagai Mitra Resmi (Reseller / Sub Agen / Agen / Marketer)
   const platformFee = (() => {
     try {
-      const payerMode = currentStore.feePayer || 'buyer';
+      if (activeTier !== 'konsumen') {
+        return 0; // Mitra binaan tidak dikenakan biaya admin
+      }
+      const payerMode = currentStore.feePayer || 'store';
       if (payerMode === 'buyer') {
         const val = localStorage.getItem('sr12_platform_fee_nominal');
         return val ? Number(val) : 1500;
       }
-      return 0; // Ditanggung oleh toko, pembeli tidak dikenakan biaya admin
+      return 0; // Ditanggung oleh toko / sistem token toko
     } catch {
-      return 1500;
+      return 0;
     }
   })();
 
@@ -121,14 +127,31 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
       weightGram: item.product.weightGram
     }));
 
+    // 1. Deteksi Mitra Downline yang berbelanja (berdasarkan kode input, nomor WA, atau nama)
+    const downlines = getLocalDownlines();
+    const qCode = (mitraQuery || verifiedMitra?.partnerCode || '').toUpperCase().trim();
+    const qPhone = customerPhone.replace(/[^0-9]/g, '');
+    const qName = customerName.toLowerCase().trim();
+
+    let targetMitra = downlines.find(m => 
+      (qCode && m.partnerCode && m.partnerCode.toUpperCase() === qCode) ||
+      (m.partnerCode && qName.includes(m.partnerCode.toLowerCase())) ||
+      (qPhone && m.phone && m.phone.replace(/[^0-9]/g, '').endsWith(qPhone.slice(-8))) ||
+      (qName && m.name && m.name.toLowerCase() === qName)
+    ) || null;
+
+    const finalTier = targetMitra?.tier || activeTier;
+    const assignedPartnerCode = targetMitra?.partnerCode || (qCode || undefined);
+
     const orderData: Order = {
       orderId,
       storeSlug: currentStore.slug,
+      partnerCode: assignedPartnerCode,
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
       customerAddress: customerAddress.trim() || 'Alamat dikonfirmasi via WA',
-      tier: activeTier,
-      tierLabel: SR12_TIERS[activeTier].name,
+      tier: finalTier,
+      tierLabel: SR12_TIERS[finalTier].name,
       items: orderItems,
       subtotalHet,
       discountAmount,
@@ -140,6 +163,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
       courierName: selectedCourier.name,
       shippingCost: finalShippingCost,
       platformFee,
+      createdAt: new Date().toISOString(),
       dropship: isDropship ? {
         isDropship: true,
         senderName: dropshipSenderName,
@@ -148,47 +172,114 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
     };
 
     try {
-      // 1. Simpan order ke cloud Supabase
+      // 1. Simpan order ke database toko
       await createOrder(orderData, currentStore.slug);
 
-      // 2. DEDUKSI STOK PRODUK DI GUDANG SECARA OTOMATIS
-      cart.forEach(item => {
-        const nextStock = Math.max(0, item.product.stock - item.quantity);
-        onUpdateStock?.(item.product.id, nextStock);
-        updateStoreProductStock(currentStore.slug, item.product.id, nextStock);
-        recordStockMutation({
-          id: 'MUT-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-          storeSlug: currentStore.slug,
-          productId: item.product.id,
-          productName: item.product.name,
-          sku: item.product.sku,
-          date: new Date().toISOString(),
-          type: 'out',
-          qty: item.quantity,
-          beforeStock: item.product.stock,
-          afterStock: nextStock,
-          remainingStock: nextStock,
-          notes: `Pesanan Web Online #${orderId} (${customerName.trim()})`,
-          reason: `Pesanan Web Online #${orderId} (${customerName.trim()})`,
-          operator: 'Online Web Store'
-        }, currentStore.slug);
+      // 2. DEDUKSI STOK PRODUK DI GUDANG SECARA PASTI & REKAM MUTASI
+      const currentCatalog = getStoreCatalog(currentStore.slug);
+      const updatedCatalog = currentCatalog.map(p => {
+        const inCart = cart.find(ci => ci.product.id === p.id);
+        if (inCart) {
+          const nextStock = Math.max(0, p.stock - inCart.quantity);
+          recordStockMutation({
+            id: 'MUT-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+            storeSlug: currentStore.slug,
+            productId: p.id,
+            productName: p.name,
+            sku: p.sku,
+            date: new Date().toISOString(),
+            type: 'out',
+            qty: inCart.quantity,
+            beforeStock: p.stock,
+            afterStock: nextStock,
+            remainingStock: nextStock,
+            notes: `Pesanan Web #${orderId} (${customerName.trim()})`,
+            reason: `Pesanan Web #${orderId} (${customerName.trim()})`,
+            operator: 'Online Web Store'
+          }, currentStore.slug);
+          return { ...p, stock: nextStock };
+        }
+        return p;
       });
 
-      // 3. Format pesan WhatsApp
+      saveStoreCatalog(currentStore.slug, updatedCatalog);
+
+      // Update state React katalog toko agar sinkron seketika
+      cart.forEach(item => {
+        const nextItem = updatedCatalog.find(p => p.id === item.product.id);
+        if (nextItem) {
+          onUpdateStock?.(nextItem.id, nextItem.stock);
+        }
+      });
+
+      // 3. TERHUBUNG KE MITRA / DOWNLINE: Perbarui omset belanja & total order
+      if (targetMitra) {
+        targetMitra.accumulatedSpent90Days = (targetMitra.accumulatedSpent90Days || 0) + grandTotal;
+        targetMitra.totalOrdersCount = (targetMitra.totalOrdersCount || 0) + 1;
+        targetMitra.lastOrderDate = new Date().toISOString().split('T')[0];
+        await saveStoreDownline(targetMitra, currentStore.slug);
+
+        // Jika transaksi dicatat untuk Marketer atau via link referral, catat komisi 15%
+        if (targetMitra.tier === 'marketer' || finalTier === 'marketer' || marketerReferral) {
+          const mId = targetMitra.tier === 'marketer' ? targetMitra.partnerCode : (marketerReferral || targetMitra.partnerCode);
+          const commissionAmt = Math.round(subtotalHet * 0.15);
+          const mSale: MarketerSale = {
+            storeSlug: currentStore.slug,
+            orderId,
+            marketerId: mId,
+            orderDate: new Date().toISOString().split('T')[0],
+            monthPeriod: new Date().toISOString().slice(0, 7),
+            customerName: customerName.trim(),
+            customerPhone: customerPhone.trim(),
+            fulfillmentType: selectedCourier.type === 'cod' ? 'pickup' : 'delivery',
+            itemsDesc: orderItems.map(i => `${i.quantity}x ${i.name}`).join(', '),
+            omsetHet: subtotalHet,
+            commissionPct: 15,
+            commissionAmount: commissionAmt,
+            paidStatus: 'unpaid'
+          };
+          const salesList = getLocalMarketerSales();
+          salesList.unshift(mSale);
+          localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(salesList));
+        }
+      } else if (marketerReferral) {
+        // Pembeli umum via link referral Marketer
+        const commissionAmt = Math.round(subtotalHet * 0.15);
+        const mSale: MarketerSale = {
+          storeSlug: currentStore.slug,
+          orderId,
+          marketerId: marketerReferral,
+          orderDate: new Date().toISOString().split('T')[0],
+          monthPeriod: new Date().toISOString().slice(0, 7),
+          customerName: customerName.trim(),
+          customerPhone: customerPhone.trim(),
+          fulfillmentType: selectedCourier.type === 'cod' ? 'pickup' : 'delivery',
+          itemsDesc: orderItems.map(i => `${i.quantity}x ${i.name}`).join(', '),
+          omsetHet: subtotalHet,
+          commissionPct: 15,
+          commissionAmount: commissionAmt,
+          paidStatus: 'unpaid'
+        };
+        const salesList = getLocalMarketerSales();
+        salesList.unshift(mSale);
+        localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(salesList));
+      }
+
+      // 4. Format pesan WhatsApp
       const waMsg = formatWhatsAppOrderMessage(orderData, currentStore);
       const waUrl = `https://wa.me/${currentStore.storeWaNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(waMsg)}`;
 
-      // 4. Trigger celebratory confetti
+      // 5. Trigger celebratory confetti
       confetti({
         particleCount: 80,
         spread: 70,
         origin: { y: 0.6 }
       });
 
-      // 5. Buka WhatsApp
+      // 6. Buka WhatsApp
       window.open(waUrl, '_blank');
 
-      // 6. Bersihkan keranjang
+      // 7. Bersihkan keranjang
       clearCart();
       onClose();
     } catch (e) {

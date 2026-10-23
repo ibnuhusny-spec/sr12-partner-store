@@ -14,7 +14,8 @@ import {
   getLocalDownlines,
   getLocalMarketerSales
 } from '../../services/mitraService';
-import { MitraDownline, MarketerSale, PartnerTier } from '../../types';
+import { getLocalOrders } from '../../services/orderService';
+import { MitraDownline, MarketerSale, PartnerTier, Order } from '../../types';
 import {
   SR12_TIER_TARGETS,
   evaluateMitraRank,
@@ -51,6 +52,7 @@ export const PosDownlinesView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'downlines' | 'payroll'>('downlines');
   const [downlines, setDownlines] = useState<MitraDownline[]>(() => getLocalDownlines());
   const [sales, setSales] = useState<MarketerSale[]>(() => getLocalMarketerSales());
+  const [orders, setOrders] = useState<Order[]>(() => getLocalOrders(currentStore.slug));
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState<'all' | 'promotable' | 'warning' | 'agen' | 'sub_agen' | 'reseller' | 'marketer' | 'konsumen'>('all');
 
@@ -76,6 +78,7 @@ export const PosDownlinesView: React.FC = () => {
   const loadData = () => {
     setDownlines(getLocalDownlines());
     setSales(getLocalMarketerSales());
+    setOrders(getLocalOrders(currentStore.slug));
   };
 
   const handleAddDownline = async (e: React.FormEvent) => {
@@ -169,10 +172,103 @@ export const PosDownlinesView: React.FC = () => {
     }
   };
 
+  // Perhitungan Bonus Potongan Diskon Level & Gaji Marketer
+  const calculateMitraBonusAndDiscount = (mitra: MitraDownline) => {
+    const pOrders = orders.filter(o => 
+      (o.partnerCode && o.partnerCode.toUpperCase() === mitra.partnerCode.toUpperCase()) ||
+      (o.customerName && o.customerName.toLowerCase().trim() === mitra.name.toLowerCase().trim()) ||
+      (mitra.phone && o.customerPhone && o.customerPhone.replace(/[^0-9]/g, '').endsWith(mitra.phone.replace(/[^0-9]/g, '').slice(-8)))
+    );
+
+    const orderDiscounts = pOrders.reduce((sum, o) => sum + (o.discountAmount || 0), 0);
+    const orderSubtotalHet = pOrders.reduce((sum, o) => sum + (o.subtotalHet || o.grandTotal), 0);
+
+    let bonusAmount = 0;
+    let bonusLabel = '';
+    let badgeColor = '#34d399';
+    let badgeBg = 'rgba(16, 185, 129, 0.12)';
+    let pct = 0;
+
+    switch (mitra.tier) {
+      case 'marketer': {
+        pct = 15;
+        badgeColor = '#818cf8';
+        badgeBg = 'rgba(99, 102, 241, 0.15)';
+        bonusLabel = 'Gaji Bulanan (15%)';
+        const recordedComms = sales
+          .filter(s => s.marketerId.toUpperCase() === mitra.partnerCode.toUpperCase())
+          .reduce((sum, s) => sum + s.commissionAmount, 0);
+
+        if (recordedComms > 0) {
+          bonusAmount = recordedComms;
+        } else if (orderSubtotalHet > 0) {
+          bonusAmount = Math.round(orderSubtotalHet * 0.15);
+        } else {
+          bonusAmount = Math.round((mitra.accumulatedSpent90Days || 0) * 0.15);
+        }
+        break;
+      }
+      case 'reseller': {
+        pct = 20;
+        badgeColor = '#34d399';
+        badgeBg = 'rgba(16, 185, 129, 0.15)';
+        bonusLabel = 'Diskon Level (20%)';
+        if (orderDiscounts > 0) {
+          bonusAmount = orderDiscounts;
+        } else {
+          bonusAmount = Math.round(((mitra.accumulatedSpent90Days || 0) / 0.8) * 0.20);
+        }
+        break;
+      }
+      case 'sub_agen': {
+        pct = 30;
+        badgeColor = '#38bdf8';
+        badgeBg = 'rgba(56, 189, 248, 0.15)';
+        bonusLabel = 'Diskon Level (30%)';
+        if (orderDiscounts > 0) {
+          bonusAmount = orderDiscounts;
+        } else {
+          bonusAmount = Math.round(((mitra.accumulatedSpent90Days || 0) / 0.7) * 0.30);
+        }
+        break;
+      }
+      case 'agen': {
+        pct = 40;
+        badgeColor = '#fbbf24';
+        badgeBg = 'rgba(245, 158, 11, 0.15)';
+        bonusLabel = 'Diskon Level (40%)';
+        if (orderDiscounts > 0) {
+          bonusAmount = orderDiscounts;
+        } else {
+          bonusAmount = Math.round(((mitra.accumulatedSpent90Days || 0) / 0.6) * 0.40);
+        }
+        break;
+      }
+      default: {
+        pct = 0;
+        badgeColor = '#94a3b8';
+        badgeBg = 'rgba(148, 163, 184, 0.12)';
+        bonusLabel = 'HET Retail Normal';
+        bonusAmount = 0;
+        break;
+      }
+    }
+
+    return {
+      bonusAmount,
+      bonusLabel,
+      badgeColor,
+      badgeBg,
+      pct,
+      orderCount: pOrders.length
+    };
+  };
+
   // Evaluations mapping
   const evaluatedDownlines = downlines.map(m => ({
     mitra: m,
-    evalData: evaluateMitraRank(m.tier, m.accumulatedSpent90Days)
+    evalData: evaluateMitraRank(m.tier, m.accumulatedSpent90Days),
+    bonusInfo: calculateMitraBonusAndDiscount(m)
   }));
 
   // Filtering
@@ -199,6 +295,12 @@ export const PosDownlinesView: React.FC = () => {
 
   // Summary Metrics & Tier Counts
   const totalOmsetNetwork = downlines.reduce((acc, m) => acc + (m.accumulatedSpent90Days || 0), 0);
+  const totalNetworkBonusDiscounts = evaluatedDownlines
+    .filter(e => e.mitra.tier !== 'marketer' && e.mitra.tier !== 'konsumen')
+    .reduce((sum, e) => sum + e.bonusInfo.bonusAmount, 0);
+  const totalMarketerSalaries = evaluatedDownlines
+    .filter(e => e.mitra.tier === 'marketer')
+    .reduce((sum, e) => sum + e.bonusInfo.bonusAmount, 0);
   const promotableCount = evaluatedDownlines.filter(e => e.evalData.status === 'promotable').length;
   const warningCount = evaluatedDownlines.filter(e => e.evalData.status === 'warning').length;
   const agenCount = downlines.filter(m => m.tier === 'agen').length;
@@ -455,7 +557,7 @@ export const PosDownlinesView: React.FC = () => {
       </div>
 
       {/* Metric Cards Banner */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '20px' }}>
         <div style={{ background: '#1e293b', padding: '14px 16px', borderRadius: '12px', border: '1px solid #334155' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: 700 }}>Total Mitra Binaan</span>
@@ -479,6 +581,32 @@ export const PosDownlinesView: React.FC = () => {
           </div>
           <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '2px' }}>
             Akumulasi pembelanjaan periode aktif
+          </div>
+        </div>
+
+        <div style={{ background: '#1e293b', padding: '14px 16px', borderRadius: '12px', border: '1px solid #334155' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: 700 }}>Bonus Diskon Jaringan (20-40%)</span>
+            <Gift size={16} color="#f59e0b" />
+          </div>
+          <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#f59e0b', marginTop: '4px' }}>
+            Rp {totalNetworkBonusDiscounts.toLocaleString('id-ID')}
+          </div>
+          <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '2px' }}>
+            Keuntungan margin Reseller/Sub Agen/Agen
+          </div>
+        </div>
+
+        <div style={{ background: 'rgba(99, 102, 241, 0.12)', padding: '14px 16px', borderRadius: '12px', border: '1.5px solid rgba(99, 102, 241, 0.4)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.74rem', color: '#a5b4fc', fontWeight: 800 }}>💼 Total Gaji Marketer (15%)</span>
+            <DollarSign size={16} color="#818cf8" />
+          </div>
+          <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#818cf8', marginTop: '4px' }}>
+            Rp {totalMarketerSalaries.toLocaleString('id-ID')}
+          </div>
+          <div style={{ fontSize: '0.7rem', color: '#c7d2fe', marginTop: '2px' }}>
+            Komisi bulanan 15% hak Marketer
           </div>
         </div>
 
@@ -715,13 +843,14 @@ export const PosDownlinesView: React.FC = () => {
                     <tr style={{ background: '#090f1d', color: '#94a3b8', borderBottom: '1px solid #334155' }}>
                       <th style={{ padding: '12px 14px' }}>Mitra &amp; Kode</th>
                       <th style={{ padding: '12px 14px' }}>Level Saat Ini</th>
+                      <th style={{ padding: '12px 14px' }}>Bonus &amp; Diskon Level</th>
                       <th style={{ padding: '12px 14px' }}>Total Belanja &amp; Target</th>
                       <th style={{ padding: '12px 14px' }}>Status Evaluasi</th>
                       <th style={{ padding: '12px 14px', textAlign: 'center' }}>Tindakan</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredDownlines.map(({ mitra, evalData }) => {
+                    {filteredDownlines.map(({ mitra, evalData, bonusInfo }) => {
                       const waUrl = generateMitraWaReminderUrl(mitra, currentStore.storeName, evalData);
                       const isPromotable = evalData.status === 'promotable';
                       const isWarning = evalData.status === 'warning';
@@ -799,6 +928,16 @@ export const PosDownlinesView: React.FC = () => {
                             </div>
                             <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '5px', fontWeight: 600 }}>
                               {badgeStyle.req}
+                            </div>
+                          </td>
+
+                          {/* 2b. Bonus & Diskon Level */}
+                          <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
+                            <div style={{ fontWeight: 900, color: bonusInfo.badgeColor, fontSize: '0.92rem' }}>
+                              Rp {bonusInfo.bonusAmount.toLocaleString('id-ID')}
+                            </div>
+                            <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '3px', fontWeight: 700 }}>
+                              {bonusInfo.bonusLabel}
                             </div>
                           </td>
 
@@ -937,7 +1076,7 @@ export const PosDownlinesView: React.FC = () => {
 
               {/* 2. Mobile Card List (Ultra-Sleek Native App View on HP screens) */}
               <div className="hide-on-desktop" style={{ padding: '12px' }}>
-                {filteredDownlines.map(({ mitra, evalData }) => {
+                {filteredDownlines.map(({ mitra, evalData, bonusInfo }) => {
                   const waUrl = generateMitraWaReminderUrl(mitra, currentStore.storeName, evalData);
                   const isPromotable = evalData.status === 'promotable';
                   const isWarning = evalData.status === 'warning';
@@ -1001,6 +1140,29 @@ export const PosDownlinesView: React.FC = () => {
                           }}
                         >
                           {badgeStyle.shortLabel}
+                        </span>
+                      </div>
+
+                      {/* Card Bonus & Diskon Level */}
+                      <div
+                        style={{
+                          background: bonusInfo.badgeBg,
+                          border: `1px solid ${bonusInfo.badgeColor}40`,
+                          padding: '8px 12px',
+                          borderRadius: '10px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Gift size={13} color={bonusInfo.badgeColor} />
+                          <span style={{ fontSize: '0.74rem', color: '#cbd5e1', fontWeight: 700 }}>
+                            {bonusInfo.bonusLabel}:
+                          </span>
+                        </div>
+                        <span style={{ fontSize: '0.9rem', fontWeight: 900, color: bonusInfo.badgeColor }}>
+                          Rp {bonusInfo.bonusAmount.toLocaleString('id-ID')}
                         </span>
                       </div>
 
