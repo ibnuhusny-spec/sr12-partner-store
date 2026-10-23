@@ -87,14 +87,19 @@ export const PosReportsView: React.FC = () => {
     }
   };
 
-  // Filter orders by period
+  // Filter orders by period (hanya pesanan produk yang aktif, bukan kas manual atau order batal)
   const filteredOrders = useMemo(() => {
-    if (period === 'all') return orders;
+    const validOrders = orders.filter(o => 
+      !o.orderSource?.startsWith('Kas Manual') && 
+      !o.status?.toLowerCase().includes('batal') && 
+      !o.status?.toLowerCase().includes('hapus')
+    );
+    if (period === 'all') return validOrders;
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
     const monthStr = now.toISOString().slice(0, 7);
 
-    return orders.filter(o => {
+    return validOrders.filter(o => {
       const d = new Date(o.createdAt || o.orderDate || Date.now());
       const dateStr = !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : '';
       if (period === 'today') return dateStr === todayStr;

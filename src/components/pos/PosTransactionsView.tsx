@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Order } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { getLocalOrders, fetchStoreOrders, updateOrderStatus, deleteOrder, clearAllOrders } from '../../services/orderService';
-import { saveCashflowEntry } from '../../services/posService';
 import { CheckCircle2, Clock, Trash2, RefreshCw } from 'lucide-react';
 
 export const PosTransactionsView: React.FC = () => {
@@ -39,17 +38,9 @@ export const PosTransactionsView: React.FC = () => {
   const handleConfirmOrder = async (order: Order) => {
     await updateOrderStatus(order.orderId, 'Lunas / Selesai', currentStore.slug);
 
-    // Otomatis catat kas masuk ke Buku Kas saat order web lunas
-    await saveCashflowEntry({
-      id: 'CSH-WEB-' + Date.now(),
-      storeSlug: currentStore.slug,
-      date: new Date().toISOString(),
-      type: 'in',
-      category: 'Pelunasan Pesanan Web Toko',
-      amount: order.grandTotal,
-      description: `Order Web #${order.orderId} (${order.customerName})`,
-      operator: 'Admin Toko'
-    }, currentStore.slug);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('sr12:cloud_sync_cashflow', { detail: { storeSlug: currentStore.slug } }));
+    }
 
     setOrders(prev => prev.map(o => (o.orderId === order.orderId || o.id === order.orderId) ? { ...o, status: 'Lunas / Selesai' } : o));
   };
@@ -73,6 +64,7 @@ export const PosTransactionsView: React.FC = () => {
   };
 
   const filtered = orders.filter(o => {
+    if (o.orderSource?.startsWith('Kas Manual')) return false;
     if (filter === 'pending') return o.status === 'Menunggu Konfirmasi' || o.status === 'Pending';
     if (filter === 'done') return o.status === 'Lunas / Selesai' || o.status === 'Selesai';
     return true;

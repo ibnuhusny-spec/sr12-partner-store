@@ -197,6 +197,7 @@ export async function clearAllOrders(storeSlug?: string): Promise<void> {
   try {
     localStorage.setItem('sr12_customer_orders', JSON.stringify([]));
     localStorage.setItem(`sr12_customer_orders_${targetSlug}`, JSON.stringify([]));
+    localStorage.removeItem(`sr12_cashflow_${targetSlug}`);
   } catch {}
 
   try {
@@ -216,6 +217,11 @@ export async function clearAllOrders(storeSlug?: string): Promise<void> {
     }
   } catch (e) {
     console.warn('Error clearing orders in Supabase:', e);
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('sr12:cloud_sync_orders', { detail: { storeSlug: targetSlug } }));
+    window.dispatchEvent(new CustomEvent('sr12:cloud_sync_cashflow', { detail: { storeSlug: targetSlug } }));
   }
 }
 

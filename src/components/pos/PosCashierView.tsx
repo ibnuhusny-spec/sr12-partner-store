@@ -6,7 +6,7 @@ import { PosReceiptModal } from './PosReceiptModal';
 import { deductStoreTransactionQuota } from '../../services/storeService';
 import { createOrder } from '../../services/orderService';
 import { updateStoreProductStock, batchUpdateStoreProductStocks } from '../../services/catalogService';
-import { recordStockMutation, saveCashflowEntry } from '../../services/posService';
+import { recordStockMutation } from '../../services/posService';
 import { fetchStoreDownlines, saveStoreDownline, fetchStoreMarketerSales, getLocalDownlines } from '../../services/mitraService';
 import { Coins, AlertTriangle, Users, Sparkles, CheckCircle2 } from 'lucide-react';
 import {
@@ -259,18 +259,10 @@ export const PosCashierView: React.FC<PosCashierViewProps> = ({
         batchUpdateStoreProductStocks(currentStore.slug, stockUpdates);
       }
 
-      // 5. TERHUBUNG KE BUKU KAS: Catat mutasi kas masuk secara otomatis ke Cloud Supabase
-      const cashEntry: CashflowEntry = {
-        id: 'CSH-' + Date.now(),
-        storeSlug: currentStore.slug,
-        date: new Date().toISOString(),
-        type: 'in',
-        category: 'Penjualan Kasir POS',
-        amount: totalPayable,
-        description: `Penjualan Kasir #${trxId} (${custName}) - ${totalCartCount} pcs produk`,
-        operator: activeCashierName
-      };
-      await saveCashflowEntry(cashEntry, currentStore.slug);
+      // 5. TERHUBUNG KE BUKU KAS: Otomatis tercatat dari pesanan order POS di atas (Single Source of Truth)
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sr12:cloud_sync_cashflow', { detail: { storeSlug: currentStore.slug } }));
+      }
 
       // 6. TERHUBUNG KE MITRA / DOWNLINE: Perbarui akumulasi belanja & hitung komisi Marketer
       if (targetMitra) {

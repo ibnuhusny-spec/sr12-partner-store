@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Product } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { uploadProductImageFile, setAllStoreProductsStock, syncStoreCatalogFromCloud } from '../../services/catalogService';
@@ -55,6 +55,18 @@ export const PosInventoryView: React.FC<PosInventoryViewProps> = ({
   } | null>(null);
   const [showSaveToast, setShowSaveToast] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  useEffect(() => {
+    setIsSyncing(true);
+    syncStoreCatalogFromCloud(currentStore.slug)
+      .then(refreshed => {
+        if (refreshed && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('sr12:stock_updated', { detail: { storeSlug: currentStore.slug } }));
+        }
+      })
+      .catch(console.error)
+      .finally(() => setIsSyncing(false));
+  }, [currentStore.slug]);
 
   const categories = ['all', ...Array.from(new Set(products.map(p => p.category)))];
 
