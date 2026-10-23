@@ -195,6 +195,14 @@ export const PosCashierView: React.FC<PosCashierViewProps> = ({
         ) || null;
       }
 
+      // Pastikan level mitra yang terdaftar menjadi prioritas utama
+      const finalBuyerTier: PartnerTier = targetMitra ? targetMitra.tier : buyerTier;
+      const payableAmount = posCart.reduce((sum, line) => {
+        const uPrice = getProductTierPrice(line.product.het, finalBuyerTier);
+        return sum + uPrice * line.qty;
+      }, 0);
+      const discountAmt = Math.max(0, subtotalHet - payableAmount);
+
       // 3. TERHUBUNG KE MENU TRANSAKSI & LAPORAN: Simpan ke tabel Orders
       const orderData: Order = {
         orderId: trxId,
@@ -203,20 +211,20 @@ export const PosCashierView: React.FC<PosCashierViewProps> = ({
         customerName: custName,
         customerPhone: custPhone,
         customerAddress: 'Transaksi Kasir Langsung di Toko / Gudang',
-        tier: buyerTier,
-        tierLabel: SR12_TIERS[buyerTier].name,
+        tier: finalBuyerTier,
+        tierLabel: SR12_TIERS[finalBuyerTier].name,
         items: posCart.map(line => ({
           id: line.product.id,
           name: line.product.name,
-          price: getProductTierPrice(line.product.het, buyerTier),
+          price: getProductTierPrice(line.product.het, finalBuyerTier),
           quantity: line.qty,
-          subtotal: getProductTierPrice(line.product.het, buyerTier) * line.qty,
+          subtotal: getProductTierPrice(line.product.het, finalBuyerTier) * line.qty,
           het: line.product.het,
           weightGram: line.product.weightGram || 100
         })),
         subtotalHet,
-        discountAmount: totalDiscount,
-        grandTotal: totalPayable,
+        discountAmount: discountAmt,
+        grandTotal: payableAmount,
         paymentMethod: 'Tunai Kasir POS',
         status: 'Lunas / Selesai',
         orderSource: 'Kasir POS Offline',
@@ -268,7 +276,7 @@ export const PosCashierView: React.FC<PosCashierViewProps> = ({
         await saveStoreDownline(targetMitra, currentStore.slug);
 
         // Jika transaksi dicatat untuk Marketer, catat komisi 15% di Payroll
-        if (targetMitra.tier === 'marketer' || buyerTier === 'marketer') {
+        if (finalBuyerTier === 'marketer') {
           const mSale: MarketerSale = {
             storeSlug: currentStore.slug,
             orderId: trxId,
@@ -396,9 +404,25 @@ export const PosCashierView: React.FC<PosCashierViewProps> = ({
           <div style={{ position: 'relative', flex: 1 }}>
             <input
               type="text"
-              placeholder="Nama Pelanggan"
+              placeholder="Nama Pelanggan / Kode Mitra"
               value={buyerName}
-              onChange={(e) => setBuyerName(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setBuyerName(val);
+                if (val.trim()) {
+                  const m = downlinesList.find(d => 
+                    d.partnerCode.toUpperCase() === val.toUpperCase().trim() ||
+                    d.name.toLowerCase() === val.toLowerCase().trim()
+                  );
+                  if (m) {
+                    setSelectedDownlineCode(m.partnerCode);
+                    setBuyerTier(m.tier);
+                    if (m.phone && (!buyerPhone || buyerPhone === '-')) {
+                      setBuyerPhone(m.phone);
+                    }
+                  }
+                }
+              }}
               style={{
                 width: '100%',
                 padding: '6px 8px',
@@ -415,7 +439,21 @@ export const PosCashierView: React.FC<PosCashierViewProps> = ({
               type="text"
               placeholder="No. WA (Struk)"
               value={buyerPhone}
-              onChange={(e) => setBuyerPhone(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setBuyerPhone(val);
+                const digits = val.replace(/[^0-9]/g, '');
+                if (digits.length >= 8) {
+                  const m = downlinesList.find(d => d.phone.replace(/[^0-9]/g, '').endsWith(digits.slice(-8)));
+                  if (m) {
+                    setSelectedDownlineCode(m.partnerCode);
+                    setBuyerTier(m.tier);
+                    if (!buyerName || buyerName === 'Konsumen Kasir Langsung') {
+                      setBuyerName(m.name);
+                    }
+                  }
+                }
+              }}
               style={{
                 width: '100%',
                 padding: '6px 8px',

@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { SR12_SHIPPING_PROVIDERS, getProductTierPrice, SR12_TIERS } from '../../config/tiers';
 import { verifyMitraDiscount, getLocalDownlines, saveStoreDownline, getLocalMarketerSales } from '../../services/mitraService';
 import { createOrder, formatWhatsAppOrderMessage } from '../../services/orderService';
-import { Order, OrderItemPayload, MarketerSale } from '../../types';
+import { Order, OrderItemPayload, MarketerSale, PartnerTier } from '../../types';
 import { getStoreCatalog, saveStoreCatalog, updateStoreProductStock } from '../../services/catalogService';
 import { recordStockMutation } from '../../services/posService';
 import confetti from 'canvas-confetti';
@@ -117,16 +117,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
     setIsSubmitting(true);
 
     const orderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
-    const orderItems: OrderItemPayload[] = cart.map(item => ({
-      id: item.product.id,
-      name: item.product.name,
-      price: getProductTierPrice(item.product.het, activeTier),
-      quantity: item.quantity,
-      subtotal: getProductTierPrice(item.product.het, activeTier) * item.quantity,
-      het: item.product.het,
-      weightGram: item.product.weightGram
-    }));
-
     // 1. Deteksi Mitra Downline yang berbelanja (berdasarkan kode input, nomor WA, atau nama)
     const downlines = getLocalDownlines();
     const qCode = (mitraQuery || verifiedMitra?.partnerCode || '').toUpperCase().trim();
@@ -140,8 +130,26 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
       (qName && m.name && m.name.toLowerCase() === qName)
     ) || null;
 
-    const finalTier = targetMitra?.tier || activeTier;
-    const assignedPartnerCode = targetMitra?.partnerCode || (qCode || undefined);
+    const finalTier: PartnerTier = (targetMitra?.tier || verifiedMitra?.tier || activeTier) as PartnerTier;
+    const assignedPartnerCode = targetMitra?.partnerCode || verifiedMitra?.partnerCode || (qCode || undefined);
+
+    const calculatedItems: OrderItemPayload[] = cart.map(item => {
+      const uPrice = getProductTierPrice(item.product.het, finalTier);
+      return {
+        id: item.product.id,
+        name: item.product.name,
+        price: uPrice,
+        quantity: item.quantity,
+        subtotal: uPrice * item.quantity,
+        het: item.product.het,
+        weightGram: item.product.weightGram
+      };
+    });
+
+    const calculatedProductsPrice = calculatedItems.reduce((sum, item) => sum + item.subtotal, 0);
+    const calculatedDiscountAmount = Math.max(0, subtotalHet - calculatedProductsPrice);
+    const calculatedPlatformFee = (finalTier !== 'konsumen' || currentStore.feePayer === 'store') ? 0 : platformFee;
+    const calculatedGrandTotal = calculatedProductsPrice + finalShippingCost + calculatedPlatformFee;
 
     const orderData: Order = {
       orderId,
@@ -152,17 +160,17 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
       customerAddress: customerAddress.trim() || 'Alamat dikonfirmasi via WA',
       tier: finalTier,
       tierLabel: SR12_TIERS[finalTier].name,
-      items: orderItems,
+      items: calculatedItems,
       subtotalHet,
-      discountAmount,
-      grandTotal,
+      discountAmount: calculatedDiscountAmount,
+      grandTotal: calculatedGrandTotal,
       paymentMethod: selectedCourier.type === 'cod' ? 'COD (Bayar Tunai di Tempat)' : 'Transfer Bank / Ekspedisi',
       status: 'Menunggu Konfirmasi',
       orderSource: 'Online Web Store',
       marketerId: marketerReferral || undefined,
       courierName: selectedCourier.name,
       shippingCost: finalShippingCost,
-      platformFee,
+      platformFee: calculatedPlatformFee,
       createdAt: new Date().toISOString(),
       dropship: isDropship ? {
         isDropship: true,
@@ -214,13 +222,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
 
       // 3. TERHUBUNG KE MITRA / DOWNLINE: Perbarui omset belanja & total order
       if (targetMitra) {
-        targetMitra.accumulatedSpent90Days = (targetMitra.accumulatedSpent90Days || 0) + grandTotal;
+        targetMitra.accumulatedSpent90Days = (targetMitra.accumulatedSpent90Days || 0) + calculatedGrandTotal;
         targetMitra.totalOrdersCount = (targetMitra.totalOrdersCount || 0) + 1;
         targetMitra.lastOrderDate = new Date().toISOString().split('T')[0];
         await saveStoreDownline(targetMitra, currentStore.slug);
 
         // Jika transaksi dicatat untuk Marketer atau via link referral, catat komisi 15%
-        if (targetMitra.tier === 'marketer' || finalTier === 'marketer' || marketerReferral) {
+        if (finalTier === 'marketer' || targetMitra.tier === 'marketer') {
           const mId = targetMitra.tier === 'marketer' ? targetMitra.partnerCode : (marketerReferral || targetMitra.partnerCode);
           const commissionAmt = Math.round(subtotalHet * 0.15);
           const mSale: MarketerSale = {
@@ -232,7 +240,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
             customerName: customerName.trim(),
             customerPhone: customerPhone.trim(),
             fulfillmentType: selectedCourier.type === 'cod' ? 'pickup' : 'delivery',
-            itemsDesc: orderItems.map(i => `${i.quantity}x ${i.name}`).join(', '),
+            itemsDesc: calculatedItems.map(i => `${i.quantity}x ${i.name}`).join(', '),
             omsetHet: subtotalHet,
             commissionPct: 15,
             commissionAmount: commissionAmt,
@@ -254,7 +262,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
           customerName: customerName.trim(),
           customerPhone: customerPhone.trim(),
           fulfillmentType: selectedCourier.type === 'cod' ? 'pickup' : 'delivery',
-          itemsDesc: orderItems.map(i => `${i.quantity}x ${i.name}`).join(', '),
+          itemsDesc: calculatedItems.map(i => `${i.quantity}x ${i.name}`).join(', '),
           omsetHet: subtotalHet,
           commissionPct: 15,
           commissionAmount: commissionAmt,

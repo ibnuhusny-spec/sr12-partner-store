@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { getLocalOrders, clearAllOrders } from '../../services/orderService';
+import { getLocalDownlines } from '../../services/mitraService';
 import { exportReportsToCSV } from '../../services/posService';
-import { Order } from '../../types';
+import { SR12_TIERS } from '../../config/tiers';
+import { Order, MitraDownline, PartnerTier } from '../../types';
 import {
   Download,
   Trash2,
@@ -33,15 +35,18 @@ interface DailyPartnerSummary {
 export const PosReportsView: React.FC = () => {
   const { currentStore } = useApp();
   const [orders, setOrders] = useState<Order[]>(() => getLocalOrders(currentStore.slug));
+  const [downlines, setDownlines] = useState<MitraDownline[]>(() => getLocalDownlines());
   const [activeTab, setActiveTab] = useState<'daily_mitra' | 'all_orders'>('daily_mitra');
   const [period, setPeriod] = useState<'all' | 'today' | 'month'>('all');
 
   useEffect(() => {
     setOrders(getLocalOrders(currentStore.slug));
+    setDownlines(getLocalDownlines());
   }, [currentStore.slug]);
 
   const getDiscountPctByTier = (tier?: string) => {
     switch (tier) {
+      case 'distributor': return 50;
       case 'agen': return 40;
       case 'sub_agen': return 30;
       case 'reseller': return 20;
@@ -66,21 +71,34 @@ export const PosReportsView: React.FC = () => {
     });
   }, [orders, period]);
 
-  // Daily Partner Aggregation
+  // Daily Partner Aggregation: Cross-reference with registered downlines for 100% tier and discount sync
   const dailyPartnerSummaries = useMemo(() => {
     const map = new Map<string, DailyPartnerSummary>();
 
     filteredOrders.forEach(o => {
       const d = new Date(o.createdAt || o.orderDate || Date.now());
       const dateKey = !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : 'Hari Ini';
-      const partnerCode = o.partnerCode || (o.tier && o.tier !== 'konsumen' ? o.customerName : 'NON-MITRA');
-      const partnerName = o.customerName || 'Konsumen Retail';
-      const tierKey = o.tier || 'konsumen';
-      const discountPct = getDiscountPctByTier(tierKey);
-      const marketerComm = tierKey === 'marketer' ? Math.round((o.subtotalHet || o.grandTotal) * 0.15) : 0;
+
+      // Match partner in downlines database by partnerCode, phone, or name
+      const matchedMitra = downlines.find(m =>
+        (o.partnerCode && m.partnerCode.toUpperCase() === o.partnerCode.toUpperCase()) ||
+        (o.customerPhone && o.customerPhone !== '-' && m.phone && m.phone.replace(/[^0-9]/g, '').endsWith(o.customerPhone.replace(/[^0-9]/g, '').slice(-8))) ||
+        (o.customerName && m.name.toLowerCase().trim() === o.customerName.toLowerCase().trim()) ||
+        (o.customerName && m.partnerCode.toUpperCase() === o.customerName.toUpperCase().trim())
+      );
+
+      const partnerCode = matchedMitra?.partnerCode || o.partnerCode || (o.tier && o.tier !== 'konsumen' ? o.customerName : 'NON-MITRA');
+      const partnerName = matchedMitra?.name || o.customerName || 'Konsumen Retail';
+      const tierKey = (matchedMitra?.tier || o.tier || 'konsumen') as PartnerTier;
+      const discountPct = SR12_TIERS[tierKey]?.discountPct ?? getDiscountPctByTier(tierKey);
       const het = o.subtotalHet || o.grandTotal;
-      const discount = o.discountAmount || 0;
-      const netPaid = o.grandTotal;
+
+      // Diskon level resmi: 15% (Marketer), 20% (Reseller), 30% (Sub Agen), 40% (Agen)
+      const discount = (o.discountAmount && o.discountAmount > 0)
+        ? o.discountAmount
+        : Math.round(het * (discountPct / 100));
+      const netPaid = (o.grandTotal && o.discountAmount) ? o.grandTotal : (het - discount);
+      const marketerComm = tierKey === 'marketer' ? Math.round(het * 0.15) : 0;
 
       const groupKey = `${dateKey}_${partnerCode}`;
       const existing = map.get(groupKey);
@@ -91,12 +109,13 @@ export const PosReportsView: React.FC = () => {
         existing.totalPaid += netPaid;
         existing.marketerCommission += marketerComm;
       } else {
+        const tierLabel = SR12_TIERS[tierKey]?.name || o.tierLabel || (tierKey === 'konsumen' ? 'Non-Mitra (HET)' : tierKey.toUpperCase());
         map.set(groupKey, {
           date: dateKey,
-          partnerCode: o.partnerCode || '-',
+          partnerCode: partnerCode || '-',
           partnerName,
           tier: tierKey,
-          tierLabel: o.tierLabel || (tierKey === 'konsumen' ? 'Non-Mitra (HET)' : tierKey.toUpperCase()),
+          tierLabel,
           discountPct,
           orderCount: 1,
           totalHet: het,
@@ -108,16 +127,16 @@ export const PosReportsView: React.FC = () => {
     });
 
     return Array.from(map.values()).sort((a, b) => b.date.localeCompare(a.date));
-  }, [filteredOrders]);
+  }, [filteredOrders, downlines]);
 
-  // Totals
-  const totalGMV = filteredOrders.reduce((sum, o) => sum + o.grandTotal, 0);
-  const totalSubtotalHet = filteredOrders.reduce((sum, o) => sum + (o.subtotalHet || o.grandTotal), 0);
-  const totalDiscounts = filteredOrders.reduce((sum, o) => sum + (o.discountAmount || 0), 0);
-  const totalMarketerCommission = filteredOrders
-    .filter(o => o.tier === 'marketer')
-    .reduce((sum, o) => sum + Math.round((o.subtotalHet || o.grandTotal) * 0.15), 0);
-  const totalMitraOrdersCount = filteredOrders.filter(o => o.tier && o.tier !== 'konsumen').length;
+  // Totals derived consistently from dailyPartnerSummaries
+  const totalGMV = dailyPartnerSummaries.reduce((sum, s) => sum + s.totalPaid, 0);
+  const totalSubtotalHet = dailyPartnerSummaries.reduce((sum, s) => sum + s.totalHet, 0);
+  const totalDiscounts = dailyPartnerSummaries.reduce((sum, s) => sum + s.totalDiscount, 0);
+  const totalMarketerCommission = dailyPartnerSummaries.reduce((sum, s) => sum + s.marketerCommission, 0);
+  const totalMitraOrdersCount = dailyPartnerSummaries
+    .filter(s => s.tier && s.tier !== 'konsumen')
+    .reduce((sum, s) => sum + s.orderCount, 0);
 
   const handleResetReports = () => {
     if (orders.length === 0) {
@@ -165,22 +184,36 @@ export const PosReportsView: React.FC = () => {
       const d = new Date(o.createdAt || o.orderDate || Date.now());
       const dateStr = !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : '-';
       const timeStr = !isNaN(d.getTime()) ? d.toLocaleTimeString('id-ID') : '-';
-      const discPct = getDiscountPctByTier(o.tier);
-      const mktComm = o.tier === 'marketer' ? Math.round((o.subtotalHet || o.grandTotal) * 0.15) : 0;
+
+      const matchedMitra = downlines.find(m =>
+        (o.partnerCode && m.partnerCode.toUpperCase() === o.partnerCode.toUpperCase()) ||
+        (o.customerPhone && o.customerPhone !== '-' && m.phone && m.phone.replace(/[^0-9]/g, '').endsWith(o.customerPhone.replace(/[^0-9]/g, '').slice(-8))) ||
+        (o.customerName && m.name.toLowerCase().trim() === o.customerName.toLowerCase().trim())
+      );
+
+      const resolvedTier = (matchedMitra?.tier || o.tier || 'konsumen') as PartnerTier;
+      const discPct = SR12_TIERS[resolvedTier]?.discountPct ?? getDiscountPctByTier(resolvedTier);
+      const het = o.subtotalHet || o.grandTotal;
+      const discount = (o.discountAmount && o.discountAmount > 0)
+        ? o.discountAmount
+        : Math.round(het * (discPct / 100));
+      const netPaid = (o.grandTotal && o.discountAmount) ? o.grandTotal : (het - discount);
+      const mktComm = resolvedTier === 'marketer' ? Math.round(het * 0.15) : 0;
+      const tierLabel = SR12_TIERS[resolvedTier]?.name || o.tierLabel || (resolvedTier === 'konsumen' ? 'Non-Mitra (HET)' : resolvedTier.toUpperCase());
 
       return {
         'Tanggal': dateStr,
         'Waktu': timeStr,
         'No Invoice': o.orderId,
         'Sumber Transaksi': o.orderSource || 'Kasir POS',
-        'Kode Mitra': o.partnerCode || '-',
-        'Nama Pelanggan': o.customerName,
-        'No WhatsApp': o.customerPhone || '-',
-        'Tier Kemitraan': o.tierLabel || 'Konsumen',
+        'Kode Mitra': matchedMitra?.partnerCode || o.partnerCode || '-',
+        'Nama Pelanggan': matchedMitra?.name || o.customerName,
+        'No WhatsApp': matchedMitra?.phone || o.customerPhone || '-',
+        'Tier Kemitraan': tierLabel,
         'Diskon %': `${discPct}%`,
-        'Subtotal HET (Rp)': o.subtotalHet || o.grandTotal,
-        'Potongan Diskon (Rp)': o.discountAmount || 0,
-        'Total Bayar Net (Rp)': o.grandTotal,
+        'Subtotal HET (Rp)': het,
+        'Potongan Diskon (Rp)': discount,
+        'Total Bayar Net (Rp)': netPaid,
         'Komisi Marketer 15% (Rp)': mktComm,
         'Metode Pembayaran': o.paymentMethod || 'Tunai',
         'Status': o.status

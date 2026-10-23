@@ -14,13 +14,13 @@ export const SR12_TIERS: Record<PartnerTier, TierInfo> = {
   marketer: {
     id: 'marketer',
     name: 'Mitra Marketer',
-    label: 'Marketer (Komisi 15%)',
-    discountPct: 0,
+    label: 'Marketer (15%)',
+    discountPct: 15,
     commissionPct: 15,
     minOrderNominal: 0,
     minOrderPcs: 1,
-    badgeColor: '#0284c7',
-    description: 'Harga HET penuh. Komisi 15% diakumulasi dan dicairkan setiap bulan oleh Distributor.'
+    badgeColor: '#6366f1',
+    description: 'Diskon 15% & gaji komisi bulanan 15% dari omset penjualan'
   },
   reseller: {
     id: 'reseller',
@@ -90,7 +90,7 @@ export const SR12_SHIPPING_PROVIDERS: ShippingProvider[] = [
 ];
 
 export function getProductTierPrice(het: number, tierId: PartnerTier): number {
-  if (tierId === 'marketer' || tierId === 'konsumen') {
+  if (tierId === 'konsumen') {
     return het;
   }
   const tier = SR12_TIERS[tierId] || SR12_TIERS.konsumen;

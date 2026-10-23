@@ -238,6 +238,25 @@ export function evaluateMitraRank(tier: PartnerTier, spentAmount: number): Mitra
     ? Math.min(100, Math.round((spentAmount / cfg.accum3MonthsTarget) * 100))
     : 100;
 
+  // Mitra Baru Terdaftar (0 omset / masa awal kemitraan):
+  if (spentAmount === 0) {
+    return {
+      status: 'safe',
+      progressMonthlyPct: 0,
+      progress3MonthsPct: 0,
+      badgeLabel: `🟢 Mitra Baru (${cfg.name})`,
+      badgeColor: '#10b981',
+      badgeBg: 'rgba(16, 185, 129, 0.18)',
+      shortMessage: `Mitra aktif terdaftar resmi sebagai ${cfg.name} (Diskon ${cfg.discountPct}%). Masa evaluasi 90 hari berjalan.`,
+      remainingMonthlyMin: cfg.minMonthlyTarget,
+      remaining3MonthsMin: cfg.accum3MonthsTarget,
+      remainingToPromo: promoTarget,
+      currentTierConfig: cfg,
+      nextTierConfig: nextCfg,
+      prevTierConfig: prevCfg
+    };
+  }
+
   // 1. PROMOTABLE: Capaian belanja memenuhi syarat promosi naik tingkat
   if (promoTarget > 0 && spentAmount >= promoTarget) {
     return {

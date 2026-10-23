@@ -81,6 +81,15 @@ export const PosDownlinesView: React.FC = () => {
     setOrders(getLocalOrders(currentStore.slug));
   };
 
+  const handleOpenAddModal = () => {
+    setName('');
+    setPhone('');
+    setPartnerCode('');
+    setCity('');
+    setTier('reseller');
+    setShowAddModal(true);
+  };
+
   const handleAddDownline = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !phone.trim() || !partnerCode.trim()) {
@@ -103,18 +112,21 @@ export const PosDownlinesView: React.FC = () => {
       totalOrdersCount: 0
     };
 
-    saveStoreDownline(newMitra, currentStore.slug);
+    await saveStoreDownline(newMitra, currentStore.slug);
     setDownlines(prev => [...prev.filter(m => m.partnerCode !== newMitra.partnerCode), newMitra]);
     setShowAddModal(false);
     setName('');
     setPhone('');
     setPartnerCode('');
     setCity('');
+    setTier('reseller');
   };
 
   const handleConfirmTierChange = async () => {
     if (!promoteModalMitra) return;
-    await updateMitraTier(promoteModalMitra.mitra.partnerCode, selectedNewTier, currentStore.slug);
+    const targetCode = promoteModalMitra.mitra.partnerCode;
+    await updateMitraTier(targetCode, selectedNewTier, currentStore.slug);
+    setDownlines(prev => prev.map(m => m.partnerCode === targetCode ? { ...m, tier: selectedNewTier } : m));
     loadData();
     setPromoteModalMitra(null);
   };
@@ -172,7 +184,7 @@ export const PosDownlinesView: React.FC = () => {
     }
   };
 
-  // Perhitungan Bonus Potongan Diskon Level & Gaji Marketer
+  // Perhitungan Bonus Potongan Diskon Level & Gaji Marketer (15%, 20%, 30%, 40%)
   const calculateMitraBonusAndDiscount = (mitra: MitraDownline) => {
     const pOrders = orders.filter(o => 
       (o.partnerCode && o.partnerCode.toUpperCase() === mitra.partnerCode.toUpperCase()) ||
@@ -213,8 +225,9 @@ export const PosDownlinesView: React.FC = () => {
         badgeColor = '#34d399';
         badgeBg = 'rgba(16, 185, 129, 0.15)';
         bonusLabel = 'Diskon Level (20%)';
-        if (orderDiscounts > 0) {
-          bonusAmount = orderDiscounts;
+        const calcDisc = orderDiscounts > 0 ? orderDiscounts : (orderSubtotalHet > 0 ? Math.round(orderSubtotalHet * 0.20) : 0);
+        if (calcDisc > 0) {
+          bonusAmount = calcDisc;
         } else {
           bonusAmount = Math.round(((mitra.accumulatedSpent90Days || 0) / 0.8) * 0.20);
         }
@@ -225,8 +238,9 @@ export const PosDownlinesView: React.FC = () => {
         badgeColor = '#38bdf8';
         badgeBg = 'rgba(56, 189, 248, 0.15)';
         bonusLabel = 'Diskon Level (30%)';
-        if (orderDiscounts > 0) {
-          bonusAmount = orderDiscounts;
+        const calcDisc = orderDiscounts > 0 ? orderDiscounts : (orderSubtotalHet > 0 ? Math.round(orderSubtotalHet * 0.30) : 0);
+        if (calcDisc > 0) {
+          bonusAmount = calcDisc;
         } else {
           bonusAmount = Math.round(((mitra.accumulatedSpent90Days || 0) / 0.7) * 0.30);
         }
@@ -237,10 +251,24 @@ export const PosDownlinesView: React.FC = () => {
         badgeColor = '#fbbf24';
         badgeBg = 'rgba(245, 158, 11, 0.15)';
         bonusLabel = 'Diskon Level (40%)';
-        if (orderDiscounts > 0) {
-          bonusAmount = orderDiscounts;
+        const calcDisc = orderDiscounts > 0 ? orderDiscounts : (orderSubtotalHet > 0 ? Math.round(orderSubtotalHet * 0.40) : 0);
+        if (calcDisc > 0) {
+          bonusAmount = calcDisc;
         } else {
           bonusAmount = Math.round(((mitra.accumulatedSpent90Days || 0) / 0.6) * 0.40);
+        }
+        break;
+      }
+      case 'distributor': {
+        pct = 50;
+        badgeColor = '#ec4899';
+        badgeBg = 'rgba(236, 72, 153, 0.15)';
+        bonusLabel = 'Diskon Pasokan (50%)';
+        const calcDisc = orderDiscounts > 0 ? orderDiscounts : (orderSubtotalHet > 0 ? Math.round(orderSubtotalHet * 0.50) : 0);
+        if (calcDisc > 0) {
+          bonusAmount = calcDisc;
+        } else {
+          bonusAmount = Math.round(((mitra.accumulatedSpent90Days || 0) / 0.5) * 0.50);
         }
         break;
       }
@@ -449,7 +477,7 @@ export const PosDownlinesView: React.FC = () => {
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
               <button
                 type="button"
-                onClick={() => setShowAddModal(true)}
+                onClick={handleOpenAddModal}
                 className="mitra-pill-btn"
                 style={{
                   background: 'linear-gradient(135deg, #059669, #047857)',
@@ -818,7 +846,7 @@ export const PosDownlinesView: React.FC = () => {
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(true)}
+                  onClick={handleOpenAddModal}
                   className="mitra-pill-btn"
                   style={{ padding: '8px 16px', background: '#059669', color: '#fff', border: 'none', fontSize: '0.82rem' }}
                 >
@@ -1035,7 +1063,7 @@ export const PosDownlinesView: React.FC = () => {
                                 type="button"
                                 onClick={() => {
                                   setPromoteModalMitra({ mitra, evalData });
-                                  setSelectedNewTier(evalData.nextTierConfig?.tier || mitra.tier);
+                                  setSelectedNewTier(mitra.tier);
                                 }}
                                 className="mitra-pill-btn"
                                 style={{
@@ -1226,7 +1254,7 @@ export const PosDownlinesView: React.FC = () => {
                           type="button"
                           onClick={() => {
                             setPromoteModalMitra({ mitra, evalData });
-                            setSelectedNewTier(evalData.nextTierConfig?.tier || mitra.tier);
+                            setSelectedNewTier(mitra.tier);
                           }}
                           className="mitra-pill-btn"
                           style={{
