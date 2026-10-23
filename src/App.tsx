@@ -29,7 +29,15 @@ import { BottomNav } from './components/common/BottomNav';
 import { StoreDirectoryView } from './components/directory/StoreDirectoryView';
 
 export function App() {
-  const { isPosOpen, setIsPosOpen, currentStore, switchStore } = useApp();
+  const {
+    isPosOpen,
+    setIsPosOpen,
+    currentStore,
+    switchStore,
+    isStoreAdminLoggedIn,
+    isDistributorLoggedIn,
+    isDevMasterLoggedIn
+  } = useApp();
 
   // Mode: 'directory' for finding nearby partner stores, 'storefront' for active store catalog.
   // Toko Pusat (sr12-central) is strictly a directory/central supply hub and does not sell retail directly.
@@ -150,8 +158,18 @@ export function App() {
     return matchCat && matchSearch;
   });
 
-  // If user opened POS view, render the Olsera POS Suite
+  // If user opened POS view, render the Olsera POS Suite (Protected by Authentication Guard)
   if (isPosOpen) {
+    if (!isStoreAdminLoggedIn && !isDistributorLoggedIn && !isDevMasterLoggedIn) {
+      return (
+        <StoreAdminLoginModal
+          isOpen={true}
+          onClose={() => setIsPosOpen(false)}
+          onSuccessLogin={() => setIsPosOpen(true)}
+        />
+      );
+    }
+
     return (
       <PosLayout
         products={products}

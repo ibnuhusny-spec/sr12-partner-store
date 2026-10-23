@@ -264,25 +264,13 @@ export function getLocalDownlines(): MitraDownline[] {
   try {
     const raw = localStorage.getItem('sr12_mitra_downlines_v2');
     if (raw !== null) {
-      const parsed: MitraDownline[] = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        // Auto-migration: Tambahkan contoh Agen dan Non-Mitra jika belum pernah termuat di browser
-        const hasAgen = parsed.some(m => m.tier === 'agen');
-        const hasKonsumen = parsed.some(m => m.tier === 'konsumen');
-        if (!hasAgen || !hasKonsumen) {
-          const missing = DEFAULT_SAMPLE_DOWNLINES.filter(d => 
-            (!hasAgen && d.tier === 'agen') || (!hasKonsumen && d.tier === 'konsumen')
-          );
-          if (missing.length > 0) {
-            const updated = [...parsed, ...missing];
-            localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(updated));
-            return updated;
-          }
-        }
-        return parsed;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        // Kembalikan persis apa yang tersimpan di localStorage (termasuk jika kosong [] karena telah dihapus)
+        return parsed as MitraDownline[];
       }
     }
-    // Seed HANYA jika raw belum pernah ada di browser (inisialisasi awal)
+    // Seed HANYA jika storage belum pernah ada sama sekali di browser (first time visit)
     localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(DEFAULT_SAMPLE_DOWNLINES));
     return DEFAULT_SAMPLE_DOWNLINES;
   } catch {
@@ -319,7 +307,7 @@ export async function saveStoreDownline(mitra: Partial<MitraDownline>, storeSlug
   // Update local
   try {
     const raw = localStorage.getItem('sr12_mitra_downlines_v2');
-    const list: MitraDownline[] = raw ? JSON.parse(raw) : [...DEFAULT_SAMPLE_DOWNLINES];
+    const list: MitraDownline[] = raw ? JSON.parse(raw) : [];
     const idx = list.findIndex(m => m.partnerCode === mitra.partnerCode);
     if (idx >= 0) {
       list[idx] = { ...list[idx], ...mitra } as MitraDownline;
@@ -335,7 +323,7 @@ export async function saveStoreDownline(mitra: Partial<MitraDownline>, storeSlug
 export async function updateMitraTier(partnerCode: string, newTier: PartnerTier, storeSlug: string): Promise<boolean> {
   try {
     const raw = localStorage.getItem('sr12_mitra_downlines_v2');
-    const list: MitraDownline[] = raw ? JSON.parse(raw) : [...DEFAULT_SAMPLE_DOWNLINES];
+    const list: MitraDownline[] = raw ? JSON.parse(raw) : [];
     const idx = list.findIndex(m => m.partnerCode === partnerCode);
     if (idx >= 0) {
       list[idx].tier = newTier;
@@ -407,7 +395,7 @@ export function clearAllStoreDownlines(): void {
 export function resetDownlineAccumulatedSpent(): void {
   try {
     const raw = localStorage.getItem('sr12_mitra_downlines_v2');
-    const list: MitraDownline[] = raw ? JSON.parse(raw) : [...DEFAULT_SAMPLE_DOWNLINES];
+    const list: MitraDownline[] = raw ? JSON.parse(raw) : [];
     const resetList = list.map(m => ({
       ...m,
       accumulatedSpent90Days: 0,

@@ -61,11 +61,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return !!localStorage.getItem('sr12_dev_token');
   });
   const [isStoreAdminLoggedIn, setIsStoreAdminLoggedIn] = useState<boolean>(() => {
-    return !!(sessionStorage.getItem(`sr12_admin_session_${DEFAULT_PARTNER_STORES[0].slug}`) || sessionStorage.getItem('sr12_distributor_session'));
+    return !!sessionStorage.getItem(`sr12_admin_session_${DEFAULT_PARTNER_STORES[0].slug}`);
   });
 
   useEffect(() => {
-    setIsStoreAdminLoggedIn(!!(sessionStorage.getItem(`sr12_admin_session_${currentStore.slug}`) || sessionStorage.getItem('sr12_distributor_session')));
+    setIsStoreAdminLoggedIn(!!sessionStorage.getItem(`sr12_admin_session_${currentStore.slug}`));
   }, [currentStore.slug]);
 
   const [isPosOpen, setIsPosOpen] = useState<boolean>(false);
@@ -268,8 +268,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logoutStoreAdmin = () => {
+    // 1. Bersihkan session storage admin toko ini dan seluruh toko
     sessionStorage.removeItem(`sr12_admin_session_${currentStore.slug}`);
+    try {
+      for (let i = sessionStorage.length - 1; i >= 0; i--) {
+        const key = sessionStorage.key(i);
+        if (key && (key.startsWith('sr12_admin_session_') || key === 'sr12_distributor_session')) {
+          sessionStorage.removeItem(key);
+        }
+      }
+    } catch {}
+
+    // 2. Bersihkan distributor session & dev token jika tersimpan di localStorage/sessionStorage
+    sessionStorage.removeItem('sr12_distributor_session');
+    localStorage.removeItem('sr12_distributor_session');
+    localStorage.removeItem('sr12_dev_token');
+
+    // 3. Matikan seluruh flag status login
     setIsStoreAdminLoggedIn(false);
+    setIsDistributorLoggedIn(false);
+    setIsDevMasterLoggedIn(false);
     setIsPosOpen(false);
   };
 
