@@ -57,14 +57,19 @@ export async function fetchStoreCashflow(storeSlug: string): Promise<CashflowEnt
       }
     }
 
+    // Bersihkan catatan dummy test jika ada
+    const cleanLocal = localList.filter(e => e.id !== 'CSH-TEST' && e.category !== 'Test Kas');
+    const cleanCloud = cloudList.filter(e => e.id !== 'CSH-TEST' && e.category !== 'Test Kas');
+
     // Gabungkan cloud dan local, prioritaskan cloud
     const mergedMap = new Map<string, CashflowEntry>();
-    cloudList.forEach(e => mergedMap.set(e.id, e));
-    localList.forEach(e => {
+    cleanCloud.forEach(e => mergedMap.set(e.id, e));
+    cleanLocal.forEach(e => {
       if (!mergedMap.has(e.id)) {
         mergedMap.set(e.id, e);
       }
     });
+    mergedMap.delete('CSH-TEST');
 
     // Otomatis sinkronkan dari riwayat pesanan (orders) toko jika ada transaksi kasir/web lunas
     // yang belum tercatat di Buku Kas (menjamin omset tidak pernah 0 di HP baru)
