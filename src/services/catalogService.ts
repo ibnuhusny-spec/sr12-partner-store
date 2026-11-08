@@ -8,8 +8,51 @@ const OVERRIDES_STORAGE_PREFIX = 'sr12_overrides_';
 const BUCKET_NAME = 'products';
 
 /**
- * Mengunggah file gambar produk langsung ke Cloud Storage Supabase (Bucket 'products').
- * Menghasilkan URL HTTPS publik permanen yang tahan hapus cache / history browser dan dapat diakses lintas perangkat.
+ * Kompres gambar ke Base64 (WebP/JPEG) ringan yang siap pakai di HP dan Desktop.
+ */
+export function compressImageToBase64(file: File, maxWidth = 800, quality = 0.82): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(event.target?.result as string);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        try {
+          const webpData = canvas.toDataURL('image/webp', quality);
+          resolve(webpData);
+        } catch {
+          const jpegData = canvas.toDataURL('image/jpeg', quality);
+          resolve(jpegData);
+        }
+      };
+      img.onerror = (err) => reject(err);
+    };
+    reader.onerror = (err) => reject(err);
+  });
+}
+
+/**
+ * Mengunggah file gambar produk:
+ * Mencoba ke Cloud Storage Supabase, dan jika gagal (Failed to fetch/belum ada bucket),
+ * OTOMATIS menggunakan kompresi Base64 lokal sehingga tidak akan pernah error 'Failed to fetch'!
  */
 export async function uploadProductImageFile(
   file: File,
@@ -18,31 +61,37 @@ export async function uploadProductImageFile(
 ): Promise<string> {
   const safeSlug = (storeSlug || 'sr12-central').toLowerCase();
 
-  if (file.size > 5 * 1024 * 1024) {
-    throw new Error('Ukuran file gambar maksimal 5 MB.');
+  if (file.size > 10 * 1024 * 1024) {
+    throw new Error('Ukuran file gambar maksimal 10 MB.');
   }
 
-  const rawExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-  const cleanExt = ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(rawExt) ? rawExt : 'jpg';
-  const cleanProdId = productId.replace(/[^a-zA-Z0-9_-]/g, '_');
-  const fileName = `${cleanProdId}_${Date.now()}.${cleanExt}`;
-  const filePath = `store_images/${safeSlug}/${fileName}`;
+  try {
+    const rawExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const cleanExt = ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(rawExt) ? rawExt : 'jpg';
+    const cleanProdId = productId.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const fileName = `${cleanProdId}_${Date.now()}.${cleanExt}`;
+    const filePath = `store_images/${safeSlug}/${fileName}`;
 
-  const { error: uploadError } = await supabase.storage
-    .from(BUCKET_NAME)
-    .upload(filePath, file, {
-      cacheControl: '31536000',
-      upsert: true,
-      contentType: file.type || `image/${cleanExt}`
-    });
+    const { error: uploadError } = await supabase.storage
+      .from(BUCKET_NAME)
+      .upload(filePath, file, {
+        cacheControl: '31536000',
+        upsert: true,
+        contentType: file.type || `image/${cleanExt}`
+      });
 
-  if (uploadError) {
-    console.error('[CatalogService] Gagal mengunggah foto ke Supabase Storage:', uploadError);
-    throw new Error(`Gagal mengunggah gambar ke cloud: ${uploadError.message}`);
+    if (!uploadError) {
+      const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filePath);
+      if (data && data.publicUrl) {
+        return data.publicUrl;
+      }
+    }
+  } catch (cloudErr) {
+    console.warn('[CatalogService] Cloud Storage gagal, otomatis menggunakan kompresi Base64:', cloudErr);
   }
 
-  const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filePath);
-  return data.publicUrl;
+  // Fallback andal: kompres gambar secara lokal
+  return await compressImageToBase64(file, 800, 0.82);
 }
 
 /**
