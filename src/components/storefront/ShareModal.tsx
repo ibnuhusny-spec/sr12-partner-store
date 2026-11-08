@@ -14,16 +14,23 @@ export const ShareModal: React.FC<ShareModalProps> = ({ product, onClose }) => {
 
   if (!product) return null;
 
-  // Build product direct link
+  // Build direct social share link through /p endpoint (untuk Open Graph / WhatsApp Preview gambar otomatis)
   const origin = window.location.origin;
-  const directLink = `${origin}/?store=${currentStore.slug}&product=${product.id}`;
+  
+  // Jika gambar produk berupa URL internet/Supabase (http/https), teruskan ke parameter img agar WhatsApp preview otomatis memunculkan gambarnya
+  let imgParam = '';
+  if (product.image && product.image.startsWith('http')) {
+    imgParam = `&img=${encodeURIComponent(product.image)}`;
+  }
+  
+  const directLink = `${origin}/p?product=${encodeURIComponent(product.id)}&name=${encodeURIComponent(product.name)}&price=${product.het}${imgParam}`;
 
   const promoCopywriting = `*PROMO SPESIAL SR12 HERBAL SKIN CARE* 🌿
 *${product.name}*
 Harga Resmi: Rp ${product.het.toLocaleString('id-ID')}
-Izin Edar: BPOM ${product.bpom} & Halal MUI
+Izin Edar: BPOM ${product.bpom || 'Resmi'} & Halal MUI
 
-${product.summary}
+${product.summary || ''}
 
 🛒 *Pesan langsung di Toko Resmi kami:*
 👉 ${directLink}
