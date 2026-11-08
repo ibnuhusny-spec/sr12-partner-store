@@ -18,66 +18,71 @@ export const ShareModal: React.FC<ShareModalProps> = ({ product, onClose }) => {
 
   // Build product direct link
   const origin = window.location.origin;
-  let imgParam = '';
-  if (product.image && product.image.startsWith('http')) {
-    imgParam = `&img=${encodeURIComponent(product.image)}`;
-  }
-  
-  const directLink = `${origin}/p?product=${encodeURIComponent(product.id)}&name=${encodeURIComponent(product.name)}&price=${product.het}${imgParam}`;
+  const storeUrl = `${origin}/?product=${encodeURIComponent(product.id)}`;
+  const directLink = storeUrl;
 
-  const promoCopywriting = `*PROMO SPESIAL: ${product.name.toUpperCase()}* 🌿
-${product.summary || 'Produk perawatan kulit herbal berkualitas resmi SR12 BPOM & Halal MUI.'}
+  const benefitsText = `✅ 100% Produk Herbal Terdaftar BPOM & Halal MUI\n✅ Formulasi Lembut & Aman Digunakan Tiap Hari\n✅ Garansi Keaslian Resmi Pabrik PT SR12`;
+
+  const promoCopywriting = `✨ *PROMO SPESIAL: ${product.name.toUpperCase()}* ✨
+${product.summary || 'Produk perawatan kulit herbal berkualitas resmi SR12.'} 🌿
 
 ⭐ *Rating Pembeli:* 4.9 / 5.0 (Terbukti Berkhasiat)
-🛡️ *Izin Edar:* BPOM ${product.bpom || 'Resmi'} & Halal MUI
+🛡️ *Izin Edar:* 100% Terverifikasi BPOM & Halal MUI
+
+🔥 *Keunggulan Produk:*
+${benefitsText}
+
 💰 *Harga Promo Toko:* Rp ${product.het.toLocaleString('id-ID')}
+🚚 *Pengiriman Cepat, Aman & Garansi Original!*
 
-👇 *Pesan Langsung di Toko Resmi Kami:*
-👉 ${directLink}
+👇 *Pesan Langsung di Toko Resmi Kami (${currentStore.storeName}):*
+${storeUrl}
 
-📲 WhatsApp CS: wa.me/${currentStore.storeWaNumber.replace(/[^0-9]/g, '')}`;
+Silakan klik link di atas untuk melihat katalog lengkap & langsung order via WhatsApp! 🌸`;
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(directLink);
+    navigator.clipboard.writeText(storeUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   /**
-   * Kirim Foto Produk ASLI langsung ke WhatsApp (Seperti pada foto contoh yang Anda kirimkan!)
-   * Menggunakan Web Share API files: [File] sehingga WhatsApp langsung melampirkan foto besar di atas teks caption!
+   * Otomatis salin teks promosi lengkap ke clipboard lalu buka WhatsApp
+   * Di Android: saat kirim foto, WhatsApp tidak mengizinkan caption otomatis dari browser,
+   * sehingga teks langsung disalin ke clipboard agar tinggal tekan 'Tempel / Paste' di bawah foto!
    */
   const handleShareWithPhoto = async () => {
     setIsSharingImage(true);
+
+    // Otomatis salin teks ke clipboard agar pengguna tinggal klik "Paste" di caption foto WhatsApp
+    try {
+      await navigator.clipboard.writeText(promoCopywriting);
+    } catch {}
+
     try {
       let fileToShare: File | null = null;
 
-      // 1. Jika gambar berupa Base64 (data:image/...)
       if (product.image && product.image.startsWith('data:image')) {
         const res = await fetch(product.image);
         const blob = await res.blob();
         fileToShare = new File([blob], `${product.id || 'produk-sr12'}.jpg`, { type: blob.type || 'image/jpeg' });
-      } 
-      // 2. Jika gambar berupa URL HTTPS (Supabase Storage / Web)
-      else if (product.image) {
+      } else if (product.image) {
         try {
           const res = await fetch(product.image, { mode: 'cors' });
           const blob = await res.blob();
           fileToShare = new File([blob], `${product.id || 'produk-sr12'}.jpg`, { type: blob.type || 'image/jpeg' });
         } catch {
-          // Fallback jika CORS terhalang
           fileToShare = null;
         }
       }
 
-      // 3. Eksekusi Native Share dengan File Gambar jika didukung HP
       if (fileToShare && navigator.canShare && navigator.canShare({ files: [fileToShare] })) {
+        setIsSharingImage(false);
         await navigator.share({
           files: [fileToShare],
           title: product.name,
           text: promoCopywriting
         });
-        setIsSharingImage(false);
         return;
       }
     } catch (e: any) {
@@ -88,7 +93,7 @@ ${product.summary || 'Produk perawatan kulit herbal berkualitas resmi SR12 BPOM 
 
     setIsSharingImage(false);
 
-    // Fallback: Buka URL WhatsApp standar
+    // Fallback share teks ke WA
     const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(promoCopywriting)}`;
     window.open(waUrl, '_blank');
   };
