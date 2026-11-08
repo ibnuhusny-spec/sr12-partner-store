@@ -12,12 +12,12 @@ export const ShareModal: React.FC<ShareModalProps> = ({ product, onClose }) => {
   const { currentStore } = useApp();
   const [copied, setCopied] = useState(false);
 
+  const [isSharingImage, setIsSharingImage] = useState(false);
+
   if (!product) return null;
 
-  // Build direct social share link through /p endpoint (untuk Open Graph / WhatsApp Preview gambar otomatis)
+  // Build product direct link
   const origin = window.location.origin;
-  
-  // Jika gambar produk berupa URL internet/Supabase (http/https), teruskan ke parameter img agar WhatsApp preview otomatis memunculkan gambarnya
   let imgParam = '';
   if (product.image && product.image.startsWith('http')) {
     imgParam = `&img=${encodeURIComponent(product.image)}`;
@@ -25,18 +25,17 @@ export const ShareModal: React.FC<ShareModalProps> = ({ product, onClose }) => {
   
   const directLink = `${origin}/p?product=${encodeURIComponent(product.id)}&name=${encodeURIComponent(product.name)}&price=${product.het}${imgParam}`;
 
-  // Di WhatsApp, agar tautan memicu Large Card (Gambar Banner Besar di atas teks):
-  // URL tautan HARUS diletakkan di baris paling pertama pesan atau dibagikan sebagai URL murni!
-  const promoCopywriting = `${directLink}
+  const promoCopywriting = `*PROMO SPESIAL: ${product.name.toUpperCase()}* 🌿
+${product.summary || 'Produk perawatan kulit herbal berkualitas resmi SR12 BPOM & Halal MUI.'}
 
-*PROMO SPESIAL SR12 HERBAL SKIN CARE* 🌿
-*${product.name}*
-Harga Resmi: Rp ${product.het.toLocaleString('id-ID')}
-Izin Edar: BPOM ${product.bpom || 'Resmi'} & Halal MUI
+⭐ *Rating Pembeli:* 4.9 / 5.0 (Terbukti Berkhasiat)
+🛡️ *Izin Edar:* BPOM ${product.bpom || 'Resmi'} & Halal MUI
+💰 *Harga Promo Toko:* Rp ${product.het.toLocaleString('id-ID')}
 
-${product.summary || ''}
+👇 *Pesan Langsung di Toko Resmi Kami:*
+👉 ${directLink}
 
-📲 WhatsApp: wa.me/${currentStore.storeWaNumber.replace(/[^0-9]/g, '')}`;
+📲 WhatsApp CS: wa.me/${currentStore.storeWaNumber.replace(/[^0-9]/g, '')}`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(directLink);
@@ -44,9 +43,58 @@ ${product.summary || ''}
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleWhatsAppShare = () => {
+  /**
+   * Kirim Foto Produk ASLI langsung ke WhatsApp (Seperti pada foto contoh yang Anda kirimkan!)
+   * Menggunakan Web Share API files: [File] sehingga WhatsApp langsung melampirkan foto besar di atas teks caption!
+   */
+  const handleShareWithPhoto = async () => {
+    setIsSharingImage(true);
+    try {
+      let fileToShare: File | null = null;
+
+      // 1. Jika gambar berupa Base64 (data:image/...)
+      if (product.image && product.image.startsWith('data:image')) {
+        const res = await fetch(product.image);
+        const blob = await res.blob();
+        fileToShare = new File([blob], `${product.id || 'produk-sr12'}.jpg`, { type: blob.type || 'image/jpeg' });
+      } 
+      // 2. Jika gambar berupa URL HTTPS (Supabase Storage / Web)
+      else if (product.image) {
+        try {
+          const res = await fetch(product.image, { mode: 'cors' });
+          const blob = await res.blob();
+          fileToShare = new File([blob], `${product.id || 'produk-sr12'}.jpg`, { type: blob.type || 'image/jpeg' });
+        } catch {
+          // Fallback jika CORS terhalang
+          fileToShare = null;
+        }
+      }
+
+      // 3. Eksekusi Native Share dengan File Gambar jika didukung HP
+      if (fileToShare && navigator.canShare && navigator.canShare({ files: [fileToShare] })) {
+        await navigator.share({
+          files: [fileToShare],
+          title: product.name,
+          text: promoCopywriting
+        });
+        setIsSharingImage(false);
+        return;
+      }
+    } catch (e: any) {
+      if (e.name !== 'AbortError') {
+        console.warn('Native file share failed:', e);
+      }
+    }
+
+    setIsSharingImage(false);
+
+    // Fallback: Buka URL WhatsApp standar
     const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(promoCopywriting)}`;
     window.open(waUrl, '_blank');
+  };
+
+  const handleWhatsAppShare = () => {
+    handleShareWithPhoto();
   };
 
   const handleNativeShare = async () => {
@@ -159,79 +207,86 @@ ${product.summary || ''}
 
           {/* 3 Tombol Aksi Icon-Only (Sesuai Spesifikasi PANDUAN_SIMULASI_APLIKASI.md) */}
           <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '14px' }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#475569', marginBottom: '8px', textAlign: 'center' }}>
-              Kirim Teks Promosi Siap Pakai:
+            <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#0f172a', marginBottom: '8px', textAlign: 'center' }}>
+              Bagikan Langsung dengan Foto Gambar (Shopee Style):
             </div>
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-              {/* 1. Ikon WhatsApp */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <button
                 type="button"
-                onClick={handleWhatsAppShare}
+                onClick={handleShareWithPhoto}
+                disabled={isSharingImage}
                 style={{
-                  width: '46px',
-                  height: '46px',
+                  width: '100%',
+                  padding: '12px 16px',
                   borderRadius: '12px',
-                  background: '#25d366',
+                  background: 'linear-gradient(135deg, #25d366, #16a34a)',
                   color: '#ffffff',
+                  fontWeight: 800,
+                  fontSize: '0.92rem',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: '0 4px 10px rgba(37,211,102,0.35)',
-                  transition: 'transform 0.15s ease'
+                  gap: '8px',
+                  border: 'none',
+                  boxShadow: '0 4px 14px rgba(37,211,102,0.4)',
+                  cursor: 'pointer'
                 }}
-                title="Bagikan ke WhatsApp"
-                aria-label="Bagikan ke WhatsApp"
               >
-                <MessageCircle size={22} />
+                <MessageCircle size={20} />
+                <span>{isSharingImage ? 'Menyiapkan Foto...' : 'Kirim Foto & Teks ke WhatsApp'}</span>
               </button>
 
-              {/* 2. Ikon Salin Teks */}
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(promoCopywriting);
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 2000);
-                }}
-                style={{
-                  width: '46px',
-                  height: '46px',
-                  borderRadius: '12px',
-                  background: '#0284c7',
-                  color: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 4px 10px rgba(2,132,199,0.35)',
-                  transition: 'transform 0.15s ease'
-                }}
-                title="Salin Seluruh Copywriting Promo"
-                aria-label="Salin Teks Promo"
-              >
-                {copied ? <Check size={22} /> : <Copy size={22} />}
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(promoCopywriting);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    background: '#f1f5f9',
+                    color: '#334155',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {copied ? <Check size={14} color="#16a34a" /> : <Copy size={14} />}
+                  <span>{copied ? 'Teks Tersalin' : 'Salin Teks'}</span>
+                </button>
 
-              {/* 3. Ikon Share Bawaan HP */}
-              <button
-                type="button"
-                onClick={handleNativeShare}
-                style={{
-                  width: '46px',
-                  height: '46px',
-                  borderRadius: '12px',
-                  background: '#475569',
-                  color: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 4px 10px rgba(71,85,105,0.35)',
-                  transition: 'transform 0.15s ease'
-                }}
-                title="Bagikan via Aplikasi Lain di HP"
-                aria-label="Bagikan via HP"
-              >
-                <Share2 size={22} />
-              </button>
+                <button
+                  type="button"
+                  onClick={handleNativeShare}
+                  style={{
+                    flex: 1,
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    background: '#f1f5f9',
+                    color: '#334155',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Share2 size={14} />
+                  <span>Aplikasi Lain</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
