@@ -25,18 +25,18 @@ export const ShareModal: React.FC<ShareModalProps> = ({ product, onClose }) => {
   
   const directLink = `${origin}/p?product=${encodeURIComponent(product.id)}&name=${encodeURIComponent(product.name)}&price=${product.het}${imgParam}`;
 
-  const promoCopywriting = `*PROMO SPESIAL SR12 HERBAL SKIN CARE* 🌿
+  // Di WhatsApp, agar tautan memicu Large Card (Gambar Banner Besar di atas teks):
+  // URL tautan HARUS diletakkan di baris paling pertama pesan atau dibagikan sebagai URL murni!
+  const promoCopywriting = `${directLink}
+
+*PROMO SPESIAL SR12 HERBAL SKIN CARE* 🌿
 *${product.name}*
 Harga Resmi: Rp ${product.het.toLocaleString('id-ID')}
 Izin Edar: BPOM ${product.bpom || 'Resmi'} & Halal MUI
 
 ${product.summary || ''}
 
-🛒 *Pesan langsung di Toko Resmi kami:*
-👉 ${directLink}
-
-Atau hubungi admin WhatsApp:
-📲 wa.me/${currentStore.storeWaNumber.replace(/[^0-9]/g, '')}`;
+📲 WhatsApp: wa.me/${currentStore.storeWaNumber.replace(/[^0-9]/g, '')}`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(directLink);
