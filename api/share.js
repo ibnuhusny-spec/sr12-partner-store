@@ -511,16 +511,35 @@ module.exports = (req, res) => {
   if (imageUrl.endsWith('.png')) imageType = 'image/png';
   else if (imageUrl.endsWith('.webp')) imageType = 'image/webp';
 
+  // Deteksi apakah request berasal dari Robot / Crawler WhatsApp, Facebook, Telegram, Twitter
+  const userAgent = (req.headers['user-agent'] || '').toLowerCase();
+  const isBot = userAgent.includes('whatsapp') || 
+                userAgent.includes('facebookexternalhit') || 
+                userAgent.includes('facebot') || 
+                userAgent.includes('twitterbot') || 
+                userAgent.includes('telegrambot') || 
+                userAgent.includes('slackbot') || 
+                userAgent.includes('discordbot') || 
+                userAgent.includes('linkedinbot') ||
+                userAgent.includes('bot') || 
+                userAgent.includes('crawl');
+
+  // JIKA BUKAN BOT (MANUSIA/PENGUNJUNG MENGKLIK LINK), LANGSUNG REDIRECT 302 KE ETALASE!
+  if (!isBot) {
+    res.setHeader('Location', targetRedirect);
+    return res.status(302).end();
+  }
+
+  // JIKA ROBOT WHATSAPP / CRAWLER, SAJIKAN HTML DENGAN META TAG LENGKAP TANPA JAVASCRIPT REDIRECT
   const html = '<!DOCTYPE html>\n' +
 '<html lang="id">\n' +
 '<head>\n' +
 '  <meta charset="UTF-8">\n' +
-'  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
 '  <title>' + escapeHtml(title) + '</title>\n' +
 '  <meta name="description" content="' + escapeHtml(desc) + '">\n' +
 '  <!-- Open Graph / WhatsApp Meta Tags -->\n' +
-'  <meta property="og:type" content="website">\n' +
 '  <meta property="og:site_name" content="' + escapeHtml(storeTitle) + '">\n' +
+'  <meta property="og:type" content="website">\n' +
 '  <meta property="og:title" content="' + escapeHtml(title) + '">\n' +
 '  <meta property="og:description" content="' + escapeHtml(desc) + '">\n' +
 '  <meta property="og:image" content="' + escapeHtml(imageUrl) + '">\n' +
@@ -534,28 +553,11 @@ module.exports = (req, res) => {
 '  <meta name="twitter:title" content="' + escapeHtml(title) + '">\n' +
 '  <meta name="twitter:description" content="' + escapeHtml(desc) + '">\n' +
 '  <meta name="twitter:image" content="' + escapeHtml(imageUrl) + '">\n' +
-'  <link rel="canonical" href="' + escapeHtml(targetRedirect) + '">\n' +
-'  <meta http-equiv="refresh" content="0; url=' + escapeHtml(targetRedirect) + '">\n' +
-'  <script>\n' +
-'    window.location.replace(' + JSON.stringify(targetRedirect) + ');\n' +
-'  </script>\n' +
-'  <style>\n' +
-'    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #064e3b 0%, #047857 100%); color: #fff; text-align: center; }\n' +
-'    .card { background: rgba(255, 255, 255, 0.12); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 20px; padding: 32px 24px; max-width: 420px; margin: 20px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25); }\n' +
-'    .spinner { width: 44px; height: 44px; margin: 0 auto 18px; border: 4px solid rgba(255, 255, 255, 0.2); border-top-color: #34d399; border-radius: 50%; animation: spin 0.8s linear infinite; }\n' +
-'    @keyframes spin { to { transform: rotate(360deg); } }\n' +
-'    h2 { font-size: 1.25rem; margin: 0 0 8px 0; font-weight: 800; color: #fff; }\n' +
-'    p { font-size: 0.88rem; color: #d1fae5; line-height: 1.5; margin: 0 0 16px 0; }\n' +
-'    a.btn { display: inline-block; background: #34d399; color: #064e3b; font-weight: 700; padding: 10px 22px; border-radius: 9999px; text-decoration: none; font-size: 0.85rem; }\n' +
-'  </style>\n' +
 '</head>\n' +
 '<body>\n' +
-'  <div class="card">\n' +
-'    <div class="spinner"></div>\n' +
-'    <h2>🌿 Membuka Produk SR12...</h2>\n' +
-'    <p>Sedang mengalihkan Anda ke etalase resmi <b>' + escapeHtml(matchedProduct ? matchedProduct.name : storeTitle) + '</b>...</p>\n' +
-'    <a href="' + escapeHtml(targetRedirect) + '" class="btn">Klik Di Sini Jika Belum Terbuka</a>\n' +
-'  </div>\n' +
+'  <h1>' + escapeHtml(title) + '</h1>\n' +
+'  <img src="' + escapeHtml(imageUrl) + '" alt="' + escapeHtml(title) + '">\n' +
+'  <p>' + escapeHtml(desc) + '</p>\n' +
 '</body>\n' +
 '</html>';
 
