@@ -39,20 +39,8 @@ export function App() {
     isDevMasterLoggedIn
   } = useApp();
 
-  // Mode: 'directory' for finding nearby partner stores, 'storefront' for active store catalog.
-  // Toko Pusat (sr12-central) is strictly a directory/central supply hub and does not sell retail directly.
-  const [viewMode, setViewMode] = useState<'directory' | 'storefront'>(() => {
-    const params = new URLSearchParams(window.location.search);
-    const storeParam = params.get('store');
-    return storeParam && storeParam.toLowerCase() !== 'sr12-central' ? 'storefront' : 'directory';
-  });
-
-  // Guard: whenever currentStore switches to 'sr12-central', ALWAYS ensure directory mode
-  useEffect(() => {
-    if (currentStore.slug === 'sr12-central') {
-      setViewMode('directory');
-    }
-  }, [currentStore.slug]);
+  // Single-Store Mode: Aplikasi selalu menampilkan storefront katalog toko aktif
+  const [viewMode, setViewMode] = useState<'storefront'>('storefront');
 
   // Load isolated catalog specific to the current active store
   const [products, setProducts] = useState<Product[]>(() => {
@@ -192,42 +180,7 @@ export function App() {
   }
 
   // 1. DIRECTORY / CENTRAL HUB MODE:
-  // Toko Pusat (sr12-central) is the central directory hub and does NOT sell retail products.
-  // Whenever visitor selects Toko Pusat or viewMode is 'directory', ALWAYS render StoreDirectoryView.
-  if (viewMode === 'directory' || currentStore.slug === 'sr12-central') {
-    return (
-      <>
-        <StoreDirectoryView
-          onSelectStore={(store) => {
-            switchStore(store.slug);
-            try {
-              localStorage.setItem('sr12_last_visited_store', store.slug);
-            } catch {}
-            setViewMode('storefront');
-          }}
-          onOpenRegister={() => setIsRegisterOpen(true)}
-          onOpenStoreLogin={() => setIsStoreLoginOpen(true)}
-          onSecretDevOpen={() => setIsDevConsoleOpen(true)}
-        />
 
-        <RegisterStoreModal
-          isOpen={isRegisterOpen}
-          onClose={() => setIsRegisterOpen(false)}
-        />
-
-        <StoreAdminLoginModal
-          isOpen={isStoreLoginOpen}
-          onClose={() => setIsStoreLoginOpen(false)}
-          onSuccessLogin={() => setIsPosOpen(true)}
-        />
-
-        <DevConsoleModal
-          isOpen={isDevConsoleOpen}
-          onClose={() => setIsDevConsoleOpen(false)}
-        />
-      </>
-    );
-  }
 
   // 2. STOREFRONT MODE: Show selected partner store's personal storefront
   return (
@@ -243,16 +196,10 @@ export function App() {
         onOpenStoreLogin={() => setIsStoreLoginOpen(true)}
       />
 
-      {/* 3. Site Navbar with Directory Switcher */}
+      {/* 3. Site Navbar */}
       <Navbar
         onOpenCart={() => setIsCartOpen(true)}
         onOpenDistributorLogin={() => setIsDistributorLoginOpen(true)}
-        onOpenDirectory={() => {
-          const url = new URL(window.location.href);
-          url.searchParams.delete('store');
-          window.history.pushState({}, '', url.pathname);
-          setViewMode('directory');
-        }}
       />
 
 

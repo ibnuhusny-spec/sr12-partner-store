@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { CartItem, MitraDownline, Order, PartnerTier, Product, Store } from '../types';
-import { DEFAULT_PARTNER_STORES } from '../data/defaultStores';
-import { fetchStores } from '../services/storeService';
+import { STORE_CONFIG } from '../config/storeConfig';
 import { supabase } from '../config/supabase';
 import { getProductTierPrice } from '../config/tiers';
 
@@ -42,17 +41,10 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [partnerStores, setPartnerStores] = useState<Store[]>(DEFAULT_PARTNER_STORES);
-  const [currentStore, setCurrentStore] = useState<Store>(() => {
-    try {
-      const savedSlug = localStorage.getItem('sr12_selected_store_slug');
-      if (savedSlug) {
-        const found = DEFAULT_PARTNER_STORES.find(s => s.slug === savedSlug);
-        if (found) return found;
-      }
-    } catch {}
-    return DEFAULT_PARTNER_STORES[0];
-  });
+  // Mode Single-Tenant: Toko selalu merujuk ke STORE_CONFIG (.env)
+  const [currentStore, setCurrentStore] = useState<Store>(STORE_CONFIG);
+  const [partnerStores, setPartnerStores] = useState<Store[]>([STORE_CONFIG]);
+
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
       const raw = localStorage.getItem('sr12_user_cart');
@@ -61,16 +53,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return [];
     }
   });
+
   const [activeTier, setActiveTier] = useState<PartnerTier>('konsumen');
   const [verifiedMitra, setVerifiedMitra] = useState<Partial<MitraDownline> | null>(null);
+
   const [isDistributorLoggedIn, setIsDistributorLoggedIn] = useState<boolean>(() => {
     return !!(sessionStorage.getItem('sr12_distributor_session') || localStorage.getItem('sr12_distributor_session'));
   });
+
   const [isDevMasterLoggedIn, setIsDevMasterLoggedIn] = useState<boolean>(() => {
     return !!localStorage.getItem('sr12_dev_token');
   });
+
   const [isStoreAdminLoggedIn, setIsStoreAdminLoggedIn] = useState<boolean>(() => {
-    return !!sessionStorage.getItem(`sr12_admin_session_${DEFAULT_PARTNER_STORES[0].slug}`);
+    return !!sessionStorage.getItem(`sr12_admin_session_${STORE_CONFIG.slug}`);
   });
 
   useEffect(() => {
@@ -78,59 +74,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [currentStore.slug]);
 
   const [isPosOpen, setIsPosOpen] = useState<boolean>(false);
-  const [cloudStatus, setCloudStatus] = useState<'online' | 'connecting' | 'offline'>('connecting');
+  const [cloudStatus, setCloudStatus] = useState<'online' | 'connecting' | 'offline'>('online');
   const [realtimeOrderAlert, setRealtimeOrderAlert] = useState<Order | null>(null);
   const [marketerReferral, setMarketerReferral] = useState<string | null>(null);
 
-  // Read URL Query params at startup: ?store=... & ?ref=...
+  // Inisialisasi awal tema toko dan query param referral
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const storeParam = params.get('store');
     const refParam = params.get('ref');
-
     if (refParam) {
       setMarketerReferral(refParam.toUpperCase());
     }
-
-    refreshStores().then((stores) => {
-      const targetSlug = storeParam || localStorage.getItem('sr12_selected_store_slug');
-      if (targetSlug) {
-        const found = stores.find(s => s.slug === targetSlug.toLowerCase());
-        if (found) {
-          setCurrentStore(found);
-          try {
-            localStorage.setItem('sr12_selected_store_slug', found.slug);
-          } catch {}
-          applyStoreTheme(found.storeTheme);
-        }
-      }
-    });
+    applyStoreTheme(STORE_CONFIG.storeTheme);
   }, []);
 
   const refreshStores = async (): Promise<Store[]> => {
-    try {
-      const stores = await fetchStores();
-      setPartnerStores(stores);
-      setCloudStatus('online');
-
-      // Keep currentStore updated with latest server state and remembered selection
-      const savedSlug = localStorage.getItem('sr12_selected_store_slug');
-      setCurrentStore(prev => {
-        if (savedSlug) {
-          const matched = stores.find(s => s.slug === savedSlug);
-          if (matched) return matched;
-        }
-        const updated = stores.find(s => s.slug === prev.slug);
-        return updated || prev;
-      });
-      return stores;
-    } catch {
-      setCloudStatus('offline');
-      return partnerStores;
-    }
+    setPartnerStores([STORE_CONFIG]);
+    setCurrentStore(STORE_CONFIG);
+    setCloudStatus('online');
+    return [STORE_CONFIG];
   };
 
-  // Realtime Supabase Channel subscription for instant incoming orders & downlines sync
+  // Realtime Supabase Channel subscription untuk pesanan masuk & downline
   useEffect(() => {
     const ordersChannel = supabase
       .channel(`public:orders:${currentStore.slug}`)
@@ -138,10 +103,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         window.dispatchEvent(new CustomEvent('sr12:cloud_sync_orders', { detail: payload }));
         if (payload.eventType === 'INSERT') {
           const newOrder = payload.new as any;
-          if (newOrder && (newOrder.store_slug === currentStore.slug || currentStore.slug === 'sr12-central')) {
+          if (newOrder && (newOrder.store_slug === currentStore.slug || !newOrder.store_slug)) {
             const alertObj: Order = {
               orderId: newOrder.order_id || 'ORD-NEW',
-              storeSlug: newOrder.store_slug,
+              storeSlug: newOrder.store_slug || currentStore.slug,
               customerName: newOrder.customer_name || 'Pelanggan',
               customerPhone: newOrder.customer_phone || '-',
               customerAddress: newOrder.customer_address || '-',
@@ -182,30 +147,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const switchStore = (slug: string) => {
-    const found = partnerStores.find(s => s.slug === slug);
-    if (found) {
-      setCurrentStore(found);
-      try {
-        localStorage.setItem('sr12_selected_store_slug', found.slug);
-      } catch {}
-      applyStoreTheme(found.storeTheme);
-
-      // Update URL query string without reloading page
-      const url = new URL(window.location.href);
-      if (slug === 'sr12-central') {
-        url.searchParams.delete('store');
-      } else {
-        url.searchParams.set('store', slug);
-      }
-      window.history.pushState({}, '', url.toString());
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+  // Dalam mode single-tenant, switchStore menjaga kompatibilitas API tapi tetap di toko aktif
+  const switchStore = (_slug: string) => {
+    applyStoreTheme(STORE_CONFIG.storeTheme);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const addToCart = (product: Product, quantity = 1) => {
     if (product.stock <= 0) {
-      alert(`Mohon maaf, stok untuk "${product.name}" saat ini habis di gudang toko ini.`);
+      alert(`Mohon maaf, stok untuk "${product.name}" saat ini habis di gudang toko.`);
       return;
     }
 
@@ -281,7 +231,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const emailMatches = inputEmail === storeEmail || inputEmail === storeSlug || inputEmail === 'admin@sr12.co.id';
     if (!emailMatches) {
-      return { success: false, message: `Email "${email}" tidak cocok dengan email pemilik terdaftar (${storeEmail})!` };
+      return { success: false, message: `Email "${email}" tidak cocok dengan email pemilik toko!` };
     }
 
     const passMatches = 
@@ -291,7 +241,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       inputPass === 'AdminSR12@2026!';
 
     if (!passMatches) {
-      return { success: false, message: 'Password atau PIN admin salah. Silakan coba lagi atau gunakan opsi Lupa Password.' };
+      return { success: false, message: 'Password atau PIN admin salah. Silakan coba lagi.' };
     }
 
     sessionStorage.setItem(`sr12_admin_session_${currentStore.slug}`, JSON.stringify({ email: inputEmail, time: Date.now() }));
@@ -300,7 +250,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logoutStoreAdmin = () => {
-    // 1. Bersihkan session storage admin toko ini dan seluruh toko
     sessionStorage.removeItem(`sr12_admin_session_${currentStore.slug}`);
     try {
       for (let i = sessionStorage.length - 1; i >= 0; i--) {
@@ -311,12 +260,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     } catch {}
 
-    // 2. Bersihkan distributor session & dev token jika tersimpan di localStorage/sessionStorage
     sessionStorage.removeItem('sr12_distributor_session');
     localStorage.removeItem('sr12_distributor_session');
     localStorage.removeItem('sr12_dev_token');
 
-    // 3. Matikan seluruh flag status login
     setIsStoreAdminLoggedIn(false);
     setIsDistributorLoggedIn(false);
     setIsDevMasterLoggedIn(false);
@@ -326,31 +273,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const resetStorePassword = (email: string, waNumber: string, newPassword: string): { success: boolean; message: string } => {
     const inputEmail = email.toLowerCase().trim();
     const cleanInputWa = waNumber.replace(/[^0-9]/g, '');
+    const sEmail = (currentStore.ownerEmail || 'admin@sr12.co.id').toLowerCase().trim();
+    const sWa = currentStore.storeWaNumber.replace(/[^0-9]/g, '');
 
-    const storeIdx = partnerStores.findIndex(s => {
-      const sEmail = (s.ownerEmail || 'admin@sr12.co.id').toLowerCase().trim();
-      const sWa = s.storeWaNumber.replace(/[^0-9]/g, '');
-      return sEmail === inputEmail && sWa.endsWith(cleanInputWa.slice(-8));
-    });
-
-    if (storeIdx < 0) {
-      return { success: false, message: 'Data Email atau Nomor WhatsApp tidak cocok dengan data toko terdaftar.' };
+    if (sEmail !== inputEmail || !sWa.endsWith(cleanInputWa.slice(-8))) {
+      return { success: false, message: 'Data Email atau Nomor WhatsApp tidak cocok dengan profil toko.' };
     }
 
-    const updatedStores = [...partnerStores];
-    updatedStores[storeIdx] = {
-      ...updatedStores[storeIdx],
+    const updatedStore = {
+      ...currentStore,
       adminPassword: newPassword
     };
 
-    setPartnerStores(updatedStores);
-    localStorage.setItem('sr12_partner_stores_v3', JSON.stringify(updatedStores));
+    setCurrentStore(updatedStore);
+    setPartnerStores([updatedStore]);
 
-    if (currentStore.slug === updatedStores[storeIdx].slug) {
-      setCurrentStore(updatedStores[storeIdx]);
-    }
-
-    return { success: true, message: 'Password berhasil diubah secara mandiri! Silakan login.' };
+    return { success: true, message: 'Password berhasil diperbarui! Silakan login.' };
   };
 
   const loginDistributor = (pinOrPass: string): boolean => {
@@ -398,8 +336,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-      osc.frequency.exponentialRampToValueAtTime(880.00, ctx.currentTime + 0.15); // A5
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880.00, ctx.currentTime + 0.15);
       gain.gain.setValueAtTime(0.3, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
       osc.connect(gain);

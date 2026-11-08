@@ -65,74 +65,11 @@ export const PlatformTopbar: React.FC<PlatformTopbarProps> = ({
 
         {/* Right: Active Store Tools */}
         <div className="platform-tools">
-          {/* Active Store Switcher */}
-          <div style={{ position: 'relative' }}>
-            <button
-              type="button"
-              className="store-chip"
-              onClick={() => setShowStoreDropdown(!showStoreDropdown)}
-              title="Ganti Toko Mitra / Belanja di Pusat"
-            >
-              <StoreIcon size={13} color="#94a3b8" />
-              <span className="hide-on-mobile" style={{ color: '#94a3b8' }}>Toko:</span>
-              <span className="store-chip-name">{currentStore.storeName}</span>
-              <ChevronDown size={12} color="#94a3b8" />
-            </button>
-
-            {showStoreDropdown && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '100%',
-                  right: 0,
-                  marginTop: '6px',
-                  background: '#0f172a',
-                  border: '1px solid #334155',
-                  borderRadius: '12px',
-                  boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
-                  minWidth: '240px',
-                  maxWidth: '90vw',
-                  zIndex: 2000,
-                  overflow: 'hidden'
-                }}
-              >
-                <div style={{ padding: '8px 12px', fontSize: '0.72rem', color: '#94a3b8', borderBottom: '1px solid #1e293b' }}>
-                  PILIH TOKO DISTRIBUTOR / AGEN:
-                </div>
-                <div style={{ maxHeight: '250px', overflowY: 'auto' }}>
-                  {partnerStores.map(store => (
-                    <button
-                      key={store.slug}
-                      type="button"
-                      onClick={() => {
-                        switchStore(store.slug);
-                        setShowStoreDropdown(false);
-                      }}
-                      style={{
-                        width: '100%',
-                        textAlign: 'left',
-                        padding: '10px 14px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        borderBottom: '1px solid #1e293b',
-                        background: store.slug === currentStore.slug ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
-                        color: store.slug === currentStore.slug ? '#38bdf8' : '#e2e8f0',
-                        fontSize: '0.8rem'
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontWeight: 800 }}>{store.storeName}</div>
-                        <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{store.storeCity} &bull; {store.partnerTier.toUpperCase()}</div>
-                      </div>
-                      {store.slug === 'sr12-central' && (
-                        <span style={{ fontSize: '0.65rem', background: '#065f46', color: '#6ee7b7', padding: '1px 6px', borderRadius: '4px' }}>PUSAT</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+          {/* Active Store Chip (Single Store Mode) */}
+          <div className="store-chip" title="Toko Resmi">
+            <StoreIcon size={13} color="#94a3b8" />
+            <span className="hide-on-mobile" style={{ color: '#94a3b8' }}>Toko:</span>
+            <span className="store-chip-name">{currentStore.storeName}</span>
           </div>
 
           {/* Cloud Indicator */}
