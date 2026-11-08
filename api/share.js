@@ -419,7 +419,7 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
-module.exports = (req, res) => {
+export default function handler(req, res) {
   const query = req.query || {};
   const productKey = (query.product || query.id || query.p || query.prod || '').trim();
   const storeSlug = (query.store || query.s || 'sr12-central').trim();
