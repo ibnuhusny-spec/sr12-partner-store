@@ -531,13 +531,14 @@ export default function handler(req, res) {
   }
 
   // JIKA ROBOT WHATSAPP / CRAWLER, SAJIKAN HTML DENGAN META TAG LENGKAP TANPA JAVASCRIPT REDIRECT
+  // Format Card Besar (Shopee / Marketplace Style) membutuhkan rasio landscape 1.91:1 (1200x630) dan deskripsi non-kosong
   const html = '<!DOCTYPE html>\n' +
 '<html lang="id">\n' +
 '<head>\n' +
 '  <meta charset="UTF-8">\n' +
 '  <title>' + escapeHtml(title) + '</title>\n' +
 '  <meta name="description" content="' + escapeHtml(desc) + '">\n' +
-'  <!-- Open Graph / WhatsApp Meta Tags -->\n' +
+'  <!-- Open Graph / WhatsApp Meta Tags (Shopee-Style Large Card) -->\n' +
 '  <meta property="og:site_name" content="' + escapeHtml(storeTitle) + '">\n' +
 '  <meta property="og:type" content="website">\n' +
 '  <meta property="og:title" content="' + escapeHtml(title) + '">\n' +
@@ -545,10 +546,10 @@ export default function handler(req, res) {
 '  <meta property="og:image" content="' + escapeHtml(imageUrl) + '">\n' +
 '  <meta property="og:image:secure_url" content="' + escapeHtml(imageUrl) + '">\n' +
 '  <meta property="og:image:type" content="' + imageType + '">\n' +
-'  <meta property="og:image:width" content="600">\n' +
-'  <meta property="og:image:height" content="600">\n' +
+'  <meta property="og:image:width" content="1200">\n' +
+'  <meta property="og:image:height" content="630">\n' +
 '  <meta property="og:url" content="' + escapeHtml(canonicalUrl) + '">\n' +
-'  <!-- Twitter Card -->\n' +
+'  <!-- Twitter Card (Summary Large Image) -->\n' +
 '  <meta name="twitter:card" content="summary_large_image">\n' +
 '  <meta name="twitter:title" content="' + escapeHtml(title) + '">\n' +
 '  <meta name="twitter:description" content="' + escapeHtml(desc) + '">\n' +
