@@ -103,17 +103,6 @@ export const PlatformTopbar: React.FC<PlatformTopbarProps> = ({
             <span>{isStoreAdminLoggedIn ? 'Kasir POS (Aktif)' : 'Kasir POS'}</span>
           </button>
 
-          {/* Buka Toko Baru */}
-          <button
-            type="button"
-            className="btn-topbar btn-topbar-primary"
-            onClick={onOpenRegister}
-            title="Daftarkan Toko Online SR12 Baru"
-          >
-            <PlusCircle size={13} />
-            <span><span className="hide-on-mobile">Buka </span>Toko</span>
-          </button>
-
           {/* Logout if store admin or distributor logged in */}
           {(isStoreAdminLoggedIn || isDistributorLoggedIn || isDevMasterLoggedIn) && (
             <button

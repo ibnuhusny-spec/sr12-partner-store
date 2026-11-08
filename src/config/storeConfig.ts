@@ -2,22 +2,31 @@ import { Store, StoreTheme } from '../types';
 
 /**
  * Konfigurasi Tunggal Toko (Single-Tenant Mode)
- * Membaca konfigurasi dari environment variables (.env).
- * Jika tidak tersedia, akan menggunakan nilai default yang aman.
+ * Membaca konfigurasi dari local storage (jika sudah diubah di admin) atau dari environment variables (.env).
  */
+const getSavedStoreConfig = (): Partial<Store> => {
+  try {
+    const raw = localStorage.getItem('sr12_custom_store_profile');
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return {};
+};
+
+const saved = getSavedStoreConfig();
+
 export const STORE_CONFIG: Store = {
   slug: import.meta.env.VITE_STORE_SLUG || 'sr12-central',
-  storeName: import.meta.env.VITE_STORE_NAME || 'SR12 Herbal Skin Care',
-  storeTagline: import.meta.env.VITE_STORE_TAGLINE || 'Distributor Resmi SR12 Skin Care & Herbal Alami',
+  storeName: saved.storeName || import.meta.env.VITE_STORE_NAME || 'SR12 Herbal Skin Care',
+  storeTagline: saved.storeTagline || import.meta.env.VITE_STORE_TAGLINE || 'Distributor Resmi SR12 Skin Care & Herbal Alami BPOM & Halal MUI',
   storeTheme: (import.meta.env.VITE_STORE_THEME as StoreTheme) || 'emerald',
-  heroTitle: import.meta.env.VITE_STORE_NAME || 'SR12 Herbal Skin Care',
-  heroSubtitle: import.meta.env.VITE_STORE_TAGLINE || 'Pusat pasokan resmi produk SR12 Herbal Skin Care berlisensi BPOM & Halal MUI.',
-  heroBannerUrl: '/assets/hero-banner.jpg',
+  heroTitle: saved.heroTitle || saved.storeName || import.meta.env.VITE_STORE_NAME || 'SR12 Herbal Skin Care',
+  heroSubtitle: saved.heroSubtitle || saved.storeTagline || import.meta.env.VITE_STORE_TAGLINE || 'Distributor Resmi SR12 Skin Care & Herbal Alami BPOM & Halal MUI',
+  heroBannerUrl: saved.heroBannerUrl || '/assets/hero-banner.jpg',
   storeLogoText: 'SR12',
   storeLogoUrl: '/assets/sr12-logo.png',
-  storeWaNumber: import.meta.env.VITE_STORE_WA || '6281200001212',
-  storeCity: import.meta.env.VITE_STORE_CITY || 'Jakarta',
-  storeOwner: import.meta.env.VITE_STORE_OWNER || 'Ibnu Husny',
+  storeWaNumber: saved.storeWaNumber || import.meta.env.VITE_STORE_WA || '6281200001212',
+  storeCity: saved.storeCity || import.meta.env.VITE_STORE_CITY || 'Jakarta',
+  storeOwner: saved.storeOwner || import.meta.env.VITE_STORE_OWNER || 'Ibnu Husny',
   partnerTier: 'distributor',
   feePayer: 'buyer',
   storeAdminPin: import.meta.env.VITE_STORE_ADMIN_PIN || '1234',
@@ -28,4 +37,5 @@ export const STORE_CONFIG: Store = {
   totalTopupPaid: 0,
   totalTx: 0
 };
+
 

@@ -190,7 +190,7 @@ export function App() {
 
       {/* 2. Platform Topbar */}
       <PlatformTopbar
-        onOpenRegister={() => setIsRegisterOpen(true)}
+        onOpenRegister={() => {}}
         onOpenDevConsole={() => setIsDevConsoleOpen(true)}
         onOpenDistributorLogin={() => setIsDistributorLoginOpen(true)}
         onOpenStoreLogin={() => setIsStoreLoginOpen(true)}

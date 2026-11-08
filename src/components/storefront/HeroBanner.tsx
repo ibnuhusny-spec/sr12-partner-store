@@ -15,23 +15,54 @@ export const HeroBanner: React.FC = () => {
   })();
 
   return (
-    <div className="hero-banner-container">
-      <div className="hero-banner-card">
+    <div className="hero-banner-container" style={{ margin: '15px auto', maxWidth: '1380px', padding: '0 16px' }}>
+      <div
+        className="hero-banner-card"
+        style={{
+          borderRadius: '24px',
+          overflow: 'hidden',
+          boxShadow: '0 20px 40px -15px rgba(6, 78, 59, 0.4)',
+          border: '1px solid rgba(52, 211, 153, 0.25)',
+          minHeight: '260px'
+        }}
+      >
         {currentStore.heroBannerUrl && (
           <img
             src={currentStore.heroBannerUrl}
             alt="Hero Banner"
             className="hero-banner-bg-img"
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
         )}
-        <div className="hero-content">
-          <div className="hero-badge">
-            <Sparkles size={13} color="#fde68a" />
-            <span>Katalog Resmi &bull; Pasokan Langsung dari Pabrik SR12</span>
+        <div className="hero-content" style={{ padding: '36px 28px', maxWidth: '780px' }}>
+          <div className="hero-badge" style={{ fontSize: '0.82rem', padding: '6px 14px', marginBottom: '14px' }}>
+            <Sparkles size={14} color="#fde68a" />
+            <span>Katalog Resmi &bull; Pasokan Langsung dari Gudang SR12</span>
           </div>
 
-          <h2 className="hero-title">{currentStore.heroTitle || currentStore.storeName}</h2>
-          <p className="hero-subtitle">
+          <h2
+            className="hero-title"
+            style={{
+              fontSize: 'clamp(1.8rem, 4vw, 2.8rem)',
+              fontWeight: 900,
+              letterSpacing: '-0.5px',
+              textShadow: '0 2px 10px rgba(0,0,0,0.5)',
+              marginBottom: '12px'
+            }}
+          >
+            {currentStore.heroTitle || currentStore.storeName}
+          </h2>
+          <p
+            className="hero-subtitle"
+            style={{
+              fontSize: '1rem',
+              lineHeight: 1.6,
+              color: '#ecfdf5',
+              maxWidth: '650px',
+              textShadow: '0 1px 4px rgba(0,0,0,0.4)',
+              marginBottom: '20px'
+            }}
+          >
             {cleanSubtitle}
           </p>
 

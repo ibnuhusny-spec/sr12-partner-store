@@ -7,6 +7,7 @@ import { PosInventoryView } from './PosInventoryView';
 import { PosCashflowView } from './PosCashflowView';
 import { PosReportsView } from './PosReportsView';
 import { PosDownlinesView } from './PosDownlinesView';
+import { PosSettingsView } from './PosSettingsView';
 import {
   ShoppingCart,
   Receipt,
@@ -21,7 +22,8 @@ import {
   Coins,
   RotateCcw,
   LogOut,
-  AlertTriangle
+  AlertTriangle,
+  Sliders
 } from 'lucide-react';
 import { TokenTopupModal } from './TokenTopupModal';
 import { clearAllOrders } from '../../services/orderService';
@@ -42,7 +44,7 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
   onResetCatalogToMaster
 }) => {
   const { currentStore, setIsPosOpen, logoutStoreAdmin } = useApp();
-  const [activeTab, setActiveTab] = useState<'cashier' | 'transactions' | 'inventory' | 'cashflow' | 'reports' | 'downlines'>('cashier');
+  const [activeTab, setActiveTab] = useState<'cashier' | 'transactions' | 'inventory' | 'cashflow' | 'reports' | 'downlines' | 'settings'>('cashier');
   const [cashierName, setCashierName] = useState('Siti Aminah');
   const [isClockedIn, setIsClockedIn] = useState(true);
   const [showTokenModal, setShowTokenModal] = useState(false);
@@ -362,6 +364,25 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
           <Users size={14} />
           <span>Mitra &amp; Downline</span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('settings')}
+          style={{
+            padding: '10px 12px',
+            fontSize: '0.78rem',
+            fontWeight: 800,
+            color: activeTab === 'settings' ? '#38bdf8' : '#94a3b8',
+            borderBottom: activeTab === 'settings' ? '2.5px solid #38bdf8' : '2.5px solid transparent',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '5px',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          <Sliders size={14} />
+          <span>Banner &amp; Profil Toko</span>
+        </button>
       </nav>
 
       {/* Main Tab Content */}
@@ -386,6 +407,7 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
         {activeTab === 'cashflow' && <PosCashflowView />}
         {activeTab === 'reports' && <PosReportsView />}
         {activeTab === 'downlines' && <PosDownlinesView />}
+        {activeTab === 'settings' && <PosSettingsView />}
       </main>
 
       {/* Mobile Bottom Navigation Dock (OLSERA APP STYLE) */}
@@ -460,6 +482,18 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
             <Users size={18} />
           </div>
           <span className="pos-bottom-nav-label">Mitra</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('settings')}
+          className={`pos-bottom-nav-item ${activeTab === 'settings' ? 'active' : ''}`}
+          title="Ganti Banner & Profil Toko"
+        >
+          <div className="pos-nav-icon-wrap">
+            <Sliders size={18} />
+          </div>
+          <span className="pos-bottom-nav-label">Banner</span>
         </button>
       </nav>
 
