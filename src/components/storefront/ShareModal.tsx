@@ -16,10 +16,11 @@ export const ShareModal: React.FC<ShareModalProps> = ({ product, onClose }) => {
 
   if (!product) return null;
 
-  // Build product direct link
+  // Format tautan singkat dan rapi persis seperti tangkapan layar Anda sebelumnya:
+  // Contoh: https://sr12-partner-store.vercel.app/p?product=sr12-deodorant-spray-60ml&store=sr12-central
   const origin = window.location.origin;
-  const storeUrl = `${origin}/?product=${encodeURIComponent(product.id)}`;
-  const directLink = storeUrl;
+  const shortShareLink = `${origin}/p?product=${encodeURIComponent(product.id)}&store=${encodeURIComponent(currentStore.slug)}`;
+  const directLink = shortShareLink;
 
   const benefitsText = `✅ 100% Produk Herbal Terdaftar BPOM & Halal MUI\n✅ Formulasi Lembut & Aman Digunakan Tiap Hari\n✅ Garansi Keaslian Resmi Pabrik PT SR12`;
 
@@ -27,21 +28,21 @@ export const ShareModal: React.FC<ShareModalProps> = ({ product, onClose }) => {
 ${product.summary || 'Produk perawatan kulit herbal berkualitas resmi SR12.'} 🌿
 
 ⭐ *Rating Pembeli:* 4.9 / 5.0 (Terbukti Berkhasiat)
-🛡️ *Izin Edar:* 100% Terverifikasi BPOM & Halal MUI
+🛡️ *Izin Edar Resmi:* 100% Terverifikasi BPOM & Halal MUI
 
 🔥 *Keunggulan Produk:*
 ${benefitsText}
 
-💰 *Harga Promo Toko:* Rp ${product.het.toLocaleString('id-ID')}
+💰 *Harga Spesial:* Rp ${product.het.toLocaleString('id-ID')}
 🚚 *Pengiriman Cepat, Aman & Garansi Original!*
 
-👇 *Pesan Langsung di Toko Resmi Kami (${currentStore.storeName}):*
-${storeUrl}
+👇 *Beli & Lihat Detail Produk Langsung di Toko Resmi (${currentStore.storeName}):*
+${shortShareLink}
 
-Silakan klik link di atas untuk melihat katalog lengkap & langsung order via WhatsApp! 🌸`;
+Silakan klik tautan di atas untuk melihat katalog lengkap & langsung order via WhatsApp! 🌸`;
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(storeUrl);
+    navigator.clipboard.writeText(shortShareLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -99,7 +100,8 @@ Silakan klik link di atas untuk melihat katalog lengkap & langsung order via Wha
   };
 
   const handleWhatsAppShare = () => {
-    handleShareWithPhoto();
+    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(promoCopywriting)}`;
+    window.open(waUrl, '_blank');
   };
 
   const handleNativeShare = async () => {
@@ -210,16 +212,12 @@ Silakan klik link di atas untuk melihat katalog lengkap & langsung order via Wha
             </div>
           </div>
 
-          {/* 3 Tombol Aksi Icon-Only (Sesuai Spesifikasi PANDUAN_SIMULASI_APLIKASI.md) */}
+          {/* 3 Tombol Aksi Sesuai Format Klasik */}
           <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '14px' }}>
-            <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#0f172a', marginBottom: '8px', textAlign: 'center' }}>
-              Bagikan Langsung dengan Foto Gambar (Shopee Style):
-            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <button
                 type="button"
-                onClick={handleShareWithPhoto}
-                disabled={isSharingImage}
+                onClick={handleWhatsAppShare}
                 style={{
                   width: '100%',
                   padding: '12px 16px',
@@ -238,7 +236,7 @@ Silakan klik link di atas untuk melihat katalog lengkap & langsung order via Wha
                 }}
               >
                 <MessageCircle size={20} />
-                <span>{isSharingImage ? 'Menyiapkan Foto...' : 'Kirim Foto & Teks ke WhatsApp'}</span>
+                <span>Bagikan ke WhatsApp</span>
               </button>
 
               <div style={{ display: 'flex', gap: '8px' }}>
