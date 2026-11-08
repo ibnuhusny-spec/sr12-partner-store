@@ -477,7 +477,7 @@ module.exports = (req, res) => {
     desc = (matchedProduct.summary || '') + ' | Belanja aman resmi BPOM di ' + storeTitle;
     imageUrl = (matchedProduct.image && matchedProduct.image.startsWith('http')) 
       ? matchedProduct.image 
-      : (baseUrl + '/assets/deodorant-spray.jpg');
+      : (baseUrl + (matchedProduct.image.startsWith('/') ? matchedProduct.image : ('/' + matchedProduct.image)));
     // PENTING: Arahkan langsung ke URL produk spesifik di toko mitra bersangkutan
     targetRedirect = baseUrl + '/?product=' + encodeURIComponent(matchedProduct.id);
     canonicalUrl = baseUrl + '/p?product=' + encodeURIComponent(matchedProduct.id);
@@ -487,33 +487,38 @@ module.exports = (req, res) => {
     const cleanProdTitle = customName || productKey.replace(/^sr12-?/i, '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     title = 'SR12 ' + cleanProdTitle + ' - ' + storeTitle;
     desc = 'Beli produk resmi SR12 ' + cleanProdTitle + ' terverifikasi BPOM di ' + storeTitle + '.';
-    imageUrl = baseUrl + '/assets/sr12-logo.png';
+    imageUrl = baseUrl + '/assets/hero-banner.jpg';
     targetRedirect = baseUrl + '/?product=' + encodeURIComponent(productKey);
     canonicalUrl = baseUrl + '/p?product=' + encodeURIComponent(productKey);
   } else {
     title = 'SR12 Herbal Skin Care - ' + storeTitle;
     desc = 'Toko Resmi Kemitraan SR12 Herbal Skin Care terverifikasi BPOM. Dapatkan produk kecantikan alami dengan garansi 100% original.';
-    imageUrl = baseUrl + '/assets/sr12-logo.png';
+    imageUrl = baseUrl + '/assets/hero-banner.jpg';
     targetRedirect = baseUrl + '/?store=' + encodeURIComponent(storeSlug);
     canonicalUrl = baseUrl + '/?store=' + encodeURIComponent(storeSlug);
   }
 
+  // Tentukan content type gambar untuk WhatsApp crawler (jpg/png/webp)
+  let imageType = 'image/jpeg';
+  if (imageUrl.endsWith('.png')) imageType = 'image/png';
+  else if (imageUrl.endsWith('.webp')) imageType = 'image/webp';
+
   const html = '<!DOCTYPE html>\n' +
-'<html lang="id">\n' +
+'<html lang="id" prefix="og: https://ogp.me/ns#">\n' +
 '<head>\n' +
 '  <meta charset="UTF-8">\n' +
 '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
 '  <title>' + escapeHtml(title) + ' | ' + escapeHtml(storeTitle) + '</title>\n' +
 '  <meta name="description" content="' + escapeHtml(desc) + '">\n' +
-'  <meta property="og:type" content="product">\n' +
 '  <meta property="og:site_name" content="' + escapeHtml(storeTitle) + '">\n' +
+'  <meta property="og:type" content="product">\n' +
 '  <meta property="og:title" content="' + escapeHtml(title) + '">\n' +
 '  <meta property="og:description" content="' + escapeHtml(desc) + '">\n' +
 '  <meta property="og:image" content="' + escapeHtml(imageUrl) + '">\n' +
 '  <meta property="og:image:secure_url" content="' + escapeHtml(imageUrl) + '">\n' +
-'  <meta property="og:image:width" content="800">\n' +
-'  <meta property="og:image:height" content="600">\n' +
-'  <meta property="og:image:type" content="image/jpeg">\n' +
+'  <meta property="og:image:type" content="' + imageType + '">\n' +
+'  <meta property="og:image:width" content="1200">\n' +
+'  <meta property="og:image:height" content="630">\n' +
 '  <meta property="og:url" content="' + escapeHtml(canonicalUrl) + '">\n' +
 '  <meta name="twitter:card" content="summary_large_image">\n' +
 '  <meta name="twitter:title" content="' + escapeHtml(title) + '">\n' +
