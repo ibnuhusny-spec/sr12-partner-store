@@ -511,31 +511,13 @@ export default function handler(req, res) {
   if (imageUrl.endsWith('.png')) imageType = 'image/png';
   else if (imageUrl.endsWith('.webp')) imageType = 'image/webp';
 
-  // Deteksi apakah request berasal dari Robot / Crawler WhatsApp, Facebook, Telegram, Twitter
-  const userAgent = (req.headers['user-agent'] || '').toLowerCase();
-  const isBot = userAgent.includes('whatsapp') || 
-                userAgent.includes('facebookexternalhit') || 
-                userAgent.includes('facebot') || 
-                userAgent.includes('twitterbot') || 
-                userAgent.includes('telegrambot') || 
-                userAgent.includes('slackbot') || 
-                userAgent.includes('discordbot') || 
-                userAgent.includes('linkedinbot') ||
-                userAgent.includes('bot') || 
-                userAgent.includes('crawl');
-
-  // JIKA BUKAN BOT (MANUSIA/PENGUNJUNG MENGKLIK LINK), LANGSUNG REDIRECT 302 KE ETALASE!
-  if (!isBot) {
-    res.setHeader('Location', targetRedirect);
-    return res.status(302).end();
-  }
-
-  // JIKA ROBOT WHATSAPP / CRAWLER, SAJIKAN HTML DENGAN META TAG LENGKAP TANPA JAVASCRIPT REDIRECT
-  // Format Card Besar (Shopee / Marketplace Style) membutuhkan rasio landscape 1.91:1 (1200x630) dan deskripsi non-kosong
+  // Halaman HTML dengan Open Graph lengkap yang kompatibel untuk SEMUA platform (Shopee/Marketplace style)
+  // Tidak menggunakan redirect HTTP 302 agar HP pengirim maupun crawler WhatsApp selalu menerima meta tag gambar
   const html = '<!DOCTYPE html>\n' +
 '<html lang="id">\n' +
 '<head>\n' +
 '  <meta charset="UTF-8">\n' +
+'  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
 '  <title>' + escapeHtml(title) + '</title>\n' +
 '  <meta name="description" content="' + escapeHtml(desc) + '">\n' +
 '  <!-- Open Graph / WhatsApp Meta Tags (Shopee-Style Large Card) -->\n' +
@@ -554,11 +536,29 @@ export default function handler(req, res) {
 '  <meta name="twitter:title" content="' + escapeHtml(title) + '">\n' +
 '  <meta name="twitter:description" content="' + escapeHtml(desc) + '">\n' +
 '  <meta name="twitter:image" content="' + escapeHtml(imageUrl) + '">\n' +
+'  <link rel="canonical" href="' + escapeHtml(targetRedirect) + '">\n' +
+'  <!-- Pengalihan JavaScript Halus untuk Pengunjung (Bukan Bot) -->\n' +
+'  <script>\n' +
+'    setTimeout(function() {\n' +
+'      window.location.replace(' + JSON.stringify(targetRedirect) + ');\n' +
+'    }, 350);\n' +
+'  </script>\n' +
+'  <style>\n' +
+'    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #064e3b; color: #fff; text-align: center; }\n' +
+'    .card { background: rgba(255, 255, 255, 0.12); border-radius: 16px; padding: 24px; max-width: 380px; margin: 20px; }\n' +
+'    .preview-img { width: 100%; max-height: 200px; object-fit: cover; border-radius: 10px; margin-bottom: 12px; }\n' +
+'    h2 { font-size: 1.1rem; margin: 0 0 6px 0; font-weight: 800; }\n' +
+'    p { font-size: 0.85rem; color: #d1fae5; margin: 0 0 14px 0; }\n' +
+'    a.btn { display: inline-block; background: #34d399; color: #064e3b; font-weight: 700; padding: 8px 18px; border-radius: 9999px; text-decoration: none; font-size: 0.82rem; }\n' +
+'  </style>\n' +
 '</head>\n' +
 '<body>\n' +
-'  <h1>' + escapeHtml(title) + '</h1>\n' +
-'  <img src="' + escapeHtml(imageUrl) + '" alt="' + escapeHtml(title) + '">\n' +
-'  <p>' + escapeHtml(desc) + '</p>\n' +
+'  <div class="card">\n' +
+'    <img src="' + escapeHtml(imageUrl) + '" class="preview-img" alt="Foto Produk">\n' +
+'    <h2>' + escapeHtml(title) + '</h2>\n' +
+'    <p>' + escapeHtml(desc) + '</p>\n' +
+'    <a href="' + escapeHtml(targetRedirect) + '" class="btn">Buka di Toko Sekarang</a>\n' +
+'  </div>\n' +
 '</body>\n' +
 '</html>';
 
