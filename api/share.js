@@ -1437,32 +1437,32 @@ export default function handler(req, res) {
     title = matchedProduct.name + ' - ' + formatRupiah(matchedProduct.het);
     desc = (matchedProduct.summary || '') + ' | Belanja aman resmi BPOM di ' + storeTitle;
     
-    // Pastikan URL gambar absolut HTTPS publik yang valid untuk crawler WhatsApp
+    // Pastikan URL gambar absolut HTTPS publik yang valid untuk crawler WhatsApp (< 300KB)
     if (matchedProduct.image && matchedProduct.image.startsWith('http')) {
       imageUrl = matchedProduct.image;
-    } else {
-      const cleanPath = (matchedProduct.image || '/assets/deodorant-spray.jpg').startsWith('/') 
-        ? matchedProduct.image 
-        : ('/' + matchedProduct.image);
+    } else if (matchedProduct.image && (matchedProduct.image.endsWith('.jpg') || matchedProduct.image.endsWith('.png') || matchedProduct.image.endsWith('.webp')) && !matchedProduct.image.startsWith('makeCategoryIllustration')) {
+      const cleanPath = matchedProduct.image.startsWith('/') ? matchedProduct.image : ('/' + matchedProduct.image);
       imageUrl = baseUrl + cleanPath;
+    } else {
+      imageUrl = baseUrl + '/assets/deodorant-spray-og.jpg';
     }
     
     // PENTING: Arahkan langsung ke URL produk spesifik di toko mitra bersangkutan
-    targetRedirect = baseUrl + '/?product=' + encodeURIComponent(matchedProduct.id);
-    canonicalUrl = baseUrl + '/p?product=' + encodeURIComponent(matchedProduct.id);
+    targetRedirect = baseUrl + '/?store=' + encodeURIComponent(storeSlug) + '&product=' + encodeURIComponent(matchedProduct.id);
+    canonicalUrl = baseUrl + '/p?product=' + encodeURIComponent(matchedProduct.id) + '&store=' + encodeURIComponent(storeSlug);
   } else if (productKey) {
     // KUNCI UTAMA: WALAUPUN KEY BELUM PERSIS COCOK DI SERVERLESS:
     // JANGAN PERNAH HAPUS PARAMETER PRODUCT! Teruskan langsung ke frontend agar frontend mencocokkannya di DOM!
     const cleanProdTitle = customName || productKey.replace(/^sr12-?/i, '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     title = 'SR12 ' + cleanProdTitle + ' - ' + storeTitle;
     desc = 'Beli produk resmi SR12 ' + cleanProdTitle + ' terverifikasi BPOM di ' + storeTitle + '.';
-    imageUrl = baseUrl + '/assets/deodorant-spray.jpg';
-    targetRedirect = baseUrl + '/?product=' + encodeURIComponent(productKey);
-    canonicalUrl = baseUrl + '/p?product=' + encodeURIComponent(productKey);
+    imageUrl = baseUrl + '/assets/deodorant-spray-og.jpg';
+    targetRedirect = baseUrl + '/?store=' + encodeURIComponent(storeSlug) + '&product=' + encodeURIComponent(productKey);
+    canonicalUrl = baseUrl + '/p?product=' + encodeURIComponent(productKey) + '&store=' + encodeURIComponent(storeSlug);
   } else {
     title = 'SR12 Herbal Skin Care - ' + storeTitle;
     desc = 'Toko Resmi Kemitraan SR12 Herbal Skin Care terverifikasi BPOM. Dapatkan produk kecantikan alami dengan garansi 100% original.';
-    imageUrl = baseUrl + '/assets/deodorant-spray.jpg';
+    imageUrl = baseUrl + '/assets/deodorant-spray-og.jpg';
     targetRedirect = baseUrl + '/?store=' + encodeURIComponent(storeSlug);
     canonicalUrl = baseUrl + '/?store=' + encodeURIComponent(storeSlug);
   }
@@ -1473,52 +1473,51 @@ export default function handler(req, res) {
   else if (imageUrl.endsWith('.webp')) imageType = 'image/webp';
 
   // Halaman HTML dengan Open Graph lengkap yang kompatibel untuk SEMUA platform (Shopee/Marketplace style)
-  // Tidak menggunakan redirect HTTP 302 agar HP pengirim maupun crawler WhatsApp selalu menerima meta tag gambar
   const html = '<!DOCTYPE html>\n' +
 '<html lang="id">\n' +
 '<head>\n' +
 '  <meta charset="UTF-8">\n' +
 '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
-'  <title>' + escapeHtml(title) + '</title>\n' +
+'  <title>' + escapeHtml(title) + ' | ' + escapeHtml(storeTitle) + '</title>\n' +
 '  <meta name="description" content="' + escapeHtml(desc) + '">\n' +
-'  <!-- Open Graph / WhatsApp Meta Tags (Shopee-Style Large Card) -->\n' +
+'  <!-- Open Graph Meta Tags (Untuk WhatsApp, Facebook, Telegram, dll) -->\n' +
+'  <meta property="og:type" content="product">\n' +
 '  <meta property="og:site_name" content="' + escapeHtml(storeTitle) + '">\n' +
-'  <meta property="og:type" content="website">\n' +
 '  <meta property="og:title" content="' + escapeHtml(title) + '">\n' +
 '  <meta property="og:description" content="' + escapeHtml(desc) + '">\n' +
 '  <meta property="og:image" content="' + escapeHtml(imageUrl) + '">\n' +
 '  <meta property="og:image:secure_url" content="' + escapeHtml(imageUrl) + '">\n' +
+'  <meta property="og:image:width" content="800">\n' +
+'  <meta property="og:image:height" content="600">\n' +
 '  <meta property="og:image:type" content="' + imageType + '">\n' +
-'  <meta property="og:image:width" content="1200">\n' +
-'  <meta property="og:image:height" content="630">\n' +
 '  <meta property="og:url" content="' + escapeHtml(canonicalUrl) + '">\n' +
-'  <!-- Twitter Card (Summary Large Image) -->\n' +
+'  <!-- Twitter Card -->\n' +
 '  <meta name="twitter:card" content="summary_large_image">\n' +
 '  <meta name="twitter:title" content="' + escapeHtml(title) + '">\n' +
 '  <meta name="twitter:description" content="' + escapeHtml(desc) + '">\n' +
 '  <meta name="twitter:image" content="' + escapeHtml(imageUrl) + '">\n' +
+'  <!-- Instant Redirect for Humans / Browser Visits -->\n' +
 '  <link rel="canonical" href="' + escapeHtml(targetRedirect) + '">\n' +
-'  <!-- Pengalihan JavaScript Halus untuk Pengunjung (Bukan Bot) -->\n' +
+'  <meta http-equiv="refresh" content="0; url=' + escapeHtml(targetRedirect) + '">\n' +
 '  <script>\n' +
-'    setTimeout(function() {\n' +
-'      window.location.replace(' + JSON.stringify(targetRedirect) + ');\n' +
-'    }, 350);\n' +
+'    window.location.replace(' + JSON.stringify(targetRedirect) + ');\n' +
 '  </script>\n' +
 '  <style>\n' +
-'    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #064e3b; color: #fff; text-align: center; }\n' +
-'    .card { background: rgba(255, 255, 255, 0.12); border-radius: 16px; padding: 24px; max-width: 380px; margin: 20px; }\n' +
-'    .preview-img { width: 100%; max-height: 200px; object-fit: cover; border-radius: 10px; margin-bottom: 12px; }\n' +
-'    h2 { font-size: 1.1rem; margin: 0 0 6px 0; font-weight: 800; }\n' +
-'    p { font-size: 0.85rem; color: #d1fae5; margin: 0 0 14px 0; }\n' +
-'    a.btn { display: inline-block; background: #34d399; color: #064e3b; font-weight: 700; padding: 8px 18px; border-radius: 9999px; text-decoration: none; font-size: 0.82rem; }\n' +
+'    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #064e3b 0%, #047857 100%); color: #fff; text-align: center; }\n' +
+'    .card { background: rgba(255, 255, 255, 0.12); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 20px; padding: 32px 24px; max-width: 420px; margin: 20px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25); }\n' +
+'    .spinner { width: 44px; height: 44px; margin: 0 auto 18px; border: 4px solid rgba(255, 255, 255, 0.2); border-top-color: #34d399; border-radius: 50%; animation: spin 0.8s linear infinite; }\n' +
+'    @keyframes spin { to { transform: rotate(360deg); } }\n' +
+'    h2 { font-size: 1.25rem; margin: 0 0 8px 0; font-weight: 800; color: #fff; }\n' +
+'    p { font-size: 0.88rem; color: #d1fae5; line-height: 1.5; margin: 0 0 16px 0; }\n' +
+'    a.btn { display: inline-block; background: #34d399; color: #064e3b; font-weight: 700; padding: 10px 22px; border-radius: 9999px; text-decoration: none; font-size: 0.85rem; }\n' +
 '  </style>\n' +
 '</head>\n' +
 '<body>\n' +
 '  <div class="card">\n' +
-'    <img src="' + escapeHtml(imageUrl) + '" class="preview-img" alt="Foto Produk">\n' +
-'    <h2>' + escapeHtml(title) + '</h2>\n' +
-'    <p>' + escapeHtml(desc) + '</p>\n' +
-'    <a href="' + escapeHtml(targetRedirect) + '" class="btn">Buka di Toko Sekarang</a>\n' +
+'    <div class="spinner"></div>\n' +
+'    <h2>🌿 Membuka Produk SR12...</h2>\n' +
+'    <p>Sedang mengalihkan Anda ke etalase resmi <b>' + escapeHtml(matchedProduct ? matchedProduct.name : storeTitle) + '</b>...</p>\n' +
+'    <a href="' + escapeHtml(targetRedirect) + '" class="btn">Klik Di Sini Jika Belum Terbuka</a>\n' +
 '  </div>\n' +
 '</body>\n' +
 '</html>';
