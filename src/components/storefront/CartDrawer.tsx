@@ -59,18 +59,25 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
     }
     const timer = setTimeout(async () => {
       setIsSearchingDest(true);
-      const res = await searchOngkirDestinations(destinationSearch);
-      setDestinationOptions(res);
-      setIsSearchingDest(false);
+      try {
+        const res = await searchOngkirDestinations(destinationSearch);
+        setDestinationOptions(res || []);
+      } catch (err) {
+        console.warn(err);
+      } finally {
+        setIsSearchingDest(false);
+      }
     }, 400);
 
     return () => clearTimeout(timer);
   }, [destinationSearch]);
 
-  if (!isOpen) return null;
-
-  // Calculate weights & prices
-  const totalWeightGram = cart.reduce((sum, item) => sum + (item.product.weightGram * item.quantity), 0);
+  // Calculate weights & prices aman dari null
+  const totalWeightGram = cart.reduce((sum, item) => {
+    const w = (item && item.product && typeof item.product.weightGram === 'number') ? item.product.weightGram : 100;
+    const q = (item && typeof item.quantity === 'number') ? item.quantity : 1;
+    return sum + (w * q);
+  }, 0);
   const totalWeightKg = Math.max(1, Math.ceil(totalWeightGram / 1000));
 
   // Hitung ulang ongkir saat destinasi dipilih atau berat berubah
@@ -81,19 +88,23 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
 
     calculateRealShippingCost(selectedDestination.id, totalWeightGram).then((rates) => {
       if (isSubscribed) {
-        setRealOngkirRates(rates);
-        if (rates.length > 0) {
-          // Pilih layanan reguler atau paling ekonomis pertama
-          setSelectedRealService(rates[0]);
+        const safeRates = Array.isArray(rates) ? rates : [];
+        setRealOngkirRates(safeRates);
+        if (safeRates.length > 0) {
+          setSelectedRealService(safeRates[0]);
         }
         setIsLoadingRates(false);
       }
+    }).catch(() => {
+      if (isSubscribed) setIsLoadingRates(false);
     });
 
     return () => {
       isSubscribed = false;
     };
   }, [selectedDestination, totalWeightGram]);
+
+  if (!isOpen) return null;
 
   const selectedCourier = SR12_SHIPPING_PROVIDERS.find(c => c.id === selectedCourierId) || SR12_SHIPPING_PROVIDERS[0];
   const shippingCost = selectedRealService ? selectedRealService.cost : selectedCourier.costPerKg;
