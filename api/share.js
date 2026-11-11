@@ -1380,7 +1380,55 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
-export default function handler(req, res) {
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://roezaobiexlmhxpuvfds.supabase.co';
+const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJvZXphb2JpZXhsbWh4cHV2ZmRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NjM4MjAsImV4cCI6MjEwNzIzOTgyMH0.o-H8qNxBT4D88VTxcJNPTVr1xN7ajL-VE_jwtyggRNc';
+
+async function fetchCustomProductImage(storeSlug, productKey) {
+  try {
+    const slug = (storeSlug || 'sr12-central').toLowerCase();
+    const cleanKey = productKey.toLowerCase().trim();
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/products?store_slug=eq.${encodeURIComponent(slug)}&select=image_url,description,name,het_price&order=created_at.desc&limit=30`, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      }
+    });
+    if (!res.ok) return null;
+    const items = await res.json();
+    if (!Array.isArray(items) || items.length === 0) return null;
+
+    for (const item of items) {
+      let localId = '';
+      let sku = '';
+      if (item.description) {
+        try {
+          const parsed = JSON.parse(item.description);
+          localId = (parsed.localId || '').toLowerCase();
+          sku = (parsed.sku || '').toLowerCase();
+        } catch(e){}
+      }
+      const itemName = (item.name || '').toLowerCase();
+      if (
+        (localId && (localId === cleanKey || localId.replace(/[^a-z0-9]/g, '') === cleanKey.replace(/[^a-z0-9]/g, ''))) ||
+        (sku && sku === cleanKey) ||
+        itemName.includes(cleanKey.replace(/^sr12-?/i, '').replace(/-/g, ' '))
+      ) {
+        if (item.image_url && item.image_url.startsWith('http')) {
+          return {
+            imageUrl: item.image_url,
+            name: item.name,
+            price: item.het_price
+          };
+        }
+      }
+    }
+  } catch (err) {
+    // Silent fallback
+  }
+  return null;
+}
+
+export default async function handler(req, res) {
   const query = req.query || {};
   const productKey = (query.product || query.id || query.p || query.prod || '').trim();
   const storeSlug = (query.store || query.s || 'sr12-central').trim();
@@ -1424,15 +1472,31 @@ export default function handler(req, res) {
 
   let title, desc, imageUrl, canonicalUrl, targetRedirect;
 
+  // Cek apakah produk ini memiliki foto hasil edit/upload di database cloud Supabase
+  let customCloudProduct = null;
+  if (!customImg && (productKey || matchedProduct)) {
+    customCloudProduct = await fetchCustomProductImage(storeSlug, productKey || matchedProduct.id);
+  }
+
   if (customImg && customImg.startsWith('http')) {
-    // Prioritas 1: Gambar kustom hasil upload / edit toko
+    // Prioritas 1: Gambar kustom hasil upload / edit toko via query
     const prodName = customName || (matchedProduct ? matchedProduct.name : 'Produk SR12');
     const priceText = customPrice > 0 ? (' - ' + formatRupiah(customPrice)) : (matchedProduct ? (' - ' + formatRupiah(matchedProduct.het)) : '');
     title = prodName + priceText;
     desc = (matchedProduct ? matchedProduct.summary : 'Dapatkan produk herbal & skin care resmi SR12 BPOM.') + ' | Belanja aman di ' + storeTitle;
     imageUrl = customImg;
     targetRedirect = baseUrl + '/?store=' + encodeURIComponent(storeSlug) + '&product=' + encodeURIComponent(productKey || (matchedProduct ? matchedProduct.id : ''));
-    canonicalUrl = baseUrl + '/p?product=' + encodeURIComponent(productKey || '') + '&store=' + encodeURIComponent(storeSlug) + '&img=' + encodeURIComponent(customImg);
+    canonicalUrl = baseUrl + '/p?product=' + encodeURIComponent(productKey || '') + '&store=' + encodeURIComponent(storeSlug);
+  } else if (customCloudProduct && customCloudProduct.imageUrl) {
+    // Prioritas 2: Gambar hasil edit/upload yang tersimpan di Supabase database toko!
+    // Kunci utama: link tetap singkat & rapi tanpa embel-embel &img= yang panjang!
+    const prodName = customCloudProduct.name || (matchedProduct ? matchedProduct.name : 'Produk SR12');
+    const hetVal = customCloudProduct.price || (matchedProduct ? matchedProduct.het : 0);
+    title = prodName + (hetVal > 0 ? (' - ' + formatRupiah(hetVal)) : '');
+    desc = (matchedProduct ? matchedProduct.summary : 'Dapatkan produk herbal & skin care resmi SR12 BPOM.') + ' | Belanja aman di ' + storeTitle;
+    imageUrl = customCloudProduct.imageUrl;
+    targetRedirect = baseUrl + '/?store=' + encodeURIComponent(storeSlug) + '&product=' + encodeURIComponent(productKey || (matchedProduct ? matchedProduct.id : ''));
+    canonicalUrl = baseUrl + '/p?product=' + encodeURIComponent(productKey || (matchedProduct ? matchedProduct.id : '')) + '&store=' + encodeURIComponent(storeSlug);
   } else if (matchedProduct) {
     title = matchedProduct.name + ' - ' + formatRupiah(matchedProduct.het);
     desc = (matchedProduct.summary || '') + ' | Belanja aman resmi BPOM di ' + storeTitle;
