@@ -1425,14 +1425,14 @@ export default function handler(req, res) {
   let title, desc, imageUrl, canonicalUrl, targetRedirect;
 
   if (customImg && customImg.startsWith('http')) {
-    // Prioritas 1: Gambar kustom hasil upload toko ke cloud
+    // Prioritas 1: Gambar kustom hasil upload / edit toko
     const prodName = customName || (matchedProduct ? matchedProduct.name : 'Produk SR12');
     const priceText = customPrice > 0 ? (' - ' + formatRupiah(customPrice)) : (matchedProduct ? (' - ' + formatRupiah(matchedProduct.het)) : '');
     title = prodName + priceText;
     desc = (matchedProduct ? matchedProduct.summary : 'Dapatkan produk herbal & skin care resmi SR12 BPOM.') + ' | Belanja aman di ' + storeTitle;
     imageUrl = customImg;
-    targetRedirect = baseUrl + '/?product=' + encodeURIComponent(productKey || (matchedProduct ? matchedProduct.id : ''));
-    canonicalUrl = baseUrl + '/p?product=' + encodeURIComponent(productKey || '') + '&img=' + encodeURIComponent(customImg);
+    targetRedirect = baseUrl + '/?store=' + encodeURIComponent(storeSlug) + '&product=' + encodeURIComponent(productKey || (matchedProduct ? matchedProduct.id : ''));
+    canonicalUrl = baseUrl + '/p?product=' + encodeURIComponent(productKey || '') + '&store=' + encodeURIComponent(storeSlug) + '&img=' + encodeURIComponent(customImg);
   } else if (matchedProduct) {
     title = matchedProduct.name + ' - ' + formatRupiah(matchedProduct.het);
     desc = (matchedProduct.summary || '') + ' | Belanja aman resmi BPOM di ' + storeTitle;
@@ -1444,7 +1444,7 @@ export default function handler(req, res) {
       const cleanPath = matchedProduct.image.startsWith('/') ? matchedProduct.image : ('/' + matchedProduct.image);
       imageUrl = baseUrl + cleanPath;
     } else {
-      imageUrl = baseUrl + '/assets/deodorant-spray-og.jpg';
+      imageUrl = baseUrl + '/assets/deodorant-spray-square.jpg';
     }
     
     // PENTING: Arahkan langsung ke URL produk spesifik di toko mitra bersangkutan
@@ -1456,13 +1456,13 @@ export default function handler(req, res) {
     const cleanProdTitle = customName || productKey.replace(/^sr12-?/i, '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     title = 'SR12 ' + cleanProdTitle + ' - ' + storeTitle;
     desc = 'Beli produk resmi SR12 ' + cleanProdTitle + ' terverifikasi BPOM di ' + storeTitle + '.';
-    imageUrl = baseUrl + '/assets/deodorant-spray-og.jpg';
+    imageUrl = baseUrl + '/assets/deodorant-spray-square.jpg';
     targetRedirect = baseUrl + '/?store=' + encodeURIComponent(storeSlug) + '&product=' + encodeURIComponent(productKey);
     canonicalUrl = baseUrl + '/p?product=' + encodeURIComponent(productKey) + '&store=' + encodeURIComponent(storeSlug);
   } else {
     title = 'SR12 Herbal Skin Care - ' + storeTitle;
     desc = 'Toko Resmi Kemitraan SR12 Herbal Skin Care terverifikasi BPOM. Dapatkan produk kecantikan alami dengan garansi 100% original.';
-    imageUrl = baseUrl + '/assets/deodorant-spray-og.jpg';
+    imageUrl = baseUrl + '/assets/deodorant-spray-square.jpg';
     targetRedirect = baseUrl + '/?store=' + encodeURIComponent(storeSlug);
     canonicalUrl = baseUrl + '/?store=' + encodeURIComponent(storeSlug);
   }
@@ -1488,7 +1488,7 @@ export default function handler(req, res) {
 '  <meta property="og:image" content="' + escapeHtml(imageUrl) + '">\n' +
 '  <meta property="og:image:secure_url" content="' + escapeHtml(imageUrl) + '">\n' +
 '  <meta property="og:image:width" content="800">\n' +
-'  <meta property="og:image:height" content="600">\n' +
+'  <meta property="og:image:height" content="800">\n' +
 '  <meta property="og:image:type" content="' + imageType + '">\n' +
 '  <meta property="og:url" content="' + escapeHtml(canonicalUrl) + '">\n' +
 '  <!-- Twitter Card -->\n' +

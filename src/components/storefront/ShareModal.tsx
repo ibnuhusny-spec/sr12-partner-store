@@ -16,10 +16,15 @@ export const ShareModal: React.FC<ShareModalProps> = ({ product, onClose }) => {
 
   if (!product) return null;
 
-  // Format tautan singkat dan rapi persis seperti tangkapan layar Anda sebelumnya:
-  // Contoh: https://sr12-partner-store.vercel.app/p?product=sr12-deodorant-spray-60ml&store=sr12-central
+  // Build product direct link
+  // Jika produk memiliki gambar hasil upload/edit yang merupakan URL http/https (misal Supabase Storage),
+  // sertakan parameter &img= agar bot WhatsApp langsung menampilkan foto hasil edit tersebut!
   const origin = window.location.origin;
-  const shortShareLink = `${origin}/p?product=${encodeURIComponent(product.id)}&store=${encodeURIComponent(currentStore.slug)}`;
+  const imgParam = (product.image && product.image.startsWith('http'))
+    ? `&img=${encodeURIComponent(product.image)}`
+    : '';
+
+  const shortShareLink = `${origin}/p?product=${encodeURIComponent(product.id)}&store=${encodeURIComponent(currentStore.slug)}${imgParam}`;
   const directLink = shortShareLink;
 
   const benefitsText = `✅ 100% Produk Herbal Terdaftar BPOM & Halal MUI\n✅ Formulasi Lembut & Aman Digunakan Tiap Hari\n✅ Garansi Keaslian Resmi Pabrik PT SR12`;
