@@ -499,9 +499,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
                   <label style={{ fontSize: '0.76rem', fontWeight: 800, color: '#334155', display: 'flex', alignItems: 'center', gap: '5px' }}>
                     <MapPin size={14} color="#059669" />
-                    <span>Kota / Kecamatan Tujuan (RajaOngkir):</span>
+                    <span>Kota / Kecamatan Tujuan:</span>
                   </label>
                   <span style={{ fontSize: '0.68rem', color: '#64748b' }}>Berat: {totalWeightGram} gram</span>
+                </div>
+
+                {/* Info Asal Pengiriman Toko */}
+                <div style={{ fontSize: '0.7rem', color: '#047857', background: '#ecfdf5', padding: '4px 8px', borderRadius: '6px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span>📦 <b>Dikirim dari:</b> {currentStore.originLabel || currentStore.storeCity || 'Jakarta Barat'}</span>
                 </div>
 
                 <div style={{ position: 'relative' }}>
@@ -512,7 +517,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
                       setDestinationSearch(e.target.value);
                       if (selectedDestination) setSelectedDestination(null);
                     }}
-                    placeholder="Ketik minimal 3 huruf kota/kecamatan (contoh: bandung, makassar)..."
+                    placeholder="Ketik nama kecamatan atau kota tujuan pembeli..."
                     style={{
                       width: '100%',
                       padding: '8px 30px 8px 10px',
