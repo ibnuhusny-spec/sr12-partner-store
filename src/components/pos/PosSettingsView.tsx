@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Store } from '../../types';
 import { STORE_CONFIG } from '../../config/storeConfig';
-import { Settings, Image, Sparkles, Check, Save, Upload, RefreshCw } from 'lucide-react';
+import { Settings, Image, Sparkles, Check, Save, Upload, RefreshCw, KeyRound, Mail, Lock } from 'lucide-react';
 import { compressImageToBase64 } from '../../services/catalogService';
 
 export const PosSettingsView: React.FC = () => {
@@ -14,6 +14,13 @@ export const PosSettingsView: React.FC = () => {
   const [storeWaNumber, setStoreWaNumber] = useState(currentStore.storeWaNumber || STORE_CONFIG.storeWaNumber);
   const [storeCity, setStoreCity] = useState(currentStore.storeCity || STORE_CONFIG.storeCity);
   const [storeOwner, setStoreOwner] = useState(currentStore.storeOwner || STORE_CONFIG.storeOwner);
+
+  // Akun Login & Keamanan Toko
+  const [ownerEmail, setOwnerEmail] = useState(currentStore.ownerEmail || STORE_CONFIG.ownerEmail || 'admin@sr12.co.id');
+  const [adminPassword, setAdminPassword] = useState(currentStore.adminPassword || STORE_CONFIG.adminPassword || '');
+  const [storeAdminPin, setStoreAdminPin] = useState(currentStore.storeAdminPin || STORE_CONFIG.storeAdminPin || '1234');
+  const [showPassword, setShowPassword] = useState(false);
+
   const [isSaved, setIsSaved] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -87,7 +94,10 @@ export const PosSettingsView: React.FC = () => {
       heroBannerUrl,
       storeWaNumber,
       storeCity,
-      storeOwner
+      storeOwner,
+      ownerEmail: ownerEmail.trim().toLowerCase(),
+      adminPassword: adminPassword.trim() || currentStore.adminPassword,
+      storeAdminPin: storeAdminPin.trim() || currentStore.storeAdminPin
     };
 
     try {
@@ -292,6 +302,115 @@ export const PosSettingsView: React.FC = () => {
                   fontSize: '0.9rem'
                 }}
               />
+            </div>
+          </div>
+        </div>
+
+        {/* Card Keamanan & Akun Login Toko */}
+        <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '16px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #1e293b', paddingBottom: '10px' }}>
+            <Lock size={18} color="#fde68a" />
+            <div>
+              <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#f8fafc' }}>Akun Login &amp; Keamanan Admin</div>
+              <div style={{ fontSize: '0.74rem', color: '#94a3b8' }}>Ubah email login, password, dan PIN kasir toko Anda di sini</div>
+            </div>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#cbd5e1', marginBottom: '6px' }}>
+              Email Login Pemilik Toko:
+            </label>
+            <div style={{ position: 'relative' }}>
+              <Mail size={16} color="#64748b" style={{ position: 'absolute', left: '14px', top: '14px' }} />
+              <input
+                type="email"
+                value={ownerEmail}
+                onChange={(e) => setOwnerEmail(e.target.value)}
+                placeholder="email-anda@gmail.com"
+                required
+                style={{
+                  width: '100%',
+                  padding: '12px 14px 12px 40px',
+                  borderRadius: '10px',
+                  background: '#1e293b',
+                  border: '1px solid #334155',
+                  color: '#ffffff',
+                  fontSize: '0.9rem',
+                  fontWeight: 600
+                }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#cbd5e1', marginBottom: '6px' }}>
+                Password Baru Admin Toko:
+              </label>
+              <div style={{ position: 'relative' }}>
+                <KeyRound size={16} color="#64748b" style={{ position: 'absolute', left: '14px', top: '14px' }} />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  placeholder="Ketik password baru Anda"
+                  style={{
+                    width: '100%',
+                    padding: '12px 40px 12px 40px',
+                    borderRadius: '10px',
+                    background: '#1e293b',
+                    border: '1px solid #334155',
+                    color: '#ffffff',
+                    fontSize: '0.9rem'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: '12px',
+                    top: '12px',
+                    background: 'none',
+                    border: 'none',
+                    color: '#94a3b8',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {showPassword ? 'Tutup' : 'Lihat'}
+                </button>
+              </div>
+              <span style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px', display: 'block' }}>
+                Gunakan minimal 8 karakter kombinasi huruf &amp; angka.
+              </span>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#cbd5e1', marginBottom: '6px' }}>
+                PIN Cepat Kasir (4-6 Digit):
+              </label>
+              <input
+                type="password"
+                maxLength={6}
+                value={storeAdminPin}
+                onChange={(e) => setStoreAdminPin(e.target.value)}
+                placeholder="Contoh: 1234"
+                style={{
+                  width: '100%',
+                  padding: '12px 14px',
+                  borderRadius: '10px',
+                  background: '#1e293b',
+                  border: '1px solid #334155',
+                  color: '#ffffff',
+                  fontSize: '0.9rem',
+                  letterSpacing: '2px',
+                  textAlign: 'center',
+                  fontWeight: 800
+                }}
+              />
+              <span style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px', display: 'block' }}>
+                PIN praktis untuk login cepat kasir toko harian.
+              </span>
             </div>
           </div>
         </div>
