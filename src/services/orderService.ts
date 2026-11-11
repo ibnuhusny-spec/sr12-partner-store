@@ -226,26 +226,34 @@ export async function clearAllOrders(storeSlug?: string): Promise<void> {
 }
 
 /**
+ * Normalisasi nomor WhatsApp ke format internasional (misal: 0812 -> 62812)
+ */
+export function normalizeWhatsAppNumber(phone: string): string {
+  let cleaned = (phone || '').replace(/[^0-9]/g, '');
+  if (cleaned.startsWith('0')) {
+    cleaned = '62' + cleaned.slice(1);
+  } else if (cleaned.startsWith('8')) {
+    cleaned = '62' + cleaned;
+  }
+  return cleaned;
+}
+
+/**
  * Format pesan WhatsApp resmi untuk pemesanan toko
  */
 export function formatWhatsAppOrderMessage(order: Order, store: Store): string {
+  const storeTitle = (store?.storeName || 'SR12 STORE').toUpperCase();
   const itemsText = order.items.map((it, idx) => 
     `${idx + 1}. *${it.name}*\n   ${it.quantity} pcs x Rp ${it.price.toLocaleString('id-ID')} = Rp ${it.subtotal.toLocaleString('id-ID')}`
   ).join('\n');
 
   const discountText = order.discountAmount > 0 
-    ? `\n🎁 Diskon Kemitraan (${order.tierLabel}): -Rp ${order.discountAmount.toLocaleString('id-ID')}`
+    ? `\n🎁 *Diskon Mitra (${order.tierLabel}):* -Rp ${order.discountAmount.toLocaleString('id-ID')}`
     : '';
 
-  const shippingText = (order.shippingCost && order.shippingCost > 0)
-    ? `\n🚚 Ongkir (${order.courierName || 'Ekspedisi'}): Rp ${order.shippingCost.toLocaleString('id-ID')}`
-    : (order.courierName?.includes('Ambil Sendiri') 
-        ? `\n🚚 Pengiriman: ${order.courierName} (Bebas Ongkir - Rp 0)`
-        : `\n🚚 Ongkir: Dikonfirmasi Admin Toko via WhatsApp`);
-
-  const platformFeeText = order.platformFee && order.platformFee > 0
-    ? `\n🛡️ Biaya Layanan Aplikasi: Rp ${order.platformFee.toLocaleString('id-ID')}`
-    : '';
+  const shippingText = order.courierName?.includes('Ambil Sendiri') 
+    ? `\n🚚 *Metode:* Ambil Sendiri di Toko (Bebas Ongkir - Rp 0)`
+    : `\n🚚 *Metode:* Kirim ke Alamat (Ekspedisi / Kurir)\n📦 *Ongkir:* Dikonfirmasi Admin Toko via WhatsApp`;
 
   const dropshipText = order.dropship?.isDropship
     ? `\n\n📦 *PENGIRIMAN DROPSHIP*\nDari: ${order.dropship.senderName} (${order.dropship.senderPhone})`
@@ -259,7 +267,7 @@ export function formatWhatsAppOrderMessage(order: Order, store: Store): string {
     ? `\n💼 *Kode Marketer / Referral:* ${order.marketerId}`
     : '';
 
-  return `*PESANAN BARU - ${store.storeName.toUpperCase()}* 🌿
+  return `*PESANAN BARU - ${storeTitle}* 🌿
 No. Invoice: *#${order.orderId}*
 Waktu: ${new Date().toLocaleString('id-ID')}
 
@@ -267,16 +275,16 @@ Waktu: ${new Date().toLocaleString('id-ID')}
 Nama: *${order.customerName}*
 WhatsApp: ${order.customerPhone}
 Alamat Pengiriman: ${order.customerAddress}
-Level Harga: *${order.tierLabel}*${partnerText}${marketerText}${dropshipText}
+Status Pembeli: *${order.tierLabel}*${partnerText}${marketerText}${dropshipText}
 
 📋 *RINCIAN PESANAN:*
 ${itemsText}
 
 💰 *TOTAL PEMBAYARAN:*
-Subtotal Produk: Rp ${order.subtotalHet.toLocaleString('id-ID')}${discountText}${shippingText}${platformFeeText}
+Subtotal Produk: Rp ${order.subtotalHet.toLocaleString('id-ID')}${discountText}${shippingText}
 ---------------------------------------
 *TOTAL SEMENTARA: Rp ${order.grandTotal.toLocaleString('id-ID')}*
-*(Ongkir final & rekening resmi akan dikonfirmasi oleh Admin Toko)*
+*(Ongkir final & rekening pembayaran resmi akan dikonfirmasi Admin Toko)*
 
 Mohon cek & konfirmasi total pesanan dan ongkirnya ya Admin. Terima kasih! 🙏`;
 }

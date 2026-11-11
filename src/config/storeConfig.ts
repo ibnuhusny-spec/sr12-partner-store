@@ -30,7 +30,7 @@ export const STORE_CONFIG: Store = {
   originLabel: saved.originLabel || 'Jakarta Barat (DKI Jakarta)',
   storeOwner: saved.storeOwner || import.meta.env.VITE_STORE_OWNER || 'Ibnu Husny',
   partnerTier: 'distributor',
-  feePayer: 'buyer',
+  feePayer: 'store',
   storeAdminPin: saved.storeAdminPin || import.meta.env.VITE_STORE_ADMIN_PIN || '1234',
   ownerEmail: saved.ownerEmail || import.meta.env.VITE_STORE_OWNER_EMAIL || 'admin@sr12.co.id',
   adminPassword: saved.adminPassword || import.meta.env.VITE_STORE_ADMIN_PASSWORD || 'AdminSR12@2026!',

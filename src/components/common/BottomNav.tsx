@@ -1,5 +1,6 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
+import { normalizeWhatsAppNumber } from '../../services/orderService';
 import { Store, Tag, MessageCircle, ShoppingBag, ShieldCheck, Lock } from 'lucide-react';
 
 interface BottomNavProps {
@@ -19,9 +20,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 
   const handleWaClick = () => {
     if (!currentStore.storeWaNumber) return;
-    const cleanWa = currentStore.storeWaNumber.replace(/[^0-9]/g, '');
+    const cleanWa = normalizeWhatsAppNumber(currentStore.storeWaNumber);
     const message = encodeURIComponent(`Halo Admin ${currentStore.storeName}, saya ingin konsultasi & order produk SR12.`);
-    window.open(`https://wa.me/${cleanWa}?text=${message}`, '_blank');
+    window.open(`https://api.whatsapp.com/send?phone=${cleanWa}&text=${message}`, '_blank');
   };
 
   const handlePosClick = () => {

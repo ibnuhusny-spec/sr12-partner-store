@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { getProductTierPrice, SR12_TIERS } from '../../config/tiers';
 import { verifyMitraDiscount, getLocalDownlines, saveStoreDownline, getLocalMarketerSales } from '../../services/mitraService';
-import { createOrder, formatWhatsAppOrderMessage } from '../../services/orderService';
+import { createOrder, formatWhatsAppOrderMessage, normalizeWhatsAppNumber } from '../../services/orderService';
 import { Order, OrderItemPayload, MarketerSale, PartnerTier } from '../../types';
 import { getStoreCatalog, saveStoreCatalog } from '../../services/catalogService';
 import { recordStockMutation } from '../../services/posService';
 import confetti from 'canvas-confetti';
-import { X, Trash2, ShoppingBag, Truck, Check, MessageCircle, UserCheck, RotateCcw, Building2 } from 'lucide-react';
+import { X, Trash2, ShoppingBag, Truck, MessageCircle, UserCheck, RotateCcw } from 'lucide-react';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -41,9 +41,23 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
   const [dropshipSenderPhone, setDropshipSenderPhone] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Mencegah modal tertutup tidak sengaja saat menyeleksi teks lalu kursor keluar panel
+  const isMouseDownOnOverlay = useRef(false);
+
+  const handleOverlayMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    isMouseDownOnOverlay.current = (e.target === e.currentTarget);
+  };
+
+  const handleOverlayMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isMouseDownOnOverlay.current && e.target === e.currentTarget) {
+      onClose();
+    }
+    isMouseDownOnOverlay.current = false;
+  };
+
   if (!isOpen) return null;
 
-  // Hitung subtotal dan harga tier produk
+  // Hitung subtotal dan harga produk (Tanpa biaya layanan aplikasi)
   const subtotalHet = cart.reduce((sum, item) => sum + (item.product.het * item.quantity), 0);
   const totalProductsPrice = cart.reduce((sum, item) => {
     const price = getProductTierPrice(item.product.het, activeTier);
@@ -51,25 +65,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
   }, 0);
 
   const discountAmount = Math.max(0, subtotalHet - totalProductsPrice);
-
-  // Platform fee (bebas biaya admin untuk mitra atau jika toko menanggung biaya)
-  const platformFee = (() => {
-    try {
-      if (activeTier !== 'konsumen') {
-        return 0;
-      }
-      const payerMode = currentStore.feePayer || 'store';
-      if (payerMode === 'buyer') {
-        const val = localStorage.getItem('sr12_platform_fee_nominal');
-        return val ? Number(val) : 1500;
-      }
-      return 0;
-    } catch {
-      return 0;
-    }
-  })();
-
-  const grandTotal = totalProductsPrice + platformFee;
+  const grandTotal = totalProductsPrice; // Murni total belanja produk tanpa biaya aplikasi
 
   // Verifikasi Kode Mitra & Auto-Fill Data Pembeli
   const handleVerifyMitra = async () => {
@@ -108,7 +104,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
     }
   };
 
-  // Reset / Batalkan status Mitra ke Konsumen umum
+  // Reset status Mitra ke Konsumen umum
   const handleResetMitra = () => {
     setVerifiedMitra(null);
     setActiveTier('konsumen');
@@ -167,8 +163,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
 
     const calculatedProductsPrice = calculatedItems.reduce((sum, item) => sum + item.subtotal, 0);
     const calculatedDiscountAmount = Math.max(0, subtotalHet - calculatedProductsPrice);
-    const calculatedPlatformFee = (finalTier !== 'konsumen' || currentStore.feePayer === 'store') ? 0 : platformFee;
-    const calculatedGrandTotal = calculatedProductsPrice + calculatedPlatformFee;
+    const calculatedGrandTotal = calculatedProductsPrice; // Tanpa biaya aplikasi
 
     const courierDisplayName = deliveryMethod === 'pickup' 
       ? '🏪 Ambil Sendiri di Toko (Bebas Ongkir)' 
@@ -193,7 +188,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
       marketerId: marketerReferral || undefined,
       courierName: courierDisplayName,
       shippingCost: 0, // Ongkir diatur & disepakati bersama Admin via WhatsApp
-      platformFee: calculatedPlatformFee,
+      platformFee: 0,  // Bebas biaya layanan aplikasi
       createdAt: new Date().toISOString(),
       dropship: isDropship ? {
         isDropship: true,
@@ -203,10 +198,19 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
     };
 
     try {
-      // 1. Simpan pesanan ke database toko
+      // 1. Format pesan WhatsApp & siapkan URL yang 100% valid
+      const waMsg = formatWhatsAppOrderMessage(orderData, currentStore);
+      const cleanPhone = normalizeWhatsAppNumber(currentStore.storeWaNumber || '6281200001212');
+      const waUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(waMsg)}`;
+
+      // 2. Salin otomatis ke clipboard sebagai proteksi ganda jika WA klien tidak otomatis mem-paste
+      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(waMsg).catch(() => {});
+      }
+
+      // 3. Simpan pesanan ke database toko & mutasi stok
       await createOrder(orderData, currentStore.slug);
 
-      // 2. Deduksi stok produk di katalog toko secara pasti & rekam mutasi
       const currentCatalog = getStoreCatalog(currentStore.slug);
       const updatedCatalog = currentCatalog.map(p => {
         const inCart = cart.find(ci => ci.product.id === p.id);
@@ -243,14 +247,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
         }
       });
 
-      // 3. Catat omset & evaluasi mitra jika pembeli adalah mitra
+      // 4. Catat omset & evaluasi mitra jika pembeli adalah mitra
       if (targetMitra) {
         targetMitra.accumulatedSpent90Days = (targetMitra.accumulatedSpent90Days || 0) + calculatedGrandTotal;
         targetMitra.totalOrdersCount = (targetMitra.totalOrdersCount || 0) + 1;
         targetMitra.lastOrderDate = new Date().toISOString().split('T')[0];
         await saveStoreDownline(targetMitra, currentStore.slug);
 
-        // Jika transaksi dicatat untuk Marketer, catat komisi 15%
         if (finalTier === 'marketer' || targetMitra.tier === 'marketer') {
           const mId = targetMitra.tier === 'marketer' ? targetMitra.partnerCode : (marketerReferral || targetMitra.partnerCode);
           const commissionAmt = Math.round(subtotalHet * 0.15);
@@ -274,7 +277,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
           localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(salesList));
         }
       } else if (marketerReferral) {
-        // Pembeli umum via link referral Marketer
         const commissionAmt = Math.round(subtotalHet * 0.15);
         const mSale: MarketerSale = {
           storeSlug: currentStore.slug,
@@ -296,10 +298,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
         localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(salesList));
       }
 
-      // 4. Format pesan WhatsApp
-      const waMsg = formatWhatsAppOrderMessage(orderData, currentStore);
-      const waUrl = `https://wa.me/${currentStore.storeWaNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(waMsg)}`;
-
       // 5. Trigger confetti
       confetti({
         particleCount: 80,
@@ -307,8 +305,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
         origin: { y: 0.6 }
       });
 
-      // 6. Buka WhatsApp
-      window.open(waUrl, '_blank');
+      // 6. Buka WhatsApp secara aman & terpercaya
+      const win = window.open(waUrl, '_blank');
+      if (!win) {
+        // Fallback jika browser memblokir pop-up tab baru
+        window.location.href = waUrl;
+      }
 
       // 7. Bersihkan keranjang
       clearCart();
@@ -321,8 +323,19 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
   };
 
   return (
-    <div className="cart-drawer-overlay" onClick={onClose}>
-      <div className="cart-drawer-panel" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="cart-drawer-overlay"
+      onMouseDown={handleOverlayMouseDown}
+      onMouseUp={handleOverlayMouseUp}
+    >
+      <div
+        className="cart-drawer-panel"
+        onMouseDown={(e) => {
+          e.stopPropagation();
+          isMouseDownOnOverlay.current = false;
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="cart-drawer-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -689,13 +702,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
                   <span style={{ color: '#0284c7', fontWeight: 700 }}>Dikonfirmasi via WA</span>
                 )}
               </div>
-
-              {platformFee > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#0284c7', fontWeight: 600 }}>
-                  <span>Biaya Layanan Aplikasi:</span>
-                  <span>Rp {platformFee.toLocaleString('id-ID')}</span>
-                </div>
-              )}
 
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.96rem', fontWeight: 900, color: '#0f172a', borderTop: '1px solid #e2e8f0', paddingTop: '6px', marginTop: '4px' }}>
                 <span>Total Sementara:</span>

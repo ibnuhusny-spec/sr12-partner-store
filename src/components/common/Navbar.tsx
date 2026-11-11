@@ -1,5 +1,6 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
+import { normalizeWhatsAppNumber } from '../../services/orderService';
 import { ShoppingBag, MessageCircle, Store as StoreIcon } from 'lucide-react';
 
 interface NavbarProps {
@@ -69,7 +70,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenDistributorLog
           {/* WhatsApp CS Link (Desktop view, on mobile it is in BottomNav) */}
           {currentStore.storeWaNumber && (
             <a
-              href={`https://wa.me/${currentStore.storeWaNumber.replace(/[^0-9]/g, '')}?text=Halo%20Admin%20${encodeURIComponent(currentStore.storeName)},%20saya%20ingin%20tanya%20seputar%20produk%20SR12`}
+              href={`https://api.whatsapp.com/send?phone=${normalizeWhatsAppNumber(currentStore.storeWaNumber)}&text=Halo%20Admin%20${encodeURIComponent(currentStore.storeName)},%20saya%20ingin%20tanya%20seputar%20produk%20SR12`}
               target="_blank"
               rel="noopener noreferrer"
               className="btn-nav-wa hide-on-mobile"
