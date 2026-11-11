@@ -15,10 +15,10 @@ const getSavedStoreConfig = (): Partial<Store> => {
 const saved = getSavedStoreConfig();
 
 export const STORE_CONFIG: Store = {
-  slug: import.meta.env.VITE_STORE_SLUG || 'sr12-central',
+  slug: saved.slug || import.meta.env.VITE_STORE_SLUG || 'sr12-central',
   storeName: saved.storeName || import.meta.env.VITE_STORE_NAME || 'SR12 Herbal Skin Care',
   storeTagline: saved.storeTagline || import.meta.env.VITE_STORE_TAGLINE || 'Distributor Resmi SR12 Skin Care & Herbal Alami BPOM & Halal MUI',
-  storeTheme: (import.meta.env.VITE_STORE_THEME as StoreTheme) || 'emerald',
+  storeTheme: (saved.storeTheme as StoreTheme) || (import.meta.env.VITE_STORE_THEME as StoreTheme) || 'emerald',
   heroTitle: saved.heroTitle || saved.storeName || import.meta.env.VITE_STORE_NAME || 'SR12 Herbal Skin Care',
   heroSubtitle: saved.heroSubtitle || saved.storeTagline || import.meta.env.VITE_STORE_TAGLINE || 'Distributor Resmi SR12 Skin Care & Herbal Alami BPOM & Halal MUI',
   heroBannerUrl: saved.heroBannerUrl || '/assets/hero-banner.jpg',
@@ -29,9 +29,9 @@ export const STORE_CONFIG: Store = {
   storeOwner: saved.storeOwner || import.meta.env.VITE_STORE_OWNER || 'Ibnu Husny',
   partnerTier: 'distributor',
   feePayer: 'buyer',
-  storeAdminPin: import.meta.env.VITE_STORE_ADMIN_PIN || '1234',
-  ownerEmail: import.meta.env.VITE_STORE_OWNER_EMAIL || 'admin@sr12.co.id',
-  adminPassword: import.meta.env.VITE_STORE_ADMIN_PASSWORD || 'AdminSR12@2026!',
+  storeAdminPin: saved.storeAdminPin || import.meta.env.VITE_STORE_ADMIN_PIN || '1234',
+  ownerEmail: saved.ownerEmail || import.meta.env.VITE_STORE_OWNER_EMAIL || 'admin@sr12.co.id',
+  adminPassword: saved.adminPassword || import.meta.env.VITE_STORE_ADMIN_PASSWORD || 'AdminSR12@2026!',
   orderQuota: 99999,
   walletBalance: 1000000,
   totalTopupPaid: 0,
