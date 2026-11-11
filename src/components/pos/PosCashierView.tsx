@@ -3,12 +3,11 @@ import { Product, PartnerTier, Order, MitraDownline, MarketerSale, CashflowEntry
 import { useApp } from '../../context/AppContext';
 import { getProductTierPrice, SR12_TIERS } from '../../config/tiers';
 import { PosReceiptModal } from './PosReceiptModal';
-import { deductStoreTransactionQuota } from '../../services/storeService';
 import { createOrder } from '../../services/orderService';
 import { updateStoreProductStock, batchUpdateStoreProductStocks } from '../../services/catalogService';
 import { recordStockMutation } from '../../services/posService';
 import { fetchStoreDownlines, saveStoreDownline, fetchStoreMarketerSales, getLocalDownlines } from '../../services/mitraService';
-import { Coins, AlertTriangle, Users, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Coins, Users, Sparkles, CheckCircle2 } from 'lucide-react';
 import {
   Search,
   Plus,
@@ -161,23 +160,9 @@ export const PosCashierView: React.FC<PosCashierViewProps> = ({
       }
     }
 
-    if ((currentStore.orderQuota || 0) <= 0) {
-      alert('⚠️ Kuota Token Transaksi Toko Anda Telah Habis (0 Token)!\n\nUntuk memproses dan mencatat transaksi kasir baru, silakan lakukan Isi Ulang Token terlebih dahulu melalui tombol Token di menu atas.');
-      return;
-    }
-
     setIsProcessingCheckout(true);
 
     try {
-      // 2. Deduksi token transaksi toko
-      const res = await deductStoreTransactionQuota(currentStore.slug);
-      if (!res.success) {
-        alert('⚠️ Token Transaksi tidak mencukupi.');
-        setIsProcessingCheckout(false);
-        return;
-      }
-      currentStore.orderQuota = res.remainingQuota;
-
       const trxId = 'POS-' + Math.floor(100000 + Math.random() * 900000);
       const custName = buyerName.trim() || 'Konsumen Kasir Langsung';
       const custPhone = buyerPhone.trim() || '-';
@@ -647,20 +632,13 @@ export const PosCashierView: React.FC<PosCashierViewProps> = ({
             )}
           </div>
 
-          {(currentStore.orderQuota || 0) <= 0 && (
-            <div style={{ background: 'rgba(239, 68, 68, 0.18)', border: '1px solid #ef4444', borderRadius: '8px', padding: '8px 10px', marginBottom: '8px', fontSize: '0.74rem', color: '#fca5a5', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <AlertTriangle size={15} color="#ef4444" />
-              <span>Token Transaksi Habis! Isi ulang token untuk melanjutkan.</span>
-            </div>
-          )}
-
           <button
             type="button"
             onClick={handleCheckout}
-            disabled={(currentStore.orderQuota || 0) <= 0 || isProcessingCheckout}
+            disabled={isProcessingCheckout}
             style={{
               width: '100%',
-              background: (currentStore.orderQuota || 0) <= 0 || isProcessingCheckout ? '#475569' : 'linear-gradient(135deg, #0284c7, #0369a1)',
+              background: isProcessingCheckout ? '#475569' : 'linear-gradient(135deg, #0284c7, #0369a1)',
               color: '#ffffff',
               padding: '12px',
               borderRadius: '8px',
@@ -670,9 +648,9 @@ export const PosCashierView: React.FC<PosCashierViewProps> = ({
               alignItems: 'center',
               justifyContent: 'center',
               gap: '8px',
-              boxShadow: (currentStore.orderQuota || 0) <= 0 ? 'none' : '0 4px 14px rgba(2,132,199,0.4)',
-              cursor: (currentStore.orderQuota || 0) <= 0 || isProcessingCheckout ? 'not-allowed' : 'pointer',
-              opacity: (currentStore.orderQuota || 0) <= 0 || isProcessingCheckout ? 0.7 : 1
+              boxShadow: '0 4px 14px rgba(2,132,199,0.4)',
+              cursor: isProcessingCheckout ? 'not-allowed' : 'pointer',
+              opacity: isProcessingCheckout ? 0.7 : 1
             }}
           >
             <CheckCircle size={18} />

@@ -19,13 +19,11 @@ import {
   Clock,
   Lock,
   ChevronLeft,
-  Coins,
   RotateCcw,
   LogOut,
   AlertTriangle,
   Sliders
 } from 'lucide-react';
-import { TokenTopupModal } from './TokenTopupModal';
 import { clearAllOrders } from '../../services/orderService';
 import { clearAllCashflow, clearAllStockMutations } from '../../services/posService';
 import { clearAllStoreDownlines, resetDownlineAccumulatedSpent, clearAllMarketerSales } from '../../services/mitraService';
@@ -47,7 +45,6 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
   const [activeTab, setActiveTab] = useState<'cashier' | 'transactions' | 'inventory' | 'cashflow' | 'reports' | 'downlines' | 'settings'>('cashier');
   const [cashierName, setCashierName] = useState('Siti Aminah');
   const [isClockedIn, setIsClockedIn] = useState(true);
-  const [showTokenModal, setShowTokenModal] = useState(false);
   const [showLogoutConfirmModal, setShowLogoutConfirmModal] = useState(false);
 
   const handleMasterResetSimulation = async () => {
@@ -132,40 +129,8 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
           </div>
         </div>
 
-        {/* Right: Actions, Token & Clear Logout */}
+        {/* Right: Actions & Clear Logout */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-          {/* Token Kuota Indicator & Topup Trigger */}
-          <button
-            type="button"
-            onClick={() => setShowTokenModal(true)}
-            style={{
-              background: (currentStore.orderQuota || 0) <= 0 
-                ? 'rgba(239, 68, 68, 0.2)' 
-                : (currentStore.orderQuota || 0) <= 5 
-                ? 'rgba(245, 158, 11, 0.2)' 
-                : '#0f172a',
-              color: (currentStore.orderQuota || 0) <= 0 
-                ? '#f87171' 
-                : (currentStore.orderQuota || 0) <= 5 
-                ? '#fbbf24' 
-                : '#f59e0b',
-              border: `1px solid ${(currentStore.orderQuota || 0) <= 0 ? '#ef4444' : (currentStore.orderQuota || 0) <= 5 ? '#f59e0b' : '#334155'}`,
-              padding: '5px 8px',
-              borderRadius: '8px',
-              fontSize: '0.72rem',
-              fontWeight: 800,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              cursor: 'pointer'
-            }}
-            title="Kelola Kuota Token Transaksi & Pengaturan Biaya Admin Toko"
-          >
-            <Coins size={13} color="#f59e0b" />
-            <span><b>{currentStore.orderQuota || 0}</b> <span className="hide-on-mobile">Token</span></span>
-            <span style={{ fontSize: '0.6rem', background: '#f59e0b', color: '#0f172a', padding: '1px 4px', borderRadius: '3px', fontWeight: 900 }}>+ISI</span>
-          </button>
-
           {/* Clock-in (Kasir) Indicator - Desktop Only */}
           <div
             className="hide-on-mobile"
@@ -496,12 +461,6 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
           <span className="pos-bottom-nav-label">Banner</span>
         </button>
       </nav>
-
-      {/* Token Topup & Settings Modal */}
-      <TokenTopupModal
-        isOpen={showTokenModal}
-        onClose={() => setShowTokenModal(false)}
-      />
 
       {/* Modal Konfirmasi Logout POS */}
       {showLogoutConfirmModal && (
