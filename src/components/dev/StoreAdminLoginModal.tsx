@@ -267,7 +267,7 @@ export const StoreAdminLoginModal: React.FC<StoreAdminLoginModalProps> = ({
                   <input
                     type={showPassword ? 'text' : 'password'}
                     required
-                    placeholder="Masukkan password kuat / PIN"
+                    placeholder="Masukkan password admin"
                     value={passwordInput}
                     onChange={(e) => setPasswordInput(e.target.value)}
                     style={{
@@ -297,26 +297,6 @@ export const StoreAdminLoginModal: React.FC<StoreAdminLoginModalProps> = ({
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
-              </div>
-
-              {/* Demo Hint Helper */}
-              <div style={{
-                background: '#1e293b',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                fontSize: '0.72rem',
-                color: '#94a3b8',
-                border: '1px solid #334155',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '2px'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#fde68a', fontWeight: 800 }}>
-                  <HelpCircle size={12} />
-                  <span>Akun Terdaftar Toko Ini:</span>
-                </div>
-                <div>Email: <b style={{ color: '#fff' }}>{currentStore.ownerEmail || 'admin@sr12.co.id'}</b></div>
-                <div>Password: <b style={{ color: '#fff' }}>{currentStore.adminPassword || 'AdminSR12@2026!'}</b> (atau PIN: 1234)</div>
               </div>
 
               <button

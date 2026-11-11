@@ -55,7 +55,7 @@ export const DistributorLoginModal: React.FC<DistributorLoginModalProps> = ({ is
               type="password"
               autoFocus
               maxLength={6}
-              placeholder="Masukkan PIN Admin (Demo: 1234)"
+              placeholder="Masukkan PIN Admin"
               value={pin}
               onChange={(e) => setPin(e.target.value)}
               style={{
@@ -70,7 +70,7 @@ export const DistributorLoginModal: React.FC<DistributorLoginModalProps> = ({ is
             />
             {error && (
               <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 700 }}>
-                PIN toko salah! (Default demo: 1234)
+                PIN toko salah! Silakan coba lagi.
               </span>
             )}
             <button

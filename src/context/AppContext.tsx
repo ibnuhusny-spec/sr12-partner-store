@@ -236,9 +236,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const passMatches = 
       (currentStore.adminPassword && inputPass === currentStore.adminPassword) ||
-      (currentStore.storeAdminPin && inputPass === currentStore.storeAdminPin) ||
-      inputPass === '1234' ||
-      inputPass === 'AdminSR12@2026!';
+      (currentStore.storeAdminPin && inputPass === currentStore.storeAdminPin);
 
     if (!passMatches) {
       return { success: false, message: 'Password atau PIN admin salah. Silakan coba lagi.' };
@@ -292,7 +290,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const loginDistributor = (pinOrPass: string): boolean => {
-    if (pinOrPass === currentStore.storeAdminPin || pinOrPass === '1234') {
+    if (pinOrPass === currentStore.storeAdminPin) {
       setIsDistributorLoggedIn(true);
       const session = {
         token: `dist_${Date.now()}`,
