@@ -1473,18 +1473,17 @@ export default function handler(req, res) {
   else if (imageUrl.endsWith('.webp')) imageType = 'image/webp';
 
   // Halaman HTML dengan Open Graph lengkap yang kompatibel untuk SEMUA platform (Shopee/Marketplace style)
+  // Menghilangkan og:description agar WhatsApp tidak menampilkan teks kecil deskripsi di bawah gambar
   const html = '<!DOCTYPE html>\n' +
 '<html lang="id">\n' +
 '<head>\n' +
 '  <meta charset="UTF-8">\n' +
 '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
-'  <title>' + escapeHtml(title) + ' | ' + escapeHtml(storeTitle) + '</title>\n' +
-'  <meta name="description" content="' + escapeHtml(desc) + '">\n' +
+'  <title>' + escapeHtml(title) + '</title>\n' +
 '  <!-- Open Graph Meta Tags (Untuk WhatsApp, Facebook, Telegram, dll) -->\n' +
 '  <meta property="og:type" content="product">\n' +
 '  <meta property="og:site_name" content="' + escapeHtml(storeTitle) + '">\n' +
 '  <meta property="og:title" content="' + escapeHtml(title) + '">\n' +
-'  <meta property="og:description" content="' + escapeHtml(desc) + '">\n' +
 '  <meta property="og:image" content="' + escapeHtml(imageUrl) + '">\n' +
 '  <meta property="og:image:secure_url" content="' + escapeHtml(imageUrl) + '">\n' +
 '  <meta property="og:image:width" content="800">\n' +
@@ -1494,7 +1493,6 @@ export default function handler(req, res) {
 '  <!-- Twitter Card -->\n' +
 '  <meta name="twitter:card" content="summary_large_image">\n' +
 '  <meta name="twitter:title" content="' + escapeHtml(title) + '">\n' +
-'  <meta name="twitter:description" content="' + escapeHtml(desc) + '">\n' +
 '  <meta name="twitter:image" content="' + escapeHtml(imageUrl) + '">\n' +
 '  <!-- Instant Redirect for Humans / Browser Visits -->\n' +
 '  <link rel="canonical" href="' + escapeHtml(targetRedirect) + '">\n' +
