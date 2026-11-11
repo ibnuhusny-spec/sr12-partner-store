@@ -92,6 +92,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
         if (res.mitra.tier) {
           setActiveTier(res.mitra.tier);
         }
+        // Auto-fill Data Pembeli dari data Mitra jika form masih kosong atau digantikan oleh data mitra
+        if (res.mitra.name) setCustomerName(res.mitra.name);
+        if (res.mitra.phone) setCustomerPhone(res.mitra.phone);
+        if (res.mitra.address) {
+          setCustomerAddress(res.mitra.address);
+        } else if (res.mitra.city) {
+          setCustomerAddress(res.mitra.city);
+        }
         setVerifyMsg(`✅ Terverifikasi: ${res.mitra.name} (${res.mitra.tier?.toUpperCase()})`);
       } else {
         setVerifyMsg('❌ Kode Mitra / Nomor HP tidak ditemukan.');

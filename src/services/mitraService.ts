@@ -241,6 +241,7 @@ export async function verifyMitraDiscount(query: string, storeSlug: string): Pro
           partnerCode: data.id,
           name: data.name,
           phone: data.phone,
+          address: data.address || data.city,
           city: data.city,
           tier: data.tier,
           status: data.status,

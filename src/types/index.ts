@@ -169,6 +169,7 @@ export interface MitraDownline {
   partnerCode: string;
   name: string;
   phone: string;
+  address?: string;
   city: string;
   tier: PartnerTier;
   bankName: string;
