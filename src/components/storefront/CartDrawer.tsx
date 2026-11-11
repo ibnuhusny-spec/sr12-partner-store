@@ -42,6 +42,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
   const [dropshipSenderPhone, setDropshipSenderPhone] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Delivery Method: 'rajaongkir' (Ekspedisi Nasional) | 'local' (Kurir Lokal / Manual) | 'pickup' (Ambil Sendiri)
+  const [deliveryMethod, setDeliveryMethod] = useState<'rajaongkir' | 'local' | 'pickup'>('rajaongkir');
+  const [localCourierName, setLocalCourierName] = useState('Kurir Toko / Ojek Lokal');
+  const [manualShippingCost, setManualShippingCost] = useState<number>(10000);
+
   // RajaOngkir state
   const [destinationSearch, setDestinationSearch] = useState('');
   const [destinationOptions, setDestinationOptions] = useState<OngkirDestination[]>([]);
@@ -119,8 +124,21 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
   if (!isOpen) return null;
 
   const selectedCourier = SR12_SHIPPING_PROVIDERS.find(c => c.id === selectedCourierId) || SR12_SHIPPING_PROVIDERS[0];
-  const shippingCost = selectedRealService ? selectedRealService.cost : selectedCourier.costPerKg;
-  const finalShippingCost = selectedCourier.type === 'pickup' ? 0 : (selectedRealService ? selectedRealService.cost : shippingCost * totalWeightKg);
+  
+  // Hitung ongkir sesuai metode yang dipilih
+  const finalShippingCost = (() => {
+    if (deliveryMethod === 'pickup') {
+      return 0; // Ambil sendiri di toko gratis
+    }
+    if (deliveryMethod === 'local') {
+      return Math.max(0, manualShippingCost); // Kurir lokal / ketik manual
+    }
+    // deliveryMethod === 'rajaongkir'
+    if (selectedRealService) {
+      return selectedRealService.cost;
+    }
+    return selectedCourier.costPerKg * totalWeightKg;
+  })();
 
   const subtotalHet = cart.reduce((sum, item) => sum + (item.product.het * item.quantity), 0);
   const totalProductsPrice = cart.reduce((sum, item) => {
@@ -230,9 +248,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
     const calculatedPlatformFee = (finalTier !== 'konsumen' || currentStore.feePayer === 'store') ? 0 : platformFee;
     const calculatedGrandTotal = calculatedProductsPrice + finalShippingCost + calculatedPlatformFee;
 
-    const courierDisplayName = selectedRealService 
-      ? `${selectedRealService.code.toUpperCase()} ${selectedRealService.service} (RajaOngkir)` 
-      : selectedCourier.name;
+    const courierDisplayName = (() => {
+      if (deliveryMethod === 'pickup') return '🏪 Ambil Sendiri di Toko';
+      if (deliveryMethod === 'local') return `🛵 ${localCourierName || 'Kurir Lokal / Ojek'} (Manual)`;
+      if (selectedRealService) return `🚚 ${selectedRealService.code.toUpperCase()} ${selectedRealService.service} (RajaOngkir)`;
+      return selectedCourier.name;
+    })();
 
     const orderData: Order = {
       orderId,
@@ -247,7 +268,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
       subtotalHet,
       discountAmount: calculatedDiscountAmount,
       grandTotal: calculatedGrandTotal,
-      paymentMethod: selectedCourier.type === 'cod' ? 'COD (Bayar Tunai di Tempat)' : 'Transfer Bank / Ekspedisi',
+      paymentMethod: (deliveryMethod === 'pickup') 
+        ? 'Bayar saat Ambil di Toko' 
+        : (selectedCourier.type === 'cod' ? 'COD (Bayar Tunai di Tempat)' : 'Transfer Bank / Ekspedisi'),
       status: 'Menunggu Konfirmasi',
       orderSource: 'Online Web Store',
       marketerId: marketerReferral || undefined,
@@ -494,147 +517,283 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
                 )}
               </div>
 
-              {/* Lokasi Tujuan Pengiriman (Cek Ongkir Akurat RajaOngkir) */}
-              <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                  <label style={{ fontSize: '0.76rem', fontWeight: 800, color: '#334155', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <MapPin size={14} color="#059669" />
-                    <span>Kota / Kecamatan Tujuan:</span>
-                  </label>
-                  <span style={{ fontSize: '0.68rem', color: '#64748b' }}>Berat: {totalWeightGram} gram</span>
-                </div>
+              {/* Pilihan Metode Pengiriman */}
+              <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                <label style={{ fontSize: '0.76rem', fontWeight: 800, color: '#334155', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '8px' }}>
+                  <Truck size={14} color="#059669" />
+                  <span>Pilih Metode Pengiriman / Pengambilan:</span>
+                </label>
 
-                {/* Info Asal Pengiriman Toko */}
-                <div style={{ fontSize: '0.7rem', color: '#047857', background: '#ecfdf5', padding: '4px 8px', borderRadius: '6px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span>📦 <b>Dikirim dari:</b> {currentStore.originLabel || currentStore.storeCity || 'Jakarta Barat'}</span>
-                </div>
-
-                <div style={{ position: 'relative' }}>
-                  <input
-                    type="text"
-                    value={destinationSearch}
-                    onChange={(e) => {
-                      setDestinationSearch(e.target.value);
-                      if (selectedDestination) setSelectedDestination(null);
-                    }}
-                    placeholder="Ketik nama kecamatan atau kota tujuan pembeli..."
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setDeliveryMethod('rajaongkir')}
                     style={{
-                      width: '100%',
-                      padding: '8px 30px 8px 10px',
-                      borderRadius: '6px',
-                      border: '1px solid #cbd5e1',
-                      fontSize: '0.78rem',
-                      background: '#ffffff'
-                    }}
-                  />
-                  <div style={{ position: 'absolute', right: '8px', top: '8px', color: '#94a3b8' }}>
-                    {isSearchingDest ? <Loader2 size={15} className="spin" /> : <Search size={15} />}
-                  </div>
-
-                  {/* Dropdown Hasil Pencarian Destinasi */}
-                  {destinationOptions.length > 0 && !selectedDestination && (
-                    <div style={{
-                      position: 'absolute',
-                      top: '100%',
-                      left: 0,
-                      right: 0,
-                      background: '#ffffff',
-                      border: '1px solid #cbd5e1',
+                      padding: '8px 4px',
                       borderRadius: '8px',
-                      maxHeight: '180px',
-                      overflowY: 'auto',
-                      zIndex: 30,
-                      boxShadow: '0 8px 20px rgba(0,0,0,0.15)',
-                      marginTop: '4px'
-                    }}>
-                      {destinationOptions.map(opt => (
-                        <div
-                          key={opt.id}
-                          onClick={() => {
-                            setSelectedDestination(opt);
-                            setDestinationSearch(`${opt.district_name}, ${opt.city_name} (${opt.province_name})`);
-                            setDestinationOptions([]);
-                            // Lengkapi otomatis alamat pemesan
-                            if (!customerAddress || customerAddress.length < 10) {
-                              setCustomerAddress(`${opt.subdistrict_name ? `${opt.subdistrict_name}, ` : ''}${opt.district_name}, ${opt.city_name}, ${opt.province_name} ${opt.zip_code || ''}`);
-                            }
-                          }}
-                          style={{
-                            padding: '8px 12px',
-                            fontSize: '0.74rem',
-                            borderBottom: '1px solid #f1f5f9',
-                            cursor: 'pointer',
-                            color: '#1e293b'
-                          }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = '#ecfdf5')}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = '#ffffff')}
-                        >
-                          <span style={{ fontWeight: 700 }}>{opt.district_name}, {opt.city_name}</span>
-                          <span style={{ display: 'block', color: '#64748b', fontSize: '0.68rem' }}>{opt.label}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                      border: deliveryMethod === 'rajaongkir' ? '1.5px solid #059669' : '1px solid #cbd5e1',
+                      background: deliveryMethod === 'rajaongkir' ? '#ecfdf5' : '#ffffff',
+                      color: deliveryMethod === 'rajaongkir' ? '#047857' : '#475569',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '2px'
+                    }}
+                  >
+                    <span>🚚 Ekspedisi</span>
+                    <span style={{ fontSize: '0.64rem', color: '#64748b' }}>RajaOngkir</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDeliveryMethod('local')}
+                    style={{
+                      padding: '8px 4px',
+                      borderRadius: '8px',
+                      border: deliveryMethod === 'local' ? '1.5px solid #059669' : '1px solid #cbd5e1',
+                      background: deliveryMethod === 'local' ? '#ecfdf5' : '#ffffff',
+                      color: deliveryMethod === 'local' ? '#047857' : '#475569',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '2px'
+                    }}
+                  >
+                    <span>🛵 Kurir Lokal</span>
+                    <span style={{ fontSize: '0.64rem', color: '#64748b' }}>Tarif Manual</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDeliveryMethod('pickup')}
+                    style={{
+                      padding: '8px 4px',
+                      borderRadius: '8px',
+                      border: deliveryMethod === 'pickup' ? '1.5px solid #059669' : '1px solid #cbd5e1',
+                      background: deliveryMethod === 'pickup' ? '#ecfdf5' : '#ffffff',
+                      color: deliveryMethod === 'pickup' ? '#047857' : '#475569',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '2px'
+                    }}
+                  >
+                    <span>🏪 Ambil Toko</span>
+                    <span style={{ fontSize: '0.64rem', color: '#16a34a', fontWeight: 800 }}>Gratis (Rp 0)</span>
+                  </button>
                 </div>
 
-                {/* Hasil Tarif RajaOngkir Otomatis */}
-                {selectedDestination && (
-                  <div style={{ marginTop: '10px' }}>
-                    <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#047857', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <Check size={13} />
-                      <span>Tarif Real-Time RajaOngkir ({totalWeightKg} kg):</span>
+                {/* KONDISI 1: AMBIL SENDIRI DI TOKO */}
+                {deliveryMethod === 'pickup' && (
+                  <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '10px 12px', borderRadius: '8px', fontSize: '0.74rem', color: '#065f46' }}>
+                    <div style={{ fontWeight: 800, marginBottom: '2px' }}>🏪 Bebas Ongkos Kirim (Rp 0)</div>
+                    <div>Paket diambil langsung oleh pembeli di alamat gudang / toko <b>{currentStore.storeName}</b> ({currentStore.originLabel || currentStore.storeCity}).</div>
+                  </div>
+                )}
+
+                {/* KONDISI 2: KURIR LOKAL / ONGKIR MANUAL */}
+                {deliveryMethod === 'local' && (
+                  <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', padding: '10px 12px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ fontSize: '0.74rem', color: '#475569' }}>
+                      Cocok untuk pembeli jarak dekat (tetangga, satu komplek, kurir toko, GoSend/Grab, atau ojek lokal).
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '3px' }}>
+                        Nama Kurir / Jenis Pengantaran:
+                      </label>
+                      <input
+                        type="text"
+                        value={localCourierName}
+                        onChange={(e) => setLocalCourierName(e.target.value)}
+                        placeholder="Contoh: Kurir Toko / Titip Ojek / COD Dekat"
+                        style={{
+                          width: '100%',
+                          padding: '7px 10px',
+                          borderRadius: '6px',
+                          border: '1px solid #cbd5e1',
+                          fontSize: '0.78rem',
+                          background: '#ffffff'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.7rem', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '3px' }}>
+                        Nominal Ongkir Manual (Rp):
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1000}
+                        value={manualShippingCost}
+                        onChange={(e) => setManualShippingCost(Number(e.target.value) || 0)}
+                        placeholder="Contoh: 10000 (atau 0 jika gratis)"
+                        style={{
+                          width: '100%',
+                          padding: '7px 10px',
+                          borderRadius: '6px',
+                          border: '1px solid #cbd5e1',
+                          fontSize: '0.85rem',
+                          fontWeight: 800,
+                          color: '#065f46',
+                          background: '#ffffff'
+                        }}
+                      />
+                      <span style={{ fontSize: '0.66rem', color: '#64748b', marginTop: '2px', display: 'block' }}>
+                        Ketik 0 jika pengantaran bebas ongkir.
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* KONDISI 3: EKSPEDISI NASIONAL RAJAONGKIR */}
+                {deliveryMethod === 'rajaongkir' && (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <label style={{ fontSize: '0.74rem', fontWeight: 800, color: '#334155' }}>
+                        Ketik Kota / Kecamatan Tujuan:
+                      </label>
+                      <span style={{ fontSize: '0.68rem', color: '#64748b' }}>Berat: {totalWeightGram} gram</span>
                     </div>
 
-                    {isLoadingRates ? (
-                      <div style={{ fontSize: '0.74rem', color: '#64748b', padding: '8px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Loader2 size={14} className="spin" />
-                        <span>Menghubungi server RajaOngkir...</span>
+                    {/* Info Asal Pengiriman Toko */}
+                    <div style={{ fontSize: '0.68rem', color: '#047857', background: '#ecfdf5', padding: '4px 8px', borderRadius: '6px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span>📦 <b>Asal Gudang:</b> {currentStore.originLabel || currentStore.storeCity || 'Jakarta Barat'}</span>
+                    </div>
+
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="text"
+                        value={destinationSearch}
+                        onChange={(e) => {
+                          setDestinationSearch(e.target.value);
+                          if (selectedDestination) setSelectedDestination(null);
+                        }}
+                        placeholder="Ketik kecamatan atau kota tujuan pembeli..."
+                        style={{
+                          width: '100%',
+                          padding: '8px 30px 8px 10px',
+                          borderRadius: '6px',
+                          border: '1px solid #cbd5e1',
+                          fontSize: '0.78rem',
+                          background: '#ffffff'
+                        }}
+                      />
+                      <div style={{ position: 'absolute', right: '8px', top: '8px', color: '#94a3b8' }}>
+                        {isSearchingDest ? <Loader2 size={15} className="spin" /> : <Search size={15} />}
                       </div>
-                    ) : realOngkirRates.length > 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        {realOngkirRates.map((rate, rIdx) => {
-                          const isSel = selectedRealService?.service === rate.service && selectedRealService?.code === rate.code;
-                          return (
+
+                      {/* Dropdown Hasil Pencarian Destinasi */}
+                      {destinationOptions.length > 0 && !selectedDestination && (
+                        <div style={{
+                          position: 'absolute',
+                          top: '100%',
+                          left: 0,
+                          right: 0,
+                          background: '#ffffff',
+                          border: '1px solid #cbd5e1',
+                          borderRadius: '8px',
+                          maxHeight: '180px',
+                          overflowY: 'auto',
+                          zIndex: 30,
+                          boxShadow: '0 8px 20px rgba(0,0,0,0.15)',
+                          marginTop: '4px'
+                        }}>
+                          {destinationOptions.map(opt => (
                             <div
-                              key={rIdx}
-                              onClick={() => setSelectedRealService(rate)}
-                              style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                padding: '6px 10px',
-                                borderRadius: '6px',
-                                border: isSel ? '1.5px solid #059669' : '1px solid #cbd5e1',
-                                background: isSel ? '#ecfdf5' : '#ffffff',
-                                cursor: 'pointer',
-                                fontSize: '0.75rem'
+                              key={opt.id}
+                              onClick={() => {
+                                setSelectedDestination(opt);
+                                setDestinationSearch(`${opt.district_name}, ${opt.city_name} (${opt.province_name})`);
+                                setDestinationOptions([]);
+                                if (!customerAddress || customerAddress.length < 10) {
+                                  setCustomerAddress(`${opt.subdistrict_name ? `${opt.subdistrict_name}, ` : ''}${opt.district_name}, ${opt.city_name}, ${opt.province_name} ${opt.zip_code || ''}`);
+                                }
                               }}
+                              style={{
+                                padding: '8px 12px',
+                                fontSize: '0.74rem',
+                                borderBottom: '1px solid #f1f5f9',
+                                cursor: 'pointer',
+                                color: '#1e293b'
+                              }}
+                              onMouseEnter={(e) => (e.currentTarget.style.background = '#ecfdf5')}
+                              onMouseLeave={(e) => (e.currentTarget.style.background = '#ffffff')}
                             >
-                              <div>
-                                <span style={{ fontWeight: 800, color: '#0f172a', textTransform: 'uppercase' }}>
-                                  {rate.code} - {rate.service}
-                                </span>
-                                <span style={{ display: 'block', fontSize: '0.68rem', color: '#64748b' }}>
-                                  {rate.description || 'Layanan Reguler'} {rate.etd ? `(${rate.etd} hari)` : ''}
-                                </span>
-                              </div>
-                              <span style={{ fontWeight: 900, color: '#065f46' }}>
-                                Rp {rate.cost.toLocaleString('id-ID')}
-                              </span>
+                              <span style={{ fontWeight: 700 }}>{opt.district_name}, {opt.city_name}</span>
+                              <span style={{ display: 'block', color: '#64748b', fontSize: '0.68rem' }}>{opt.label}</span>
                             </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                        Gunakan estimasi kurir di bawah ini atau ganti kata kunci kota.
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Hasil Tarif RajaOngkir Otomatis */}
+                    {selectedDestination && (
+                      <div style={{ marginTop: '10px' }}>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#047857', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Check size={13} />
+                          <span>Pilihan Kurir RajaOngkir ({totalWeightKg} kg):</span>
+                        </div>
+
+                        {isLoadingRates ? (
+                          <div style={{ fontSize: '0.74rem', color: '#64748b', padding: '8px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Loader2 size={14} className="spin" />
+                            <span>Menghubungi server RajaOngkir...</span>
+                          </div>
+                        ) : realOngkirRates.length > 0 ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {realOngkirRates.map((rate, rIdx) => {
+                              const isSel = selectedRealService?.service === rate.service && selectedRealService?.code === rate.code;
+                              return (
+                                <div
+                                  key={rIdx}
+                                  onClick={() => setSelectedRealService(rate)}
+                                  style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    padding: '6px 10px',
+                                    borderRadius: '6px',
+                                    border: isSel ? '1.5px solid #059669' : '1px solid #cbd5e1',
+                                    background: isSel ? '#ecfdf5' : '#ffffff',
+                                    cursor: 'pointer',
+                                    fontSize: '0.75rem'
+                                  }}
+                                >
+                                  <div>
+                                    <span style={{ fontWeight: 800, color: '#0f172a', textTransform: 'uppercase' }}>
+                                      {rate.code} - {rate.service}
+                                    </span>
+                                    <span style={{ display: 'block', fontSize: '0.68rem', color: '#64748b' }}>
+                                      {rate.description || 'Layanan Reguler'} {rate.etd ? `(${rate.etd} hari)` : ''}
+                                    </span>
+                                  </div>
+                                  <span style={{ fontWeight: 900, color: '#065f46' }}>
+                                    Rp {rate.cost.toLocaleString('id-ID')}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                            Gunakan estimasi kurir atau ganti kata kunci kota.
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
                 )}
               </div>
-
-              {/* Kurir Pengambilan Mandiri / Ekspedisi Standar */}
               {!selectedRealService && (
                 <div>
                   <label style={{ fontSize: '0.76rem', fontWeight: 800, color: '#475569', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px' }}>
