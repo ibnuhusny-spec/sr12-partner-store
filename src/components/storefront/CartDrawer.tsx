@@ -1,14 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { SR12_SHIPPING_PROVIDERS, getProductTierPrice, SR12_TIERS } from '../../config/tiers';
+import { getProductTierPrice, SR12_TIERS } from '../../config/tiers';
 import { verifyMitraDiscount, getLocalDownlines, saveStoreDownline, getLocalMarketerSales } from '../../services/mitraService';
 import { createOrder, formatWhatsAppOrderMessage } from '../../services/orderService';
 import { Order, OrderItemPayload, MarketerSale, PartnerTier } from '../../types';
-import { getStoreCatalog, saveStoreCatalog, updateStoreProductStock } from '../../services/catalogService';
+import { getStoreCatalog, saveStoreCatalog } from '../../services/catalogService';
 import { recordStockMutation } from '../../services/posService';
-import { searchOngkirDestinations, calculateRealShippingCost, OngkirDestination, OngkirServiceResult } from '../../services/ongkirService';
 import confetti from 'canvas-confetti';
-import { X, Trash2, ShoppingBag, Truck, Check, MessageCircle, UserCheck, Search, MapPin, Loader2 } from 'lucide-react';
+import { X, Trash2, ShoppingBag, Truck, Check, MessageCircle, UserCheck, RotateCcw, Building2 } from 'lucide-react';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -33,113 +32,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
-  const [selectedCourierId, setSelectedCourierId] = useState('jne');
   const [mitraQuery, setMitraQuery] = useState('');
   const [isVerifyingMitra, setIsVerifyingMitra] = useState(false);
   const [verifyMsg, setVerifyMsg] = useState('');
+  const [deliveryMethod, setDeliveryMethod] = useState<'delivery' | 'pickup'>('delivery');
   const [isDropship, setIsDropship] = useState(false);
   const [dropshipSenderName, setDropshipSenderName] = useState('');
   const [dropshipSenderPhone, setDropshipSenderPhone] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Delivery Method: 'rajaongkir' (Ekspedisi Nasional) | 'local' (Kurir Lokal / Manual) | 'pickup' (Ambil Sendiri)
-  const [deliveryMethod, setDeliveryMethod] = useState<'rajaongkir' | 'local' | 'pickup'>('rajaongkir');
-  const [localCourierName, setLocalCourierName] = useState('Kurir Toko / Ojek Lokal');
-  const [manualShippingCost, setManualShippingCost] = useState<number>(10000);
-
-  // RajaOngkir state
-  const [destinationSearch, setDestinationSearch] = useState('');
-  const [destinationOptions, setDestinationOptions] = useState<OngkirDestination[]>([]);
-  const [selectedDestination, setSelectedDestination] = useState<OngkirDestination | null>(null);
-  const [isSearchingDest, setIsSearchingDest] = useState(false);
-  const [realOngkirRates, setRealOngkirRates] = useState<OngkirServiceResult[]>([]);
-  const [selectedRealService, setSelectedRealService] = useState<OngkirServiceResult | null>(null);
-  const [isLoadingRates, setIsLoadingRates] = useState(false);
-
-  // Debounce search destinasi RajaOngkir
-  useEffect(() => {
-    if (!destinationSearch || destinationSearch.trim().length < 3) {
-      setDestinationOptions([]);
-      return;
-    }
-    const timer = setTimeout(async () => {
-      setIsSearchingDest(true);
-      try {
-        const res = await searchOngkirDestinations(destinationSearch);
-        setDestinationOptions(res || []);
-      } catch (err) {
-        console.warn(err);
-      } finally {
-        setIsSearchingDest(false);
-      }
-    }, 400);
-
-    return () => clearTimeout(timer);
-  }, [destinationSearch]);
-
-  // Calculate weights & prices aman dari null
-  const totalWeightGram = cart.reduce((sum, item) => {
-    const w = (item && item.product && typeof item.product.weightGram === 'number') ? item.product.weightGram : 100;
-    const q = (item && typeof item.quantity === 'number') ? item.quantity : 1;
-    return sum + (w * q);
-  }, 0);
-  const totalWeightKg = Math.max(1, Math.ceil(totalWeightGram / 1000));
-
-  // Hitung ulang ongkir saat destinasi dipilih atau berat berubah
-  useEffect(() => {
-    if (!selectedDestination) return;
-    let isSubscribed = true;
-    setIsLoadingRates(true);
-
-    const originId = currentStore.originSubdistrictId || 17473;
-    calculateRealShippingCost(selectedDestination.id, totalWeightGram, originId).then((rates) => {
-      if (isSubscribed) {
-        // Filter layanan prioritas reguler & hemat (buang JTR trucking cargo minimal 10kg jika berat < 5kg)
-        let filteredRates = Array.isArray(rates) ? rates : [];
-        if (totalWeightKg < 5) {
-          const nonCargo = filteredRates.filter(r => !r.service.includes('JTR') && !r.description.toLowerCase().includes('trucking'));
-          if (nonCargo.length > 0) {
-            filteredRates = nonCargo;
-          }
-        }
-
-        // Urutkan dari ongkir paling terjangkau ke atas
-        filteredRates.sort((a, b) => a.cost - b.cost);
-
-        setRealOngkirRates(filteredRates);
-        if (filteredRates.length > 0) {
-          setSelectedRealService(filteredRates[0]);
-        }
-        setIsLoadingRates(false);
-      }
-    }).catch(() => {
-      if (isSubscribed) setIsLoadingRates(false);
-    });
-
-    return () => {
-      isSubscribed = false;
-    };
-  }, [selectedDestination, totalWeightGram, currentStore.originSubdistrictId]);
-
   if (!isOpen) return null;
 
-  const selectedCourier = SR12_SHIPPING_PROVIDERS.find(c => c.id === selectedCourierId) || SR12_SHIPPING_PROVIDERS[0];
-  
-  // Hitung ongkir sesuai metode yang dipilih
-  const finalShippingCost = (() => {
-    if (deliveryMethod === 'pickup') {
-      return 0; // Ambil sendiri di toko gratis
-    }
-    if (deliveryMethod === 'local') {
-      return Math.max(0, manualShippingCost); // Kurir lokal / ketik manual
-    }
-    // deliveryMethod === 'rajaongkir'
-    if (selectedRealService) {
-      return selectedRealService.cost;
-    }
-    return selectedCourier.costPerKg * totalWeightKg;
-  })();
-
+  // Hitung subtotal dan harga tier produk
   const subtotalHet = cart.reduce((sum, item) => sum + (item.product.het * item.quantity), 0);
   const totalProductsPrice = cart.reduce((sum, item) => {
     const price = getProductTierPrice(item.product.het, activeTier);
@@ -148,28 +52,26 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
 
   const discountAmount = Math.max(0, subtotalHet - totalProductsPrice);
 
-  // Dynamic Platform Fee: Ditentukan oleh pemilik toko (currentStore.feePayer)
-  // Bebas biaya admin (Rp 0) jika:
-  // a. Ditanggung Toko ('store' / sistem kuota token toko)
-  // b. Pembeli berbelanja sebagai Mitra Resmi (Reseller / Sub Agen / Agen / Marketer)
+  // Platform fee (bebas biaya admin untuk mitra atau jika toko menanggung biaya)
   const platformFee = (() => {
     try {
       if (activeTier !== 'konsumen') {
-        return 0; // Mitra binaan tidak dikenakan biaya admin
+        return 0;
       }
       const payerMode = currentStore.feePayer || 'store';
       if (payerMode === 'buyer') {
         const val = localStorage.getItem('sr12_platform_fee_nominal');
         return val ? Number(val) : 1500;
       }
-      return 0; // Ditanggung oleh toko / sistem token toko
+      return 0;
     } catch {
       return 0;
     }
   })();
 
-  const grandTotal = totalProductsPrice + finalShippingCost + platformFee;
+  const grandTotal = totalProductsPrice + platformFee;
 
+  // Verifikasi Kode Mitra & Auto-Fill Data Pembeli
   const handleVerifyMitra = async () => {
     if (!mitraQuery.trim()) return;
     setIsVerifyingMitra(true);
@@ -181,7 +83,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
         if (res.mitra.tier) {
           setActiveTier(res.mitra.tier);
         }
-        // Auto-fill Data Pembeli dari data Mitra jika form masih kosong atau digantikan oleh data mitra
+        // Auto-fill otomatis: Nama, HP, dan Alamat
         if (res.mitra.name) setCustomerName(res.mitra.name);
         if (res.mitra.phone) setCustomerPhone(res.mitra.phone);
         if (res.mitra.address) {
@@ -189,20 +91,39 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
         } else if (res.mitra.city) {
           setCustomerAddress(res.mitra.city);
         }
-        setVerifyMsg(`✅ Terverifikasi: ${res.mitra.name} (${res.mitra.tier?.toUpperCase()})`);
+        setVerifyMsg(`✅ Berhasil! Diskon ${SR12_TIERS[res.mitra.tier || 'reseller']?.name || 'Mitra'} aktif (${res.mitra.name})`);
+        
+        confetti({
+          particleCount: 50,
+          spread: 60,
+          origin: { y: 0.6 }
+        });
       } else {
-        setVerifyMsg('❌ Kode Mitra / Nomor HP tidak ditemukan.');
+        setVerifyMsg('❌ Kode Mitra tidak ditemukan. Silakan periksa kembali atau isi data pembeli di bawah.');
       }
     } catch {
-      setVerifyMsg('❌ Gagal memeriksa database mitra.');
+      setVerifyMsg('❌ Gagal memeriksa kode mitra.');
     } finally {
       setIsVerifyingMitra(false);
     }
   };
 
+  // Reset / Batalkan status Mitra ke Konsumen umum
+  const handleResetMitra = () => {
+    setVerifiedMitra(null);
+    setActiveTier('konsumen');
+    setMitraQuery('');
+    setVerifyMsg('');
+  };
+
   const handleCheckoutWhatsApp = async () => {
     if (!customerName.trim() || !customerPhone.trim()) {
-      alert('Mohon isi Nama Pemesan dan Nomor WhatsApp terlebih dahulu!');
+      alert('Mohon isi Nama Lengkap dan Nomor WhatsApp pemesan terlebih dahulu!');
+      return;
+    }
+
+    if (deliveryMethod === 'delivery' && !customerAddress.trim()) {
+      alert('Mohon isi Alamat Pengiriman lengkap agar Admin dapat menghitung ongkir!');
       return;
     }
 
@@ -214,13 +135,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
     setIsSubmitting(true);
 
     const orderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
-    // 1. Deteksi Mitra Downline yang berbelanja (berdasarkan kode input, nomor WA, atau nama)
+
+    // Deteksi Mitra Downline yang berbelanja (berdasarkan kode input, nomor WA, atau nama)
     const downlines = getLocalDownlines();
     const qCode = (mitraQuery || verifiedMitra?.partnerCode || '').toUpperCase().trim();
     const qPhone = customerPhone.replace(/[^0-9]/g, '');
     const qName = customerName.toLowerCase().trim();
 
-    let targetMitra = downlines.find(m => 
+    const targetMitra = downlines.find(m => 
       (qCode && m.partnerCode && m.partnerCode.toUpperCase() === qCode) ||
       (m.partnerCode && qName.includes(m.partnerCode.toLowerCase())) ||
       (qPhone && m.phone && m.phone.replace(/[^0-9]/g, '').endsWith(qPhone.slice(-8))) ||
@@ -246,14 +168,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
     const calculatedProductsPrice = calculatedItems.reduce((sum, item) => sum + item.subtotal, 0);
     const calculatedDiscountAmount = Math.max(0, subtotalHet - calculatedProductsPrice);
     const calculatedPlatformFee = (finalTier !== 'konsumen' || currentStore.feePayer === 'store') ? 0 : platformFee;
-    const calculatedGrandTotal = calculatedProductsPrice + finalShippingCost + calculatedPlatformFee;
+    const calculatedGrandTotal = calculatedProductsPrice + calculatedPlatformFee;
 
-    const courierDisplayName = (() => {
-      if (deliveryMethod === 'pickup') return '🏪 Ambil Sendiri di Toko';
-      if (deliveryMethod === 'local') return `🛵 ${localCourierName || 'Kurir Lokal / Ojek'} (Manual)`;
-      if (selectedRealService) return `🚚 ${selectedRealService.code.toUpperCase()} ${selectedRealService.service} (RajaOngkir)`;
-      return selectedCourier.name;
-    })();
+    const courierDisplayName = deliveryMethod === 'pickup' 
+      ? '🏪 Ambil Sendiri di Toko (Bebas Ongkir)' 
+      : '🚚 Kirim ke Alamat (Ongkir Dikonfirmasi Admin via WA)';
 
     const orderData: Order = {
       orderId,
@@ -261,21 +180,19 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
       partnerCode: assignedPartnerCode,
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
-      customerAddress: customerAddress.trim() || 'Alamat dikonfirmasi via WA',
+      customerAddress: customerAddress.trim() || (deliveryMethod === 'pickup' ? 'Ambil di Toko / Gudang' : 'Alamat dikonfirmasi via WA'),
       tier: finalTier,
       tierLabel: SR12_TIERS[finalTier].name,
       items: calculatedItems,
       subtotalHet,
       discountAmount: calculatedDiscountAmount,
       grandTotal: calculatedGrandTotal,
-      paymentMethod: (deliveryMethod === 'pickup') 
-        ? 'Bayar saat Ambil di Toko' 
-        : (selectedCourier.type === 'cod' ? 'COD (Bayar Tunai di Tempat)' : 'Transfer Bank / Ekspedisi'),
+      paymentMethod: deliveryMethod === 'pickup' ? 'Bayar saat Ambil di Toko' : 'Transfer Bank / Ekspedisi (Sesuai Konfirmasi Admin)',
       status: 'Menunggu Konfirmasi',
       orderSource: 'Online Web Store',
       marketerId: marketerReferral || undefined,
       courierName: courierDisplayName,
-      shippingCost: finalShippingCost,
+      shippingCost: 0, // Ongkir diatur & disepakati bersama Admin via WhatsApp
       platformFee: calculatedPlatformFee,
       createdAt: new Date().toISOString(),
       dropship: isDropship ? {
@@ -286,10 +203,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
     };
 
     try {
-      // 1. Simpan order ke database toko
+      // 1. Simpan pesanan ke database toko
       await createOrder(orderData, currentStore.slug);
 
-      // 2. DEDUKSI STOK PRODUK DI GUDANG SECARA PASTI & REKAM MUTASI
+      // 2. Deduksi stok produk di katalog toko secara pasti & rekam mutasi
       const currentCatalog = getStoreCatalog(currentStore.slug);
       const updatedCatalog = currentCatalog.map(p => {
         const inCart = cart.find(ci => ci.product.id === p.id);
@@ -326,14 +243,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
         }
       });
 
-      // 3. TERHUBUNG KE MITRA / DOWNLINE: Perbarui omset belanja & total order
+      // 3. Catat omset & evaluasi mitra jika pembeli adalah mitra
       if (targetMitra) {
         targetMitra.accumulatedSpent90Days = (targetMitra.accumulatedSpent90Days || 0) + calculatedGrandTotal;
         targetMitra.totalOrdersCount = (targetMitra.totalOrdersCount || 0) + 1;
         targetMitra.lastOrderDate = new Date().toISOString().split('T')[0];
         await saveStoreDownline(targetMitra, currentStore.slug);
 
-        // Jika transaksi dicatat untuk Marketer atau via link referral, catat komisi 15%
+        // Jika transaksi dicatat untuk Marketer, catat komisi 15%
         if (finalTier === 'marketer' || targetMitra.tier === 'marketer') {
           const mId = targetMitra.tier === 'marketer' ? targetMitra.partnerCode : (marketerReferral || targetMitra.partnerCode);
           const commissionAmt = Math.round(subtotalHet * 0.15);
@@ -345,7 +262,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
             monthPeriod: new Date().toISOString().slice(0, 7),
             customerName: customerName.trim(),
             customerPhone: customerPhone.trim(),
-            fulfillmentType: selectedCourier.type === 'cod' ? 'pickup' : 'delivery',
+            fulfillmentType: deliveryMethod === 'pickup' ? 'pickup' : 'delivery',
             itemsDesc: calculatedItems.map(i => `${i.quantity}x ${i.name}`).join(', '),
             omsetHet: subtotalHet,
             commissionPct: 15,
@@ -367,7 +284,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
           monthPeriod: new Date().toISOString().slice(0, 7),
           customerName: customerName.trim(),
           customerPhone: customerPhone.trim(),
-          fulfillmentType: selectedCourier.type === 'cod' ? 'pickup' : 'delivery',
+          fulfillmentType: deliveryMethod === 'pickup' ? 'pickup' : 'delivery',
           itemsDesc: calculatedItems.map(i => `${i.quantity}x ${i.name}`).join(', '),
           omsetHet: subtotalHet,
           commissionPct: 15,
@@ -383,7 +300,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
       const waMsg = formatWhatsAppOrderMessage(orderData, currentStore);
       const waUrl = `https://wa.me/${currentStore.storeWaNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(waMsg)}`;
 
-      // 5. Trigger celebratory confetti
+      // 5. Trigger confetti
       confetti({
         particleCount: 80,
         spread: 70,
@@ -396,7 +313,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
       // 7. Bersihkan keranjang
       clearCart();
       onClose();
-    } catch (e) {
+    } catch {
       alert('Gagal memproses pesanan.');
     } finally {
       setIsSubmitting(false);
@@ -409,132 +326,265 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
         {/* Header */}
         <div className="cart-drawer-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <ShoppingBag size={20} color="#34d399" />
-            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>Keranjang Belanja ({cart.length})</h3>
+            <ShoppingBag size={20} color="#059669" />
+            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>
+              Keranjang Belanja ({cart.length})
+            </h3>
           </div>
-          <button type="button" onClick={onClose} style={{ color: '#94a3b8' }}>
+          <button type="button" onClick={onClose} style={{ color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer' }}>
             <X size={20} />
           </button>
         </div>
 
         {/* Content */}
-        <div className="cart-drawer-items">
+        <div className="cart-drawer-items" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           {cart.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8' }}>
               <ShoppingBag size={48} style={{ opacity: 0.3, margin: '0 auto 12px' }} />
               <p style={{ fontWeight: 700 }}>Keranjang Anda masih kosong</p>
-              <p style={{ fontSize: '0.8rem', marginTop: '4px' }}>Silakan pilih produk herbal favorit Anda di etalase</p>
+              <p style={{ fontSize: '0.8rem', marginTop: '4px' }}>Silakan pilih produk SR12 herbal favorit Anda di etalase</p>
             </div>
           ) : (
             <>
-              {/* Items List */}
-              {cart.map(item => {
-                const unitPrice = getProductTierPrice(item.product.het, activeTier);
-                return (
-                  <div key={item.product.id} className="cart-item-row">
-                    <img src={item.product.image} alt={item.product.name} className="cart-item-img" />
-                    <div className="cart-item-info">
-                      <div style={{ fontSize: '0.84rem', fontWeight: 800, color: '#0f172a' }}>
-                        {item.product.name}
-                      </div>
-                      <div style={{ fontSize: '0.78rem', color: '#059669', fontWeight: 700, margin: '2px 0' }}>
-                        Rp {unitPrice.toLocaleString('id-ID')}
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
-                        <div className="cart-stepper">
+              {/* Daftar Produk di Keranjang */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {cart.map(item => {
+                  const unitPrice = getProductTierPrice(item.product.het, activeTier);
+                  return (
+                    <div key={item.product.id} className="cart-item-row">
+                      <img src={item.product.image} alt={item.product.name} className="cart-item-img" />
+                      <div className="cart-item-info">
+                        <div style={{ fontSize: '0.84rem', fontWeight: 800, color: '#0f172a' }}>
+                          {item.product.name}
+                        </div>
+                        <div style={{ fontSize: '0.78rem', color: '#059669', fontWeight: 700, margin: '2px 0' }}>
+                          Rp {unitPrice.toLocaleString('id-ID')}
+                          {activeTier !== 'konsumen' && (
+                            <span style={{ fontSize: '0.68rem', color: '#94a3b8', textDecoration: 'line-through', marginLeft: '6px' }}>
+                              Rp {item.product.het.toLocaleString('id-ID')}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
+                          <div className="cart-stepper">
+                            <button
+                              type="button"
+                              className="btn-stepper"
+                              onClick={() => updateCartQty(item.product.id, -1)}
+                            >
+                              -
+                            </button>
+                            <span style={{ fontSize: '0.82rem', fontWeight: 800, minWidth: '18px', textAlign: 'center' }}>
+                              {item.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              className="btn-stepper"
+                              onClick={() => updateCartQty(item.product.id, 1)}
+                            >
+                              +
+                            </button>
+                          </div>
                           <button
                             type="button"
-                            className="btn-stepper"
-                            onClick={() => updateCartQty(item.product.id, -1)}
+                            onClick={() => removeFromCart(item.product.id)}
+                            style={{ color: '#ef4444', padding: '4px', background: 'none', border: 'none', cursor: 'pointer' }}
+                            title="Hapus item"
                           >
-                            -
-                          </button>
-                          <span style={{ fontSize: '0.82rem', fontWeight: 800, minWidth: '18px', textAlign: 'center' }}>
-                            {item.quantity}
-                          </span>
-                          <button
-                            type="button"
-                            className="btn-stepper"
-                            onClick={() => updateCartQty(item.product.id, 1)}
-                          >
-                            +
+                            <Trash2 size={16} />
                           </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => removeFromCart(item.product.id)}
-                          style={{ color: '#ef4444', padding: '4px' }}
-                          title="Hapus item"
-                        >
-                          <Trash2 size={16} />
-                        </button>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-
-              {/* Box Kemitraan (Cek Diskon Reseller / Agen) */}
-              <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px dashed #cbd5e1' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: 800, color: '#334155', marginBottom: '6px' }}>
-                  <UserCheck size={14} color="#059669" />
-                  <span>Klaim Diskon Mitra Resmi (Reseller / Agen):</span>
-                </div>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <input
-                    type="text"
-                    value={mitraQuery}
-                    onChange={(e) => setMitraQuery(e.target.value)}
-                    placeholder="Masukkan Kode Mitra / No. WhatsApp..."
-                    style={{
-                      flex: 1,
-                      padding: '7px 10px',
-                      borderRadius: '6px',
-                      border: '1px solid #cbd5e1',
-                      fontSize: '0.76rem'
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleVerifyMitra}
-                    disabled={isVerifyingMitra}
-                    style={{
-                      background: '#0f172a',
-                      color: '#ffffff',
-                      padding: '6px 12px',
-                      borderRadius: '6px',
-                      fontSize: '0.74rem',
-                      fontWeight: 700
-                    }}
-                  >
-                    {isVerifyingMitra ? 'Cek...' : 'Klaim'}
-                  </button>
-                </div>
-                {verifyMsg && (
-                  <div style={{ fontSize: '0.72rem', marginTop: '6px', fontWeight: 700, color: verifyMsg.includes('✅') ? '#059669' : '#dc2626' }}>
-                    {verifyMsg}
-                  </div>
-                )}
+                  );
+                })}
               </div>
 
-              {/* Pilihan Metode Pengiriman */}
+              {/* Box Kemitraan: Klaim Kode Mitra */}
+              {verifiedMitra ? (
+                <div style={{ background: '#ecfdf5', border: '1.5px solid #a7f3d0', padding: '12px 14px', borderRadius: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <UserCheck size={18} color="#059669" />
+                      <div>
+                        <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#065f46' }}>
+                          Mitra Terverifikasi: {verifiedMitra.name}
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: '#047857', marginTop: '2px' }}>
+                          Level: <b>{SR12_TIERS[verifiedMitra.tier || activeTier]?.name}</b> (Diskon {SR12_TIERS[verifiedMitra.tier || activeTier]?.discountPct}%) • Kode: {verifiedMitra.partnerCode}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleResetMitra}
+                      title="Ganti ke Pelanggan Umum"
+                      style={{
+                        background: '#ffffff',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '6px',
+                        padding: '4px 8px',
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        color: '#64748b',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <RotateCcw size={11} />
+                      <span>Ganti</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px dashed #cbd5e1' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.76rem', fontWeight: 800, color: '#334155', marginBottom: '6px' }}>
+                    <UserCheck size={14} color="#059669" />
+                    <span>Punya Kode Mitra Resmi SR12? (Reseller / Sub Agen / Agen):</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <input
+                      type="text"
+                      value={mitraQuery}
+                      onChange={(e) => setMitraQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleVerifyMitra();
+                        }
+                      }}
+                      placeholder="Ketik Kode Mitra Anda (contoh: RS-101)..."
+                      style={{
+                        flex: 1,
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '0.78rem',
+                        background: '#ffffff'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleVerifyMitra}
+                      disabled={isVerifyingMitra}
+                      style={{
+                        background: '#0f172a',
+                        color: '#ffffff',
+                        padding: '8px 14px',
+                        borderRadius: '6px',
+                        fontSize: '0.74rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        border: 'none',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {isVerifyingMitra ? 'Cek...' : 'Klaim Diskon'}
+                    </button>
+                  </div>
+                  {verifyMsg && (
+                    <div style={{ fontSize: '0.72rem', marginTop: '6px', fontWeight: 700, color: verifyMsg.includes('✅') ? '#059669' : '#dc2626' }}>
+                      {verifyMsg}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Data Pembeli / Pengiriman */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label style={{ fontSize: '0.78rem', fontWeight: 800, color: '#1e293b' }}>
+                    Data Pembeli &amp; Pengiriman:
+                  </label>
+                  <span style={{ fontSize: '0.68rem', color: verifiedMitra ? '#059669' : '#64748b', fontWeight: 600 }}>
+                    {verifiedMitra ? '✓ Terisi dari data Mitra' : 'Wajib diisi'}
+                  </span>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '3px' }}>
+                    Nama Lengkap Pemesan *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Nama lengkap Anda..."
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.8rem',
+                      background: '#ffffff'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '3px' }}>
+                    Nomor WhatsApp Aktif *
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder="Contoh: 081234567890"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.8rem',
+                      background: '#ffffff'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '3px' }}>
+                    Alamat Pengiriman Lengkap {deliveryMethod === 'delivery' ? '*' : '(Opsional)'}
+                  </label>
+                  <textarea
+                    placeholder="Ketik alamat lengkap (Jalan, No. Rumah, RT/RW, Kelurahan, Kecamatan, Kota/Kabupaten, Kode Pos)..."
+                    rows={3}
+                    value={customerAddress}
+                    onChange={(e) => setCustomerAddress(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.8rem',
+                      background: '#ffffff',
+                      lineHeight: 1.4
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Pilihan Metode Pengiriman Simpel */}
               <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
                 <label style={{ fontSize: '0.76rem', fontWeight: 800, color: '#334155', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '8px' }}>
-                  <Truck size={14} color="#059669" />
-                  <span>Pilih Metode Pengiriman / Pengambilan:</span>
+                  <Truck size={15} color="#059669" />
+                  <span>Pilihan Pengiriman / Pengambilan:</span>
                 </label>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '10px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
                   <button
                     type="button"
-                    onClick={() => setDeliveryMethod('rajaongkir')}
+                    onClick={() => setDeliveryMethod('delivery')}
                     style={{
-                      padding: '8px 4px',
+                      padding: '10px 8px',
                       borderRadius: '8px',
-                      border: deliveryMethod === 'rajaongkir' ? '1.5px solid #059669' : '1px solid #cbd5e1',
-                      background: deliveryMethod === 'rajaongkir' ? '#ecfdf5' : '#ffffff',
-                      color: deliveryMethod === 'rajaongkir' ? '#047857' : '#475569',
-                      fontSize: '0.72rem',
+                      border: deliveryMethod === 'delivery' ? '2px solid #059669' : '1px solid #cbd5e1',
+                      background: deliveryMethod === 'delivery' ? '#ecfdf5' : '#ffffff',
+                      color: deliveryMethod === 'delivery' ? '#047857' : '#475569',
+                      fontSize: '0.76rem',
                       fontWeight: 700,
                       cursor: 'pointer',
                       display: 'flex',
@@ -543,42 +593,20 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
                       gap: '2px'
                     }}
                   >
-                    <span>🚚 Ekspedisi</span>
-                    <span style={{ fontSize: '0.64rem', color: '#64748b' }}>RajaOngkir</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setDeliveryMethod('local')}
-                    style={{
-                      padding: '8px 4px',
-                      borderRadius: '8px',
-                      border: deliveryMethod === 'local' ? '1.5px solid #059669' : '1px solid #cbd5e1',
-                      background: deliveryMethod === 'local' ? '#ecfdf5' : '#ffffff',
-                      color: deliveryMethod === 'local' ? '#047857' : '#475569',
-                      fontSize: '0.72rem',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: '2px'
-                    }}
-                  >
-                    <span>🛵 Kurir Lokal</span>
-                    <span style={{ fontSize: '0.64rem', color: '#64748b' }}>Tarif Manual</span>
+                    <span style={{ fontWeight: 800 }}>🚚 Kirim ke Alamat</span>
+                    <span style={{ fontSize: '0.66rem', color: '#64748b' }}>Ekspedisi / Kurir</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setDeliveryMethod('pickup')}
                     style={{
-                      padding: '8px 4px',
+                      padding: '10px 8px',
                       borderRadius: '8px',
-                      border: deliveryMethod === 'pickup' ? '1.5px solid #059669' : '1px solid #cbd5e1',
+                      border: deliveryMethod === 'pickup' ? '2px solid #059669' : '1px solid #cbd5e1',
                       background: deliveryMethod === 'pickup' ? '#ecfdf5' : '#ffffff',
                       color: deliveryMethod === 'pickup' ? '#047857' : '#475569',
-                      fontSize: '0.72rem',
+                      fontSize: '0.76rem',
                       fontWeight: 700,
                       cursor: 'pointer',
                       display: 'flex',
@@ -587,271 +615,26 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
                       gap: '2px'
                     }}
                   >
-                    <span>🏪 Ambil Toko</span>
-                    <span style={{ fontSize: '0.64rem', color: '#16a34a', fontWeight: 800 }}>Gratis (Rp 0)</span>
+                    <span style={{ fontWeight: 800 }}>🏪 Ambil di Toko</span>
+                    <span style={{ fontSize: '0.66rem', color: '#16a34a', fontWeight: 800 }}>Bebas Ongkir (Rp 0)</span>
                   </button>
                 </div>
 
-                {/* KONDISI 1: AMBIL SENDIRI DI TOKO */}
-                {deliveryMethod === 'pickup' && (
-                  <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '10px 12px', borderRadius: '8px', fontSize: '0.74rem', color: '#065f46' }}>
-                    <div style={{ fontWeight: 800, marginBottom: '2px' }}>🏪 Bebas Ongkos Kirim (Rp 0)</div>
-                    <div>Paket diambil langsung oleh pembeli di alamat gudang / toko <b>{currentStore.storeName}</b> ({currentStore.originLabel || currentStore.storeCity}).</div>
+                {deliveryMethod === 'delivery' ? (
+                  <div style={{ fontSize: '0.72rem', color: '#475569', background: '#ffffff', border: '1px solid #e2e8f0', padding: '8px 10px', borderRadius: '6px', lineHeight: 1.4 }}>
+                    📦 <b>Info Ongkir:</b> Admin Toko kami akan memilihkan kurir pengiriman terbaik &amp; mengonfirmasikan nominal ongkir ke WhatsApp Anda sebelum pesanan dikirim.
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '0.72rem', color: '#065f46', background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '8px 10px', borderRadius: '6px', lineHeight: 1.4 }}>
+                    <div style={{ fontWeight: 800, marginBottom: '2px' }}>🏪 Bebas Biaya Ongkir (Rp 0)</div>
+                    <div>Paket diambil langsung oleh Anda di alamat toko/gudang <b>{currentStore.storeName}</b> ({currentStore.originLabel || currentStore.storeCity}).</div>
                   </div>
                 )}
-
-                {/* KONDISI 2: KURIR LOKAL / ONGKIR MANUAL */}
-                {deliveryMethod === 'local' && (
-                  <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', padding: '10px 12px', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <div style={{ fontSize: '0.74rem', color: '#475569' }}>
-                      Cocok untuk pembeli jarak dekat (tetangga, satu komplek, kurir toko, GoSend/Grab, atau ojek lokal).
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '0.7rem', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '3px' }}>
-                        Nama Kurir / Jenis Pengantaran:
-                      </label>
-                      <input
-                        type="text"
-                        value={localCourierName}
-                        onChange={(e) => setLocalCourierName(e.target.value)}
-                        placeholder="Contoh: Kurir Toko / Titip Ojek / COD Dekat"
-                        style={{
-                          width: '100%',
-                          padding: '7px 10px',
-                          borderRadius: '6px',
-                          border: '1px solid #cbd5e1',
-                          fontSize: '0.78rem',
-                          background: '#ffffff'
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: '0.7rem', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '3px' }}>
-                        Nominal Ongkir Manual (Rp):
-                      </label>
-                      <input
-                        type="number"
-                        min={0}
-                        step={1000}
-                        value={manualShippingCost}
-                        onChange={(e) => setManualShippingCost(Number(e.target.value) || 0)}
-                        placeholder="Contoh: 10000 (atau 0 jika gratis)"
-                        style={{
-                          width: '100%',
-                          padding: '7px 10px',
-                          borderRadius: '6px',
-                          border: '1px solid #cbd5e1',
-                          fontSize: '0.85rem',
-                          fontWeight: 800,
-                          color: '#065f46',
-                          background: '#ffffff'
-                        }}
-                      />
-                      <span style={{ fontSize: '0.66rem', color: '#64748b', marginTop: '2px', display: 'block' }}>
-                        Ketik 0 jika pengantaran bebas ongkir.
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* KONDISI 3: EKSPEDISI NASIONAL RAJAONGKIR */}
-                {deliveryMethod === 'rajaongkir' && (
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                      <label style={{ fontSize: '0.74rem', fontWeight: 800, color: '#334155' }}>
-                        Ketik Kota / Kecamatan Tujuan:
-                      </label>
-                      <span style={{ fontSize: '0.68rem', color: '#64748b' }}>Berat: {totalWeightGram} gram</span>
-                    </div>
-
-                    {/* Info Asal Pengiriman Toko */}
-                    <div style={{ fontSize: '0.68rem', color: '#047857', background: '#ecfdf5', padding: '4px 8px', borderRadius: '6px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span>📦 <b>Asal Gudang:</b> {currentStore.originLabel || currentStore.storeCity || 'Jakarta Barat'}</span>
-                    </div>
-
-                    <div style={{ position: 'relative' }}>
-                      <input
-                        type="text"
-                        value={destinationSearch}
-                        onChange={(e) => {
-                          setDestinationSearch(e.target.value);
-                          if (selectedDestination) setSelectedDestination(null);
-                        }}
-                        placeholder="Ketik kecamatan atau kota tujuan pembeli..."
-                        style={{
-                          width: '100%',
-                          padding: '8px 30px 8px 10px',
-                          borderRadius: '6px',
-                          border: '1px solid #cbd5e1',
-                          fontSize: '0.78rem',
-                          background: '#ffffff'
-                        }}
-                      />
-                      <div style={{ position: 'absolute', right: '8px', top: '8px', color: '#94a3b8' }}>
-                        {isSearchingDest ? <Loader2 size={15} className="spin" /> : <Search size={15} />}
-                      </div>
-
-                      {/* Dropdown Hasil Pencarian Destinasi */}
-                      {destinationOptions.length > 0 && !selectedDestination && (
-                        <div style={{
-                          position: 'absolute',
-                          top: '100%',
-                          left: 0,
-                          right: 0,
-                          background: '#ffffff',
-                          border: '1px solid #cbd5e1',
-                          borderRadius: '8px',
-                          maxHeight: '180px',
-                          overflowY: 'auto',
-                          zIndex: 30,
-                          boxShadow: '0 8px 20px rgba(0,0,0,0.15)',
-                          marginTop: '4px'
-                        }}>
-                          {destinationOptions.map(opt => (
-                            <div
-                              key={opt.id}
-                              onClick={() => {
-                                setSelectedDestination(opt);
-                                setDestinationSearch(`${opt.district_name}, ${opt.city_name} (${opt.province_name})`);
-                                setDestinationOptions([]);
-                                if (!customerAddress || customerAddress.length < 10) {
-                                  setCustomerAddress(`${opt.subdistrict_name ? `${opt.subdistrict_name}, ` : ''}${opt.district_name}, ${opt.city_name}, ${opt.province_name} ${opt.zip_code || ''}`);
-                                }
-                              }}
-                              style={{
-                                padding: '8px 12px',
-                                fontSize: '0.74rem',
-                                borderBottom: '1px solid #f1f5f9',
-                                cursor: 'pointer',
-                                color: '#1e293b'
-                              }}
-                              onMouseEnter={(e) => (e.currentTarget.style.background = '#ecfdf5')}
-                              onMouseLeave={(e) => (e.currentTarget.style.background = '#ffffff')}
-                            >
-                              <span style={{ fontWeight: 700 }}>{opt.district_name}, {opt.city_name}</span>
-                              <span style={{ display: 'block', color: '#64748b', fontSize: '0.68rem' }}>{opt.label}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Hasil Tarif RajaOngkir Otomatis */}
-                    {selectedDestination && (
-                      <div style={{ marginTop: '10px' }}>
-                        <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#047857', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <Check size={13} />
-                          <span>Pilihan Kurir RajaOngkir ({totalWeightKg} kg):</span>
-                        </div>
-
-                        {isLoadingRates ? (
-                          <div style={{ fontSize: '0.74rem', color: '#64748b', padding: '8px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Loader2 size={14} className="spin" />
-                            <span>Menghubungi server RajaOngkir...</span>
-                          </div>
-                        ) : realOngkirRates.length > 0 ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            {realOngkirRates.map((rate, rIdx) => {
-                              const isSel = selectedRealService?.service === rate.service && selectedRealService?.code === rate.code;
-                              return (
-                                <div
-                                  key={rIdx}
-                                  onClick={() => setSelectedRealService(rate)}
-                                  style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    padding: '6px 10px',
-                                    borderRadius: '6px',
-                                    border: isSel ? '1.5px solid #059669' : '1px solid #cbd5e1',
-                                    background: isSel ? '#ecfdf5' : '#ffffff',
-                                    cursor: 'pointer',
-                                    fontSize: '0.75rem'
-                                  }}
-                                >
-                                  <div>
-                                    <span style={{ fontWeight: 800, color: '#0f172a', textTransform: 'uppercase' }}>
-                                      {rate.code} - {rate.service}
-                                    </span>
-                                    <span style={{ display: 'block', fontSize: '0.68rem', color: '#64748b' }}>
-                                      {rate.description || 'Layanan Reguler'} {rate.etd ? `(${rate.etd} hari)` : ''}
-                                    </span>
-                                  </div>
-                                  <span style={{ fontWeight: 900, color: '#065f46' }}>
-                                    Rp {rate.cost.toLocaleString('id-ID')}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                            Gunakan estimasi kurir atau ganti kata kunci kota.
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-              {!selectedRealService && (
-                <div>
-                  <label style={{ fontSize: '0.76rem', fontWeight: 800, color: '#475569', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '6px' }}>
-                    <Truck size={14} color="#059669" />
-                    <span>Pilihan Kurir Cadangan / Ambil di Toko:</span>
-                  </label>
-                  <select
-                    value={selectedCourierId}
-                    onChange={(e) => setSelectedCourierId(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '8px 10px',
-                      borderRadius: '8px',
-                      border: '1.5px solid #cbd5e1',
-                      fontSize: '0.8rem',
-                      background: '#ffffff'
-                    }}
-                  >
-                    {SR12_SHIPPING_PROVIDERS.map(sp => (
-                      <option key={sp.id} value={sp.id}>
-                        {sp.name} {sp.type !== 'pickup' ? `(Rp ${(sp.costPerKg * totalWeightKg).toLocaleString('id-ID')})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Form Data Pemesan */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <label style={{ fontSize: '0.76rem', fontWeight: 800, color: '#475569' }}>
-                  Data Pembeli:
-                </label>
-                <input
-                  type="text"
-                  placeholder="Nama Lengkap Pemesan *"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  style={{ padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.8rem' }}
-                />
-                <input
-                  type="text"
-                  placeholder="Nomor WhatsApp (contoh: 081234567890) *"
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  style={{ padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.8rem' }}
-                />
-                <textarea
-                  placeholder="Alamat Pengiriman Lengkap (Kecamatan, Kota, Kode Pos)..."
-                  rows={2}
-                  value={customerAddress}
-                  onChange={(e) => setCustomerAddress(e.target.value)}
-                  style={{ padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.8rem' }}
-                />
               </div>
 
               {/* Opsi Dropship */}
-              <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer' }}>
+              <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.76rem', fontWeight: 700, cursor: 'pointer', color: '#334155' }}>
                   <input
                     type="checkbox"
                     checked={isDropship}
@@ -863,17 +646,17 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
                   <div style={{ marginTop: '8px', display: 'flex', gap: '6px' }}>
                     <input
                       type="text"
-                      placeholder="Nama Pengirim"
+                      placeholder="Nama Pengirim / Toko Anda"
                       value={dropshipSenderName}
                       onChange={(e) => setDropshipSenderName(e.target.value)}
-                      style={{ flex: 1, padding: '6px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.75rem' }}
+                      style={{ flex: 1, padding: '7px 9px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.75rem', background: '#ffffff' }}
                     />
                     <input
-                      type="text"
-                      placeholder="No HP Pengirim"
+                      type="tel"
+                      placeholder="No WhatsApp Pengirim"
                       value={dropshipSenderPhone}
                       onChange={(e) => setDropshipSenderPhone(e.target.value)}
-                      style={{ flex: 1, padding: '6px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.75rem' }}
+                      style={{ flex: 1, padding: '7px 9px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.75rem', background: '#ffffff' }}
                     />
                   </div>
                 )}
@@ -885,31 +668,45 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
         {/* Footer Summary */}
         {cart.length > 0 && (
           <div className="cart-drawer-footer">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '12px', fontSize: '0.8rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '12px', fontSize: '0.8rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b' }}>
                 <span>Subtotal Produk:</span>
                 <span>Rp {subtotalHet.toLocaleString('id-ID')}</span>
               </div>
+
               {discountAmount > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#059669', fontWeight: 700 }}>
-                  <span>Diskon Kemitraan ({SR12_TIERS[activeTier].name}):</span>
+                  <span>Diskon Mitra ({SR12_TIERS[activeTier].name}):</span>
                   <span>-Rp {discountAmount.toLocaleString('id-ID')}</span>
                 </div>
               )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b' }}>
-                <span>Ongkir ({selectedRealService ? `${selectedRealService.code.toUpperCase()} ${selectedRealService.service}` : selectedCourier.name}):</span>
-                <span>{finalShippingCost === 0 ? 'Gratis (Rp 0)' : `Rp ${finalShippingCost.toLocaleString('id-ID')}`}</span>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#475569' }}>
+                <span>Biaya Ongkir:</span>
+                {deliveryMethod === 'pickup' ? (
+                  <span style={{ color: '#16a34a', fontWeight: 800 }}>Gratis (Rp 0)</span>
+                ) : (
+                  <span style={{ color: '#0284c7', fontWeight: 700 }}>Dikonfirmasi via WA</span>
+                )}
               </div>
+
               {platformFee > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#0284c7', fontWeight: 600 }}>
                   <span>Biaya Layanan Aplikasi:</span>
                   <span>Rp {platformFee.toLocaleString('id-ID')}</span>
                 </div>
               )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1rem', fontWeight: 900, color: '#0f172a', borderTop: '1px solid #e2e8f0', paddingTop: '6px', marginTop: '4px' }}>
-                <span>Total Bayar:</span>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.96rem', fontWeight: 900, color: '#0f172a', borderTop: '1px solid #e2e8f0', paddingTop: '6px', marginTop: '4px' }}>
+                <span>Total Sementara:</span>
                 <span style={{ color: '#065f46' }}>Rp {grandTotal.toLocaleString('id-ID')}</span>
               </div>
+
+              {deliveryMethod === 'delivery' && (
+                <div style={{ fontSize: '0.68rem', color: '#64748b', fontStyle: 'italic', marginTop: '2px' }}>
+                  * Ongkir final &amp; rekening pembayaran resmi akan dikonfirmasi oleh Admin via WhatsApp.
+                </div>
+              )}
             </div>
 
             <button

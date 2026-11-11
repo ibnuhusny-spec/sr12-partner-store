@@ -237,9 +237,11 @@ export function formatWhatsAppOrderMessage(order: Order, store: Store): string {
     ? `\n🎁 Diskon Kemitraan (${order.tierLabel}): -Rp ${order.discountAmount.toLocaleString('id-ID')}`
     : '';
 
-  const shippingText = order.shippingCost && order.shippingCost > 0
+  const shippingText = (order.shippingCost && order.shippingCost > 0)
     ? `\n🚚 Ongkir (${order.courierName || 'Ekspedisi'}): Rp ${order.shippingCost.toLocaleString('id-ID')}`
-    : `\n🚚 Pengiriman: ${order.courierName || 'Ambil di Toko / Bebas Ongkir'}`;
+    : (order.courierName?.includes('Ambil Sendiri') 
+        ? `\n🚚 Pengiriman: ${order.courierName} (Bebas Ongkir - Rp 0)`
+        : `\n🚚 Ongkir: Dikonfirmasi Admin Toko via WhatsApp`);
 
   const platformFeeText = order.platformFee && order.platformFee > 0
     ? `\n🛡️ Biaya Layanan Aplikasi: Rp ${order.platformFee.toLocaleString('id-ID')}`
@@ -247,6 +249,10 @@ export function formatWhatsAppOrderMessage(order: Order, store: Store): string {
 
   const dropshipText = order.dropship?.isDropship
     ? `\n\n📦 *PENGIRIMAN DROPSHIP*\nDari: ${order.dropship.senderName} (${order.dropship.senderPhone})`
+    : '';
+
+  const partnerText = order.partnerCode
+    ? `\n🏷️ *Kode Mitra:* ${order.partnerCode}`
     : '';
 
   const marketerText = order.marketerId 
@@ -260,8 +266,8 @@ Waktu: ${new Date().toLocaleString('id-ID')}
 👤 *DATA PEMESAN:*
 Nama: *${order.customerName}*
 WhatsApp: ${order.customerPhone}
-Alamat: ${order.customerAddress}
-Level Harga: *${order.tierLabel}*${marketerText}${dropshipText}
+Alamat Pengiriman: ${order.customerAddress}
+Level Harga: *${order.tierLabel}*${partnerText}${marketerText}${dropshipText}
 
 📋 *RINCIAN PESANAN:*
 ${itemsText}
@@ -269,9 +275,8 @@ ${itemsText}
 💰 *TOTAL PEMBAYARAN:*
 Subtotal Produk: Rp ${order.subtotalHet.toLocaleString('id-ID')}${discountText}${shippingText}${platformFeeText}
 ---------------------------------------
-*TOTAL TRANSFER: Rp ${order.grandTotal.toLocaleString('id-ID')}*
+*TOTAL SEMENTARA: Rp ${order.grandTotal.toLocaleString('id-ID')}*
+*(Ongkir final & rekening resmi akan dikonfirmasi oleh Admin Toko)*
 
-Metode Bayar: ${order.paymentMethod}
-
-Mohon konfirmasi ketersediaan stok & nomor rekening resmi toko ya kak. Terima kasih! 🙏`;
+Mohon cek & konfirmasi total pesanan dan ongkirnya ya Admin. Terima kasih! 🙏`;
 }
