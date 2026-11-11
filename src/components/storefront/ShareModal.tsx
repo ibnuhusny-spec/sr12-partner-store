@@ -48,35 +48,77 @@ Silakan klik tautan di atas untuk melihat katalog lengkap & langsung order via W
   };
 
   /**
-   * Otomatis salin teks promosi lengkap ke clipboard lalu buka WhatsApp
-   * Di Android: saat kirim foto, WhatsApp tidak mengizinkan caption otomatis dari browser,
-   * sehingga teks langsung disalin ke clipboard agar tinggal tekan 'Tempel / Paste' di bawah foto!
+   * Kirim Foto Asli Produk + Teks Promosi Lengkap ke WhatsApp (Shopee Style)
+   * Menggunakan Web Share API files: [File] sehingga WhatsApp langsung membuka
+   * layar kirim foto besar tanpa kartu web / tanpa tulisan deskripsi halus!
    */
   const handleShareWithPhoto = async () => {
     setIsSharingImage(true);
 
-    // Otomatis salin teks ke clipboard agar pengguna tinggal klik "Paste" di caption foto WhatsApp
+    // Otomatis salin teks ke clipboard agar jika Android butuh paste caption, teks sudah siap
     try {
       await navigator.clipboard.writeText(promoCopywriting);
     } catch {}
 
     try {
       let fileToShare: File | null = null;
+      const cleanProdId = (product.id || 'produk-sr12').replace(/[^a-zA-Z0-9_-]/g, '_');
 
+      // 1. Gambar Base64
       if (product.image && product.image.startsWith('data:image')) {
         const res = await fetch(product.image);
         const blob = await res.blob();
-        fileToShare = new File([blob], `${product.id || 'produk-sr12'}.jpg`, { type: blob.type || 'image/jpeg' });
-      } else if (product.image) {
+        fileToShare = new File([blob], `${cleanProdId}.jpg`, { type: blob.type || 'image/jpeg' });
+      } 
+      // 2. Gambar SVG generated (convert ke Canvas JPEG agar WhatsApp menerima sebagai foto)
+      else if (product.image && product.image.startsWith('data:image/svg')) {
         try {
-          const res = await fetch(product.image, { mode: 'cors' });
-          const blob = await res.blob();
-          fileToShare = new File([blob], `${product.id || 'produk-sr12'}.jpg`, { type: blob.type || 'image/jpeg' });
-        } catch {
-          fileToShare = null;
+          const img = new Image();
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = product.image;
+          });
+          const canvas = document.createElement('canvas');
+          canvas.width = 800;
+          canvas.height = 800;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, 800, 800);
+            const blob = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/jpeg', 0.88));
+            if (blob) {
+              fileToShare = new File([blob], `${cleanProdId}.jpg`, { type: 'image/jpeg' });
+            }
+          }
+        } catch (e) {
+          console.warn('SVG conversion failed:', e);
+        }
+      }
+      // 3. Gambar URL (Cloud / Supabase / Assets)
+      else if (product.image) {
+        try {
+          const res = await fetch(product.image);
+          if (res.ok) {
+            const blob = await res.blob();
+            fileToShare = new File([blob], `${cleanProdId}.jpg`, { type: blob.type || 'image/jpeg' });
+          }
+        } catch (fetchErr) {
+          console.warn('Fetch image failed:', fetchErr);
         }
       }
 
+      // Fallback ke foto produk default jika belum didapatkan
+      if (!fileToShare) {
+        try {
+          const fallbackRes = await fetch('/assets/deodorant-spray-square.jpg');
+          if (fallbackRes.ok) {
+            const blob = await fallbackRes.blob();
+            fileToShare = new File([blob], `${cleanProdId}.jpg`, { type: 'image/jpeg' });
+          }
+        } catch {}
+      }
+
+      // Jalankan Web Share API langsung ke WhatsApp / HP
       if (fileToShare && navigator.canShare && navigator.canShare({ files: [fileToShare] })) {
         setIsSharingImage(false);
         await navigator.share({
@@ -88,20 +130,19 @@ Silakan klik tautan di atas untuk melihat katalog lengkap & langsung order via W
       }
     } catch (e: any) {
       if (e.name !== 'AbortError') {
-        console.warn('Native file share failed:', e);
+        console.warn('Native photo share failed:', e);
       }
     }
 
     setIsSharingImage(false);
 
-    // Fallback share teks ke WA
+    // Fallback jika browser desktop tidak mendukung Web Share API files
     const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(promoCopywriting)}`;
     window.open(waUrl, '_blank');
   };
 
   const handleWhatsAppShare = () => {
-    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(promoCopywriting)}`;
-    window.open(waUrl, '_blank');
+    handleShareWithPhoto();
   };
 
   const handleNativeShare = async () => {
@@ -218,6 +259,7 @@ Silakan klik tautan di atas untuk melihat katalog lengkap & langsung order via W
               <button
                 type="button"
                 onClick={handleWhatsAppShare}
+                disabled={isSharingImage}
                 style={{
                   width: '100%',
                   padding: '12px 16px',
@@ -232,11 +274,12 @@ Silakan klik tautan di atas untuk melihat katalog lengkap & langsung order via W
                   gap: '8px',
                   border: 'none',
                   boxShadow: '0 4px 14px rgba(37,211,102,0.4)',
-                  cursor: 'pointer'
+                  cursor: isSharingImage ? 'wait' : 'pointer',
+                  opacity: isSharingImage ? 0.8 : 1
                 }}
               >
                 <MessageCircle size={20} />
-                <span>Bagikan ke WhatsApp</span>
+                <span>{isSharingImage ? 'Menyiapkan Foto Asli...' : 'Kirim Foto Asli ke WhatsApp'}</span>
               </button>
 
               <div style={{ display: 'flex', gap: '8px' }}>
