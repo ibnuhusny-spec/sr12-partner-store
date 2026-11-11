@@ -1432,9 +1432,26 @@ export default async function handler(req, res) {
   const query = req.query || {};
   const productKey = (query.product || query.id || query.p || query.prod || '').trim();
   const storeSlug = (query.store || query.s || 'sr12-central').trim();
+  const requestedTier = (query.tier || '').toLowerCase().trim();
   const customImg = (query.img || query.image || '').trim();
   const customName = (query.name || '').trim();
   const customPrice = Number(query.price || 0);
+
+  // Helper diskon tier SR12
+  const TIER_DISCOUNTS = {
+    reseller: 20,
+    sub_agen: 30,
+    agen: 40,
+    distributor: 45
+  };
+
+  const getTierPrice = (het, tier) => {
+    const disc = TIER_DISCOUNTS[tier] || 0;
+    if (disc > 0) {
+      return Math.round(het * (1 - disc / 100));
+    }
+    return het;
+  };
 
   // Cari produk berdasarkan ID atau kecocokan slug nama
   let matchedProduct = null;
@@ -1478,27 +1495,33 @@ export default async function handler(req, res) {
     customCloudProduct = await fetchCustomProductImage(storeSlug, productKey || matchedProduct.id);
   }
 
+  const tierQueryParam = requestedTier ? ('&tier=' + encodeURIComponent(requestedTier)) : '';
+
   if (customImg && customImg.startsWith('http')) {
     // Prioritas 1: Gambar kustom hasil upload / edit toko via query
     const prodName = customName || (matchedProduct ? matchedProduct.name : 'Produk SR12');
-    const priceText = customPrice > 0 ? (' - ' + formatRupiah(customPrice)) : (matchedProduct ? (' - ' + formatRupiah(matchedProduct.het)) : '');
+    const baseHet = customPrice > 0 ? customPrice : (matchedProduct ? matchedProduct.het : 0);
+    const finalPrice = baseHet > 0 ? getTierPrice(baseHet, requestedTier) : 0;
+    const priceText = finalPrice > 0 ? (' - ' + formatRupiah(finalPrice)) : '';
     title = prodName + priceText;
     desc = (matchedProduct ? matchedProduct.summary : 'Dapatkan produk herbal & skin care resmi SR12 BPOM.') + ' | Belanja aman di ' + storeTitle;
     imageUrl = customImg;
-    targetRedirect = baseUrl + '/?store=' + encodeURIComponent(storeSlug) + '&product=' + encodeURIComponent(productKey || (matchedProduct ? matchedProduct.id : ''));
-    canonicalUrl = baseUrl + '/p?product=' + encodeURIComponent(productKey || '') + '&store=' + encodeURIComponent(storeSlug);
+    targetRedirect = baseUrl + '/?store=' + encodeURIComponent(storeSlug) + '&product=' + encodeURIComponent(productKey || (matchedProduct ? matchedProduct.id : '')) + tierQueryParam;
+    canonicalUrl = baseUrl + '/p?product=' + encodeURIComponent(productKey || '') + '&store=' + encodeURIComponent(storeSlug) + tierQueryParam;
   } else if (customCloudProduct && customCloudProduct.imageUrl) {
     // Prioritas 2: Gambar hasil edit/upload yang tersimpan di Supabase database toko!
     // Kunci utama: link tetap singkat & rapi tanpa embel-embel &img= yang panjang!
     const prodName = customCloudProduct.name || (matchedProduct ? matchedProduct.name : 'Produk SR12');
-    const hetVal = customCloudProduct.price || (matchedProduct ? matchedProduct.het : 0);
-    title = prodName + (hetVal > 0 ? (' - ' + formatRupiah(hetVal)) : '');
+    const baseHet = customCloudProduct.price || (matchedProduct ? matchedProduct.het : 0);
+    const finalPrice = baseHet > 0 ? getTierPrice(baseHet, requestedTier) : 0;
+    title = prodName + (finalPrice > 0 ? (' - ' + formatRupiah(finalPrice)) : '');
     desc = (matchedProduct ? matchedProduct.summary : 'Dapatkan produk herbal & skin care resmi SR12 BPOM.') + ' | Belanja aman di ' + storeTitle;
     imageUrl = customCloudProduct.imageUrl;
-    targetRedirect = baseUrl + '/?store=' + encodeURIComponent(storeSlug) + '&product=' + encodeURIComponent(productKey || (matchedProduct ? matchedProduct.id : ''));
-    canonicalUrl = baseUrl + '/p?product=' + encodeURIComponent(productKey || (matchedProduct ? matchedProduct.id : '')) + '&store=' + encodeURIComponent(storeSlug);
+    targetRedirect = baseUrl + '/?store=' + encodeURIComponent(storeSlug) + '&product=' + encodeURIComponent(productKey || (matchedProduct ? matchedProduct.id : '')) + tierQueryParam;
+    canonicalUrl = baseUrl + '/p?product=' + encodeURIComponent(productKey || (matchedProduct ? matchedProduct.id : '')) + '&store=' + encodeURIComponent(storeSlug) + tierQueryParam;
   } else if (matchedProduct) {
-    title = matchedProduct.name + ' - ' + formatRupiah(matchedProduct.het);
+    const finalPrice = getTierPrice(matchedProduct.het, requestedTier);
+    title = matchedProduct.name + ' - ' + formatRupiah(finalPrice);
     desc = (matchedProduct.summary || '') + ' | Belanja aman resmi BPOM di ' + storeTitle;
     
     // Pastikan URL gambar absolut HTTPS publik yang valid untuk crawler WhatsApp (< 300KB)
@@ -1512,8 +1535,8 @@ export default async function handler(req, res) {
     }
     
     // PENTING: Arahkan langsung ke URL produk spesifik di toko mitra bersangkutan
-    targetRedirect = baseUrl + '/?store=' + encodeURIComponent(storeSlug) + '&product=' + encodeURIComponent(matchedProduct.id);
-    canonicalUrl = baseUrl + '/p?product=' + encodeURIComponent(matchedProduct.id) + '&store=' + encodeURIComponent(storeSlug);
+    targetRedirect = baseUrl + '/?store=' + encodeURIComponent(storeSlug) + '&product=' + encodeURIComponent(matchedProduct.id) + tierQueryParam;
+    canonicalUrl = baseUrl + '/p?product=' + encodeURIComponent(matchedProduct.id) + '&store=' + encodeURIComponent(storeSlug) + tierQueryParam;
   } else if (productKey) {
     // KUNCI UTAMA: WALAUPUN KEY BELUM PERSIS COCOK DI SERVERLESS:
     // JANGAN PERNAH HAPUS PARAMETER PRODUCT! Teruskan langsung ke frontend agar frontend mencocokkannya di DOM!
@@ -1521,14 +1544,14 @@ export default async function handler(req, res) {
     title = 'SR12 ' + cleanProdTitle + ' - ' + storeTitle;
     desc = 'Beli produk resmi SR12 ' + cleanProdTitle + ' terverifikasi BPOM di ' + storeTitle + '.';
     imageUrl = baseUrl + '/assets/deodorant-spray-square.jpg';
-    targetRedirect = baseUrl + '/?store=' + encodeURIComponent(storeSlug) + '&product=' + encodeURIComponent(productKey);
-    canonicalUrl = baseUrl + '/p?product=' + encodeURIComponent(productKey) + '&store=' + encodeURIComponent(storeSlug);
+    targetRedirect = baseUrl + '/?store=' + encodeURIComponent(storeSlug) + '&product=' + encodeURIComponent(productKey) + tierQueryParam;
+    canonicalUrl = baseUrl + '/p?product=' + encodeURIComponent(productKey) + '&store=' + encodeURIComponent(storeSlug) + tierQueryParam;
   } else {
     title = 'SR12 Herbal Skin Care - ' + storeTitle;
     desc = 'Toko Resmi Kemitraan SR12 Herbal Skin Care terverifikasi BPOM. Dapatkan produk kecantikan alami dengan garansi 100% original.';
     imageUrl = baseUrl + '/assets/deodorant-spray-square.jpg';
-    targetRedirect = baseUrl + '/?store=' + encodeURIComponent(storeSlug);
-    canonicalUrl = baseUrl + '/?store=' + encodeURIComponent(storeSlug);
+    targetRedirect = baseUrl + '/?store=' + encodeURIComponent(storeSlug) + tierQueryParam;
+    canonicalUrl = baseUrl + '/?store=' + encodeURIComponent(storeSlug) + tierQueryParam;
   }
 
   // Tentukan content type gambar untuk WhatsApp crawler (jpg/png/webp)

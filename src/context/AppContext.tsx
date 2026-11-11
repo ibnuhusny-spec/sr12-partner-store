@@ -78,13 +78,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [realtimeOrderAlert, setRealtimeOrderAlert] = useState<Order | null>(null);
   const [marketerReferral, setMarketerReferral] = useState<string | null>(null);
 
-  // Inisialisasi awal tema toko dan query param referral
+  // Inisialisasi awal tema toko, query param referral, dan level kemitraan (tier)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const refParam = params.get('ref');
     if (refParam) {
       setMarketerReferral(refParam.toUpperCase());
     }
+
+    const tierParam = params.get('tier');
+    if (tierParam) {
+      const validTiers: PartnerTier[] = ['konsumen', 'marketer', 'reseller', 'sub_agen', 'agen', 'distributor'];
+      const matchedTier = validTiers.find(t => t.toLowerCase() === tierParam.toLowerCase());
+      if (matchedTier) {
+        setActiveTier(matchedTier);
+      }
+    }
+
     applyStoreTheme(STORE_CONFIG.storeTheme);
   }, []);
 

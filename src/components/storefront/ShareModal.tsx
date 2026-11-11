@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Product } from '../../types';
 import { useApp } from '../../context/AppContext';
+import { getProductTierPrice, SR12_TIERS } from '../../config/tiers';
 import { X, MessageCircle, Copy, Share2, Check } from 'lucide-react';
 
 interface ShareModalProps {
@@ -9,22 +10,28 @@ interface ShareModalProps {
 }
 
 export const ShareModal: React.FC<ShareModalProps> = ({ product, onClose }) => {
-  const { currentStore } = useApp();
+  const { currentStore, activeTier } = useApp();
   const [copied, setCopied] = useState(false);
 
   const [isSharingImage, setIsSharingImage] = useState(false);
 
   if (!product) return null;
 
-  // Format tautan singkat dan rapi persis seperti sebelumnya:
-  // Contoh: https://sr12-partner-store.vercel.app/p?product=sr12-acne-total-tube-10g&store=sr12-central
+  // Hitung harga sesuai level tier yang sedang aktif (Konsumen, Marketer, Reseller, Sub Agen, dll)
+  const currentPrice = getProductTierPrice(product.het, activeTier);
+  const tierInfo = SR12_TIERS[activeTier];
+  const isDiscounted = activeTier !== 'konsumen' && activeTier !== 'marketer' && currentPrice < product.het;
+
+  // Format tautan singkat dan rapi dengan parameter tier jika bukan konsumen
+  // Contoh: https://sr12-partner-store.vercel.app/p?product=sr12-acne-total-tube-10g&store=sr12-central&tier=reseller
   const origin = window.location.origin;
-  const shortShareLink = `${origin}/p?product=${encodeURIComponent(product.id)}&store=${encodeURIComponent(currentStore.slug)}`;
+  const tierParam = activeTier !== 'konsumen' ? `&tier=${encodeURIComponent(activeTier)}` : '';
+  const shortShareLink = `${origin}/p?product=${encodeURIComponent(product.id)}&store=${encodeURIComponent(currentStore.slug)}${tierParam}`;
   const directLink = shortShareLink;
 
   const benefitsText = `✅ 100% Produk Herbal Terdaftar BPOM & Halal MUI\n✅ Formulasi Lembut & Aman Digunakan Tiap Hari\n✅ Garansi Keaslian Resmi Pabrik PT SR12`;
 
-  const promoCopywriting = `✨ *PROMO SPESIAL: ${product.name.toUpperCase()}* ✨
+  const promoCopywriting = `✨ *PROMO SPESIAL${activeTier !== 'konsumen' ? ` (${tierInfo.name.toUpperCase()})` : ''}: ${product.name.toUpperCase()}* ✨
 ${product.summary || 'Produk perawatan kulit herbal berkualitas resmi SR12.'} 🌿
 
 ⭐ *Rating Pembeli:* 4.9 / 5.0 (Terbukti Berkhasiat)
@@ -33,7 +40,7 @@ ${product.summary || 'Produk perawatan kulit herbal berkualitas resmi SR12.'} �
 🔥 *Keunggulan Produk:*
 ${benefitsText}
 
-💰 *Harga Spesial:* Rp ${product.het.toLocaleString('id-ID')}
+💰 *Harga Spesial:* Rp ${currentPrice.toLocaleString('id-ID')}${isDiscounted ? ` (Harga Normal: Rp ${product.het.toLocaleString('id-ID')})` : ''}
 🚚 *Pengiriman Cepat, Aman & Garansi Original!*
 
 👇 *Beli & Lihat Detail Produk Langsung di Toko Resmi (${currentStore.storeName}):*
@@ -206,8 +213,20 @@ Silakan klik tautan di atas untuk melihat katalog lengkap & langsung order via W
               <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                 {product.summary}
               </div>
-              <div style={{ fontSize: '0.92rem', fontWeight: 900, color: '#065f46', marginTop: '4px' }}>
-                Rp {product.het.toLocaleString('id-ID')}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                <span style={{ fontSize: '0.92rem', fontWeight: 900, color: '#065f46' }}>
+                  Rp {currentPrice.toLocaleString('id-ID')}
+                </span>
+                {isDiscounted && (
+                  <>
+                    <span style={{ fontSize: '0.74rem', textDecoration: 'line-through', color: '#94a3b8' }}>
+                      Rp {product.het.toLocaleString('id-ID')}
+                    </span>
+                    <span style={{ fontSize: '0.68rem', fontWeight: 800, background: '#dcfce7', color: '#15803d', padding: '1px 6px', borderRadius: '4px' }}>
+                      {tierInfo.label}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           </div>
