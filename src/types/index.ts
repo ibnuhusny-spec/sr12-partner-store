@@ -32,6 +32,8 @@ export interface Store {
   storeLogoUrl: string;
   storeWaNumber: string;
   storeCity: string;
+  originSubdistrictId?: number;
+  originLabel?: string;
   storeOwner: string;
   partnerTier: PartnerTier;
   recommenderDistributor?: string;
@@ -65,6 +67,8 @@ export interface PendingStore {
   storeLogoUrl?: string;
   storeWaNumber: string;
   storeCity: string;
+  originSubdistrictId?: number;
+  originLabel?: string;
   storeOwner: string;
   partnerTier: PartnerTier;
   ownerEmail?: string;

@@ -26,6 +26,8 @@ export const STORE_CONFIG: Store = {
   storeLogoUrl: '/assets/sr12-logo.png',
   storeWaNumber: saved.storeWaNumber || import.meta.env.VITE_STORE_WA || '6281200001212',
   storeCity: saved.storeCity || import.meta.env.VITE_STORE_CITY || 'Jakarta',
+  originSubdistrictId: saved.originSubdistrictId || Number(import.meta.env.VITE_STORE_ORIGIN_ID) || 17473,
+  originLabel: saved.originLabel || 'Jakarta Barat (DKI Jakarta)',
   storeOwner: saved.storeOwner || import.meta.env.VITE_STORE_OWNER || 'Ibnu Husny',
   partnerTier: 'distributor',
   feePayer: 'buyer',

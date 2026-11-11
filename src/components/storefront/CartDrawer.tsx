@@ -86,12 +86,24 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
     let isSubscribed = true;
     setIsLoadingRates(true);
 
-    calculateRealShippingCost(selectedDestination.id, totalWeightGram).then((rates) => {
+    const originId = currentStore.originSubdistrictId || 17473;
+    calculateRealShippingCost(selectedDestination.id, totalWeightGram, originId).then((rates) => {
       if (isSubscribed) {
-        const safeRates = Array.isArray(rates) ? rates : [];
-        setRealOngkirRates(safeRates);
-        if (safeRates.length > 0) {
-          setSelectedRealService(safeRates[0]);
+        // Filter layanan prioritas reguler & hemat (buang JTR trucking cargo minimal 10kg jika berat < 5kg)
+        let filteredRates = Array.isArray(rates) ? rates : [];
+        if (totalWeightKg < 5) {
+          const nonCargo = filteredRates.filter(r => !r.service.includes('JTR') && !r.description.toLowerCase().includes('trucking'));
+          if (nonCargo.length > 0) {
+            filteredRates = nonCargo;
+          }
+        }
+
+        // Urutkan dari ongkir paling terjangkau ke atas
+        filteredRates.sort((a, b) => a.cost - b.cost);
+
+        setRealOngkirRates(filteredRates);
+        if (filteredRates.length > 0) {
+          setSelectedRealService(filteredRates[0]);
         }
         setIsLoadingRates(false);
       }
@@ -102,7 +114,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
     return () => {
       isSubscribed = false;
     };
-  }, [selectedDestination, totalWeightGram]);
+  }, [selectedDestination, totalWeightGram, currentStore.originSubdistrictId]);
 
   if (!isOpen) return null;
 

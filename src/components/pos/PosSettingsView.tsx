@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Store } from '../../types';
 import { STORE_CONFIG } from '../../config/storeConfig';
-import { Settings, Image, Sparkles, Check, Save, Upload, RefreshCw, KeyRound, Mail, Lock } from 'lucide-react';
+import { Settings, Image, Sparkles, Check, Save, Upload, RefreshCw, KeyRound, Mail, Lock, MapPin, Search } from 'lucide-react';
 import { compressImageToBase64 } from '../../services/catalogService';
+import { searchOngkirDestinations, OngkirDestination } from '../../services/ongkirService';
 
 export const PosSettingsView: React.FC = () => {
   const { currentStore } = useApp();
@@ -14,6 +15,13 @@ export const PosSettingsView: React.FC = () => {
   const [storeWaNumber, setStoreWaNumber] = useState(currentStore.storeWaNumber || STORE_CONFIG.storeWaNumber);
   const [storeCity, setStoreCity] = useState(currentStore.storeCity || STORE_CONFIG.storeCity);
   const [storeOwner, setStoreOwner] = useState(currentStore.storeOwner || STORE_CONFIG.storeOwner);
+
+  // Lokasi Asal Gudang Toko (RajaOngkir Origin)
+  const [originSubdistrictId, setOriginSubdistrictId] = useState<number>(currentStore.originSubdistrictId || STORE_CONFIG.originSubdistrictId || 17473);
+  const [originLabel, setOriginLabel] = useState<string>(currentStore.originLabel || STORE_CONFIG.originLabel || 'Jakarta Barat (DKI Jakarta)');
+  const [originSearch, setOriginSearch] = useState<string>('');
+  const [originOptions, setOriginOptions] = useState<OngkirDestination[]>([]);
+  const [isSearchingOrigin, setIsSearchingOrigin] = useState(false);
 
   // Akun Login & Keamanan Toko
   const [ownerEmail, setOwnerEmail] = useState(currentStore.ownerEmail || STORE_CONFIG.ownerEmail || 'admin@sr12.co.id');
@@ -94,6 +102,8 @@ export const PosSettingsView: React.FC = () => {
       heroBannerUrl,
       storeWaNumber,
       storeCity,
+      originSubdistrictId,
+      originLabel,
       storeOwner,
       ownerEmail: ownerEmail.trim().toLowerCase(),
       adminPassword: adminPassword.trim() || currentStore.adminPassword,
@@ -302,6 +312,94 @@ export const PosSettingsView: React.FC = () => {
                   fontSize: '0.9rem'
                 }}
               />
+            </div>
+          </div>
+
+          {/* Pengaturan Lokasi Asal Pengiriman Gudang Toko (RajaOngkir) */}
+          <div style={{ background: '#020617', padding: '14px', borderRadius: '12px', border: '1px solid #1e293b' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', fontWeight: 800, color: '#34d399', marginBottom: '4px' }}>
+              <MapPin size={15} color="#34d399" />
+              <span>Lokasi Asal Pengiriman Gudang Toko (RajaOngkir Origin):</span>
+            </label>
+            <span style={{ fontSize: '0.72rem', color: '#94a3b8', display: 'block', marginBottom: '10px' }}>
+              Lokasi ini menjadi titik awal perhitungan tarif ongkir ke seluruh alamat pembeli se-Indonesia.
+            </span>
+
+            <div style={{ position: 'relative' }}>
+              <input
+                type="text"
+                value={originSearch}
+                onChange={async (e) => {
+                  const val = e.target.value;
+                  setOriginSearch(val);
+                  if (val.trim().length >= 3) {
+                    setIsSearchingOrigin(true);
+                    const res = await searchOngkirDestinations(val);
+                    setOriginOptions(res || []);
+                    setIsSearchingOrigin(false);
+                  } else {
+                    setOriginOptions([]);
+                  }
+                }}
+                placeholder={`Cari kecamatan / kota gudang Anda (Saat ini: ${originLabel})...`}
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  background: '#1e293b',
+                  border: '1px solid #334155',
+                  color: '#ffffff',
+                  fontSize: '0.85rem'
+                }}
+              />
+
+              {originOptions.length > 0 && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  background: '#0f172a',
+                  border: '1px solid #334155',
+                  borderRadius: '8px',
+                  maxHeight: '180px',
+                  overflowY: 'auto',
+                  zIndex: 20,
+                  boxShadow: '0 8px 20px rgba(0,0,0,0.5)',
+                  marginTop: '4px'
+                }}>
+                  {originOptions.map(opt => (
+                    <div
+                      key={opt.id}
+                      onClick={() => {
+                        setOriginSubdistrictId(opt.id);
+                        const lbl = `${opt.district_name}, ${opt.city_name} (${opt.province_name})`;
+                        setOriginLabel(lbl);
+                        setOriginSearch('');
+                        setOriginOptions([]);
+                        setStoreCity(opt.city_name);
+                      }}
+                      style={{
+                        padding: '10px 14px',
+                        fontSize: '0.78rem',
+                        borderBottom: '1px solid #1e293b',
+                        cursor: 'pointer',
+                        color: '#f8fafc'
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = '#1e293b')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = '#0f172a')}
+                    >
+                      <span style={{ fontWeight: 800, color: '#38bdf8' }}>{opt.district_name}, {opt.city_name}</span>
+                      <span style={{ display: 'block', color: '#94a3b8', fontSize: '0.7rem' }}>{opt.label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ marginTop: '8px', fontSize: '0.75rem', color: '#a7f3d0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Check size={14} color="#34d399" />
+              <span>Titik Asal Aktif: <b>{originLabel}</b> (ID: {originSubdistrictId})</span>
             </div>
           </div>
         </div>
