@@ -249,9 +249,9 @@ export const PosCashierView: React.FC<PosCashierViewProps> = ({
         window.dispatchEvent(new CustomEvent('sr12:cloud_sync_cashflow', { detail: { storeSlug: currentStore.slug } }));
       }
 
-      // 6. TERHUBUNG KE MITRA / DOWNLINE: Perbarui akumulasi belanja & hitung komisi Marketer
+      // 6. TERHUBUNG KE MITRA / DOWNLINE: Perbarui akumulasi omset HET & hitung komisi Marketer
       if (targetMitra) {
-        targetMitra.accumulatedSpent90Days = (targetMitra.accumulatedSpent90Days || 0) + totalPayable;
+        targetMitra.accumulatedSpent90Days = (targetMitra.accumulatedSpent90Days || 0) + subtotalHet;
         targetMitra.totalOrdersCount = (targetMitra.totalOrdersCount || 0) + 1;
         targetMitra.lastOrderDate = new Date().toISOString().split('T')[0];
         await saveStoreDownline(targetMitra, currentStore.slug);

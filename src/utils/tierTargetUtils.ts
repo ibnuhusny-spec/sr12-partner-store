@@ -1,4 +1,5 @@
 import { PartnerTier, MitraDownline } from '../types';
+import { getAllowedDownlineTiers } from '../config/tiers';
 
 export interface TierTargetConfig {
   tier: PartnerTier;
@@ -101,7 +102,7 @@ export const SR12_TIER_TARGETS: Record<PartnerTier, TierTargetConfig> = {
     accum3MonthsTarget: 45000000,
     careerTrackMin: 30000000,
     careerTrackPersonal: 20000000,
-    nextTier: 'distributor',
+    nextTier: null, // Level Distributor memerlukan pengajuan langsung ke pusat PT SR12
     prevTier: 'sub_agen',
     rulesNotes: [
       'First Order kepada Distributor/Agent senilai minimal Rp 25.000.000,- (Rp 15.000.000,- setelah diskon 40%).',
@@ -145,15 +146,30 @@ export interface MitraRankEvaluation {
   prevTierConfig: TierTargetConfig | null;
 }
 
+export interface EvaluateMitraOptions {
+  storeTier?: PartnerTier;
+  mitra?: MitraDownline;
+  maxSingleOrderHet?: number;
+}
+
 /**
- * Mengevaluasi capaian belanja mitra berdasarkan 2026 Rules Kemitraan SR12
+ * Mengevaluasi capaian belanja mitra (dalam nilai Omset HET) berdasarkan 2026 Rules Kemitraan SR12
  * @param tier Tingkat kemitraan saat ini
- * @param spentAmount Akumulasi belanja (misal 90 hari / 3 bulan berjalan)
+ * @param spentAmount Akumulasi omset HET periode 90 hari / 3 bulan berjalan
+ * @param options Konteks level toko pemilik, data jatuh tempo mitra, dan nilai order tunggal terbesar
  */
-export function evaluateMitraRank(tier: PartnerTier, spentAmount: number): MitraRankEvaluation {
+export function evaluateMitraRank(
+  tier: PartnerTier,
+  spentAmount: number,
+  options?: EvaluateMitraOptions
+): MitraRankEvaluation {
   const cfg = SR12_TIER_TARGETS[tier] || SR12_TIER_TARGETS.reseller;
-  const nextCfg = cfg.nextTier ? SR12_TIER_TARGETS[cfg.nextTier] : null;
+  const rawNextCfg = cfg.nextTier ? SR12_TIER_TARGETS[cfg.nextTier] : null;
+  const allowedTiers = getAllowedDownlineTiers(options?.storeTier || 'distributor');
+  // Promosi hanya ditampilkan jika jenjang berikutnya memang dapat dibina di bawah level toko pemilik
+  const nextCfg = rawNextCfg && allowedTiers.includes(rawNextCfg.tier) ? rawNextCfg : null;
   const prevCfg = cfg.prevTier ? SR12_TIER_TARGETS[cfg.prevTier] : null;
+  const maxSingleHet = options?.maxSingleOrderHet || 0;
 
   // Aturan Khusus Non Mitra (Pelanggan Langganan Tetap / Customer):
   if (tier === 'konsumen') {
@@ -178,15 +194,21 @@ export function evaluateMitraRank(tier: PartnerTier, spentAmount: number): Mitra
         name: 'Non Mitra (Langganan)',
         discountPct: 0
       },
-      nextTierConfig: SR12_TIER_TARGETS.reseller,
+      nextTierConfig: allowedTiers.includes('reseller') ? SR12_TIER_TARGETS.reseller : null,
       prevTierConfig: null
     };
   }
 
-  // Aturan Khusus Marketer: Bisa naik ke Reseller (500rb FO / 800rb omset), tapi TIDAK PERNAH turun level / keluar mitra!
+  // Aturan Khusus Marketer:
+  // Naik ke Reseller via First Order 1x order >= Rp 500.000 HET ATAU jalur omset akumulasi >= Rp 800.000 HET.
+  // Jika belum tercapai, TETAP AMAN sebagai Marketer Aktif (tidak pernah turun level / keluar).
   if (tier === 'marketer') {
-    const resellerTargetHet = 500000;
-    if (spentAmount >= resellerTargetHet) {
+    const firstOrderResellerHet = 500000;
+    const accumTrackResellerHet = 800000;
+    const qualifiedViaFo = maxSingleHet >= firstOrderResellerHet;
+    const qualifiedViaAccum = spentAmount >= accumTrackResellerHet;
+
+    if (nextCfg && (qualifiedViaFo || qualifiedViaAccum)) {
       return {
         status: 'promotable',
         progressMonthlyPct: 100,
@@ -194,7 +216,9 @@ export function evaluateMitraRank(tier: PartnerTier, spentAmount: number): Mitra
         badgeLabel: '🚀 Layak Naik ke Reseller',
         badgeColor: '#10b981',
         badgeBg: 'rgba(16, 185, 129, 0.18)',
-        shortMessage: `Omset Rp ${spentAmount.toLocaleString('id-ID')} melampaui syarat First Order Reseller (Rp 500.000 HET). Berhak promosi naik ke Reseller (Diskon 20%)!`,
+        shortMessage: qualifiedViaFo
+          ? `Order Rp ${maxSingleHet.toLocaleString('id-ID')} memenuhi syarat First Order Reseller (min Rp 500.000 HET). Berhak promosi ke Reseller (Diskon 20%)!`
+          : `Akumulasi omset Rp ${spentAmount.toLocaleString('id-ID')} melampaui syarat jalur omset Reseller (Rp 800.000 HET). Berhak promosi ke Reseller (Diskon 20%)!`,
         remainingMonthlyMin: 0,
         remaining3MonthsMin: 0,
         remainingToPromo: 0,
@@ -204,9 +228,8 @@ export function evaluateMitraRank(tier: PartnerTier, spentAmount: number): Mitra
       };
     }
 
-    // Jika target belum tercapai: TETAP AMAN SEBAGAI MARKETER (Tidak ada warning / ancaman turun)
-    const remainingToPromo = Math.max(0, resellerTargetHet - spentAmount);
-    const progressPct = Math.min(100, Math.round((spentAmount / resellerTargetHet) * 100));
+    const remainingToPromo = nextCfg ? Math.max(0, accumTrackResellerHet - spentAmount) : 0;
+    const progressPct = Math.min(100, Math.round((spentAmount / accumTrackResellerHet) * 100));
     return {
       status: 'safe',
       progressMonthlyPct: progressPct,
@@ -214,7 +237,9 @@ export function evaluateMitraRank(tier: PartnerTier, spentAmount: number): Mitra
       badgeLabel: '⭐ Tetap Marketer Aktif (Komisi 15%)',
       badgeColor: '#0ea5e9',
       badgeBg: 'rgba(14, 165, 233, 0.18)',
-      shortMessage: `Target Reseller belum tercapai (kurang Rp ${remainingToPromo.toLocaleString('id-ID')}). Status TETAP AMAN sebagai Marketer resmi (komisi 15%, tidak turun level/keluar).`,
+      shortMessage: nextCfg
+        ? `Target Reseller belum tercapai (kurang Rp ${remainingToPromo.toLocaleString('id-ID')} jalur akumulasi Rp 800rb atau 1x order FO Rp 500rb). Status tetap aman tanpa risiko turun level.`
+        : `Status Marketer Resmi aktif (komisi 15% cair serentak tgl 25 setiap bulan).`,
       remainingMonthlyMin: 0,
       remaining3MonthsMin: 0,
       remainingToPromo,
@@ -224,8 +249,7 @@ export function evaluateMitraRank(tier: PartnerTier, spentAmount: number): Mitra
     };
   }
 
-  // Ambang promosi naik level:
-  // Mitra bisa promosi jika omset mencapai syarat jalur karir next tier ATAU First Order next tier
+  // Ambang promosi naik tingkat (menggunakan First Order HET tingkat berikutnya bila masih di bawah level toko)
   const promoTarget = nextCfg ? (nextCfg.firstOrderHet || nextCfg.minMonthlyTarget) : 0;
 
   const remainingMonthlyMin = Math.max(0, cfg.minMonthlyTarget - spentAmount);
@@ -240,35 +264,18 @@ export function evaluateMitraRank(tier: PartnerTier, spentAmount: number): Mitra
     ? Math.min(100, Math.round((spentAmount / cfg.accum3MonthsTarget) * 100))
     : 100;
 
-  // Mitra Baru Terdaftar (0 omset / masa awal kemitraan):
-  if (spentAmount === 0) {
-    return {
-      status: 'safe',
-      progressMonthlyPct: 0,
-      progress3MonthsPct: 0,
-      badgeLabel: `🟢 Mitra Baru (${cfg.name})`,
-      badgeColor: '#10b981',
-      badgeBg: 'rgba(16, 185, 129, 0.18)',
-      shortMessage: `Mitra aktif terdaftar resmi sebagai ${cfg.name} (Diskon ${cfg.discountPct}%). Masa evaluasi 90 hari berjalan.`,
-      remainingMonthlyMin: cfg.minMonthlyTarget,
-      remaining3MonthsMin: cfg.accum3MonthsTarget,
-      remainingToPromo: promoTarget,
-      currentTierConfig: cfg,
-      nextTierConfig: nextCfg,
-      prevTierConfig: prevCfg
-    };
-  }
+  const daysRemaining = options?.mitra ? getMitraDueDateInfo(options.mitra).daysRemaining : 90;
 
-  // 1. PROMOTABLE: Capaian belanja memenuhi syarat promosi naik tingkat
-  if (promoTarget > 0 && spentAmount >= promoTarget) {
+  // 1. PROMOTABLE: Capaian belanja memenuhi syarat promosi naik tingkat (sekaligus tidak melebihi batas level toko)
+  if (nextCfg && promoTarget > 0 && (spentAmount >= promoTarget || maxSingleHet >= promoTarget)) {
     return {
       status: 'promotable',
       progressMonthlyPct: 100,
       progress3MonthsPct: 100,
-      badgeLabel: `🚀 Layak Naik ke ${nextCfg?.name}`,
+      badgeLabel: `🚀 Layak Naik ke ${nextCfg.name}`,
       badgeColor: '#10b981',
       badgeBg: 'rgba(16, 185, 129, 0.18)',
-      shortMessage: `Omset Rp ${spentAmount.toLocaleString('id-ID')} melampaui syarat First Order ${nextCfg?.name}!`,
+      shortMessage: `Omset Rp ${Math.max(spentAmount, maxSingleHet).toLocaleString('id-ID')} HET melampaui syarat First Order ${nextCfg.name}!`,
       remainingMonthlyMin: 0,
       remaining3MonthsMin: 0,
       remainingToPromo: 0,
@@ -278,8 +285,36 @@ export function evaluateMitraRank(tier: PartnerTier, spentAmount: number): Mitra
     };
   }
 
-  // 2. WARNING: Belanja di bawah target minimal akumulasi 3 bulan (Bulan ke-4 akan diturunkan)
-  if (cfg.minMonthlyTarget > 0 && (spentAmount < cfg.minMonthlyTarget || (spentAmount < cfg.accum3MonthsTarget && spentAmount < cfg.minMonthlyTarget * 2))) {
+  // 2. Mitra Baru Terdaftar (0 omset & sisa masa evaluasi masih > 30 hari)
+  if (spentAmount === 0 && daysRemaining > 30) {
+    return {
+      status: 'safe',
+      progressMonthlyPct: 0,
+      progress3MonthsPct: 0,
+      badgeLabel: `🟢 Mitra Baru (${cfg.name})`,
+      badgeColor: '#10b981',
+      badgeBg: 'rgba(16, 185, 129, 0.18)',
+      shortMessage: `Mitra aktif terdaftar resmi sebagai ${cfg.name} (Diskon ${cfg.discountPct}%). Target minimal Rp ${cfg.minMonthlyTarget.toLocaleString('id-ID')}/bln.`,
+      remainingMonthlyMin: cfg.minMonthlyTarget,
+      remaining3MonthsMin: cfg.accum3MonthsTarget,
+      remainingToPromo: promoTarget,
+      currentTierConfig: cfg,
+      nextTierConfig: nextCfg,
+      prevTierConfig: prevCfg
+    };
+  }
+
+  // 3. WARNING: Peringatan turun level ke tier bawahnya
+  // Terpicu jika omset di bawah minimal bulanan, ATAU memasuki bulan terakhir/jatuh tempo (sisa <= 30 hari) tapi akumulasi 3 bulan belum terpenuhi
+  const belowMonthlyMin = cfg.minMonthlyTarget > 0 && spentAmount < cfg.minMonthlyTarget;
+  const approachingDueBelow3Months = cfg.accum3MonthsTarget > 0 && spentAmount < cfg.accum3MonthsTarget && daysRemaining <= 30;
+
+  if (belowMonthlyMin || approachingDueBelow3Months) {
+    const neededAmt = belowMonthlyMin ? remainingMonthlyMin : remaining3MonthsMin;
+    const reasonText = belowMonthlyMin
+      ? `Omset HET kurang Rp ${neededAmt.toLocaleString('id-ID')} dari target min Rp ${cfg.minMonthlyTarget.toLocaleString('id-ID')}/bln.`
+      : `Sisa ${Math.max(0, daysRemaining)} hari jelang bulan ke-4! Akumulasi kurang Rp ${neededAmt.toLocaleString('id-ID')} dari target 3 bln (Rp ${cfg.accum3MonthsTarget.toLocaleString('id-ID')}).`;
+
     return {
       status: 'warning',
       progressMonthlyPct,
@@ -287,7 +322,7 @@ export function evaluateMitraRank(tier: PartnerTier, spentAmount: number): Mitra
       badgeLabel: `⚠️ Peringatan Turun ke ${prevCfg?.name || 'Bawah'}`,
       badgeColor: '#f43f5e',
       badgeBg: 'rgba(244, 63, 94, 0.18)',
-      shortMessage: `Kurang Rp ${remainingMonthlyMin.toLocaleString('id-ID')} (target min Rp ${cfg.minMonthlyTarget.toLocaleString('id-ID')}/bln). Terancam turun level di bln ke-4!`,
+      shortMessage: `${reasonText} Terancam turun level di bulan ke-4.`,
       remainingMonthlyMin,
       remaining3MonthsMin,
       remainingToPromo,
@@ -297,19 +332,24 @@ export function evaluateMitraRank(tier: PartnerTier, spentAmount: number): Mitra
     };
   }
 
-  // 3. SAFE: Target tercapai aman
+  // 4. SAFE: Target bulanan atau 3 bulanan tercapai aman
+  const isFull3MonthsMet = cfg.accum3MonthsTarget > 0 && spentAmount >= cfg.accum3MonthsTarget;
   return {
     status: 'safe',
     progressMonthlyPct: 100,
     progress3MonthsPct,
-    badgeLabel: `🟢 Target Aman (${progress3MonthsPct}% 3 Bln)`,
+    badgeLabel: isFull3MonthsMet
+      ? `🟢 Target 3 Bln Aman (${progress3MonthsPct}%)`
+      : `🟢 Target Bulan Aman (${progress3MonthsPct}% 3 Bln)`,
     badgeColor: '#0ea5e9',
     badgeBg: 'rgba(14, 165, 233, 0.18)',
-    shortMessage: promoTarget > 0 
-      ? `Kurang Rp ${remainingToPromo.toLocaleString('id-ID')} lagi untuk naik ke ${nextCfg?.name}.`
-      : `Target omset kemitraan tercapai dengan baik.`,
+    shortMessage: nextCfg && promoTarget > 0
+      ? `Kurang Rp ${remainingToPromo.toLocaleString('id-ID')} HET lagi untuk promosi naik ke ${nextCfg.name}.`
+      : isFull3MonthsMet
+      ? `Target akumulasi 3 bulan tercapai aman!`
+      : `Target minimal bulanan tercapai! Sisa Rp ${remaining3MonthsMin.toLocaleString('id-ID')} lagi untuk melengkapi akumulasi 3 bulan.`,
     remainingMonthlyMin: 0,
-    remaining3MonthsMin: 0,
+    remaining3MonthsMin,
     remainingToPromo,
     currentTierConfig: cfg,
     nextTierConfig: nextCfg,
@@ -506,49 +546,50 @@ export function generateMitraWaReminderUrl(
         `🗓️ *Jadwal Pembayaran Gaji Bulanan:* Serentak tanggal 25 setiap bulan (${dueDateInfo.displayLine}).\n\n` +
         `💡 *PELUANG NAIK LEVEL MENJADI RESELLER:*\n` +
         `Sebagai Marketer, Kakak punya kesempatan emas untuk naik tingkat menjadi *RESELLER RESMI SR12*:\n` +
-        `• Cukup capai omset Rp 500.000,- HET (atau jalur prestasi Rp 800.000,-).\n` +
+        `• Cukup capai 1x order First Order Rp 500.000,- HET ATAU akumulasi Rp 800.000,- HET.\n` +
         `• Dengan menjadi Reseller, Kakak langsung mendapatkan DISKON 20% di muka saat belanja!\n\n` +
-        `Kurang *Rp ${evaluation.remainingToPromo.toLocaleString('id-ID')}* lagi untuk meraih posisi Reseller. Jangan khawatir, jika belum tercapai Kakak tetap aman sebagai Marketer resmi SR12 tanpa ada risiko turun level atau keluar.\n\n` +
+        `Kurang *Rp ${evaluation.remainingToPromo.toLocaleString('id-ID')}* HET lagi untuk meraih posisi Reseller via jalur akumulasi. Jangan khawatir, jika belum tercapai Kakak tetap aman sebagai Marketer resmi SR12 tanpa ada risiko turun level atau keluar.\n\n` +
         `Yuk bagikan katalog & promo produk SR12 hari ini! Hubungi kami jika butuh bantuan stok atau info produk ya. Semangat terus! 🔥`;
     }
-    return `https://wa.me/${phoneTarget}?text=${encodeURIComponent(message)}`;
+    return `https://api.whatsapp.com/send?phone=${phoneTarget}&text=${encodeURIComponent(message)}`;
   }
 
   if (evaluation.status === 'promotable') {
     message = `Halo Kak *${mitra.name}* (Mitra SR12 ${mitra.partnerCode})! 🎉🌿\n\n` +
       `Kabar gembira dari *${storeName}*!\n` +
-      `Akumulasi pembelanjaan Kakak tercatat sebesar *${spentFormatted}* dan telah *MEMENUHI SYARAT 2026 PROMOSI NAIK LEVEL KE ${evaluation.nextTierConfig?.name.toUpperCase()}*! 🚀\n\n` +
+      `Akumulasi omset HET Kakak tercatat sebesar *${spentFormatted}* dan telah *MEMENUHI SYARAT 2026 PROMOSI NAIK LEVEL KE ${evaluation.nextTierConfig?.name.toUpperCase()}*! 🚀\n\n` +
       `Dengan naik level menjadi *${evaluation.nextTierConfig?.name}*:\n` +
       `✅ Diskon kemitraan meningkat jadi *${evaluation.nextTierConfig?.discountPct}%*\n` +
       `✅ Margin keuntungan per produk lebih tinggi\n` +
       `✅ Berhak membina tim reseller & marketer sendiri\n\n` +
       `Silakan konfirmasi ke kami untuk pengesahan level baru Kakak ya. Selamat atas pencapaian luar biasanya! 🙏✨`;
   } else if (evaluation.status === 'warning') {
-    const sisaBulan = `Rp ${evaluation.remainingMonthlyMin.toLocaleString('id-ID')}`;
+    const neededAmt = evaluation.remainingMonthlyMin > 0 ? evaluation.remainingMonthlyMin : evaluation.remaining3MonthsMin;
+    const sisaTargetStr = `Rp ${neededAmt.toLocaleString('id-ID')}`;
     const target3Bulan = `Rp ${evaluation.currentTierConfig.accum3MonthsTarget.toLocaleString('id-ID')}`;
     message = `Halo Kak *${mitra.name}* (Mitra SR12 ${mitra.partnerCode} - ${tierName}) 🌿\n\n` +
       `Salam hangat dari tim *${storeName}*.\n` +
-      `Kami ingin menginformasikan akumulasi belanja Kakak saat ini tercatat *${spentFormatted}*.\n` +
+      `Kami ingin menginformasikan akumulasi omset HET Kakak saat ini tercatat *${spentFormatted}*.\n` +
       `🗓️ *Batas Akhir Evaluasi Target (Jatuh Tempo):* *${dueDateInfo.dueDateStr}* (${dueDateInfo.badgeLabel})\n\n` +
       `⚠️ *PENGINGAT ATURAN KEMITRAAN SR12 2026:*\n` +
       `Sesuai aturan resmi SR12 CK SWORD:\n` +
-      `• Target omset minimal status *${tierName}* adalah Rp ${evaluation.currentTierConfig.minMonthlyTarget.toLocaleString('id-ID')}/bulan (atau akumulasi ${target3Bulan} selama 3 bulan).\n` +
+      `• Target omset HET minimal status *${tierName}* adalah Rp ${evaluation.currentTierConfig.minMonthlyTarget.toLocaleString('id-ID')}/bulan (atau akumulasi ${target3Bulan} selama 3 bulan).\n` +
       `• Mitra yang tidak mencapai akumulasi minimal 3 bulan sebelum tanggal jatuh tempo (*${dueDateInfo.dueDateStr}*), status mitra akan diturunkan ke tingkatan di bawahnya (${evaluation.prevTierConfig?.name || 'Marketer'}).\n\n` +
-      `Kakak hanya memerlukan belanja *${sisaBulan}* lagi sebelum batas waktu tersebut agar posisi Kakak tetap aman dan diskon *${evaluation.currentTierConfig.discountPct}%* tetap aktif! 💪\n\n` +
+      `Kakak memerlukan omset HET sebesar *${sisaTargetStr}* lagi sebelum batas waktu tersebut agar posisi Kakak tetap aman dan diskon *${evaluation.currentTierConfig.discountPct}%* tetap aktif! 💪\n\n` +
       `Yuk segera restock produk best seller (Deodorant, Manjakani, Salimah, Sunscreen, Paket Glowing) hari ini. Hubungi kami untuk bantu proses order ya Kak. Semangat terus! 🔥`;
   } else {
     // Safe
-    const sisaPromo = evaluation.remainingToPromo > 0 
-      ? `Tinggal *Rp ${evaluation.remainingToPromo.toLocaleString('id-ID')}* lagi untuk promosi ke *${evaluation.nextTierConfig?.name}* (Diskon ${evaluation.nextTierConfig?.discountPct}%)!` 
+    const sisaPromo = evaluation.nextTierConfig && evaluation.remainingToPromo > 0 
+      ? `Tinggal *Rp ${evaluation.remainingToPromo.toLocaleString('id-ID')}* HET lagi untuk promosi ke *${evaluation.nextTierConfig.name}* (Diskon ${evaluation.nextTierConfig.discountPct}%)!` 
       : 'Pertahankan prestasi hebat ini!';
 
     message = `Halo Kak *${mitra.name}* (Mitra SR12 ${mitra.partnerCode}) 🌿\n\n` +
       `Terima kasih atas keaktifan berbelanja di *${storeName}*.\n` +
-      `Akumulasi belanja Kakak saat ini sebesar *${spentFormatted}* (Status: Target Aman 🟢).\n` +
+      `Akumulasi omset HET Kakak saat ini sebesar *${spentFormatted}* (Status: Target Aman 🟢).\n` +
       `🗓️ *Batas Waktu Periode Evaluasi Target:* *${dueDateInfo.dueDateStr}* (${dueDateInfo.badgeLabel})\n\n` +
       `${sisaPromo}\n\n` +
       `Jika butuh tambahan materi promosi atau stok cepat, silakan kabari kami ya. Sukses selalu untuk bisnis Kakak! 🙏✨`;
   }
 
-  return `https://wa.me/${phoneTarget}?text=${encodeURIComponent(message)}`;
+  return `https://api.whatsapp.com/send?phone=${phoneTarget}&text=${encodeURIComponent(message)}`;
 }

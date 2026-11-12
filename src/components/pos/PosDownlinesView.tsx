@@ -233,121 +233,78 @@ export const PosDownlinesView: React.FC = () => {
     }
   };
 
-  // Perhitungan Bonus Potongan Diskon Level & Gaji Marketer (15%, 20%, 30%, 40%)
-  const calculateMitraBonusAndDiscount = (mitra: MitraDownline) => {
-    const pOrders = orders.filter(o => 
+  const getMitraOrders = (mitra: MitraDownline): Order[] =>
+    orders.filter(o =>
       (o.partnerCode && o.partnerCode.toUpperCase() === mitra.partnerCode.toUpperCase()) ||
       (o.customerName && o.customerName.toLowerCase().trim() === mitra.name.toLowerCase().trim()) ||
       (mitra.phone && o.customerPhone && o.customerPhone.replace(/[^0-9]/g, '').endsWith(mitra.phone.replace(/[^0-9]/g, '').slice(-8)))
     );
 
+  // Perhitungan Bonus Potongan Diskon Level & Gaji Marketer (berdasarkan Omset HET)
+  const calculateMitraBonusAndDiscount = (mitra: MitraDownline, pOrders: Order[]) => {
     const orderDiscounts = pOrders.reduce((sum, o) => sum + (o.discountAmount || 0), 0);
     const orderSubtotalHet = pOrders.reduce((sum, o) => sum + (o.subtotalHet || o.grandTotal), 0);
+    const effectiveHet = orderSubtotalHet > 0 ? orderSubtotalHet : (mitra.accumulatedSpent90Days || 0);
 
-    let bonusAmount = 0;
-    let bonusLabel = '';
-    let badgeColor = '#34d399';
-    let badgeBg = 'rgba(16, 185, 129, 0.12)';
-    let pct = 0;
-
-    switch (mitra.tier) {
-      case 'marketer': {
-        pct = 15;
-        badgeColor = '#818cf8';
-        badgeBg = 'rgba(99, 102, 241, 0.15)';
-        bonusLabel = 'Gaji Bulanan (15%)';
-        const recordedComms = sales
-          .filter(s => s.marketerId.toUpperCase() === mitra.partnerCode.toUpperCase())
-          .reduce((sum, s) => sum + s.commissionAmount, 0);
-
-        if (recordedComms > 0) {
-          bonusAmount = recordedComms;
-        } else if (orderSubtotalHet > 0) {
-          bonusAmount = Math.round(orderSubtotalHet * 0.15);
-        } else {
-          bonusAmount = Math.round((mitra.accumulatedSpent90Days || 0) * 0.15);
-        }
-        break;
-      }
-      case 'reseller': {
-        pct = 20;
-        badgeColor = '#34d399';
-        badgeBg = 'rgba(16, 185, 129, 0.15)';
-        bonusLabel = 'Diskon Level (20%)';
-        const calcDisc = orderDiscounts > 0 ? orderDiscounts : (orderSubtotalHet > 0 ? Math.round(orderSubtotalHet * 0.20) : 0);
-        if (calcDisc > 0) {
-          bonusAmount = calcDisc;
-        } else {
-          bonusAmount = Math.round(((mitra.accumulatedSpent90Days || 0) / 0.8) * 0.20);
-        }
-        break;
-      }
-      case 'sub_agen': {
-        pct = 30;
-        badgeColor = '#38bdf8';
-        badgeBg = 'rgba(56, 189, 248, 0.15)';
-        bonusLabel = 'Diskon Level (30%)';
-        const calcDisc = orderDiscounts > 0 ? orderDiscounts : (orderSubtotalHet > 0 ? Math.round(orderSubtotalHet * 0.30) : 0);
-        if (calcDisc > 0) {
-          bonusAmount = calcDisc;
-        } else {
-          bonusAmount = Math.round(((mitra.accumulatedSpent90Days || 0) / 0.7) * 0.30);
-        }
-        break;
-      }
-      case 'agen': {
-        pct = 40;
-        badgeColor = '#fbbf24';
-        badgeBg = 'rgba(245, 158, 11, 0.15)';
-        bonusLabel = 'Diskon Level (40%)';
-        const calcDisc = orderDiscounts > 0 ? orderDiscounts : (orderSubtotalHet > 0 ? Math.round(orderSubtotalHet * 0.40) : 0);
-        if (calcDisc > 0) {
-          bonusAmount = calcDisc;
-        } else {
-          bonusAmount = Math.round(((mitra.accumulatedSpent90Days || 0) / 0.6) * 0.40);
-        }
-        break;
-      }
-      case 'distributor': {
-        pct = 50;
-        badgeColor = '#ec4899';
-        badgeBg = 'rgba(236, 72, 153, 0.15)';
-        bonusLabel = 'Diskon Pasokan (50%)';
-        const calcDisc = orderDiscounts > 0 ? orderDiscounts : (orderSubtotalHet > 0 ? Math.round(orderSubtotalHet * 0.50) : 0);
-        if (calcDisc > 0) {
-          bonusAmount = calcDisc;
-        } else {
-          bonusAmount = Math.round(((mitra.accumulatedSpent90Days || 0) / 0.5) * 0.50);
-        }
-        break;
-      }
-      default: {
-        pct = 0;
-        badgeColor = '#94a3b8';
-        badgeBg = 'rgba(148, 163, 184, 0.12)';
-        bonusLabel = 'HET Retail Normal';
-        bonusAmount = 0;
-        break;
-      }
+    if (mitra.tier === 'marketer') {
+      const recordedComms = sales
+        .filter(s => s.marketerId.toUpperCase() === mitra.partnerCode.toUpperCase())
+        .reduce((sum, s) => sum + s.commissionAmount, 0);
+      const bonusAmount = recordedComms > 0 ? recordedComms : Math.round(effectiveHet * 0.15);
+      return {
+        bonusAmount,
+        bonusLabel: 'Gaji Bulanan (15%)',
+        badgeColor: '#818cf8',
+        badgeBg: 'rgba(99, 102, 241, 0.15)',
+        pct: 15,
+        orderCount: pOrders.length
+      };
     }
 
+    const tierMeta: Record<string, { pct: number; label: string; color: string; bg: string }> = {
+      reseller: { pct: 20, label: 'Diskon Level (20%)', color: '#34d399', bg: 'rgba(16, 185, 129, 0.15)' },
+      sub_agen: { pct: 30, label: 'Diskon Level (30%)', color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.15)' },
+      agen: { pct: 40, label: 'Diskon Level (40%)', color: '#fbbf24', bg: 'rgba(245, 158, 11, 0.15)' },
+      distributor: { pct: 50, label: 'Diskon Pasokan (50%)', color: '#ec4899', bg: 'rgba(236, 72, 153, 0.15)' }
+    };
+    const meta = tierMeta[mitra.tier];
+    if (!meta) {
+      return {
+        bonusAmount: 0,
+        bonusLabel: 'HET Retail Normal',
+        badgeColor: '#94a3b8',
+        badgeBg: 'rgba(148, 163, 184, 0.12)',
+        pct: 0,
+        orderCount: pOrders.length
+      };
+    }
+
+    const bonusAmount = orderDiscounts > 0 ? orderDiscounts : Math.round(effectiveHet * (meta.pct / 100));
     return {
       bonusAmount,
-      bonusLabel,
-      badgeColor,
-      badgeBg,
-      pct,
+      bonusLabel: meta.label,
+      badgeColor: meta.color,
+      badgeBg: meta.bg,
+      pct: meta.pct,
       orderCount: pOrders.length
     };
   };
 
-  // Evaluations mapping
-  const evaluatedDownlines = downlines.map(m => ({
-    mitra: m,
-    evalData: evaluateMitraRank(m.tier, m.accumulatedSpent90Days),
-    bonusInfo: calculateMitraBonusAndDiscount(m),
-    dueDateInfo: getMitraDueDateInfo(m)
-  }));
+  // Evaluations mapping (memperhitungkan level toko, tanggal jatuh tempo 3 bulan, & omset HET)
+  const evaluatedDownlines = downlines.map(m => {
+    const pOrders = getMitraOrders(m);
+    const maxSingleOrderHet = pOrders.reduce((max, o) => Math.max(max, o.subtotalHet || o.grandTotal || 0), 0);
+    return {
+      mitra: m,
+      evalData: evaluateMitraRank(m.tier, m.accumulatedSpent90Days, {
+        storeTier: currentStore.partnerTier,
+        mitra: m,
+        maxSingleOrderHet
+      }),
+      bonusInfo: calculateMitraBonusAndDiscount(m, pOrders),
+      dueDateInfo: getMitraDueDateInfo(m)
+    };
+  });
 
   // Filtering
   const filteredDownlines = evaluatedDownlines.filter(({ mitra, evalData }) => {
@@ -922,7 +879,7 @@ export const PosDownlinesView: React.FC = () => {
                       <th style={{ padding: '12px 14px' }}>Mitra &amp; Kode</th>
                       <th style={{ padding: '12px 14px' }}>Level Saat Ini</th>
                       <th style={{ padding: '12px 14px' }}>Bonus &amp; Diskon Level</th>
-                      <th style={{ padding: '12px 14px' }}>Total Belanja &amp; Target</th>
+                      <th style={{ padding: '12px 14px' }}>Total Omset (HET) &amp; Target</th>
                       <th style={{ padding: '12px 14px' }}>Status Evaluasi</th>
                       <th style={{ padding: '12px 14px', textAlign: 'center' }}>Tindakan</th>
                     </tr>
@@ -1757,6 +1714,10 @@ export const PosDownlinesView: React.FC = () => {
             </div>
 
             <div style={{ padding: '20px', maxHeight: '75vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.35)', borderRadius: '10px', padding: '10px 12px', fontSize: '0.75rem', color: '#a7f3d0', lineHeight: 1.5 }}>
+                📌 <b>Standar Evaluasi Sistem:</b> Seluruh target omset &amp; syarat promosi dihitung berdasarkan <b>nilai Omset HET</b> (sebelum diskon). Peringatan turun level muncul jika belum mencapai target minimal bulanan atau memasuki <b>30 hari terakhir masa 3 bulan</b>. Promosi otomatis dibatasi di bawah level toko pemilik (<b>{SR12_TIERS[currentStore.partnerTier]?.name}</b>).
+              </div>
+
               {/* 0. MARKETER */}
               <div style={{ background: '#1e293b', padding: '16px', borderRadius: '12px', border: '1.5px solid #0284c7' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>

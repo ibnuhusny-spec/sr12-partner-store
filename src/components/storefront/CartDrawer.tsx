@@ -252,9 +252,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
         }
       });
 
-      // 4. Catat omset & evaluasi mitra jika pembeli adalah mitra
+      // 4. Catat omset HET & evaluasi mitra jika pembeli adalah mitra
       if (targetMitra) {
-        targetMitra.accumulatedSpent90Days = (targetMitra.accumulatedSpent90Days || 0) + calculatedGrandTotal;
+        targetMitra.accumulatedSpent90Days = (targetMitra.accumulatedSpent90Days || 0) + subtotalHet;
         targetMitra.totalOrdersCount = (targetMitra.totalOrdersCount || 0) + 1;
         targetMitra.lastOrderDate = new Date().toISOString().split('T')[0];
         await saveStoreDownline(targetMitra, currentStore.slug);
