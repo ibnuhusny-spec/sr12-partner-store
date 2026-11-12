@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Product } from '../../types';
+import { Product, CashierOperator } from '../../types';
 import { PosCashierView } from './PosCashierView';
 import { PosTransactionsView } from './PosTransactionsView';
 import { PosInventoryView } from './PosInventoryView';
@@ -8,6 +8,7 @@ import { PosCashflowView } from './PosCashflowView';
 import { PosReportsView } from './PosReportsView';
 import { PosDownlinesView } from './PosDownlinesView';
 import { PosSettingsView } from './PosSettingsView';
+import { CashierSwitchModal } from './CashierSwitchModal';
 import {
   ShoppingCart,
   Receipt,
@@ -22,10 +23,11 @@ import {
   RotateCcw,
   LogOut,
   AlertTriangle,
-  Sliders
+  Sliders,
+  RefreshCw
 } from 'lucide-react';
 import { clearAllOrders } from '../../services/orderService';
-import { clearAllCashflow, clearAllStockMutations } from '../../services/posService';
+import { clearAllCashflow, clearAllStockMutations, getActiveCashier } from '../../services/posService';
 import { clearAllStoreDownlines, resetDownlineAccumulatedSpent, clearAllMarketerSales } from '../../services/mitraService';
 
 interface PosLayoutProps {
@@ -43,8 +45,11 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
 }) => {
   const { currentStore, setIsPosOpen, logoutStoreAdmin } = useApp();
   const [activeTab, setActiveTab] = useState<'cashier' | 'transactions' | 'inventory' | 'cashflow' | 'reports' | 'downlines' | 'settings'>('cashier');
-  const [cashierName, setCashierName] = useState('Siti Aminah');
+  const [activeCashier, setActiveCashierState] = useState<CashierOperator>(() =>
+    getActiveCashier(currentStore.slug, currentStore.storeOwner, currentStore.storeAdminPin)
+  );
   const [isClockedIn, setIsClockedIn] = useState(true);
+  const [showCashierModal, setShowCashierModal] = useState(false);
   const [showLogoutConfirmModal, setShowLogoutConfirmModal] = useState(false);
 
   const handleMasterResetSimulation = async () => {
@@ -131,31 +136,41 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
 
         {/* Right: Actions & Clear Logout */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-          {/* Clock-in (Kasir) Indicator - Desktop Only */}
-          <div
-            className="hide-on-mobile"
+          {/* Active Cashier & PIN Switcher Trigger */}
+          <button
+            type="button"
+            onClick={() => setShowCashierModal(true)}
             style={{
               background: '#0f172a',
               border: '1px solid #334155',
-              padding: '4px 8px',
+              padding: '4px 9px',
               borderRadius: '999px',
               fontSize: '0.7rem',
               display: 'flex',
               alignItems: 'center',
-              gap: '5px'
+              gap: '5px',
+              cursor: 'pointer'
             }}
+            title="Klik untuk Ganti Shift Kasir (dengan PIN) atau Kelola Daftar Kasir"
           >
             <Clock size={12} color={isClockedIn ? '#34d399' : '#f59e0b'} />
-            <span style={{ color: '#94a3b8' }}>Kasir:</span>
-            <b style={{ color: '#f8fafc' }}>{cashierName}</b>
+            <span className="hide-on-mobile" style={{ color: '#94a3b8' }}>Kasir:</span>
+            <b style={{ color: '#f8fafc', maxWidth: '105px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {activeCashier.name}
+            </b>
+            <RefreshCw size={11} color="#38bdf8" />
             <span
-              onClick={() => setIsClockedIn(!isClockedIn)}
+              className="hide-on-mobile"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsClockedIn(!isClockedIn);
+              }}
               style={{
                 fontSize: '0.6rem',
                 fontWeight: 800,
                 color: isClockedIn ? '#34d399' : '#f59e0b',
                 background: isClockedIn ? 'rgba(52,211,153,0.15)' : 'rgba(245,158,11,0.15)',
-                padding: '1px 4px',
+                padding: '1px 5px',
                 borderRadius: '4px',
                 cursor: 'pointer'
               }}
@@ -163,7 +178,7 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
             >
               {isClockedIn ? 'AKTIF' : 'OFF'}
             </span>
-          </div>
+          </button>
 
           {/* Master Reset Simulasi */}
           <button
@@ -355,7 +370,7 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
         {activeTab === 'cashier' && (
           <PosCashierView
             products={products}
-            activeCashierName={cashierName}
+            activeCashierName={activeCashier.name}
             onUpdateStock={onUpdateStock}
             onSwitchTab={(tab) => setActiveTab(tab as any)}
           />
@@ -461,6 +476,20 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
           <span className="pos-bottom-nav-label">Banner</span>
         </button>
       </nav>
+
+      {/* Modal Ganti Shift & Kelola Kasir (dengan PIN) */}
+      <CashierSwitchModal
+        isOpen={showCashierModal}
+        onClose={() => setShowCashierModal(false)}
+        storeSlug={currentStore.slug}
+        storeOwnerName={currentStore.storeOwner}
+        storeAdminPin={currentStore.storeAdminPin}
+        activeCashier={activeCashier}
+        onCashierChanged={(nextCashier) => {
+          setActiveCashierState(nextCashier);
+          setIsClockedIn(true);
+        }}
+      />
 
       {/* Modal Konfirmasi Logout POS */}
       {showLogoutConfirmModal && (

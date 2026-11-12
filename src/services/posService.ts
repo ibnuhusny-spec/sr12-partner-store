@@ -2,11 +2,78 @@ import { CashflowEntry, CashierAttendanceLog, CashierOperator, StockMutation } f
 import { supabase } from '../config/supabase';
 import { fetchStoreOrders, createOrder, updateOrderStatus } from './orderService';
 
-export const DEFAULT_CASHIERS: CashierOperator[] = [
-  { id: 'KASIR-01', name: 'Siti Aminah', pin: '1234', role: 'kasir', phone: '081234567891' },
-  { id: 'KASIR-02', name: 'Budi Santoso', pin: '5678', role: 'gudang', phone: '081234567892' },
-  { id: 'SPV-01', name: 'Hj. Aisyah', pin: '8899', role: 'spv', phone: '081234567893' }
-];
+export function buildDefaultOwnerCashier(ownerName?: string, ownerPin?: string): CashierOperator {
+  return {
+    id: 'OWNER-01',
+    name: (ownerName || '').trim() || 'Pemilik Toko',
+    pin: (ownerPin || '').trim() || '1234',
+    role: 'spv',
+    phone: ''
+  };
+}
+
+/**
+ * Mengambil daftar kasir/operator toko dari penyimpanan lokal.
+ * Jika belum ada, otomatis diisi dengan akun Pemilik Toko sebagai operator utama.
+ */
+export function getStoreCashiers(storeSlug: string, ownerName?: string, ownerPin?: string): CashierOperator[] {
+  const safeSlug = (storeSlug || 'sr12-central').toLowerCase();
+  const key = `sr12_cashiers_${safeSlug}`;
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed as CashierOperator[];
+      }
+    }
+  } catch {}
+
+  const initial = [buildDefaultOwnerCashier(ownerName, ownerPin)];
+  try {
+    localStorage.setItem(key, JSON.stringify(initial));
+  } catch {}
+  return initial;
+}
+
+export function saveStoreCashiers(storeSlug: string, cashiers: CashierOperator[]): void {
+  const safeSlug = (storeSlug || 'sr12-central').toLowerCase();
+  try {
+    localStorage.setItem(`sr12_cashiers_${safeSlug}`, JSON.stringify(cashiers));
+  } catch {}
+}
+
+export function getActiveCashier(storeSlug: string, ownerName?: string, ownerPin?: string): CashierOperator {
+  const safeSlug = (storeSlug || 'sr12-central').toLowerCase();
+  const cashiers = getStoreCashiers(safeSlug, ownerName, ownerPin);
+  try {
+    const raw = localStorage.getItem(`sr12_active_cashier_${safeSlug}`);
+    if (raw) {
+      const saved = JSON.parse(raw) as CashierOperator;
+      const matched = cashiers.find(c => c.id === saved.id);
+      if (matched) return matched;
+    }
+  } catch {}
+  return cashiers[0];
+}
+
+export function setActiveCashier(storeSlug: string, cashier: CashierOperator): void {
+  const safeSlug = (storeSlug || 'sr12-central').toLowerCase();
+  try {
+    localStorage.setItem(`sr12_active_cashier_${safeSlug}`, JSON.stringify(cashier));
+    saveAttendanceLog({
+      id: `ATT-${Date.now()}`,
+      storeSlug: safeSlug,
+      cashierId: cashier.id,
+      cashierName: cashier.name,
+      clockIn: new Date().toISOString(),
+      shiftSalesCount: 0,
+      shiftOmsetTotal: 0,
+      shiftCashTotal: 0,
+      notes: 'Ganti shift kasir via PIN'
+    }, safeSlug);
+  } catch {}
+}
 
 /**
  * Membaca data buku kas dari memori lokal (0ms respon instan)

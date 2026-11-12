@@ -5,6 +5,7 @@ import { STORE_CONFIG } from '../../config/storeConfig';
 import { Settings, Image, Sparkles, Check, Save, Upload, RefreshCw, KeyRound, Mail, Lock, MapPin, Search } from 'lucide-react';
 import { compressImageToBase64 } from '../../services/catalogService';
 import { searchOngkirDestinations, OngkirDestination } from '../../services/ongkirService';
+import { getStoreCashiers, saveStoreCashiers, getActiveCashier, setActiveCashier } from '../../services/posService';
 
 export const PosSettingsView: React.FC = () => {
   const { currentStore } = useApp();
@@ -112,6 +113,18 @@ export const PosSettingsView: React.FC = () => {
 
     try {
       localStorage.setItem('sr12_custom_store_profile', JSON.stringify(updatedStore));
+      // Sinkronkan data Pemilik / Kasir Utama (OWNER-01) bila nama pemilik atau PIN berubah
+      const existingCashiers = getStoreCashiers(currentStore.slug, updatedStore.storeOwner, updatedStore.storeAdminPin);
+      const updatedCashiers = existingCashiers.map(c =>
+        c.id === 'OWNER-01'
+          ? { ...c, name: updatedStore.storeOwner || c.name, pin: updatedStore.storeAdminPin || c.pin }
+          : c
+      );
+      saveStoreCashiers(currentStore.slug, updatedCashiers);
+      const currentActive = getActiveCashier(currentStore.slug, updatedStore.storeOwner, updatedStore.storeAdminPin);
+      if (currentActive.id === 'OWNER-01') {
+        setActiveCashier(currentStore.slug, currentActive);
+      }
     } catch {}
 
     setIsSaved(true);
@@ -507,7 +520,7 @@ export const PosSettingsView: React.FC = () => {
                 }}
               />
               <span style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px', display: 'block' }}>
-                PIN praktis untuk login cepat kasir toko harian.
+                PIN untuk login cepat kasir harian &amp; membuka menu Kelola Daftar Kasir di bar atas POS.
               </span>
             </div>
           </div>
