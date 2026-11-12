@@ -9,7 +9,6 @@ import {
   unmarkDownlineDeleted
 } from './cleanupGuard';
 import { fetchCancelledOrderIds, fetchStoreOrders } from './orderService';
-import { isDemoSessionActive } from './demoGuard';
 
 export const DEFAULT_SAMPLE_DOWNLINES: MitraDownline[] = [
   // 1. AGEN RESMI SR12 (Diskon 40%)
@@ -285,6 +284,151 @@ export async function verifyMitraDiscount(query: string, storeSlug: string): Pro
   return { found: false };
 }
 
+export interface MarketerPortalCommissionItem {
+  orderId: string;
+  orderDate: string;
+  monthPeriod: string;
+  customerInitials: string;
+  itemsDesc: string;
+  omsetHet: number;
+  commissionPct: number;
+  commissionAmount: number;
+  paidStatus: 'paid' | 'unpaid' | string;
+  paidDate?: string | null;
+}
+
+export interface MarketerPortalReport {
+  found: boolean;
+  message?: string;
+  mitra?: {
+    partnerCode: string;
+    name: string;
+    city?: string;
+    tier: PartnerTier;
+    bankName?: string;
+    bankAccountMasked?: string;
+  };
+  summary?: {
+    totalCommissionEarned: number;
+    unpaidCommission: number;
+    paidCommission: number;
+    currentMonthCommission: number;
+    totalOmsetHet: number;
+    maxSingleOrderHet: number;
+    totalOrders: number;
+    currentMonth: string;
+  };
+  sales?: MarketerPortalCommissionItem[];
+}
+
+/** Ambil rincian gaji & komisi 15% real-time khusus untuk Marketer terverifikasi (Kode + No. WA) */
+export async function fetchMyMarketerCommission(
+  storeSlug: string,
+  code: string,
+  phone: string
+): Promise<MarketerPortalReport> {
+  const targetSlug = storeSlug || 'sr12-central';
+  const cleanCode = (code || '').trim().toUpperCase();
+  const cleanDigits = (phone || '').replace(/[^0-9]/g, '');
+
+  if (!cleanCode || cleanDigits.length < 6) {
+    return {
+      found: false,
+      message: 'Masukkan Kode Marketer dan minimal 6 digit akhir Nomor WhatsApp terdaftar.'
+    };
+  }
+
+  // Pada mode demo, baca langsung dari cache lokal perangkat ini tanpa menyentuh Cloud
+  const isDemoMode = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('sr12_demo_pos_session') === '1';
+  if (!isDemoMode) {
+    try {
+      const { data, error } = await supabase.rpc('rpc_get_my_marketer_commission', {
+        p_slug: targetSlug,
+        p_code: cleanCode,
+        p_phone: cleanDigits
+      });
+
+      if (!error && data) {
+        if (data.found) {
+          return data as MarketerPortalReport;
+        }
+        return {
+          found: false,
+          message: data.message || 'Kombinasi Kode Marketer dan Nomor WhatsApp tidak cocok.'
+        };
+      }
+    } catch (err) {
+      console.warn('RPC rpc_get_my_marketer_commission fallback to local:', err);
+    }
+  }
+
+  // Fallback lokal (untuk Demo POS / offline / jika RPC SQL belum dijalankan)
+  const localMitraList = getLocalDownlines(targetSlug);
+  const foundMitra = localMitraList.find(m => {
+    const codeMatch = m.partnerCode && m.partnerCode.toUpperCase() === cleanCode;
+    const mDigits = (m.phone || '').replace(/[^0-9]/g, '');
+    const phoneMatch = mDigits.length >= 6 && mDigits.slice(-6) === cleanDigits.slice(-6);
+    return Boolean(codeMatch && phoneMatch);
+  });
+
+  if (!foundMitra) {
+    return {
+      found: false,
+      message: 'Kombinasi Kode Marketer dan Nomor WhatsApp tidak ditemukan.'
+    };
+  }
+
+  const monthNow = new Date().toISOString().slice(0, 7);
+  const mySales = getLocalMarketerSales(targetSlug)
+    .filter(s => s.marketerId.toUpperCase() === foundMitra.partnerCode.toUpperCase())
+    .sort((a, b) => (b.orderDate || '').localeCompare(a.orderDate || ''));
+
+  const totalComm = mySales.reduce((sum, s) => sum + (s.commissionAmount || 0), 0);
+  const unpaidComm = mySales.filter(s => s.paidStatus !== 'paid').reduce((sum, s) => sum + (s.commissionAmount || 0), 0);
+  const paidComm = mySales.filter(s => s.paidStatus === 'paid').reduce((sum, s) => sum + (s.commissionAmount || 0), 0);
+  const monthComm = mySales.filter(s => s.monthPeriod === monthNow).reduce((sum, s) => sum + (s.commissionAmount || 0), 0);
+  const salesHet = mySales.reduce((sum, s) => sum + (s.omsetHet || 0), 0);
+  const maxOrderHet = mySales.reduce((max, s) => Math.max(max, s.omsetHet || 0), 0);
+
+  return {
+    found: true,
+    mitra: {
+      partnerCode: foundMitra.partnerCode,
+      name: foundMitra.name,
+      city: foundMitra.city,
+      tier: foundMitra.tier,
+      bankName: foundMitra.bankName,
+      bankAccountMasked: foundMitra.bankAccount && foundMitra.bankAccount.length > 4
+        ? `****${foundMitra.bankAccount.slice(-4)}`
+        : foundMitra.bankAccount
+    },
+    summary: {
+      totalCommissionEarned: totalComm,
+      unpaidCommission: unpaidComm,
+      paidCommission: paidComm,
+      currentMonthCommission: monthComm,
+      totalOmsetHet: Math.max(foundMitra.accumulatedSpent90Days || 0, salesHet),
+      maxSingleOrderHet: maxOrderHet,
+      totalOrders: mySales.length,
+      currentMonth: monthNow
+    },
+    sales: mySales.map(s => ({
+      orderId: s.orderId,
+      orderDate: s.orderDate,
+      monthPeriod: s.monthPeriod,
+      customerInitials: s.customerName && s.customerName.trim().length > 2
+        ? `${s.customerName.trim().slice(0, 2)}***`
+        : 'Pelanggan',
+      itemsDesc: s.itemsDesc,
+      omsetHet: s.omsetHet,
+      commissionPct: s.commissionPct,
+      commissionAmount: s.commissionAmount,
+      paidStatus: s.paidStatus,
+      paidDate: s.paidDate
+    }))
+  };
+}
+
 /** Tambahkan akumulasi omset HET ke cache lokal Marketer saat pembeli checkout via link affiliate ?ref= */
 export async function creditMarketerAffiliateTurnover(
   storeSlug: string,
@@ -311,9 +455,7 @@ export async function creditMarketerAffiliateTurnover(
       localStorage.setItem(`sr12_mitra_downlines_${targetSlug}`, JSON.stringify(list));
     }
 
-    if (isDemoSessionActive()) {
-      notifyPosDataSync(targetSlug, ['downlines']);
-    }
+    notifyPosDataSync(targetSlug, ['downlines']);
     return true;
   } catch {
     return false;
@@ -345,10 +487,6 @@ export function getLocalDownlines(storeSlug?: string): MitraDownline[] {
 export async function fetchStoreDownlines(storeSlug: string): Promise<MitraDownline[]> {
   const targetSlug = storeSlug || 'sr12-central';
   const token = getActiveSessionToken(targetSlug);
-
-  if (isDemoSessionActive() && localStorage.getItem(`sr12_mitra_downlines_${targetSlug}`) !== null) {
-    return getLocalDownlines(targetSlug);
-  }
 
   try {
     const { data, error } = await supabase.rpc('rpc_get_store_downlines', {
@@ -417,11 +555,6 @@ export async function saveStoreDownline(mitra: Partial<MitraDownline>, storeSlug
     localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(list));
     localStorage.setItem(`sr12_mitra_downlines_${targetSlug}`, JSON.stringify(list));
   } catch (e) {}
-
-  if (isDemoSessionActive()) {
-    notifyPosDataSync(targetSlug, ['downlines']);
-    return true;
-  }
 
   // 2. Simpan secara permanen ke Supabase Cloud
   try {
@@ -540,10 +673,6 @@ export async function fetchStoreMarketerSales(storeSlug: string): Promise<Market
   const targetSlug = storeSlug || 'sr12-central';
   const token = getActiveSessionToken(targetSlug);
 
-  if (isDemoSessionActive() && localStorage.getItem(`sr12_marketer_sales_${targetSlug}`) !== null) {
-    return getLocalMarketerSales(targetSlug);
-  }
-
   try {
     const [{ data, error }, cancelledIds] = await Promise.all([
       supabase.rpc('rpc_get_store_marketer_sales', {
@@ -638,17 +767,15 @@ export async function deleteStoreDownline(partnerCode: string, storeSlug?: strin
     localStorage.setItem(`sr12_mitra_downlines_${targetSlug}`, JSON.stringify(filtered));
   } catch {}
 
-  // 2. Hapus dari Supabase Cloud (dilewati saat Mode Demo)
-  if (!isDemoSessionActive()) {
-    try {
-      await supabase.rpc('rpc_delete_store_downline', {
-        p_slug: targetSlug,
-        p_token: token,
-        p_partner_code: partnerCode
-      });
-    } catch (e) {
-      console.warn('Error deleting downline in Supabase:', e);
-    }
+  // 2. Hapus dari Supabase Cloud
+  try {
+    await supabase.rpc('rpc_delete_store_downline', {
+      p_slug: targetSlug,
+      p_token: token,
+      p_partner_code: partnerCode
+    });
+  } catch (e) {
+    console.warn('Error deleting downline in Supabase:', e);
   }
 
   notifyPosDataSync(targetSlug, ['downlines']);
@@ -678,11 +805,6 @@ export async function clearAllStoreDownlines(storeSlug?: string): Promise<void> 
     localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify([]));
     localStorage.setItem(`sr12_mitra_downlines_${targetSlug}`, JSON.stringify([]));
   } catch {}
-
-  if (isDemoSessionActive()) {
-    notifyPosDataSync(targetSlug, ['downlines']);
-    return;
-  }
 
   try {
     await supabase.rpc('rpc_clear_store_downlines', {
@@ -728,11 +850,6 @@ export async function resetDownlineAccumulatedSpent(storeSlug?: string): Promise
     }));
     localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(resetList));
     localStorage.setItem(`sr12_mitra_downlines_${targetSlug}`, JSON.stringify(resetList));
-
-    if (isDemoSessionActive()) {
-      notifyPosDataSync(targetSlug, ['downlines']);
-      return;
-    }
 
     let rpcOk = false;
     try {
@@ -785,11 +902,6 @@ export async function deleteMarketerSale(orderId: string, storeSlug?: string): P
     localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(remaining));
     localStorage.setItem(`sr12_marketer_sales_${targetSlug}`, JSON.stringify(remaining));
   } catch {}
-
-  if (isDemoSessionActive()) {
-    notifyPosDataSync(targetSlug, ['downlines']);
-    return remaining;
-  }
 
   try {
     const { data, error } = await supabase.rpc('rpc_delete_marketer_sale', {
@@ -847,11 +959,6 @@ export async function clearAllMarketerSales(
     localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify([]));
     localStorage.setItem(`sr12_marketer_sales_${targetSlug}`, JSON.stringify([]));
   } catch {}
-
-  if (isDemoSessionActive()) {
-    notifyPosDataSync(targetSlug, ['downlines']);
-    return { cloudDeleted: true, remainingCount: 0 };
-  }
 
   // Unconditionally call SECURITY DEFINER RPCs (never rely on direct RLS DELETE returning an error)
   try {

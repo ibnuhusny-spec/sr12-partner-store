@@ -378,3 +378,126 @@ $$;
 
 GRANT EXECUTE ON FUNCTION rpc_create_store_order(TEXT, JSONB) TO anon, authenticated, service_role;
 
+-- ========================================================
+-- PATCH PORTAL CEK GAJI REAL-TIME MARKETER (KOMISI 15%)
+-- Verifikasi aman Kode Marketer + No. WA terdaftar (tanpa membocorkan data pembeli/bank lengkap)
+-- ========================================================
+CREATE OR REPLACE FUNCTION rpc_get_my_marketer_commission(
+  p_slug TEXT,
+  p_code TEXT,
+  p_phone TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_code TEXT := UPPER(TRIM(COALESCE(p_code, '')));
+  v_digits TEXT := regexp_replace(COALESCE(p_phone, ''), '[^0-9]', '', 'g');
+  v_mitra RECORD;
+  v_month_now VARCHAR(7) := to_char(CURRENT_DATE, 'YYYY-MM');
+  v_total_comm NUMERIC(12,2) := 0;
+  v_unpaid_comm NUMERIC(12,2) := 0;
+  v_paid_comm NUMERIC(12,2) := 0;
+  v_month_comm NUMERIC(12,2) := 0;
+  v_sales_het NUMERIC(12,2) := 0;
+  v_max_order_het NUMERIC(12,2) := 0;
+  v_total_orders INT := 0;
+  v_sales_json JSONB := '[]'::jsonb;
+BEGIN
+  IF p_slug IS NULL OR TRIM(p_slug) = '' THEN
+    p_slug := 'sr12-central';
+  END IF;
+
+  IF v_code = '' OR length(v_digits) < 6 THEN
+    RETURN jsonb_build_object(
+      'found', false,
+      'message', 'Masukkan Kode Marketer dan minimal 6 digit akhir Nomor WhatsApp terdaftar.'
+    );
+  END IF;
+
+  SELECT * INTO v_mitra FROM mitra_downlines
+  WHERE store_slug = p_slug
+    AND (UPPER(partner_code) = v_code OR UPPER(partner_code) = regexp_replace(v_code, '[^A-Z0-9]', '', 'g'))
+    AND length(regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g')) >= 6
+    AND right(regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g'), 6) = right(v_digits, 6)
+  LIMIT 1;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object(
+      'found', false,
+      'message', 'Kombinasi Kode Marketer dan Nomor WhatsApp tidak cocok atau belum terdaftar di toko ini.'
+    );
+  END IF;
+
+  SELECT
+    COALESCE(SUM(commission_amount), 0),
+    COALESCE(SUM(CASE WHEN paid_status <> 'paid' THEN commission_amount ELSE 0 END), 0),
+    COALESCE(SUM(CASE WHEN paid_status = 'paid' THEN commission_amount ELSE 0 END), 0),
+    COALESCE(SUM(CASE WHEN month_period = v_month_now THEN commission_amount ELSE 0 END), 0),
+    COALESCE(SUM(omset_het), 0),
+    COALESCE(MAX(omset_het), 0),
+    COUNT(*)::INT
+  INTO v_total_comm, v_unpaid_comm, v_paid_comm, v_month_comm, v_sales_het, v_max_order_het, v_total_orders
+  FROM marketer_sales
+  WHERE store_slug = p_slug
+    AND UPPER(marketer_id) = UPPER(v_mitra.partner_code);
+
+  SELECT COALESCE(jsonb_agg(row_item), '[]'::jsonb)
+  INTO v_sales_json
+  FROM (
+    SELECT jsonb_build_object(
+      'orderId', s.order_id,
+      'orderDate', s.order_date,
+      'monthPeriod', s.month_period,
+      'customerInitials', CASE
+        WHEN length(TRIM(COALESCE(s.customer_name, ''))) > 2
+        THEN left(TRIM(s.customer_name), 2) || '***'
+        ELSE 'Pelanggan'
+      END,
+      'itemsDesc', COALESCE(s.items_desc, 'Produk SR12'),
+      'omsetHet', s.omset_het,
+      'commissionPct', s.commission_pct,
+      'commissionAmount', s.commission_amount,
+      'paidStatus', s.paid_status,
+      'paidDate', s.paid_date
+    ) AS row_item
+    FROM marketer_sales s
+    WHERE s.store_slug = p_slug
+      AND UPPER(s.marketer_id) = UPPER(v_mitra.partner_code)
+    ORDER BY s.order_date DESC, s.created_at DESC
+    LIMIT 100
+  ) sub;
+
+  RETURN jsonb_build_object(
+    'found', true,
+    'mitra', jsonb_build_object(
+      'partnerCode', v_mitra.partner_code,
+      'name', v_mitra.name,
+      'city', v_mitra.city,
+      'tier', v_mitra.tier,
+      'bankName', v_mitra.bank_name,
+      'bankAccountMasked', CASE
+        WHEN length(COALESCE(v_mitra.bank_account, '')) > 4
+        THEN '****' || right(v_mitra.bank_account, 4)
+        ELSE v_mitra.bank_account
+      END
+    ),
+    'summary', jsonb_build_object(
+      'totalCommissionEarned', v_total_comm,
+      'unpaidCommission', v_unpaid_comm,
+      'paidCommission', v_paid_comm,
+      'currentMonthCommission', v_month_comm,
+      'totalOmsetHet', GREATEST(COALESCE(v_mitra.accumulated_spent_90_days, 0), v_sales_het),
+      'maxSingleOrderHet', v_max_order_het,
+      'totalOrders', v_total_orders,
+      'currentMonth', v_month_now
+    ),
+    'sales', v_sales_json
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION rpc_get_my_marketer_commission(TEXT, TEXT, TEXT) TO anon, authenticated, service_role;
+

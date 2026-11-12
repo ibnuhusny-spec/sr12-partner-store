@@ -2,15 +2,21 @@ import React from 'react';
 import { useApp } from '../../context/AppContext';
 import { SR12_TIERS } from '../../config/tiers';
 import { normalizeWhatsAppNumber } from '../../services/orderService';
-import { ShoppingBag, MessageCircle, Store as StoreIcon } from 'lucide-react';
+import { ShoppingBag, MessageCircle, Store as StoreIcon, Wallet } from 'lucide-react';
 
 interface NavbarProps {
   onOpenCart: () => void;
   onOpenDistributorLogin: () => void;
   onOpenDirectory?: () => void;
+  onOpenMarketerPortal?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenDistributorLogin, onOpenDirectory }) => {
+export const Navbar: React.FC<NavbarProps> = ({
+  onOpenCart,
+  onOpenDistributorLogin,
+  onOpenDirectory,
+  onOpenMarketerPortal
+}) => {
   const { currentStore, cartCount } = useApp();
 
   const handleLogoDblClick = () => {
@@ -54,6 +60,19 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenDistributorLog
 
         {/* Header Actions */}
         <div className="navbar-actions">
+          {onOpenMarketerPortal && (
+            <button
+              type="button"
+              className="btn-topbar"
+              style={{ background: '#eef2ff', color: '#4338ca', border: '1px solid #c7d2fe', fontWeight: 700 }}
+              onClick={onOpenMarketerPortal}
+              title="Cek Gaji Komisi 15% & Omset Marketer Secara Real-Time"
+            >
+              <Wallet size={13} />
+              <span><span className="hide-on-mobile">Cek </span>Gaji Marketer</span>
+            </button>
+          )}
+
           {onOpenDirectory && (
             <button
               type="button"

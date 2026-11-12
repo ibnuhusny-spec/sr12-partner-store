@@ -5,11 +5,12 @@ import { SafeModalOverlay } from '../common/SafeModalOverlay';
 import { getProductTierPrice, SR12_TIERS } from '../../config/tiers';
 import { openWhatsAppUrl } from '../../services/orderService';
 import { verifyMitraDiscount } from '../../services/mitraService';
-import { X, MessageCircle, Copy, Share2, Check, Award } from 'lucide-react';
+import { X, MessageCircle, Copy, Share2, Check, Award, Wallet } from 'lucide-react';
 
 interface ShareModalProps {
   product: Product | null;
   onClose: () => void;
+  onOpenMarketerPortal?: () => void;
 }
 
 interface SavedAffiliate {
@@ -17,7 +18,7 @@ interface SavedAffiliate {
   name: string;
 }
 
-export const ShareModal: React.FC<ShareModalProps> = ({ product, onClose }) => {
+export const ShareModal: React.FC<ShareModalProps> = ({ product, onClose, onOpenMarketerPortal }) => {
   const { currentStore, activeTier, verifiedMitra } = useApp();
   const [copied, setCopied] = useState(false);
   const [copiedStoreAffiliate, setCopiedStoreAffiliate] = useState(false);
@@ -349,21 +350,49 @@ Silakan klik tautan di atas untuk melihat katalog lengkap & langsung order via W
                     Link Affiliate Aktif: {savedAffiliate.name} (#{savedAffiliate.partnerCode})
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleClearAffiliate}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: '#dc2626',
-                    fontSize: '0.7rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  Nonaktifkan
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                  {onOpenMarketerPortal && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onOpenMarketerPortal();
+                      }}
+                      style={{
+                        background: '#4f46e5',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '3px 8px',
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      <Wallet size={11} />
+                      <span>Cek Gaji</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleClearAffiliate}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#dc2626',
+                      fontSize: '0.7rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    Nonaktifkan
+                  </button>
+                </div>
               </div>
               <div style={{ fontSize: '0.7rem', color: '#047857', lineHeight: 1.35 }}>
                 Pembelian lewat link di bawah otomatis mencatat <b>Komisi 15%</b> &amp; menambah <b>Omset HET</b> Anda.

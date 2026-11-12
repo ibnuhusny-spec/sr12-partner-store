@@ -18,6 +18,7 @@ import { CategorySlider } from './components/storefront/CategorySlider';
 import { ProductCard } from './components/storefront/ProductCard';
 import { ProductDetailModal } from './components/storefront/ProductDetailModal';
 import { ShareModal } from './components/storefront/ShareModal';
+import { MarketerPortalModal } from './components/storefront/MarketerPortalModal';
 import { CartDrawer } from './components/storefront/CartDrawer';
 import { RegisterStoreModal } from './components/storefront/RegisterStoreModal';
 import { DevConsoleModal } from './components/dev/DevConsoleModal';
@@ -61,6 +62,7 @@ export function App() {
   const [isDevConsoleOpen, setIsDevConsoleOpen] = useState(false);
   const [isDistributorLoginOpen, setIsDistributorLoginOpen] = useState(false);
   const [isStoreLoginOpen, setIsStoreLoginOpen] = useState(false);
+  const [isMarketerPortalOpen, setIsMarketerPortalOpen] = useState(false);
 
   // When active store switches, load local catalog immediately, then sync cloud
   useEffect(() => {
@@ -212,6 +214,7 @@ export function App() {
       <Navbar
         onOpenCart={() => setIsCartOpen(true)}
         onOpenDistributorLogin={() => setIsDistributorLoginOpen(true)}
+        onOpenMarketerPortal={() => setIsMarketerPortalOpen(true)}
       />
 
 
@@ -271,6 +274,12 @@ export function App() {
       <ShareModal
         product={shareProduct}
         onClose={() => setShareProduct(null)}
+        onOpenMarketerPortal={() => setIsMarketerPortalOpen(true)}
+      />
+
+      <MarketerPortalModal
+        isOpen={isMarketerPortalOpen}
+        onClose={() => setIsMarketerPortalOpen(false)}
       />
 
       <CartDrawer
