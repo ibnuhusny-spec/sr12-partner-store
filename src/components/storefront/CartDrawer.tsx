@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { getProductTierPrice, SR12_TIERS } from '../../config/tiers';
 import { verifyMitraDiscount, getLocalDownlines, saveStoreDownline, appendLocalMarketerSale } from '../../services/mitraService';
-import { createOrder, formatWhatsAppOrderMessage, normalizeWhatsAppNumber } from '../../services/orderService';
+import { createOrder, formatWhatsAppOrderMessage, normalizeWhatsAppNumber, openWhatsAppUrl } from '../../services/orderService';
 import { Order, OrderItemPayload, MarketerSale, PartnerTier } from '../../types';
 import { getStoreCatalog, saveStoreCatalog } from '../../services/catalogService';
 import { recordStockMutation } from '../../services/posService';
@@ -294,12 +294,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
         origin: { y: 0.6 }
       });
 
-      // 6. Buka WhatsApp secara aman & terpercaya
-      const win = window.open(waUrl, '_blank');
-      if (!win) {
-        // Fallback jika browser memblokir pop-up tab baru
-        window.location.href = waUrl;
-      }
+      // 6. Buka WhatsApp secara aman tanpa terblokir pop-up blocker HP
+      openWhatsAppUrl(waUrl);
 
       // 7. Bersihkan keranjang
       clearCart();

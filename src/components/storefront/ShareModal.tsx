@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Product } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { getProductTierPrice, SR12_TIERS } from '../../config/tiers';
+import { openWhatsAppUrl } from '../../services/orderService';
 import { X, MessageCircle, Copy, Share2, Check } from 'lucide-react';
 
 interface ShareModalProps {
@@ -54,76 +55,85 @@ Silakan klik tautan di atas untuk melihat katalog lengkap & langsung order via W
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const renderImageUrlToJpegFile = async (src: string, fileName: string): Promise<File | null> => {
+    try {
+      const img = new Image();
+      if (!src.startsWith('data:') && !src.startsWith('/')) {
+        img.crossOrigin = 'anonymous';
+      }
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('Image load failed'));
+        img.src = src;
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = 800;
+      canvas.height = 800;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, 800, 800);
+      ctx.drawImage(img, 0, 0, 800, 800);
+      const blob = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/jpeg', 0.9));
+      return blob ? new File([blob], fileName, { type: 'image/jpeg' }) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const buildShareImageFile = async (imageSrc: string | undefined, cleanProdId: string): Promise<File | null> => {
+    const fileName = `${cleanProdId}.jpg`;
+    if (imageSrc) {
+      // 1. Gambar SVG harus dikonversi ke JPEG asli dulu (karena SVG dimulai dengan "data:image" juga)
+      if (imageSrc.startsWith('data:image/svg') || imageSrc.toLowerCase().includes('.svg')) {
+        const converted = await renderImageUrlToJpegFile(imageSrc, fileName);
+        if (converted) return converted;
+      }
+
+      // 2. Gambar Base64 raster (PNG/JPG/WebP) atau URL eksternal / aset lokal
+      try {
+        const res = await fetch(imageSrc);
+        if (res.ok) {
+          const blob = await res.blob();
+          if (blob.type && !blob.type.includes('svg')) {
+            return new File([blob], fileName, { type: blob.type || 'image/jpeg' });
+          }
+          const converted = await renderImageUrlToJpegFile(imageSrc, fileName);
+          if (converted) return converted;
+        }
+      } catch {
+        const converted = await renderImageUrlToJpegFile(imageSrc, fileName);
+        if (converted) return converted;
+      }
+    }
+
+    // 3. Fallback ke foto produk standar lokal
+    try {
+      const fallbackRes = await fetch('/assets/deodorant-spray-square.jpg');
+      if (fallbackRes.ok) {
+        const blob = await fallbackRes.blob();
+        return new File([blob], fileName, { type: blob.type || 'image/jpeg' });
+      }
+    } catch {}
+
+    return null;
+  };
+
   /**
    * Kirim Foto Asli Produk + Teks Promosi Lengkap ke WhatsApp (Shopee Style)
-   * Menggunakan Web Share API files: [File] sehingga WhatsApp langsung membuka
-   * layar kirim foto besar tanpa kartu web / tanpa tulisan deskripsi halus!
+   * Menggunakan Web Share API files: [File JPEG asli] dan membuka WA langsung di HP tanpa kena blokir pop-up.
    */
   const handleShareWithPhoto = async () => {
     setIsSharingImage(true);
 
-    // Otomatis salin teks ke clipboard agar jika Android butuh paste caption, teks sudah siap
+    // Salin teks di latar belakang tanpa menahan gesture klik user
     try {
-      await navigator.clipboard.writeText(promoCopywriting);
+      navigator.clipboard?.writeText(promoCopywriting).catch(() => {});
     } catch {}
 
     try {
-      let fileToShare: File | null = null;
       const cleanProdId = (product.id || 'produk-sr12').replace(/[^a-zA-Z0-9_-]/g, '_');
-
-      // 1. Gambar Base64
-      if (product.image && product.image.startsWith('data:image')) {
-        const res = await fetch(product.image);
-        const blob = await res.blob();
-        fileToShare = new File([blob], `${cleanProdId}.jpg`, { type: blob.type || 'image/jpeg' });
-      } 
-      // 2. Gambar SVG generated (convert ke Canvas JPEG agar WhatsApp menerima sebagai foto)
-      else if (product.image && product.image.startsWith('data:image/svg')) {
-        try {
-          const img = new Image();
-          await new Promise((resolve, reject) => {
-            img.onload = resolve;
-            img.onerror = reject;
-            img.src = product.image;
-          });
-          const canvas = document.createElement('canvas');
-          canvas.width = 800;
-          canvas.height = 800;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, 800, 800);
-            const blob = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/jpeg', 0.88));
-            if (blob) {
-              fileToShare = new File([blob], `${cleanProdId}.jpg`, { type: 'image/jpeg' });
-            }
-          }
-        } catch (e) {
-          console.warn('SVG conversion failed:', e);
-        }
-      }
-      // 3. Gambar URL (Cloud / Supabase / Assets)
-      else if (product.image) {
-        try {
-          const res = await fetch(product.image);
-          if (res.ok) {
-            const blob = await res.blob();
-            fileToShare = new File([blob], `${cleanProdId}.jpg`, { type: blob.type || 'image/jpeg' });
-          }
-        } catch (fetchErr) {
-          console.warn('Fetch image failed:', fetchErr);
-        }
-      }
-
-      // Fallback ke foto produk default jika belum didapatkan
-      if (!fileToShare) {
-        try {
-          const fallbackRes = await fetch('/assets/deodorant-spray-square.jpg');
-          if (fallbackRes.ok) {
-            const blob = await fallbackRes.blob();
-            fileToShare = new File([blob], `${cleanProdId}.jpg`, { type: 'image/jpeg' });
-          }
-        } catch {}
-      }
+      const fileToShare = await buildShareImageFile(product.image, cleanProdId);
 
       // Jalankan Web Share API langsung ke WhatsApp / HP
       if (fileToShare && navigator.canShare && navigator.canShare({ files: [fileToShare] })) {
@@ -136,16 +146,18 @@ Silakan klik tautan di atas untuk melihat katalog lengkap & langsung order via W
         return;
       }
     } catch (e: any) {
-      if (e.name !== 'AbortError') {
-        console.warn('Native photo share failed:', e);
+      if (e?.name === 'AbortError') {
+        setIsSharingImage(false);
+        return;
       }
+      console.warn('Native photo share failed:', e);
     }
 
     setIsSharingImage(false);
 
-    // Fallback jika browser desktop tidak mendukung Web Share API files
+    // Fallback aman tanpa memicu pop-up blocker HP
     const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(promoCopywriting)}`;
-    window.open(waUrl, '_blank');
+    openWhatsAppUrl(waUrl);
   };
 
   const handleWhatsAppShare = () => {

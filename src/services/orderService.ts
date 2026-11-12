@@ -365,6 +365,21 @@ export function normalizeWhatsAppNumber(phone: string): string {
 }
 
 /**
+ * Opens a WhatsApp URL safely across mobile and desktop without triggering mobile popup blockers.
+ */
+export function openWhatsAppUrl(waUrl: string): void {
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+  if (isMobile) {
+    window.location.href = waUrl;
+    return;
+  }
+  const win = window.open(waUrl, '_blank');
+  if (!win || win.closed) {
+    window.location.href = waUrl;
+  }
+}
+
+/**
  * Format pesan WhatsApp resmi untuk pemesanan toko
  */
 export function formatWhatsAppOrderMessage(order: Order, store: Store): string {
