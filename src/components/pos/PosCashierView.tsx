@@ -6,7 +6,7 @@ import { PosReceiptModal } from './PosReceiptModal';
 import { createOrder } from '../../services/orderService';
 import { updateStoreProductStock, batchUpdateStoreProductStocks } from '../../services/catalogService';
 import { recordStockMutation } from '../../services/posService';
-import { fetchStoreDownlines, saveStoreDownline, fetchStoreMarketerSales, getLocalDownlines } from '../../services/mitraService';
+import { fetchStoreDownlines, saveStoreDownline, appendLocalMarketerSale, getLocalDownlines } from '../../services/mitraService';
 import { Coins, Users, Sparkles, CheckCircle2 } from 'lucide-react';
 import {
   Search,
@@ -53,13 +53,21 @@ export const PosCashierView: React.FC<PosCashierViewProps> = ({
   const [cashReceived, setCashReceived] = useState<number>(0);
   const [completedTrx, setCompletedTrx] = useState<any | null>(null);
   const [showMobileCheckoutDrawer, setShowMobileCheckoutDrawer] = useState(false);
-  const [downlinesList, setDownlinesList] = useState<MitraDownline[]>(() => getLocalDownlines());
+  const [downlinesList, setDownlinesList] = useState<MitraDownline[]>(() => getLocalDownlines(currentStore.slug));
   const [selectedDownlineCode, setSelectedDownlineCode] = useState('');
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
 
   // Load registered downlines for easy customer tagging
   useEffect(() => {
-    setDownlinesList(getLocalDownlines());
+    const refreshDownlines = () => {
+      setDownlinesList(getLocalDownlines(currentStore.slug));
+      fetchStoreDownlines(currentStore.slug).then(setDownlinesList).catch(() => {});
+    };
+    refreshDownlines();
+    window.addEventListener('sr12:cloud_sync_downlines', refreshDownlines);
+    return () => {
+      window.removeEventListener('sr12:cloud_sync_downlines', refreshDownlines);
+    };
   }, [currentStore.slug]);
 
   const categories = ['all', ...Array.from(new Set(products.map(p => p.category)))];
@@ -273,11 +281,7 @@ export const PosCashierView: React.FC<PosCashierViewProps> = ({
             commissionAmount: Math.round(subtotalHet * 0.15),
             paidStatus: 'unpaid'
           };
-          const curSales = await fetchStoreMarketerSales(currentStore.slug);
-          curSales.unshift(mSale);
-          try {
-            localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(curSales));
-          } catch {}
+          appendLocalMarketerSale(mSale, currentStore.slug);
         }
       }
 

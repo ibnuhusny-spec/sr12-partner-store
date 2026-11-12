@@ -12,6 +12,7 @@ import {
   resetDownlineAccumulatedSpent,
   resetDownlinesToDefault,
   clearAllMarketerSales,
+  deleteMarketerSale,
   getLocalDownlines,
   getLocalMarketerSales
 } from '../../services/mitraService';
@@ -55,8 +56,8 @@ import {
 export const PosDownlinesView: React.FC = () => {
   const { currentStore } = useApp();
   const [activeTab, setActiveTab] = useState<'downlines' | 'payroll'>('downlines');
-  const [downlines, setDownlines] = useState<MitraDownline[]>(() => getLocalDownlines());
-  const [sales, setSales] = useState<MarketerSale[]>(() => getLocalMarketerSales());
+  const [downlines, setDownlines] = useState<MitraDownline[]>(() => getLocalDownlines(currentStore.slug));
+  const [sales, setSales] = useState<MarketerSale[]>(() => getLocalMarketerSales(currentStore.slug));
   const [orders, setOrders] = useState<Order[]>(() => getLocalOrders(currentStore.slug));
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState<'all' | 'promotable' | 'warning' | 'agen' | 'sub_agen' | 'reseller' | 'marketer' | 'konsumen'>('all');
@@ -107,7 +108,7 @@ export const PosDownlinesView: React.FC = () => {
         fetchStoreMarketerSales(currentStore.slug),
         fetchStoreOrders(currentStore.slug)
       ]);
-      if (cloudDownlines && cloudDownlines.length > 0) {
+      if (cloudDownlines) {
         setDownlines(cloudDownlines);
       }
       if (cloudSales) {
@@ -205,19 +206,26 @@ export const PosDownlinesView: React.FC = () => {
     }
   };
 
-  const handleResetSpent = () => {
+  const handleResetSpent = async () => {
     if (confirm('Apakah Anda yakin ingin mereset total belanja akumulasi SEMUA mitra ke Rp 0 untuk memulai simulasi evaluasi level dari awal?')) {
-      resetDownlineAccumulatedSpent();
-      loadData();
+      await resetDownlineAccumulatedSpent(currentStore.slug);
+      await loadData();
       alert('Akumulasi belanja semua mitra berhasil direset ke Rp 0!');
     }
   };
 
-  const handleResetDefaultDownlines = () => {
+  const handleResetDefaultDownlines = async () => {
     if (confirm('Kembalikan daftar mitra downline ke data contoh resmi bawaan SR12?')) {
-      resetDownlinesToDefault();
-      loadData();
+      await resetDownlinesToDefault(currentStore.slug);
+      await loadData();
       alert('Daftar mitra berhasil dikembalikan ke standar SR12!');
+    }
+  };
+
+  const handleDeleteMarketerSale = async (sale: MarketerSale) => {
+    if (confirm(`Hapus catatan komisi #${sale.orderId} (${sale.customerName}) secara permanen?`)) {
+      const remaining = await deleteMarketerSale(sale.orderId, currentStore.slug);
+      setSales(remaining);
     }
   };
 
@@ -227,9 +235,13 @@ export const PosDownlinesView: React.FC = () => {
       return;
     }
     if (confirm(`Hapus seluruh (${sales.length}) riwayat komisi dan penjualan Marketer dari cloud & perangkat ini?`)) {
-      await clearAllMarketerSales(currentStore.slug);
+      const res = await clearAllMarketerSales(currentStore.slug);
       setSales([]);
-      alert('Riwayat komisi marketer berhasil dibersihkan secara permanen!');
+      if (res.cloudDeleted) {
+        alert('Riwayat komisi marketer berhasil dibersihkan secara permanen di cloud & perangkat ini!');
+      } else {
+        alert('Riwayat komisi sudah dikosongkan di perangkat ini.\n\nCatatan: Untuk menghapus permanen di Cloud Supabase lintas HP/device lain, pastikan Anda sudah menjalankan file database/patch_cleanup_permanent.sql sekali di SQL Editor Supabase.');
+      }
     }
   };
 
@@ -1416,6 +1428,23 @@ export const PosDownlinesView: React.FC = () => {
                           title="Klik untuk ubah status LUNAS / PENDING"
                         >
                           {s.paidStatus === 'paid' ? '✓ LUNAS' : '⏳ PENDING'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteMarketerSale(s)}
+                          style={{
+                            marginLeft: '6px',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            color: '#f87171',
+                            borderRadius: '6px',
+                            padding: '4px 7px',
+                            cursor: 'pointer',
+                            verticalAlign: 'middle'
+                          }}
+                          title="Hapus permanen baris komisi ini"
+                        >
+                          <Trash2 size={12} />
                         </button>
                       </td>
                     </tr>

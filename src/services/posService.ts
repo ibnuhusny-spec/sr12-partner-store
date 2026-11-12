@@ -1,6 +1,7 @@
 import { CashflowEntry, CashierAttendanceLog, CashierOperator, StockMutation } from '../types';
-import { supabase } from '../config/supabase';
+import { supabase, getActiveSessionToken } from '../config/supabase';
 import { fetchStoreOrders, createOrder, updateOrderStatus } from './orderService';
+import { filterDeletedCashflow, markCashflowDeleted, notifyPosDataSync } from './cleanupGuard';
 
 export function buildDefaultOwnerCashier(ownerName?: string, ownerPin?: string): CashierOperator {
   return {
@@ -80,8 +81,10 @@ export function setActiveCashier(storeSlug: string, cashier: CashierOperator): v
  */
 export function getStoredCashflow(storeSlug: string): CashflowEntry[] {
   try {
-    const raw = localStorage.getItem(`sr12_cashflow_${storeSlug}`);
-    return raw ? JSON.parse(raw) : [];
+    const safeSlug = (storeSlug || 'sr12-central').toLowerCase();
+    const raw = localStorage.getItem(`sr12_cashflow_${safeSlug}`);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? filterDeletedCashflow(safeSlug, parsed) : [];
   } catch {
     return [];
   }
@@ -147,12 +150,13 @@ export async function fetchStoreCashflow(storeSlug: string): Promise<CashflowEnt
       }
     });
 
-    // Urutkan dari yang paling baru
+    // Urutkan dari yang paling baru & saring entri yang sudah dihapus permanen
     cashList.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const cleanCashList = filterDeletedCashflow(safeSlug, cashList);
 
     // Timpa penyimpanan lokal dengan data mutlak dari Supabase Cloud
-    localStorage.setItem(`sr12_cashflow_${safeSlug}`, JSON.stringify(cashList));
-    return cashList;
+    localStorage.setItem(`sr12_cashflow_${safeSlug}`, JSON.stringify(cleanCashList));
+    return cleanCashList;
   } catch (err) {
     console.warn(`[PosService] Error fetching cloud cashflow for ${safeSlug}:`, err);
     return getStoredCashflow(safeSlug);
@@ -204,20 +208,29 @@ export async function saveCashflowEntry(entry: CashflowEntry, storeSlug: string)
  */
 export async function deleteCashflowEntry(id: string, storeSlug: string): Promise<CashflowEntry[]> {
   const safeSlug = (storeSlug || 'sr12-central').toLowerCase();
-  const cleanId = id.replace('CSH-ORD-', '');
+  const cleanId = id.replace(/^CSH-ORD-/, '');
+  const token = getActiveSessionToken(safeSlug);
+
+  markCashflowDeleted(safeSlug, [id, cleanId]);
 
   try {
     await updateOrderStatus(cleanId, 'Dibatalkan / Dihapus', safeSlug);
-    await updateOrderStatus(id, 'Dibatalkan / Dihapus', safeSlug);
+    if (id !== cleanId) {
+      await updateOrderStatus(id, 'Dibatalkan / Dihapus', safeSlug);
+    }
+    try {
+      await supabase.rpc('rpc_delete_marketer_sale', {
+        p_slug: safeSlug,
+        p_order_id: cleanId,
+        p_token: token
+      });
+    } catch {}
   } catch (err) {
     console.warn('[PosService] Warning deleting cashflow order in Supabase:', err);
   }
 
   const freshList = await fetchStoreCashflow(safeSlug);
-
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('sr12:cloud_sync_cashflow', { detail: { storeSlug: safeSlug } }));
-  }
+  notifyPosDataSync(safeSlug, ['cashflow', 'orders', 'downlines']);
   return freshList;
 }
 
@@ -226,29 +239,48 @@ export async function deleteCashflowEntry(id: string, storeSlug: string): Promis
  */
 export async function clearAllCashflow(storeSlug: string): Promise<void> {
   const safeSlug = (storeSlug || 'sr12-central').toLowerCase();
+  const token = getActiveSessionToken(safeSlug);
+
+  const idsToClear = new Set<string>(getStoredCashflow(safeSlug).map(e => e.id).filter(Boolean));
+  const targetOrders: string[] = [];
 
   try {
     const orders = await fetchStoreOrders(safeSlug);
     for (const o of orders) {
       if (
-        o.orderSource?.startsWith('Kas Manual') || 
+        o.orderSource?.startsWith('Kas Manual') ||
         o.orderSource?.includes('Kasir') ||
         o.status?.includes('Lunas') ||
         o.status?.includes('Selesai')
       ) {
-        await updateOrderStatus(o.orderId, 'Dibatalkan / Dihapus', safeSlug);
-        await supabase.from('marketer_sales').delete().eq('store_slug', safeSlug).eq('order_id', o.orderId);
+        idsToClear.add(o.orderId);
+        idsToClear.add(`CSH-ORD-${o.orderId}`);
+        targetOrders.push(o.orderId);
       }
+    }
+  } catch (err) {
+    console.warn('[PosService] Warning fetching cashflow orders for clear:', err);
+  }
+
+  markCashflowDeleted(safeSlug, Array.from(idsToClear));
+  localStorage.setItem(`sr12_cashflow_${safeSlug}`, JSON.stringify([]));
+
+  try {
+    for (const oid of targetOrders) {
+      await updateOrderStatus(oid, 'Dibatalkan / Dihapus', safeSlug);
+      try {
+        await supabase.rpc('rpc_delete_marketer_sale', {
+          p_slug: safeSlug,
+          p_order_id: oid,
+          p_token: token
+        });
+      } catch {}
     }
   } catch (err) {
     console.warn('[PosService] Warning clearing cashflow in Supabase:', err);
   }
 
-  localStorage.setItem(`sr12_cashflow_${safeSlug}`, JSON.stringify([]));
-
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('sr12:cloud_sync_cashflow', { detail: { storeSlug: safeSlug } }));
-  }
+  notifyPosDataSync(safeSlug, ['cashflow', 'orders', 'downlines']);
 }
 
 /**

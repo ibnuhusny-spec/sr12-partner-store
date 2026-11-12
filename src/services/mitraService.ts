@@ -1,5 +1,14 @@
 import { supabase, getActiveSessionToken } from '../config/supabase';
 import { MarketerSale, MitraDownline, PartnerTier } from '../types';
+import {
+  filterDeletedDownlines,
+  filterDeletedMarketerSales,
+  markDownlinesDeleted,
+  markMarketerSalesDeleted,
+  notifyPosDataSync,
+  unmarkDownlineDeleted
+} from './cleanupGuard';
+import { fetchCancelledOrderIds, fetchStoreOrders } from './orderService';
 
 export const DEFAULT_SAMPLE_DOWNLINES: MitraDownline[] = [
   // 1. AGEN RESMI SR12 (Diskon 40%)
@@ -261,18 +270,9 @@ export async function verifyMitraDiscount(query: string, storeSlug: string): Pro
 
   // Fallback to local
   const cleanQ = query.toUpperCase().trim();
-  const raw = localStorage.getItem('sr12_mitra_downlines_v2');
-  let list: MitraDownline[] = [];
-  if (raw !== null) {
-    try {
-      list = JSON.parse(raw);
-    } catch {}
-  } else {
-    list = DEFAULT_SAMPLE_DOWNLINES;
-    localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(list));
-  }
+  const list = getLocalDownlines(storeSlug);
 
-  const found = list.find(m => 
+  const found = list.find(m =>
     (m.partnerCode && m.partnerCode.toUpperCase() === cleanQ) ||
     (m.phone && m.phone.replace(/[^0-9]/g, '').endsWith(cleanQ.replace(/[^0-9]/g, '')))
   );
@@ -290,17 +290,17 @@ export function getLocalDownlines(storeSlug?: string): MitraDownline[] {
       const specific = localStorage.getItem(`sr12_mitra_downlines_${storeSlug}`);
       if (specific !== null) {
         const parsed = JSON.parse(specific);
-        if (Array.isArray(parsed)) return parsed as MitraDownline[];
+        if (Array.isArray(parsed)) return filterDeletedDownlines(storeSlug, parsed as MitraDownline[]);
       }
     }
     const raw = localStorage.getItem('sr12_mitra_downlines_v2');
     if (raw !== null) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        return parsed as MitraDownline[];
+        return filterDeletedDownlines(storeSlug, parsed as MitraDownline[]);
       }
     }
-    return DEFAULT_SAMPLE_DOWNLINES;
+    return [];
   } catch {
     return [];
   }
@@ -317,25 +317,28 @@ export async function fetchStoreDownlines(storeSlug: string): Promise<MitraDownl
     });
 
     if (!error && Array.isArray(data)) {
-      const mapped: MitraDownline[] = data.map((d: any) => ({
-        id: d.id,
-        storeSlug: d.store_slug || targetSlug,
-        partnerCode: d.partner_code,
-        name: d.name,
-        phone: d.phone,
-        city: d.city || '',
-        tier: d.tier as PartnerTier,
-        bankName: d.bank_name || 'BCA',
-        bankAccount: d.bank_account || '',
-        bankHolder: d.bank_holder || d.name,
-        qualificationDate: d.qualification_date,
-        lastOrderDate: d.last_order_date,
-        accumulatedSpent90Days: Number(d.accumulated_spent_90_days || 0),
-        totalOrdersCount: Number(d.total_orders_count || 0),
-        status: d.status || 'active',
-        joinDate: d.qualification_date || undefined,
-        evaluationDueDate: d.evaluation_due_date || undefined
-      }));
+      const mapped: MitraDownline[] = filterDeletedDownlines(
+        targetSlug,
+        data.map((d: any) => ({
+          id: d.id,
+          storeSlug: d.store_slug || targetSlug,
+          partnerCode: d.partner_code,
+          name: d.name,
+          phone: d.phone,
+          city: d.city || '',
+          tier: d.tier as PartnerTier,
+          bankName: d.bank_name || 'BCA',
+          bankAccount: d.bank_account || '',
+          bankHolder: d.bank_holder || d.name,
+          qualificationDate: d.qualification_date,
+          lastOrderDate: d.last_order_date,
+          accumulatedSpent90Days: Number(d.accumulated_spent_90_days || 0),
+          totalOrdersCount: Number(d.total_orders_count || 0),
+          status: d.status || 'active',
+          joinDate: d.qualification_date || undefined,
+          evaluationDueDate: d.evaluation_due_date || undefined
+        }))
+      );
 
       // Simpan ke local cache untuk kedua device
       try {
@@ -357,6 +360,10 @@ export async function fetchStoreDownlines(storeSlug: string): Promise<MitraDownl
 export async function saveStoreDownline(mitra: Partial<MitraDownline>, storeSlug: string): Promise<boolean> {
   const targetSlug = storeSlug || mitra.storeSlug || 'sr12-central';
   const token = getActiveSessionToken(targetSlug);
+
+  if (mitra.partnerCode) {
+    unmarkDownlineDeleted(targetSlug, [mitra.partnerCode]);
+  }
 
   // 1. Simpan ke local cache untuk responsivitas instan di perangkat ini
   try {
@@ -456,9 +463,12 @@ function isActualMarketerSale(row: { marketerId?: string; commissionAmount?: num
 
 export function getLocalMarketerSales(storeSlug?: string): MarketerSale[] {
   const normalizeList = (arr: any[]): MarketerSale[] =>
-    arr
-      .map(s => ({ ...s, itemsDesc: formatMarketerItemsDesc(s.itemsDesc) }))
-      .filter(s => isActualMarketerSale(s));
+    filterDeletedMarketerSales(
+      storeSlug,
+      arr
+        .map(s => ({ ...s, itemsDesc: formatMarketerItemsDesc(s.itemsDesc) }))
+        .filter(s => isActualMarketerSale(s))
+    );
 
   try {
     if (storeSlug && storeSlug !== 'all') {
@@ -475,7 +485,7 @@ export function getLocalMarketerSales(storeSlug?: string): MarketerSale[] {
         return normalizeList(parsed);
       }
     }
-    return DEFAULT_SAMPLE_MARKETER_SALES;
+    return [];
   } catch {
     return [];
   }
@@ -486,13 +496,16 @@ export async function fetchStoreMarketerSales(storeSlug: string): Promise<Market
   const token = getActiveSessionToken(targetSlug);
 
   try {
-    const { data, error } = await supabase.rpc('rpc_get_store_marketer_sales', {
-      p_slug: targetSlug,
-      p_token: token
-    });
+    const [{ data, error }, cancelledIds] = await Promise.all([
+      supabase.rpc('rpc_get_store_marketer_sales', {
+        p_slug: targetSlug,
+        p_token: token
+      }),
+      fetchCancelledOrderIds(targetSlug)
+    ]);
 
     if (!error && Array.isArray(data)) {
-      const mapped: MarketerSale[] = data
+      const rawMapped: MarketerSale[] = data
         .map((d: any) => ({
           id: d.id,
           storeSlug: d.store_slug || targetSlug,
@@ -513,6 +526,8 @@ export async function fetchStoreMarketerSales(storeSlug: string): Promise<Market
         }))
         .filter(s => isActualMarketerSale(s));
 
+      const mapped = filterDeletedMarketerSales(targetSlug, rawMapped, cancelledIds);
+
       try {
         localStorage.setItem(`sr12_marketer_sales_${targetSlug}`, JSON.stringify(mapped));
         localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(mapped));
@@ -525,6 +540,19 @@ export async function fetchStoreMarketerSales(storeSlug: string): Promise<Market
   }
 
   return getLocalMarketerSales(targetSlug);
+}
+
+/**
+ * Prepends a newly created marketer commission entry into both store-scoped and legacy caches.
+ */
+export function appendLocalMarketerSale(sale: MarketerSale, storeSlug?: string): void {
+  const targetSlug = (storeSlug || sale.storeSlug || 'sr12-central').toLowerCase();
+  try {
+    const existing = getLocalMarketerSales(targetSlug);
+    const deduped = [sale, ...existing.filter(s => s.orderId !== sale.orderId)];
+    localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(deduped));
+    localStorage.setItem(`sr12_marketer_sales_${targetSlug}`, JSON.stringify(deduped));
+  } catch {}
 }
 
 export function updateMarketerSalePaidStatus(orderId: string, newStatus: 'paid' | 'unpaid', storeSlug?: string): boolean {
@@ -551,11 +579,12 @@ export async function deleteStoreDownline(partnerCode: string, storeSlug?: strin
   const targetSlug = storeSlug || 'sr12-central';
   const token = getActiveSessionToken(targetSlug);
 
-  // 1. Hapus dari local storage
-  let filtered: MitraDownline[] = [];
+  // 1. Catat tombstone & hapus dari local storage
+  markDownlinesDeleted(targetSlug, [partnerCode]);
+  const filtered = getLocalDownlines(targetSlug).filter(
+    m => m.partnerCode !== partnerCode && m.id !== partnerCode
+  );
   try {
-    const list: MitraDownline[] = getLocalDownlines(targetSlug);
-    filtered = list.filter(m => m.partnerCode !== partnerCode && m.id !== partnerCode);
     localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(filtered));
     localStorage.setItem(`sr12_mitra_downlines_${targetSlug}`, JSON.stringify(filtered));
   } catch {}
@@ -571,6 +600,7 @@ export async function deleteStoreDownline(partnerCode: string, storeSlug?: strin
     console.warn('Error deleting downline in Supabase:', e);
   }
 
+  notifyPosDataSync(targetSlug, ['downlines']);
   return filtered;
 }
 
@@ -578,34 +608,62 @@ export async function clearAllStoreDownlines(storeSlug?: string): Promise<void> 
   const targetSlug = storeSlug || 'sr12-central';
   const token = getActiveSessionToken(targetSlug);
 
-  try {
-    localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify([]));
-    localStorage.setItem(`sr12_mitra_downlines_${targetSlug}`, JSON.stringify([]));
-  } catch {}
-
+  const codes = new Set<string>(
+    getLocalDownlines(targetSlug).flatMap(m => [m.partnerCode, m.id || '']).filter(Boolean)
+  );
   try {
     const { data: list } = await supabase.rpc('rpc_get_store_downlines', {
       p_slug: targetSlug,
       p_token: token
     });
     if (Array.isArray(list)) {
-      for (const m of list) {
-        await supabase.rpc('rpc_delete_store_downline', {
-          p_slug: targetSlug,
-          p_token: token,
-          p_partner_code: m.partner_code
-        });
+      list.forEach((m: any) => m.partner_code && codes.add(String(m.partner_code)));
+    }
+  } catch {}
+
+  markDownlinesDeleted(targetSlug, Array.from(codes), true);
+
+  try {
+    localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify([]));
+    localStorage.setItem(`sr12_mitra_downlines_${targetSlug}`, JSON.stringify([]));
+  } catch {}
+
+  try {
+    await supabase.rpc('rpc_clear_store_downlines', {
+      p_slug: targetSlug,
+      p_token: token
+    });
+  } catch {}
+
+  try {
+    const { data: remaining } = await supabase.rpc('rpc_get_store_downlines', {
+      p_slug: targetSlug,
+      p_token: token
+    });
+    if (Array.isArray(remaining)) {
+      for (const m of remaining) {
+        try {
+          await supabase.rpc('rpc_delete_store_downline', {
+            p_slug: targetSlug,
+            p_token: token,
+            p_partner_code: m.partner_code
+          });
+        } catch {}
       }
     }
   } catch (e) {
     console.warn('Error clearing downlines in Supabase:', e);
   }
+
+  notifyPosDataSync(targetSlug, ['downlines']);
 }
 
-export function resetDownlineAccumulatedSpent(): void {
+export async function resetDownlineAccumulatedSpent(storeSlug?: string): Promise<void> {
+  const targetSlug = storeSlug || 'sr12-central';
+  const token = getActiveSessionToken(targetSlug);
+
   try {
-    const raw = localStorage.getItem('sr12_mitra_downlines_v2');
-    const list: MitraDownline[] = raw ? JSON.parse(raw) : [];
+    const list = getLocalDownlines(targetSlug);
     const resetList = list.map(m => ({
       ...m,
       accumulatedSpent90Days: 0,
@@ -613,49 +671,183 @@ export function resetDownlineAccumulatedSpent(): void {
       lastOrderDate: undefined
     }));
     localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(resetList));
+    localStorage.setItem(`sr12_mitra_downlines_${targetSlug}`, JSON.stringify(resetList));
+
+    let rpcOk = false;
+    try {
+      const { data, error } = await supabase.rpc('rpc_reset_store_downline_spent', {
+        p_slug: targetSlug,
+        p_token: token
+      });
+      rpcOk = !error && Boolean(data?.success);
+    } catch {}
+
+    if (!rpcOk) {
+      for (const m of resetList) {
+        await saveStoreDownline(m, targetSlug);
+      }
+    }
   } catch {}
+
+  notifyPosDataSync(targetSlug, ['downlines']);
 }
 
-export function resetDownlinesToDefault(): void {
+export async function resetDownlinesToDefault(storeSlug?: string): Promise<void> {
+  const targetSlug = storeSlug || 'sr12-central';
   try {
-    localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(DEFAULT_SAMPLE_DOWNLINES));
+    unmarkDownlineDeleted(
+      targetSlug,
+      DEFAULT_SAMPLE_DOWNLINES.map(m => m.partnerCode)
+    );
+    const scoped = DEFAULT_SAMPLE_DOWNLINES.map(m => ({ ...m, storeSlug: targetSlug }));
+    localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(scoped));
+    localStorage.setItem(`sr12_mitra_downlines_${targetSlug}`, JSON.stringify(scoped));
+    for (const m of scoped) {
+      await saveStoreDownline(m, targetSlug);
+    }
   } catch {}
+  notifyPosDataSync(targetSlug, ['downlines']);
 }
 
-export async function clearAllMarketerSales(storeSlug?: string): Promise<void> {
+/**
+ * Deletes a single marketer commission entry permanently from local cache and Supabase Cloud.
+ */
+export async function deleteMarketerSale(orderId: string, storeSlug?: string): Promise<MarketerSale[]> {
   const targetSlug = (storeSlug || 'sr12-central').toLowerCase();
   const token = getActiveSessionToken(targetSlug);
+
+  markMarketerSalesDeleted(targetSlug, [orderId]);
+  const remaining = getLocalMarketerSales(targetSlug).filter(
+    s => s.orderId.toUpperCase() !== orderId.toUpperCase()
+  );
+  try {
+    localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(remaining));
+    localStorage.setItem(`sr12_marketer_sales_${targetSlug}`, JSON.stringify(remaining));
+  } catch {}
+
+  try {
+    const { data, error } = await supabase.rpc('rpc_delete_marketer_sale', {
+      p_slug: targetSlug,
+      p_order_id: orderId,
+      p_token: token
+    });
+    if (error || !data?.success) {
+      // If order is orphaned (already absent or cancelled in active orders), rpc_delete_store_order is safe
+      const activeOrders = await fetchStoreOrders(targetSlug);
+      const stillActiveOrder = activeOrders.some(
+        o => o.orderId.toUpperCase() === orderId.toUpperCase()
+      );
+      if (!stillActiveOrder) {
+        await supabase.rpc('rpc_delete_store_order', {
+          p_slug: targetSlug,
+          p_order_id: orderId,
+          p_token: token
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('Error deleting marketer sale in Supabase:', err);
+  }
+
+  notifyPosDataSync(targetSlug, ['downlines']);
+  return remaining;
+}
+
+/**
+ * Clears all marketer commission rows locally via persistent tombstones and in Supabase via SECURITY DEFINER RPCs.
+ */
+export async function clearAllMarketerSales(
+  storeSlug?: string
+): Promise<{ cloudDeleted: boolean; remainingCount: number }> {
+  const targetSlug = (storeSlug || 'sr12-central').toLowerCase();
+  const token = getActiveSessionToken(targetSlug);
+
+  const allSaleOrderIds = new Set<string>(
+    getLocalMarketerSales(targetSlug).map(s => s.orderId).filter(Boolean)
+  );
+  try {
+    const { data: list } = await supabase.rpc('rpc_get_store_marketer_sales', {
+      p_slug: targetSlug,
+      p_token: token
+    });
+    if (Array.isArray(list)) {
+      list.forEach((s: any) => s.order_id && allSaleOrderIds.add(String(s.order_id)));
+    }
+  } catch {}
+
+  markMarketerSalesDeleted(targetSlug, Array.from(allSaleOrderIds));
 
   try {
     localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify([]));
     localStorage.setItem(`sr12_marketer_sales_${targetSlug}`, JSON.stringify([]));
   } catch {}
 
-  // Hapus permanen dari tabel marketer_sales di Supabase Cloud
+  // Unconditionally call SECURITY DEFINER RPCs (never rely on direct RLS DELETE returning an error)
   try {
-    const { error: delErr } = await supabase
-      .from('marketer_sales')
-      .delete()
-      .eq('store_slug', targetSlug);
+    await supabase.rpc('rpc_clear_store_marketer_sales', {
+      p_slug: targetSlug,
+      p_token: token
+    });
+  } catch {}
 
-    if (delErr) {
-      // Fallback per row via RPC jika direct delete dibatasi
-      const { data: list } = await supabase.rpc('rpc_get_store_marketer_sales', {
+  let remainingCount = 0;
+  try {
+    const [{ data: list }, activeOrders] = await Promise.all([
+      supabase.rpc('rpc_get_store_marketer_sales', {
         p_slug: targetSlug,
         p_token: token
-      });
-      if (Array.isArray(list)) {
-        for (const s of list) {
-          await supabase.rpc('rpc_delete_store_order', {
+      }),
+      fetchStoreOrders(targetSlug)
+    ]);
+
+    if (Array.isArray(list) && list.length > 0) {
+      const activeIdSet = new Set(activeOrders.map(o => o.orderId.toUpperCase()));
+      for (const s of list) {
+        let rowDeleted = false;
+        try {
+          const { data: dRes, error: dErr } = await supabase.rpc('rpc_delete_marketer_sale', {
             p_slug: targetSlug,
             p_order_id: s.order_id,
             p_token: token
           });
+          rowDeleted = !dErr && Boolean(dRes?.success);
+        } catch {}
+
+        if (!rowDeleted && !activeIdSet.has(String(s.order_id || '').toUpperCase())) {
+          // Safe to use rpc_delete_store_order when the underlying order is already deleted/cancelled
+          try {
+            await supabase.rpc('rpc_delete_store_order', {
+              p_slug: targetSlug,
+              p_order_id: s.order_id,
+              p_token: token
+            });
+          } catch {}
         }
+      }
+
+      // Final verification count
+      const [{ data: afterList }, cancelledIds] = await Promise.all([
+        supabase.rpc('rpc_get_store_marketer_sales', {
+          p_slug: targetSlug,
+          p_token: token
+        }),
+        fetchCancelledOrderIds(targetSlug)
+      ]);
+      if (Array.isArray(afterList)) {
+        remainingCount = afterList.filter(
+          (row: any) =>
+            isActualMarketerSale({
+              marketerId: row.marketer_id,
+              commissionAmount: Number(row.commission_amount || 0)
+            }) && !cancelledIds.has(String(row.order_id || '').toUpperCase())
+        ).length;
       }
     }
   } catch (err) {
     console.warn('Error clearing marketer sales in Supabase:', err);
   }
+
+  notifyPosDataSync(targetSlug, ['downlines']);
+  return { cloudDeleted: remainingCount === 0, remainingCount };
 }
 

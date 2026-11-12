@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { getProductTierPrice, SR12_TIERS } from '../../config/tiers';
-import { verifyMitraDiscount, getLocalDownlines, saveStoreDownline, getLocalMarketerSales } from '../../services/mitraService';
+import { verifyMitraDiscount, getLocalDownlines, saveStoreDownline, appendLocalMarketerSale } from '../../services/mitraService';
 import { createOrder, formatWhatsAppOrderMessage, normalizeWhatsAppNumber } from '../../services/orderService';
 import { Order, OrderItemPayload, MarketerSale, PartnerTier } from '../../types';
 import { getStoreCatalog, saveStoreCatalog } from '../../services/catalogService';
@@ -139,7 +139,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
     const orderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
 
     // Deteksi Mitra Downline yang berbelanja (berdasarkan kode input, nomor WA, atau nama)
-    const downlines = getLocalDownlines();
+    const downlines = getLocalDownlines(currentStore.slug);
     const qCode = (mitraQuery || verifiedMitra?.partnerCode || '').toUpperCase().trim();
     const qPhone = customerPhone.replace(/[^0-9]/g, '');
     const qName = customerName.toLowerCase().trim();
@@ -253,6 +253,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
       });
 
       // 4. Catat omset HET & evaluasi mitra jika pembeli adalah mitra
+      let commissionMarketerId: string | null = null;
       if (targetMitra) {
         targetMitra.accumulatedSpent90Days = (targetMitra.accumulatedSpent90Days || 0) + subtotalHet;
         targetMitra.totalOrdersCount = (targetMitra.totalOrdersCount || 0) + 1;
@@ -260,33 +261,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
         await saveStoreDownline(targetMitra, currentStore.slug);
 
         if (finalTier === 'marketer' || targetMitra.tier === 'marketer') {
-          const mId = targetMitra.tier === 'marketer' ? targetMitra.partnerCode : (marketerReferral || targetMitra.partnerCode);
-          const commissionAmt = Math.round(subtotalHet * 0.15);
-          const mSale: MarketerSale = {
-            storeSlug: currentStore.slug,
-            orderId,
-            marketerId: mId,
-            orderDate: new Date().toISOString().split('T')[0],
-            monthPeriod: new Date().toISOString().slice(0, 7),
-            customerName: customerName.trim(),
-            customerPhone: customerPhone.trim(),
-            fulfillmentType: deliveryMethod === 'pickup' ? 'pickup' : 'delivery',
-            itemsDesc: calculatedItems.map(i => `${i.quantity}x ${i.name}`).join(', '),
-            omsetHet: subtotalHet,
-            commissionPct: 15,
-            commissionAmount: commissionAmt,
-            paidStatus: 'unpaid'
-          };
-          const salesList = getLocalMarketerSales();
-          salesList.unshift(mSale);
-          localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(salesList));
+          commissionMarketerId =
+            targetMitra.tier === 'marketer' ? targetMitra.partnerCode : (marketerReferral || targetMitra.partnerCode);
         }
       } else if (marketerReferral) {
-        const commissionAmt = Math.round(subtotalHet * 0.15);
+        commissionMarketerId = marketerReferral;
+      }
+
+      if (commissionMarketerId) {
         const mSale: MarketerSale = {
           storeSlug: currentStore.slug,
           orderId,
-          marketerId: marketerReferral,
+          marketerId: commissionMarketerId,
           orderDate: new Date().toISOString().split('T')[0],
           monthPeriod: new Date().toISOString().slice(0, 7),
           customerName: customerName.trim(),
@@ -295,12 +281,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
           itemsDesc: calculatedItems.map(i => `${i.quantity}x ${i.name}`).join(', '),
           omsetHet: subtotalHet,
           commissionPct: 15,
-          commissionAmount: commissionAmt,
+          commissionAmount: Math.round(subtotalHet * 0.15),
           paidStatus: 'unpaid'
         };
-        const salesList = getLocalMarketerSales();
-        salesList.unshift(mSale);
-        localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(salesList));
+        appendLocalMarketerSale(mSale, currentStore.slug);
       }
 
       // 5. Trigger confetti
