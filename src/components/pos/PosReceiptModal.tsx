@@ -1,5 +1,6 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
+import { SafeModalOverlay } from '../common/SafeModalOverlay';
 import { X, Printer, MessageCircle } from 'lucide-react';
 
 interface PosReceiptModalProps {
@@ -37,7 +38,7 @@ Terima kasih telah berbelanja di ${currentStore.storeName}! 🙏`;
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <SafeModalOverlay onClose={onClose}>
       <div
         className="modal-content"
         onClick={(e) => e.stopPropagation()}
@@ -153,6 +154,6 @@ Terima kasih telah berbelanja di ${currentStore.storeName}! 🙏`;
           </button>
         </div>
       </div>
-    </div>
+    </SafeModalOverlay>
   );
 };

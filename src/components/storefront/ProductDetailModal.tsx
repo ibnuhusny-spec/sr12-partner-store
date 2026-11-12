@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Product } from '../../types';
 import { useApp } from '../../context/AppContext';
+import { SafeModalOverlay } from '../common/SafeModalOverlay';
 import { getProductTierPrice, SR12_TIERS } from '../../config/tiers';
 import { X, ShoppingBag, ShieldCheck, Check, Sparkles } from 'lucide-react';
 
@@ -29,7 +30,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <SafeModalOverlay onClose={onClose}>
       <div
         className="modal-content"
         onClick={(e) => e.stopPropagation()}
@@ -198,7 +199,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
           </div>
         </div>
       </div>
-    </div>
+    </SafeModalOverlay>
 
   );
 };

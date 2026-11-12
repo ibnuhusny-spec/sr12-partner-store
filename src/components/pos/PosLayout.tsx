@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { SafeModalOverlay } from '../common/SafeModalOverlay';
 import { Product, CashierOperator } from '../../types';
 import { PosCashierView } from './PosCashierView';
 import { PosTransactionsView } from './PosTransactionsView';
@@ -534,7 +535,7 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
 
       {/* Modal Konfirmasi Logout POS */}
       {showLogoutConfirmModal && (
-        <div className="modal-overlay" onClick={() => setShowLogoutConfirmModal(false)} style={{ zIndex: 10000 }}>
+        <SafeModalOverlay onClose={() => setShowLogoutConfirmModal(false)} style={{ zIndex: 10000 }}>
           <div
             className="modal-content"
             onClick={(e) => e.stopPropagation()}
@@ -625,7 +626,7 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </SafeModalOverlay>
       )}
     </div>
   );

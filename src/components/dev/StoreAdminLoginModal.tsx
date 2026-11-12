@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { SafeModalOverlay } from '../common/SafeModalOverlay';
 import {
   Lock,
   Mail,
@@ -139,7 +140,7 @@ export const StoreAdminLoginModal: React.FC<StoreAdminLoginModalProps> = ({
   const strengthScore = getPasswordStrength(newPassword);
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <SafeModalOverlay onClose={onClose}>
       <div
         className="modal-content"
         onClick={(e) => e.stopPropagation()}
@@ -599,6 +600,6 @@ export const StoreAdminLoginModal: React.FC<StoreAdminLoginModalProps> = ({
           </div>
         )}
       </div>
-    </div>
+    </SafeModalOverlay>
   );
 };

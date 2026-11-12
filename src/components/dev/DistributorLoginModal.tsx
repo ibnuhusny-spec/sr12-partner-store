@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { SafeModalOverlay } from '../common/SafeModalOverlay';
 import { X, Lock, ShieldCheck } from 'lucide-react';
 
 interface DistributorLoginModalProps {
@@ -26,7 +27,7 @@ export const DistributorLoginModal: React.FC<DistributorLoginModalProps> = ({ is
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <SafeModalOverlay onClose={onClose}>
       <div
         className="modal-content"
         onClick={(e) => e.stopPropagation()}
@@ -90,6 +91,6 @@ export const DistributorLoginModal: React.FC<DistributorLoginModalProps> = ({ is
           </form>
         </div>
       </div>
-    </div>
+    </SafeModalOverlay>
   );
 };

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Product } from '../../types';
 import { useApp } from '../../context/AppContext';
+import { SafeModalOverlay } from '../common/SafeModalOverlay';
 import { getProductTierPrice, SR12_TIERS } from '../../config/tiers';
 import { openWhatsAppUrl } from '../../services/orderService';
 import { X, MessageCircle, Copy, Share2, Check } from 'lucide-react';
@@ -181,7 +182,7 @@ Silakan klik tautan di atas untuk melihat katalog lengkap & langsung order via W
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <SafeModalOverlay onClose={onClose}>
       <div
         className="modal-content"
         onClick={(e) => e.stopPropagation()}
@@ -368,6 +369,6 @@ Silakan klik tautan di atas untuk melihat katalog lengkap & langsung order via W
           </div>
         </div>
       </div>
-    </div>
+    </SafeModalOverlay>
   );
 };

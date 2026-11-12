@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { SafeModalOverlay } from '../common/SafeModalOverlay';
 import { fetchPendingStores, approveStoreApplication, deleteStore, topupStoreQuota } from '../../services/storeService';
 import { seedNewStoreCatalog } from '../../services/catalogService';
 import { PendingStore, Store } from '../../types';
@@ -128,7 +129,7 @@ export const DevConsoleModal: React.FC<DevConsoleModalProps> = ({ isOpen, onClos
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <SafeModalOverlay onClose={onClose}>
       <div
         className="modal-content"
         onClick={(e) => e.stopPropagation()}
@@ -697,6 +698,6 @@ export const DevConsoleModal: React.FC<DevConsoleModalProps> = ({ isOpen, onClos
           </div>
         )}
       </div>
-    </div>
+    </SafeModalOverlay>
   );
 };

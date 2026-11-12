@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { SafeModalOverlay } from '../common/SafeModalOverlay';
 import {
   fetchStoreDownlines,
   saveStoreDownline,
@@ -1458,7 +1459,7 @@ export const PosDownlinesView: React.FC = () => {
 
       {/* Modal: Tambah Mitra / Pelanggan Baru */}
       {showAddModal && (
-        <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
+        <SafeModalOverlay onClose={() => setShowAddModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '460px', background: '#1e293b', color: '#fff', borderRadius: '16px', overflow: 'hidden', border: '1px solid #334155' }}>
             <div style={{ padding: '14px 18px', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1592,12 +1593,12 @@ export const PosDownlinesView: React.FC = () => {
               </button>
             </form>
           </div>
-        </div>
+        </SafeModalOverlay>
       )}
 
       {/* Modal: Promosikan / Ubah Level Mitra */}
       {promoteModalMitra && (
-        <div className="modal-overlay" onClick={() => setPromoteModalMitra(null)}>
+        <SafeModalOverlay onClose={() => setPromoteModalMitra(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px', background: '#1e293b', color: '#fff', borderRadius: '16px', overflow: 'hidden', border: '1px solid #334155' }}>
             <div style={{ padding: '14px 18px', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1725,12 +1726,12 @@ export const PosDownlinesView: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </SafeModalOverlay>
       )}
 
       {/* Modal: Rules Kemitraan 2026 (CK SWORD) */}
       {showRulesModal && (
-        <div className="modal-overlay" onClick={() => setShowRulesModal(false)}>
+        <SafeModalOverlay onClose={() => setShowRulesModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '640px', background: '#0f172a', color: '#fff', borderRadius: '16px', border: '1.5px solid #334155', overflow: 'hidden' }}>
             <div style={{ padding: '16px 20px', background: '#1e293b', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
@@ -1807,7 +1808,7 @@ export const PosDownlinesView: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </SafeModalOverlay>
       )}
     </div>
   );

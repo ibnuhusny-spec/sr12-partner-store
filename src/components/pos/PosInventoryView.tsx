@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Product } from '../../types';
 import { useApp } from '../../context/AppContext';
+import { SafeModalOverlay } from '../common/SafeModalOverlay';
 import { uploadProductImageFile, setAllStoreProductsStock, syncStoreCatalogFromCloud } from '../../services/catalogService';
 import { clearAllStockMutations } from '../../services/posService';
 import { getStoreTierEconomics } from '../../config/tiers';
@@ -576,7 +577,7 @@ Mohon segera diproses pengirimannya. Terima kasih! 🙏`;
       {/* MODAL EDIT PRODUK KHUSUS TOKO (MULTI-TENANT ISOLATION) */}
       {/* ==================================================== */}
       {editProduct && editForm && (
-        <div className="modal-overlay" onClick={() => setEditProduct(null)}>
+        <SafeModalOverlay onClose={() => setEditProduct(null)}>
           <div
             className="modal-content"
             onClick={(e) => e.stopPropagation()}
@@ -876,12 +877,12 @@ Mohon segera diproses pengirimannya. Terima kasih! 🙏`;
               </div>
             </form>
           </div>
-        </div>
+        </SafeModalOverlay>
       )}
 
       {/* Modal Restock PT SR12 */}
       {restockProduct && (
-        <div className="modal-overlay" onClick={() => setRestockProduct(null)}>
+        <SafeModalOverlay onClose={() => setRestockProduct(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '420px', background: '#1e293b', color: '#fff' }}>
             <div style={{ padding: '14px 18px', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800 }}>
@@ -935,7 +936,7 @@ Mohon segera diproses pengirimannya. Terima kasih! 🙏`;
               </button>
             </div>
           </div>
-        </div>
+        </SafeModalOverlay>
       )}
     </div>
   );

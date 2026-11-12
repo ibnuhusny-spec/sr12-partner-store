@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { SafeModalOverlay } from '../common/SafeModalOverlay';
 import { submitStoreApplication } from '../../services/storeService';
 import { seedNewStoreCatalog } from '../../services/catalogService';
 import { PartnerTier } from '../../types';
@@ -134,7 +135,7 @@ export const RegisterStoreModal: React.FC<RegisterStoreModalProps> = ({ isOpen, 
   };
 
   return (
-    <div className="modal-overlay" onClick={handleCloseModal}>
+    <SafeModalOverlay onClose={handleCloseModal}>
       <div
         className="modal-content"
         onClick={(e) => e.stopPropagation()}
@@ -464,6 +465,6 @@ export const RegisterStoreModal: React.FC<RegisterStoreModalProps> = ({ isOpen, 
           )}
         </div>
       </div>
-    </div>
+    </SafeModalOverlay>
   );
 };

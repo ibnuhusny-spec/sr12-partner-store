@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { SafeModalOverlay } from '../common/SafeModalOverlay';
 import {
   getStoredCashflow,
   fetchStoreCashflow,
@@ -341,7 +342,7 @@ export const PosCashflowView: React.FC = () => {
 
       {/* Add Modal */}
       {showAddModal && (
-        <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
+        <SafeModalOverlay onClose={() => setShowAddModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px', background: '#1e293b', color: '#fff' }}>
             <div style={{ padding: '14px 18px', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800 }}>
@@ -534,7 +535,7 @@ export const PosCashflowView: React.FC = () => {
               </button>
             </form>
           </div>
-        </div>
+        </SafeModalOverlay>
       )}
     </div>
   );
