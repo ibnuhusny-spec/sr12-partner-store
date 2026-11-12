@@ -237,6 +237,7 @@ export async function clearAllCashflow(storeSlug: string): Promise<void> {
         o.status?.includes('Selesai')
       ) {
         await updateOrderStatus(o.orderId, 'Dibatalkan / Dihapus', safeSlug);
+        await supabase.from('marketer_sales').delete().eq('store_slug', safeSlug).eq('order_id', o.orderId);
       }
     }
   } catch (err) {

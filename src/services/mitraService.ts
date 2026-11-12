@@ -426,20 +426,53 @@ export async function updateMitraLevelAndDueDate(
   return false;
 }
 
+function formatMarketerItemsDesc(rawDesc?: string | null): string {
+  if (!rawDesc || typeof rawDesc !== 'string') return '-';
+  const trimmed = rawDesc.trim();
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      const itemsList = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.items) ? parsed.items : []);
+      if (itemsList.length > 0) {
+        return itemsList
+          .map((it: any) => `${it.quantity || 1}x ${it.name || 'Produk SR12'}`)
+          .join(', ');
+      }
+      return parsed?.tierLabel || 'Pesanan Toko';
+    } catch {
+      return 'Pesanan Toko';
+    }
+  }
+  return trimmed;
+}
+
+function isActualMarketerSale(row: { marketerId?: string; commissionAmount?: number }): boolean {
+  const mId = (row.marketerId || '').toUpperCase().trim();
+  const comm = Number(row.commissionAmount || 0);
+  if (comm > 0) return true;
+  if (!mId || mId === 'RETAIL' || mId === 'RS-WEB') return false;
+  return true;
+}
+
 export function getLocalMarketerSales(storeSlug?: string): MarketerSale[] {
+  const normalizeList = (arr: any[]): MarketerSale[] =>
+    arr
+      .map(s => ({ ...s, itemsDesc: formatMarketerItemsDesc(s.itemsDesc) }))
+      .filter(s => isActualMarketerSale(s));
+
   try {
     if (storeSlug && storeSlug !== 'all') {
       const specific = localStorage.getItem(`sr12_marketer_sales_${storeSlug}`);
       if (specific !== null) {
         const parsed = JSON.parse(specific);
-        if (Array.isArray(parsed)) return parsed as MarketerSale[];
+        if (Array.isArray(parsed)) return normalizeList(parsed);
       }
     }
     const raw = localStorage.getItem('sr12_marketer_sales_v1');
     if (raw !== null) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        return parsed;
+        return normalizeList(parsed);
       }
     }
     return DEFAULT_SAMPLE_MARKETER_SALES;
@@ -459,24 +492,26 @@ export async function fetchStoreMarketerSales(storeSlug: string): Promise<Market
     });
 
     if (!error && Array.isArray(data)) {
-      const mapped: MarketerSale[] = data.map((d: any) => ({
-        id: d.id,
-        storeSlug: d.store_slug || targetSlug,
-        orderId: d.order_id,
-        marketerId: d.marketer_id,
-        orderDate: d.order_date,
-        monthPeriod: d.month_period,
-        customerName: d.customer_name,
-        customerPhone: d.customer_phone,
-        customerAddress: d.customer_address,
-        fulfillmentType: d.fulfillment_type as 'pickup' | 'delivery',
-        itemsDesc: d.items_desc,
-        omsetHet: Number(d.omset_het || 0),
-        commissionPct: Number(d.commission_pct || 15),
-        commissionAmount: Number(d.commission_amount || 0),
-        paidStatus: d.paid_status as 'paid' | 'unpaid',
-        paidDate: d.paid_date
-      }));
+      const mapped: MarketerSale[] = data
+        .map((d: any) => ({
+          id: d.id,
+          storeSlug: d.store_slug || targetSlug,
+          orderId: d.order_id,
+          marketerId: d.marketer_id,
+          orderDate: d.order_date,
+          monthPeriod: d.month_period,
+          customerName: d.customer_name,
+          customerPhone: d.customer_phone,
+          customerAddress: d.customer_address,
+          fulfillmentType: d.fulfillment_type as 'pickup' | 'delivery',
+          itemsDesc: formatMarketerItemsDesc(d.items_desc),
+          omsetHet: Number(d.omset_het || 0),
+          commissionPct: Number(d.commission_pct || 15),
+          commissionAmount: Number(d.commission_amount || 0),
+          paidStatus: d.paid_status as 'paid' | 'unpaid',
+          paidDate: d.paid_date
+        }))
+        .filter(s => isActualMarketerSale(s));
 
       try {
         localStorage.setItem(`sr12_marketer_sales_${targetSlug}`, JSON.stringify(mapped));
@@ -587,9 +622,40 @@ export function resetDownlinesToDefault(): void {
   } catch {}
 }
 
-export function clearAllMarketerSales(): void {
+export async function clearAllMarketerSales(storeSlug?: string): Promise<void> {
+  const targetSlug = (storeSlug || 'sr12-central').toLowerCase();
+  const token = getActiveSessionToken(targetSlug);
+
   try {
     localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify([]));
+    localStorage.setItem(`sr12_marketer_sales_${targetSlug}`, JSON.stringify([]));
   } catch {}
+
+  // Hapus permanen dari tabel marketer_sales di Supabase Cloud
+  try {
+    const { error: delErr } = await supabase
+      .from('marketer_sales')
+      .delete()
+      .eq('store_slug', targetSlug);
+
+    if (delErr) {
+      // Fallback per row via RPC jika direct delete dibatasi
+      const { data: list } = await supabase.rpc('rpc_get_store_marketer_sales', {
+        p_slug: targetSlug,
+        p_token: token
+      });
+      if (Array.isArray(list)) {
+        for (const s of list) {
+          await supabase.rpc('rpc_delete_store_order', {
+            p_slug: targetSlug,
+            p_order_id: s.order_id,
+            p_token: token
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Error clearing marketer sales in Supabase:', err);
+  }
 }
 

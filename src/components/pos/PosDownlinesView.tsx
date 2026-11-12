@@ -221,15 +221,15 @@ export const PosDownlinesView: React.FC = () => {
     }
   };
 
-  const handleClearPayroll = () => {
+  const handleClearPayroll = async () => {
     if (sales.length === 0) {
       alert('Riwayat komisi marketer sudah kosong.');
       return;
     }
-    if (confirm(`Hapus seluruh (${sales.length}) riwayat komisi dan penjualan Marketer?`)) {
-      clearAllMarketerSales();
+    if (confirm(`Hapus seluruh (${sales.length}) riwayat komisi dan penjualan Marketer dari cloud & perangkat ini?`)) {
+      await clearAllMarketerSales(currentStore.slug);
       setSales([]);
-      alert('Riwayat komisi marketer berhasil dibersihkan!');
+      alert('Riwayat komisi marketer berhasil dibersihkan secara permanen!');
     }
   };
 

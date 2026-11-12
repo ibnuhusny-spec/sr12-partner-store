@@ -1454,32 +1454,34 @@ BEGIN
     RETURNING order_quota INTO v_remaining_quota;
   END IF;
 
-  -- 3. Sinkronkan ke marketer_sales jika ada komisi marketer / pembukuan
-  v_marketer_id := COALESCE(p_order->>'marketerId', p_order->>'marketer_id', 
-                    CASE WHEN v_tier = 'marketer' THEN 'MKT-WEB' 
-                         WHEN v_tier = 'reseller' THEN 'RS-WEB' 
-                         ELSE 'RETAIL' END);
-  IF v_tier = 'marketer' THEN
-    v_comm_pct := 15.00;
-    v_comm_amount := ROUND(v_grand_total * 0.15);
-  END IF;
-
+  -- 3. Sinkronkan ke marketer_sales HANYA jika pesanan memakai kode Marketer / tier Marketer
+  v_marketer_id := NULLIF(TRIM(COALESCE(p_order->>'marketerId', p_order->>'marketer_id', '')), '');
   DELETE FROM marketer_sales WHERE store_slug = p_slug AND order_id = v_order_id;
-  INSERT INTO marketer_sales (
-    store_slug, order_id, marketer_id, order_date, month_period, customer_name,
-    customer_phone, customer_address, fulfillment_type, items_desc, omset_het,
-    commission_pct, commission_amount, paid_status, paid_date
-  ) VALUES (
-    p_slug, v_order_id, v_marketer_id, v_date_only, v_month_period, v_customer_name,
-    v_customer_phone, v_customer_address,
-    CASE WHEN v_payment_method ILIKE '%ambil%' THEN 'pickup' ELSE 'delivery' END,
-    p_order::TEXT,
-    v_subtotal,
-    v_comm_pct,
-    v_comm_amount,
-    CASE WHEN v_status IN ('Selesai', 'Lunas / Selesai', 'Lunas') THEN 'paid' ELSE 'unpaid' END,
-    CASE WHEN v_status IN ('Selesai', 'Lunas / Selesai', 'Lunas') THEN v_date_only ELSE NULL END
-  );
+
+  IF v_tier = 'marketer' OR v_marketer_id IS NOT NULL THEN
+    v_marketer_id := COALESCE(v_marketer_id, COALESCE(NULLIF(TRIM(p_order->>'partnerCode'), ''), 'MKT-WEB'));
+    v_comm_pct := 15.00;
+    v_comm_amount := ROUND(v_subtotal * 0.15);
+
+    INSERT INTO marketer_sales (
+      store_slug, order_id, marketer_id, order_date, month_period, customer_name,
+      customer_phone, customer_address, fulfillment_type, items_desc, omset_het,
+      commission_pct, commission_amount, paid_status, paid_date
+    ) VALUES (
+      p_slug, v_order_id, v_marketer_id, v_date_only, v_month_period, v_customer_name,
+      v_customer_phone, v_customer_address,
+      CASE WHEN v_payment_method ILIKE '%ambil%' THEN 'pickup' ELSE 'delivery' END,
+      COALESCE(
+        (SELECT STRING_AGG((it->>'quantity') || 'x ' || (it->>'name'), ', ') FROM jsonb_array_elements(v_items) AS it),
+        'Pesanan Produk SR12'
+      ),
+      v_subtotal,
+      v_comm_pct,
+      v_comm_amount,
+      CASE WHEN v_status IN ('Selesai', 'Lunas / Selesai', 'Lunas') THEN 'paid' ELSE 'unpaid' END,
+      CASE WHEN v_status IN ('Selesai', 'Lunas / Selesai', 'Lunas') THEN v_date_only ELSE NULL END
+    );
+  END IF;
 
   RETURN jsonb_build_object(
     'success', true,

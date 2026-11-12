@@ -175,14 +175,20 @@ export async function deleteOrder(orderId: string, storeSlug?: string): Promise<
     }
   } catch (e) {}
 
-  // 2. Update status to 'Dibatalkan / Dihapus' di Supabase Cloud
+  // 2. Hapus di Supabase Cloud (orders + marketer_sales terkait)
   try {
+    await supabase.rpc('rpc_delete_store_order', {
+      p_slug: targetSlug,
+      p_order_id: orderId,
+      p_token: token
+    });
     await supabase.rpc('rpc_update_order_status', {
       p_slug: targetSlug,
       p_order_id: orderId,
       p_new_status: 'Dibatalkan / Dihapus',
       p_token: token
     });
+    await supabase.from('marketer_sales').delete().eq('store_slug', targetSlug).eq('order_id', orderId);
   } catch (e) {
     console.warn('Error deleting order in Supabase:', e);
   }
@@ -191,28 +197,42 @@ export async function deleteOrder(orderId: string, storeSlug?: string): Promise<
 }
 
 export async function clearAllOrders(storeSlug?: string): Promise<void> {
-  const targetSlug = storeSlug || 'sr12-central';
+  const targetSlug = (storeSlug || 'sr12-central').toLowerCase();
   const token = getActiveSessionToken(targetSlug);
 
   try {
     localStorage.setItem('sr12_customer_orders', JSON.stringify([]));
     localStorage.setItem(`sr12_customer_orders_${targetSlug}`, JSON.stringify([]));
+    localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify([]));
+    localStorage.setItem(`sr12_marketer_sales_${targetSlug}`, JSON.stringify([]));
     localStorage.removeItem(`sr12_cashflow_${targetSlug}`);
   } catch {}
 
   try {
-    const { data: list } = await supabase.rpc('rpc_get_store_orders', {
+    // 1. Panggil RPC pembersih permanen orders & marketer_sales di Supabase Cloud
+    const { data: clearRes, error: clearErr } = await supabase.rpc('rpc_clear_store_orders', {
       p_slug: targetSlug,
       p_token: token
     });
-    if (Array.isArray(list)) {
-      for (const o of list) {
-        await supabase.rpc('rpc_update_order_status', {
-          p_slug: targetSlug,
-          p_order_id: o.order_id,
-          p_new_status: 'Dibatalkan / Dihapus',
-          p_token: token
-        });
+
+    // 2. Pastikan marketer_sales ikut bersih di Supabase Cloud
+    await supabase.from('marketer_sales').delete().eq('store_slug', targetSlug);
+
+    // 3. Fallback jika RPC clear belum terpasang: tandai batal satu per satu
+    if (clearErr || !clearRes?.success) {
+      const { data: list } = await supabase.rpc('rpc_get_store_orders', {
+        p_slug: targetSlug,
+        p_token: token
+      });
+      if (Array.isArray(list)) {
+        for (const o of list) {
+          await supabase.rpc('rpc_update_order_status', {
+            p_slug: targetSlug,
+            p_order_id: o.order_id,
+            p_new_status: 'Dibatalkan / Dihapus',
+            p_token: token
+          });
+        }
       }
     }
   } catch (e) {
@@ -222,6 +242,7 @@ export async function clearAllOrders(storeSlug?: string): Promise<void> {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('sr12:cloud_sync_orders', { detail: { storeSlug: targetSlug } }));
     window.dispatchEvent(new CustomEvent('sr12:cloud_sync_cashflow', { detail: { storeSlug: targetSlug } }));
+    window.dispatchEvent(new CustomEvent('sr12:cloud_sync_downlines', { detail: { storeSlug: targetSlug } }));
   }
 }
 

@@ -58,7 +58,7 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
       await clearAllCashflow(currentStore.slug);
       await clearAllStockMutations(currentStore.slug);
       await clearAllStoreDownlines(currentStore.slug);
-      clearAllMarketerSales();
+      await clearAllMarketerSales(currentStore.slug);
       if (onResetCatalogToMaster) {
         onResetCatalogToMaster();
       }
