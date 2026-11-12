@@ -24,6 +24,7 @@ import { DevConsoleModal } from './components/dev/DevConsoleModal';
 import { DistributorLoginModal } from './components/dev/DistributorLoginModal';
 import { StoreAdminLoginModal } from './components/dev/StoreAdminLoginModal';
 import { AffiliateBanner } from './components/storefront/AffiliateBanner';
+import { AppPromoShowcase } from './components/storefront/AppPromoShowcase';
 import { PosLayout } from './components/pos/PosLayout';
 import { BottomNav } from './components/common/BottomNav';
 import { StoreDirectoryView } from './components/directory/StoreDirectoryView';
@@ -182,6 +183,15 @@ export function App() {
   // 1. DIRECTORY / CENTRAL HUB MODE:
 
 
+  // Tampilkan banner penawaran pembuatan web hanya di Web Utama Showcase / saat VITE_APP_PROMO=true
+  const showAppPromo = (() => {
+    const promoEnv = (import.meta.env.VITE_APP_PROMO || '').toLowerCase();
+    if (promoEnv === 'true') return true;
+    if (promoEnv === 'false') return false;
+    const storeSlugEnv = (import.meta.env.VITE_STORE_SLUG || 'sr12-central').toLowerCase();
+    return storeSlugEnv === 'sr12-central';
+  })();
+
   // 2. STOREFRONT MODE: Show selected partner store's personal storefront
   return (
     <div className="storefront-page">
@@ -208,6 +218,9 @@ export function App() {
 
       {/* 5. Hero Promo Banner */}
       <HeroBanner />
+
+      {/* 5b. Web Showcase / App Offer Banner (Hanya aktif di Web Utama Iklan) */}
+      {showAppPromo && <AppPromoShowcase variant="top" />}
 
       {/* 6. Catalog Controls: Tier Selector & Category Slider */}
       <section className="catalog-controls" id="catalogControlsSection">
@@ -240,6 +253,9 @@ export function App() {
           ))
         )}
       </main>
+
+      {/* 7b. Bottom App Offer Section (Hanya aktif di Web Utama Iklan) */}
+      {showAppPromo && <AppPromoShowcase variant="bottom" />}
 
       {/* 8. Footer (Secret 5-click on copyright opens Developer Console) */}
       <Footer onSecretDevOpen={() => setIsDevConsoleOpen(true)} />
