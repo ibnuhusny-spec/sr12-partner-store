@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Product, PartnerTier, Order, MitraDownline, MarketerSale, CashflowEntry } from '../../types';
 import { useApp } from '../../context/AppContext';
-import { getProductTierPrice, SR12_TIERS } from '../../config/tiers';
+import { getProductTierPrice, getAllowedDownlineTiers, SR12_TIERS } from '../../config/tiers';
 import { PosReceiptModal } from './PosReceiptModal';
 import { createOrder } from '../../services/orderService';
 import { updateStoreProductStock, batchUpdateStoreProductStocks } from '../../services/catalogService';
@@ -373,12 +373,14 @@ export const PosCashierView: React.FC<PosCashierViewProps> = ({
             fontWeight: 800
           }}
         >
-          <option value="konsumen">Konsumen Retail (HET Penuh)</option>
-          <option value="marketer">Mitra Marketer (Komisi 15%)</option>
-          <option value="reseller">Reseller Resmi (Diskon 20%)</option>
-          <option value="sub_agen">Sub Agen (Diskon 30%)</option>
-          <option value="agen">Agen Resmi (Diskon 40%)</option>
-          <option value="distributor">Distributor Utama (Diskon 50%)</option>
+          {getAllowedDownlineTiers(currentStore.partnerTier).map(tKey => {
+            const tInfo = SR12_TIERS[tKey];
+            return (
+              <option key={tKey} value={tKey}>
+                {tInfo.name} ({tKey === 'konsumen' ? 'HET Penuh' : tKey === 'marketer' ? 'Komisi 15%' : `Diskon ${tInfo.discountPct}%`})
+              </option>
+            );
+          })}
         </select>
 
         <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>

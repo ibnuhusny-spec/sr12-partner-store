@@ -97,3 +97,31 @@ export function getProductTierPrice(het: number, tierId: PartnerTier): number {
   const multiplier = 1 - (tier.discountPct / 100);
   return Math.round(het * multiplier);
 }
+
+const TIER_RANK_ORDER: PartnerTier[] = ['konsumen', 'marketer', 'reseller', 'sub_agen', 'agen', 'distributor'];
+
+/**
+ * Mengembalikan diskon kulakan toko, persentase HPP/modal, dan nama level toko.
+ */
+export function getStoreTierEconomics(storeTier?: PartnerTier): { discountPct: number; costPct: number; label: string; tier: PartnerTier } {
+  const safeTier: PartnerTier = storeTier && SR12_TIERS[storeTier] ? storeTier : 'distributor';
+  const tierInfo = SR12_TIERS[safeTier];
+  const discountPct = tierInfo.discountPct > 0 ? tierInfo.discountPct : 50;
+  return {
+    tier: safeTier,
+    discountPct,
+    costPct: 100 - discountPct,
+    label: tierInfo.name
+  };
+}
+
+/**
+ * Mengembalikan daftar tier pembeli/mitra di bawah level kemitraan toko saat ini
+ * agar harga jual ke pembeli/downline tidak pernah di bawah modal kulakan toko.
+ */
+export function getAllowedDownlineTiers(storeTier?: PartnerTier): PartnerTier[] {
+  const safeTier: PartnerTier = storeTier && SR12_TIERS[storeTier] ? storeTier : 'distributor';
+  const storeIdx = TIER_RANK_ORDER.indexOf(safeTier);
+  const maxIdx = storeIdx > 0 ? storeIdx : TIER_RANK_ORDER.length - 1;
+  return TIER_RANK_ORDER.filter((_, idx) => idx < maxIdx);
+}

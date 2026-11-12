@@ -3,6 +3,8 @@ import { Product } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { uploadProductImageFile, setAllStoreProductsStock, syncStoreCatalogFromCloud } from '../../services/catalogService';
 import { clearAllStockMutations } from '../../services/posService';
+import { getStoreTierEconomics } from '../../config/tiers';
+import { normalizeWhatsAppNumber } from '../../services/orderService';
 import { SR12_MASTER_CATALOG } from '../../data/sr12MasterCatalog';
 import {
   Package,
@@ -157,21 +159,31 @@ export const PosInventoryView: React.FC<PosInventoryViewProps> = ({
     setTimeout(() => setShowSaveToast(false), 3500);
   };
 
+  const { costPct: storeCostPct, label: storeTierLabel } = getStoreTierEconomics(currentStore.partnerTier);
+
   const handleSendRestockOrder = () => {
     if (!restockProduct) return;
-    const estCost = (restockProduct.het * 0.5) * restockQty; // 50% distributor modal
-    const waMsg = `*ORDER RESTOCK PRODUK KE PT SR12 PUSAT* ðŸ“¦
-Dari: *${currentStore.storeName}* (${currentStore.storeCity})
+    const estCost = Math.round(restockProduct.het * (storeCostPct / 100)) * restockQty;
+    const waMsg = `*ORDER RESTOCK PRODUK SR12* ðŸ“¦
+Dari: *${currentStore.storeName}* (${storeTierLabel} - ${currentStore.storeCity})
 Pemilik: ${currentStore.storeOwner}
 
 Produk: *${restockProduct.name}*
 SKU: ${restockProduct.sku}
 Jumlah Restock: *${restockQty} pcs*
-Estimasi Modal Distributor (50%): Rp ${estCost.toLocaleString('id-ID')}
+Estimasi Modal ${storeTierLabel} (${storeCostPct}% HET): Rp ${estCost.toLocaleString('id-ID')}
 
-Mohon segera diproses pengirimannya dari gudang pusat PT SR12. Terima kasih! ðŸ™`;
+Mohon segera diproses pengirimannya. Terima kasih! ðŸ™`;
 
-    window.open(`https://wa.me/6281200001212?text=${encodeURIComponent(waMsg)}`, '_blank');
+    const supplierWa = normalizeWhatsAppNumber(currentStore.recommenderWa || '');
+    if (!supplierWa) {
+      navigator.clipboard?.writeText(waMsg).catch(() => {});
+      alert('Nomor WA Supplier / Distributor Pembina belum diisi.\n\nSilakan atur di tab "Banner & Profil Toko" (kolom No. WA Supplier / Upline Restock).\nFormat order di atas sudah otomatis disalin ke clipboard Anda!');
+      setRestockProduct(null);
+      return;
+    }
+
+    window.open(`https://api.whatsapp.com/send?phone=${supplierWa}&text=${encodeURIComponent(waMsg)}`, '_blank');
     setRestockProduct(null);
   };
 
@@ -872,7 +884,9 @@ Mohon segera diproses pengirimannya dari gudang pusat PT SR12. Terima kasih! ðŸ™
         <div className="modal-overlay" onClick={() => setRestockProduct(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '420px', background: '#1e293b', color: '#fff' }}>
             <div style={{ padding: '14px 18px', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800 }}>Restock ke PT SR12 Pusat</h3>
+              <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800 }}>
+                {currentStore.partnerTier === 'distributor' ? 'Restock ke PT SR12 Pusat' : 'Order Restock ke Upline / Supplier'}
+              </h3>
               <button type="button" className="btn-close-modal" onClick={() => setRestockProduct(null)}><X size={16} /></button>
             </div>
             <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -894,9 +908,9 @@ Mohon segera diproses pengirimannya dari gudang pusat PT SR12. Terima kasih! ðŸ™
               </div>
 
               <div style={{ background: '#0f172a', padding: '10px', borderRadius: '8px' }}>
-                <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Estimasi Modal Distributor (50% HET):</div>
+                <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Estimasi Modal {storeTierLabel} ({storeCostPct}% HET):</div>
                 <div style={{ fontSize: '1.1rem', fontWeight: 900, color: '#38bdf8' }}>
-                  Rp {((restockProduct.het * 0.5) * restockQty).toLocaleString('id-ID')}
+                  Rp {(Math.round(restockProduct.het * (storeCostPct / 100)) * restockQty).toLocaleString('id-ID')}
                 </div>
               </div>
 
@@ -917,7 +931,7 @@ Mohon segera diproses pengirimannya dari gudang pusat PT SR12. Terima kasih! ðŸ™
                 }}
               >
                 <Send size={15} />
-                <span>Kirim Format Order ke WA Pusat</span>
+                <span>{currentStore.partnerTier === 'distributor' ? 'Kirim Format Order ke WA Pusat' : 'Kirim Format Order ke WA Supplier'}</span>
               </button>
             </div>
           </div>

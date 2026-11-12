@@ -16,6 +16,7 @@ import {
   getLocalMarketerSales
 } from '../../services/mitraService';
 import { getLocalOrders, fetchStoreOrders } from '../../services/orderService';
+import { getAllowedDownlineTiers, SR12_TIERS } from '../../config/tiers';
 import { MitraDownline, MarketerSale, PartnerTier, Order } from '../../types';
 import {
   SR12_TIER_TARGETS,
@@ -1534,11 +1535,14 @@ export const PosDownlinesView: React.FC = () => {
                     onChange={(e) => setTier(e.target.value as PartnerTier)}
                     style={{ width: '100%', padding: '9px 10px', borderRadius: '8px', background: '#0f172a', border: '1px solid #334155', color: '#fff', fontSize: '0.82rem', fontWeight: 700 }}
                   >
-                    <option value="konsumen">🛍️ Non Mitra (Langganan HET)</option>
-                    <option value="marketer">💼 Marketer (15%)</option>
-                    <option value="reseller">⭐ Reseller (20%)</option>
-                    <option value="sub_agen">💠 Sub Agen (30%)</option>
-                    <option value="agen">👑 Agen (40%)</option>
+                    {getAllowedDownlineTiers(currentStore.partnerTier).map(tKey => {
+                      const tInfo = SR12_TIERS[tKey];
+                      return (
+                        <option key={tKey} value={tKey}>
+                          {tInfo.name} ({tKey === 'konsumen' ? 'HET Penuh' : tKey === 'marketer' ? 'Komisi 15%' : `Diskon ${tInfo.discountPct}%`})
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               </div>
@@ -1650,12 +1654,14 @@ export const PosDownlinesView: React.FC = () => {
                     fontWeight: 800
                   }}
                 >
-                  <option value="konsumen">🛍️ Non Mitra (Langganan Customer Tetap - HET Penuh)</option>
-                  <option value="marketer">💼 Marketer (Gaji 15% - Bayar Full HET)</option>
-                  <option value="reseller">⭐ Reseller (Diskon 20%)</option>
-                  <option value="sub_agen">💠 Sub Agen (Diskon 30%)</option>
-                  <option value="agen">👑 Agen (Diskon 40%)</option>
-                  <option value="distributor">🏆 Distributor (Diskon 50%)</option>
+                  {getAllowedDownlineTiers(currentStore.partnerTier).map(tKey => {
+                    const tInfo = SR12_TIERS[tKey];
+                    return (
+                      <option key={tKey} value={tKey}>
+                        {tInfo.name} ({tKey === 'konsumen' ? 'HET Penuh' : tKey === 'marketer' ? 'Gaji 15% - Full HET' : `Diskon ${tInfo.discountPct}%`})
+                      </option>
+                    );
+                  })}
                 </select>
                 <span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '6px' }}>
                   * Mengubah level akan langsung memperbarui diskon belanja yang didapat mitra saat checkout.

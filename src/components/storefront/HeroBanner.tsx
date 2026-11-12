@@ -1,9 +1,15 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
+import { getAllowedDownlineTiers, SR12_TIERS } from '../../config/tiers';
 import { Award, ShieldCheck, Sparkles, CheckCircle2 } from 'lucide-react';
 
 export const HeroBanner: React.FC = () => {
   const { currentStore } = useApp();
+
+  const maxBuyerDiscountPct = getAllowedDownlineTiers(currentStore.partnerTier).reduce(
+    (max, t) => Math.max(max, SR12_TIERS[t]?.discountPct || 0),
+    0
+  );
 
   // Sanitize subtitle: ensure no raw JSON or developer config strings are displayed
   const cleanSubtitle = (() => {
@@ -78,9 +84,11 @@ export const HeroBanner: React.FC = () => {
             <div className="hero-stat-box">
               <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <Award size={16} color="#fde68a" />
-                <span className="hero-stat-num">50%</span>
+                <span className="hero-stat-num">{maxBuyerDiscountPct > 0 ? `${maxBuyerDiscountPct}%` : '15%'}</span>
               </div>
-              <span className="hero-stat-label">Diskon Kemitraan s/d 50%</span>
+              <span className="hero-stat-label">
+                {maxBuyerDiscountPct > 0 ? `Diskon Kemitraan s/d ${maxBuyerDiscountPct}%` : 'Komisi Marketer 15%'}
+              </span>
             </div>
 
             <div className="hero-stat-box">

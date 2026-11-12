@@ -1,5 +1,6 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
+import { SR12_TIERS } from '../../config/tiers';
 import { normalizeWhatsAppNumber } from '../../services/orderService';
 import { ShoppingBag, MessageCircle, Store as StoreIcon } from 'lucide-react';
 
@@ -16,7 +17,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenDistributorLog
     onOpenDistributorLogin();
   };
 
-  const isCentral = currentStore.slug === 'sr12-central';
+  const storeTierInfo = SR12_TIERS[currentStore.partnerTier] || SR12_TIERS.distributor;
 
   return (
     <header className="site-navbar" id="siteHeaderStorefront">
@@ -37,13 +38,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart, onOpenDistributorLog
           <div className="brand-title-group">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <h1 id="brandStoreName">{currentStore.storeName}</h1>
-              {isCentral ? (
+              {currentStore.partnerTier === 'distributor' ? (
                 <span style={{ fontSize: '0.65rem', fontWeight: 800, padding: '2px 8px', borderRadius: '999px', background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d' }}>
-                  🏛️ PUSAT RESMI
+                  👑 {storeTierInfo.name.toUpperCase()}
                 </span>
               ) : (
                 <span style={{ fontSize: '0.65rem', fontWeight: 800, padding: '2px 8px', borderRadius: '999px', background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0' }}>
-                  ⭐ MITRA RESMI ({currentStore.partnerTier.toUpperCase()})
+                  ⭐ {storeTierInfo.name.toUpperCase()}
                 </span>
               )}
             </div>

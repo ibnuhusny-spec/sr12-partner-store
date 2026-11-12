@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { getLocalOrders, clearAllOrders, fetchStoreOrders } from '../../services/orderService';
 import { getLocalDownlines, fetchStoreDownlines } from '../../services/mitraService';
 import { exportReportsToCSV } from '../../services/posService';
-import { SR12_TIERS } from '../../config/tiers';
+import { getStoreTierEconomics, SR12_TIERS } from '../../config/tiers';
 import { Order, MitraDownline, PartnerTier } from '../../types';
 import {
   Download,
@@ -118,9 +118,7 @@ export const PosReportsView: React.FC = () => {
   }, [orders, period]);
 
   // Level kemitraan toko saat ini (Distributor, Agen, Sub Agen, Reseller)
-  const storeTier = (currentStore.partnerTier || 'distributor') as PartnerTier;
-  const storeDiscountPct = storeTier === 'agen' ? 40 : storeTier === 'sub_agen' ? 30 : storeTier === 'reseller' ? 20 : 50;
-  const storeCostPct = 100 - storeDiscountPct; // Persentase modal kulakan: Distributor 50%, Agen 60%, Sub Agen 70%, Reseller 80%
+  const { discountPct: storeDiscountPct, costPct: storeCostPct, label: storeTierLabel } = getStoreTierEconomics(currentStore.partnerTier);
 
   // Daily Partner Aggregation: Cross-reference with registered downlines for 100% tier, discount, and profit sync
   const dailyPartnerSummaries = useMemo(() => {
@@ -412,10 +410,10 @@ export const PosReportsView: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <Sparkles size={16} color="#fbbf24" />
             <span style={{ fontSize: '0.84rem', fontWeight: 800 }}>
-              💡 Panduan Perhitungan Keuntungan Toko {currentStore.storeName} (Level {storeTier.toUpperCase()})
+              💡 Panduan Perhitungan Keuntungan Toko {currentStore.storeName} ({storeTierLabel})
             </span>
             <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '999px', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', fontWeight: 800 }}>
-              Diskon Kulakan Toko: {storeDiscountPct}% (Modal: {storeCostPct}%)
+              Diskon Kulakan Toko: {storeDiscountPct}% (Modal HPP: {storeCostPct}%)
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.74rem', color: '#94a3b8' }}>
@@ -430,7 +428,7 @@ export const PosReportsView: React.FC = () => {
               <div style={{ background: '#090f1d', padding: '12px', borderRadius: '8px', border: '1px solid #334155' }}>
                 <div style={{ fontWeight: 800, color: '#38bdf8', marginBottom: '4px' }}>📦 1. Modal Kulakan Toko (HPP)</div>
                 <p style={{ margin: 0, fontSize: '0.75rem', color: '#94a3b8' }}>
-                  Sebagai <b>{storeTier.toUpperCase()}</b>, Anda kulakan ke pusat/gudang dengan diskon <b>{storeDiscountPct}%</b>. Artinya modal barang Anda adalah <b>{storeCostPct}% dari HET</b>.
+                  Sebagai <b>{storeTierLabel}</b>, Anda kulakan dengan diskon <b>{storeDiscountPct}%</b>. Artinya modal barang (HPP) Anda adalah <b>{storeCostPct}% dari HET</b>.
                 </p>
                 <div style={{ marginTop: '6px', fontSize: '0.72rem', color: '#38bdf8', fontWeight: 700 }}>Contoh HET Rp 100.000 → Modal Anda Rp {(100000 * storeCostPct / 100).toLocaleString('id-ID')}</div>
               </div>
@@ -489,7 +487,7 @@ export const PosReportsView: React.FC = () => {
             Rp {totalHpp.toLocaleString('id-ID')}
           </div>
           <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '3px' }}>
-            Modal tier {storeTier.toUpperCase()} ({storeCostPct}% dari HET)
+            Modal {storeTierLabel} ({storeCostPct}% dari HET)
           </div>
         </div>
 
@@ -548,7 +546,7 @@ export const PosReportsView: React.FC = () => {
             Rp {totalNetProfit.toLocaleString('id-ID')}
           </div>
           <div style={{ fontSize: '0.7rem', color: '#d1fae5', marginTop: '3px' }}>
-            Laba bersih setelah HPP ({storeCostPct}%) &amp; komisi marketer
+            Laba bersih {storeTierLabel} (HPP {storeCostPct}% &amp; komisi marketer)
           </div>
         </div>
       </div>

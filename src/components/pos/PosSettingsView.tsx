@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Store } from '../../types';
+import { PartnerTier, Store } from '../../types';
 import { STORE_CONFIG } from '../../config/storeConfig';
-import { Settings, Image, Sparkles, Check, Save, Upload, RefreshCw, KeyRound, Mail, Lock, MapPin, Search } from 'lucide-react';
+import { getAllowedDownlineTiers, getStoreTierEconomics, SR12_TIERS } from '../../config/tiers';
+import { Settings, Image, Sparkles, Check, Save, Upload, RefreshCw, KeyRound, Mail, Lock, MapPin, Search, Award } from 'lucide-react';
 import { compressImageToBase64 } from '../../services/catalogService';
 import { searchOngkirDestinations, OngkirDestination } from '../../services/ongkirService';
 import { getStoreCashiers, saveStoreCashiers, getActiveCashier, setActiveCashier } from '../../services/posService';
@@ -16,6 +17,8 @@ export const PosSettingsView: React.FC = () => {
   const [storeWaNumber, setStoreWaNumber] = useState(currentStore.storeWaNumber || STORE_CONFIG.storeWaNumber);
   const [storeCity, setStoreCity] = useState(currentStore.storeCity || STORE_CONFIG.storeCity);
   const [storeOwner, setStoreOwner] = useState(currentStore.storeOwner || STORE_CONFIG.storeOwner);
+  const [partnerTier, setPartnerTier] = useState<PartnerTier>(currentStore.partnerTier || STORE_CONFIG.partnerTier || 'distributor');
+  const [recommenderWa, setRecommenderWa] = useState(currentStore.recommenderWa || '');
 
   // Lokasi Asal Gudang Toko (RajaOngkir Origin)
   const [originSubdistrictId, setOriginSubdistrictId] = useState<number>(currentStore.originSubdistrictId || STORE_CONFIG.originSubdistrictId || 17473);
@@ -92,6 +95,9 @@ export const PosSettingsView: React.FC = () => {
     }
   };
 
+  const tierEcon = getStoreTierEconomics(partnerTier);
+  const allowedCustomerTiers = getAllowedDownlineTiers(partnerTier);
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     const updatedStore: Store = {
@@ -106,6 +112,8 @@ export const PosSettingsView: React.FC = () => {
       originSubdistrictId,
       originLabel,
       storeOwner,
+      partnerTier,
+      recommenderWa: recommenderWa.trim(),
       ownerEmail: ownerEmail.trim().toLowerCase(),
       adminPassword: adminPassword.trim() || currentStore.adminPassword,
       storeAdminPin: storeAdminPin.trim() || currentStore.storeAdminPin
@@ -325,6 +333,87 @@ export const PosSettingsView: React.FC = () => {
                   fontSize: '0.9rem'
                 }}
               />
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#cbd5e1', marginBottom: '6px' }}>
+                Nama Pemilik Toko:
+              </label>
+              <input
+                type="text"
+                value={storeOwner}
+                onChange={(e) => setStoreOwner(e.target.value)}
+                placeholder="Nama pemilik toko..."
+                required
+                style={{
+                  width: '100%',
+                  padding: '12px 14px',
+                  borderRadius: '10px',
+                  background: '#1e293b',
+                  border: '1px solid #334155',
+                  color: '#ffffff',
+                  fontSize: '0.9rem',
+                  fontWeight: 700
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#cbd5e1', marginBottom: '6px' }}>
+                No. WA Supplier / Upline Restock (Opsional):
+              </label>
+              <input
+                type="text"
+                value={recommenderWa}
+                onChange={(e) => setRecommenderWa(e.target.value)}
+                placeholder="WA Pusat / Distributor pembina (628xxx)"
+                style={{
+                  width: '100%',
+                  padding: '12px 14px',
+                  borderRadius: '10px',
+                  background: '#1e293b',
+                  border: '1px solid #334155',
+                  color: '#ffffff',
+                  fontSize: '0.9rem'
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Pengaturan Level Kemitraan Toko (Menentukan HPP, Margin Laba & Batas Diskon Downline) */}
+          <div style={{ background: '#020617', padding: '14px', borderRadius: '12px', border: '1.5px solid #0284c7' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem', fontWeight: 800, color: '#38bdf8', marginBottom: '6px' }}>
+              <Award size={16} color="#38bdf8" />
+              <span>Level Kemitraan Pemilik Toko (Penentu HPP &amp; Margin Laba):</span>
+            </label>
+            <select
+              value={partnerTier}
+              onChange={(e) => setPartnerTier(e.target.value as PartnerTier)}
+              style={{
+                width: '100%',
+                padding: '11px 14px',
+                borderRadius: '10px',
+                background: '#1e293b',
+                border: '1px solid #334155',
+                color: '#ffffff',
+                fontSize: '0.9rem',
+                fontWeight: 800
+              }}
+            >
+              <option value="distributor">👑 Distributor Utama (Diskon Kulakan 50% • Modal HPP 50% HET)</option>
+              <option value="agen">⭐ Agen Resmi SR12 (Diskon Kulakan 40% • Modal HPP 60% HET)</option>
+              <option value="sub_agen">💠 Sub Agen SR12 (Diskon Kulakan 30% • Modal HPP 70% HET)</option>
+              <option value="reseller">🌿 Reseller Resmi (Diskon Kulakan 20% • Modal HPP 80% HET)</option>
+            </select>
+            <div style={{ marginTop: '8px', fontSize: '0.75rem', color: '#cbd5e1', lineHeight: 1.5, background: '#0f172a', padding: '10px 12px', borderRadius: '8px', border: '1px solid #1e293b' }}>
+              <div>
+                • <b>Modal Kulakan (HPP):</b> <span style={{ color: '#fbbf24', fontWeight: 800 }}>{tierEcon.costPct}% dari HET</span> &bull; <b>Untung Jual Konsumen Ecer:</b> <span style={{ color: '#34d399', fontWeight: 800 }}>{tierEcon.discountPct}% dari HET</span>
+              </div>
+              <div style={{ color: '#94a3b8', marginTop: '3px' }}>
+                • <b>Level Pembeli / Mitra yang Dilayani:</b> {allowedCustomerTiers.map(t => SR12_TIERS[t].name).join(', ')}
+              </div>
             </div>
           </div>
 

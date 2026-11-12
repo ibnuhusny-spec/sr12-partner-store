@@ -1,13 +1,18 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { SR12_TIERS } from '../../config/tiers';
-import { PartnerTier } from '../../types';
+import { getAllowedDownlineTiers, SR12_TIERS } from '../../config/tiers';
 import { Tag, Sparkles } from 'lucide-react';
 
 export const TierSelector: React.FC = () => {
-  const { activeTier, setActiveTier } = useApp();
+  const { currentStore, activeTier, setActiveTier } = useApp();
 
-  const tierKeys: PartnerTier[] = ['konsumen', 'marketer', 'reseller', 'sub_agen', 'agen', 'distributor'];
+  const tierKeys = getAllowedDownlineTiers(currentStore.partnerTier);
+
+  useEffect(() => {
+    if (!tierKeys.includes(activeTier)) {
+      setActiveTier('konsumen');
+    }
+  }, [currentStore.partnerTier, activeTier, setActiveTier, tierKeys]);
 
   return (
     <div className="tier-selector-banner" id="tierSelectorSection">

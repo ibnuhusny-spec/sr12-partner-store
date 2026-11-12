@@ -1,4 +1,4 @@
-import { Store, StoreTheme } from '../types';
+import { PartnerTier, Store, StoreTheme } from '../types';
 
 /**
  * Konfigurasi Tunggal Toko (Single-Tenant Mode)
@@ -29,7 +29,7 @@ export const STORE_CONFIG: Store = {
   originSubdistrictId: saved.originSubdistrictId || Number(import.meta.env.VITE_STORE_ORIGIN_ID) || 17473,
   originLabel: saved.originLabel || 'Jakarta Barat (DKI Jakarta)',
   storeOwner: saved.storeOwner || import.meta.env.VITE_STORE_OWNER || 'Ibnu Husny',
-  partnerTier: 'distributor',
+  partnerTier: (saved.partnerTier as PartnerTier) || (import.meta.env.VITE_STORE_TIER as PartnerTier) || 'distributor',
   feePayer: 'store',
   storeAdminPin: saved.storeAdminPin || import.meta.env.VITE_STORE_ADMIN_PIN || '1234',
   ownerEmail: saved.ownerEmail || import.meta.env.VITE_STORE_OWNER_EMAIL || 'admin@sr12.co.id',
