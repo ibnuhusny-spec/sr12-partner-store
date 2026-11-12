@@ -2,6 +2,7 @@ import { Product } from '../types';
 import { SR12_MASTER_CATALOG } from '../data/sr12MasterCatalog';
 import { supabase, getActiveSessionToken } from '../config/supabase';
 import { fetchStoreOrders } from './orderService';
+import { isDemoSessionActive } from './demoGuard';
 
 const CATALOG_STORAGE_PREFIX = 'sr12_catalog_';
 const OVERRIDES_STORAGE_PREFIX = 'sr12_overrides_';
@@ -65,6 +66,10 @@ export async function uploadProductImageFile(
     throw new Error('Ukuran file gambar maksimal 10 MB.');
   }
 
+  if (isDemoSessionActive()) {
+    return await compressImageToBase64(file, 800, 0.82);
+  }
+
   try {
     const rawExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
     const cleanExt = ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(rawExt) ? rawExt : 'jpg';
@@ -101,6 +106,7 @@ export async function saveProductToSupabaseDb(
   storeSlug: string,
   product: { id?: string; localId?: string; name: string; stock?: number; het?: number; image?: string; sku?: string; category?: string }
 ): Promise<void> {
+  if (isDemoSessionActive()) return;
   const safeSlug = (storeSlug || 'sr12-central').toLowerCase();
   try {
     const token = getActiveSessionToken(safeSlug);

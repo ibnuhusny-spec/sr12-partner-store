@@ -8,7 +8,8 @@ import {
   Smartphone,
   ShieldCheck,
   BarChart3,
-  HeartHandshake
+  HeartHandshake,
+  MonitorPlay
 } from 'lucide-react';
 import { normalizeWhatsAppNumber } from '../../services/orderService';
 
@@ -16,6 +17,7 @@ const SALES_WA_RAW = '085342743763';
 
 interface AppPromoShowcaseProps {
   variant?: 'top' | 'bottom';
+  onEnterDemoPos?: () => void;
 }
 
 const FEATURE_HIGHLIGHTS = [
@@ -48,7 +50,7 @@ function buildSalesWhatsAppUrl(): string {
   return `https://api.whatsapp.com/send?phone=${waPhone}&text=${encodeURIComponent(message)}`;
 }
 
-export const AppPromoShowcase: React.FC<AppPromoShowcaseProps> = ({ variant = 'top' }) => {
+export const AppPromoShowcase: React.FC<AppPromoShowcaseProps> = ({ variant = 'top', onEnterDemoPos }) => {
   const [showDetails, setShowDetails] = useState(false);
   const backdropMouseDown = useRef(false);
   const waUrl = buildSalesWhatsAppUrl();
@@ -201,6 +203,34 @@ export const AppPromoShowcase: React.FC<AppPromoShowcaseProps> = ({ variant = 't
           </div>
 
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            {onEnterDemoPos && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDetails(false);
+                  onEnterDemoPos();
+                }}
+                style={{
+                  flex: 1,
+                  minWidth: '175px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  background: 'linear-gradient(135deg, #0284c7, #2563eb)',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '12px',
+                  padding: '12px 16px',
+                  fontWeight: 800,
+                  fontSize: '0.84rem',
+                  cursor: 'pointer'
+                }}
+              >
+                <MonitorPlay size={17} />
+                <span>Coba Demo POS</span>
+              </button>
+            )}
             <a
               href={waUrl}
               target="_blank"
@@ -279,6 +309,29 @@ export const AppPromoShowcase: React.FC<AppPromoShowcaseProps> = ({ variant = 't
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              {onEnterDemoPos && (
+                <button
+                  type="button"
+                  onClick={onEnterDemoPos}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: 'linear-gradient(135deg, #0284c7, #2563eb)',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '10px',
+                    padding: '9px 14px',
+                    fontSize: '0.78rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(37, 99, 235, 0.35)'
+                  }}
+                >
+                  <MonitorPlay size={15} />
+                  <span>Coba Demo POS</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setShowDetails(true)}
@@ -392,6 +445,32 @@ export const AppPromoShowcase: React.FC<AppPromoShowcaseProps> = ({ variant = 't
               <div style={{ fontSize: '1.08rem', fontWeight: 800, color: '#f8fafc', marginBottom: '12px' }}>
                 Konsultasi &amp; Tanya Harga via WA
               </div>
+              {onEnterDemoPos && (
+                <button
+                  type="button"
+                  onClick={onEnterDemoPos}
+                  style={{
+                    width: '100%',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    background: 'linear-gradient(135deg, #0284c7, #2563eb)',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '12px',
+                    padding: '11px 16px',
+                    fontSize: '0.84rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    marginBottom: '8px',
+                    boxShadow: '0 6px 16px rgba(37, 99, 235, 0.28)'
+                  }}
+                >
+                  <MonitorPlay size={16} />
+                  <span>Coba Demo POS Sekarang</span>
+                </button>
+              )}
               <a
                 href={waUrl}
                 target="_blank"

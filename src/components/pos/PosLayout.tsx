@@ -43,10 +43,12 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
   onUpdateProduct,
   onResetCatalogToMaster
 }) => {
-  const { currentStore, setIsPosOpen, logoutStoreAdmin } = useApp();
+  const { currentStore, setIsPosOpen, logoutStoreAdmin, isDemoSession } = useApp();
+  const safeCashierOwner = isDemoSession ? 'Kasir Demo' : currentStore.storeOwner;
+  const safeCashierPin = isDemoSession ? '0000' : currentStore.storeAdminPin;
   const [activeTab, setActiveTab] = useState<'cashier' | 'transactions' | 'inventory' | 'cashflow' | 'reports' | 'downlines' | 'settings'>('cashier');
   const [activeCashier, setActiveCashierState] = useState<CashierOperator>(() =>
-    getActiveCashier(currentStore.slug, currentStore.storeOwner, currentStore.storeAdminPin)
+    getActiveCashier(currentStore.slug, safeCashierOwner, safeCashierPin)
   );
   const [isClockedIn, setIsClockedIn] = useState(true);
   const [showCashierModal, setShowCashierModal] = useState(false);
@@ -228,6 +230,45 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
           </button>
         </div>
       </header>
+
+      {/* Banner Mode Demo Aman jika pengunjung masuk lewat Coba Demo POS */}
+      {isDemoSession && (
+        <div
+          style={{
+            background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.18), rgba(16, 185, 129, 0.16))',
+            borderBottom: '1px solid rgba(245, 158, 11, 0.35)',
+            padding: '7px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '10px',
+            flexWrap: 'wrap',
+            fontSize: '0.75rem',
+            color: '#fef3c7'
+          }}
+        >
+          <span>
+            <b>MODE DEMO POS (Simulasi):</b> Perubahan hanya tersimpan sementara di browser Anda &amp; tidak mengubah database Cloud resmi.
+          </span>
+          <a
+            href="https://api.whatsapp.com/send?phone=6285342743763&text=Halo%20Kak%2C%20saya%20baru%20saja%20coba%20Demo%20POS%20tokonya%20dan%20tertarik%20pesan%20versi%20asli%20untuk%20usaha%20saya."
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              background: '#10b981',
+              color: '#ffffff',
+              fontWeight: 800,
+              padding: '4px 10px',
+              borderRadius: '6px',
+              textDecoration: 'none',
+              fontSize: '0.72rem',
+              flexShrink: 0
+            }}
+          >
+            Pesan Versi Toko Asli (WA)
+          </a>
+        </div>
+      )}
 
       {/* Navigation Sub-Tabs (Desktop only) */}
       <nav className="hide-on-mobile" style={{ background: '#0f172a', borderBottom: '1px solid #334155', padding: '0 8px', display: 'flex', gap: '2px', overflowX: 'auto', scrollbarWidth: 'none' }}>
@@ -482,8 +523,8 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
         isOpen={showCashierModal}
         onClose={() => setShowCashierModal(false)}
         storeSlug={currentStore.slug}
-        storeOwnerName={currentStore.storeOwner}
-        storeAdminPin={currentStore.storeAdminPin}
+        storeOwnerName={safeCashierOwner}
+        storeAdminPin={safeCashierPin}
         activeCashier={activeCashier}
         onCashierChanged={(nextCashier) => {
           setActiveCashierState(nextCashier);

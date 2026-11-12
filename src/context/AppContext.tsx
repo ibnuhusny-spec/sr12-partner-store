@@ -4,6 +4,7 @@ import { getLatestLocalStoreConfig, STORE_CONFIG } from '../config/storeConfig';
 import { fetchSingleStoreProfile, mergeStoreProfileWithCloud } from '../services/storeService';
 import { supabase } from '../config/supabase';
 import { getProductTierPrice } from '../config/tiers';
+import { clearDemoSession, enableDemoSession, isDemoSessionActive } from '../services/demoGuard';
 
 interface AppContextType {
   currentStore: Store;
@@ -22,6 +23,8 @@ interface AppContextType {
   verifiedMitra: Partial<MitraDownline> | null;
   setVerifiedMitra: (m: Partial<MitraDownline> | null) => void;
   isStoreAdminLoggedIn: boolean;
+  isDemoSession: boolean;
+  enterDemoPos: () => void;
   loginStoreAdmin: (email: string, passwordOrPin: string) => { success: boolean; message: string };
   logoutStoreAdmin: () => void;
   resetStorePassword: (email: string, waNumber: string, newPassword: string) => { success: boolean; message: string };
@@ -68,6 +71,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [isStoreAdminLoggedIn, setIsStoreAdminLoggedIn] = useState<boolean>(() => {
     return !!sessionStorage.getItem(`sr12_admin_session_${STORE_CONFIG.slug}`);
+  });
+
+  const [isDemoSession, setIsDemoSession] = useState<boolean>(() => {
+    const hasRealSession =
+      Boolean(sessionStorage.getItem(`sr12_admin_session_${STORE_CONFIG.slug}`)) ||
+      Boolean(sessionStorage.getItem('sr12_distributor_session') || localStorage.getItem('sr12_distributor_session')) ||
+      Boolean(localStorage.getItem('sr12_dev_token'));
+    return !hasRealSession && isDemoSessionActive();
   });
 
   useEffect(() => {
@@ -277,12 +288,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, message: 'Password atau PIN admin salah. Silakan coba lagi.' };
     }
 
+    clearDemoSession();
+    setIsDemoSession(false);
     sessionStorage.setItem(`sr12_admin_session_${currentStore.slug}`, JSON.stringify({ email: inputEmail, time: Date.now() }));
     setIsStoreAdminLoggedIn(true);
     return { success: true, message: 'Login Admin Berhasil!' };
   };
 
+  const enterDemoPos = () => {
+    const promoEnv = (import.meta.env.VITE_APP_PROMO || '').toLowerCase();
+    const slugEnv = (import.meta.env.VITE_STORE_SLUG || 'sr12-central').toLowerCase();
+    const isPromoAllowed = promoEnv === 'true' || (promoEnv !== 'false' && slugEnv === 'sr12-central');
+    if (!isPromoAllowed) return;
+
+    enableDemoSession();
+    setIsDemoSession(true);
+    setIsPosOpen(true);
+  };
+
   const logoutStoreAdmin = () => {
+    clearDemoSession();
+    setIsDemoSession(false);
     sessionStorage.removeItem(`sr12_admin_session_${currentStore.slug}`);
     try {
       for (let i = sessionStorage.length - 1; i >= 0; i--) {
@@ -326,6 +352,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const loginDistributor = (pinOrPass: string): boolean => {
     if (pinOrPass === currentStore.storeAdminPin) {
+      clearDemoSession();
+      setIsDemoSession(false);
       setIsDistributorLoggedIn(true);
       const session = {
         token: `dist_${Date.now()}`,
@@ -340,6 +368,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const loginDev = (pin: string): boolean => {
     if (pin === '8899') {
+      clearDemoSession();
+      setIsDemoSession(false);
       setIsDevMasterLoggedIn(true);
       const token = `dev_${Date.now()}`;
       localStorage.setItem('sr12_dev_token', token);
@@ -349,6 +379,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logout = () => {
+    clearDemoSession();
+    setIsDemoSession(false);
     setIsDistributorLoggedIn(false);
     setIsDevMasterLoggedIn(false);
     sessionStorage.removeItem('sr12_distributor_session');
@@ -399,6 +431,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         verifiedMitra,
         setVerifiedMitra,
         isStoreAdminLoggedIn,
+        isDemoSession,
+        enterDemoPos,
         loginStoreAdmin,
         logoutStoreAdmin,
         resetStorePassword,

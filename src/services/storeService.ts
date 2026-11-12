@@ -1,6 +1,7 @@
 import { supabase, getActiveSessionToken } from '../config/supabase';
 import { DEFAULT_PARTNER_STORES } from '../data/defaultStores';
 import { PendingStore, Store } from '../types';
+import { isDemoSessionActive } from './demoGuard';
 
 const STORAGE_STORES_KEY = 'sr12_partner_stores_v3';
 const STORAGE_PENDING_KEY = 'sr12_pending_store_apps_v2';
@@ -277,6 +278,15 @@ export async function deleteStore(slug: string): Promise<{ success: boolean; mes
 }
 
 export async function uploadImageToSupabase(file: File, storeSlug = 'global'): Promise<string> {
+  if (isDemoSessionActive()) {
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(new Error('Gagal membaca gambar demo'));
+      reader.readAsDataURL(file);
+    });
+  }
+
   const fileExt = file.name.split('.').pop() || 'jpg';
   const fileName = `${storeSlug}/${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
 
@@ -515,6 +525,13 @@ export async function saveStoreProfileToCloud(
   store: Store,
   previousPin?: string
 ): Promise<{ success: boolean; message: string }> {
+  if (isDemoSessionActive()) {
+    return {
+      success: true,
+      message: 'Mode Simulasi Demo: Perubahan di menu ini hanya simulasi tampilan sementara dan tidak mengubah Cloud maupun WhatsApp resmi Web Iklan.'
+    };
+  }
+
   const safeSlug = (store.slug || 'sr12-central').toLowerCase().trim();
   const token = getActiveSessionToken(safeSlug);
 

@@ -2,6 +2,7 @@ import { CashflowEntry, CashierAttendanceLog, CashierOperator, StockMutation } f
 import { supabase, getActiveSessionToken } from '../config/supabase';
 import { fetchStoreOrders, createOrder, updateOrderStatus } from './orderService';
 import { filterDeletedCashflow, markCashflowDeleted, notifyPosDataSync } from './cleanupGuard';
+import { isDemoSessionActive } from './demoGuard';
 
 export function buildDefaultOwnerCashier(ownerName?: string, ownerPin?: string): CashierOperator {
   return {
@@ -218,13 +219,15 @@ export async function deleteCashflowEntry(id: string, storeSlug: string): Promis
     if (id !== cleanId) {
       await updateOrderStatus(id, 'Dibatalkan / Dihapus', safeSlug);
     }
-    try {
-      await supabase.rpc('rpc_delete_marketer_sale', {
-        p_slug: safeSlug,
-        p_order_id: cleanId,
-        p_token: token
-      });
-    } catch {}
+    if (!isDemoSessionActive()) {
+      try {
+        await supabase.rpc('rpc_delete_marketer_sale', {
+          p_slug: safeSlug,
+          p_order_id: cleanId,
+          p_token: token
+        });
+      } catch {}
+    }
   } catch (err) {
     console.warn('[PosService] Warning deleting cashflow order in Supabase:', err);
   }
@@ -268,13 +271,15 @@ export async function clearAllCashflow(storeSlug: string): Promise<void> {
   try {
     for (const oid of targetOrders) {
       await updateOrderStatus(oid, 'Dibatalkan / Dihapus', safeSlug);
-      try {
-        await supabase.rpc('rpc_delete_marketer_sale', {
-          p_slug: safeSlug,
-          p_order_id: oid,
-          p_token: token
-        });
-      } catch {}
+      if (!isDemoSessionActive()) {
+        try {
+          await supabase.rpc('rpc_delete_marketer_sale', {
+            p_slug: safeSlug,
+            p_order_id: oid,
+            p_token: token
+          });
+        } catch {}
+      }
     }
   } catch (err) {
     console.warn('[PosService] Warning clearing cashflow in Supabase:', err);

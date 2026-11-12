@@ -9,6 +9,7 @@ import {
   unmarkDownlineDeleted
 } from './cleanupGuard';
 import { fetchCancelledOrderIds, fetchStoreOrders } from './orderService';
+import { isDemoSessionActive } from './demoGuard';
 
 export const DEFAULT_SAMPLE_DOWNLINES: MitraDownline[] = [
   // 1. AGEN RESMI SR12 (Diskon 40%)
@@ -310,6 +311,10 @@ export async function fetchStoreDownlines(storeSlug: string): Promise<MitraDownl
   const targetSlug = storeSlug || 'sr12-central';
   const token = getActiveSessionToken(targetSlug);
 
+  if (isDemoSessionActive() && localStorage.getItem(`sr12_mitra_downlines_${targetSlug}`) !== null) {
+    return getLocalDownlines(targetSlug);
+  }
+
   try {
     const { data, error } = await supabase.rpc('rpc_get_store_downlines', {
       p_slug: targetSlug,
@@ -377,6 +382,11 @@ export async function saveStoreDownline(mitra: Partial<MitraDownline>, storeSlug
     localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(list));
     localStorage.setItem(`sr12_mitra_downlines_${targetSlug}`, JSON.stringify(list));
   } catch (e) {}
+
+  if (isDemoSessionActive()) {
+    notifyPosDataSync(targetSlug, ['downlines']);
+    return true;
+  }
 
   // 2. Simpan secara permanen ke Supabase Cloud
   try {
@@ -495,6 +505,10 @@ export async function fetchStoreMarketerSales(storeSlug: string): Promise<Market
   const targetSlug = storeSlug || 'sr12-central';
   const token = getActiveSessionToken(targetSlug);
 
+  if (isDemoSessionActive() && localStorage.getItem(`sr12_marketer_sales_${targetSlug}`) !== null) {
+    return getLocalMarketerSales(targetSlug);
+  }
+
   try {
     const [{ data, error }, cancelledIds] = await Promise.all([
       supabase.rpc('rpc_get_store_marketer_sales', {
@@ -589,15 +603,17 @@ export async function deleteStoreDownline(partnerCode: string, storeSlug?: strin
     localStorage.setItem(`sr12_mitra_downlines_${targetSlug}`, JSON.stringify(filtered));
   } catch {}
 
-  // 2. Hapus dari Supabase Cloud
-  try {
-    await supabase.rpc('rpc_delete_store_downline', {
-      p_slug: targetSlug,
-      p_token: token,
-      p_partner_code: partnerCode
-    });
-  } catch (e) {
-    console.warn('Error deleting downline in Supabase:', e);
+  // 2. Hapus dari Supabase Cloud (dilewati saat Mode Demo)
+  if (!isDemoSessionActive()) {
+    try {
+      await supabase.rpc('rpc_delete_store_downline', {
+        p_slug: targetSlug,
+        p_token: token,
+        p_partner_code: partnerCode
+      });
+    } catch (e) {
+      console.warn('Error deleting downline in Supabase:', e);
+    }
   }
 
   notifyPosDataSync(targetSlug, ['downlines']);
@@ -627,6 +643,11 @@ export async function clearAllStoreDownlines(storeSlug?: string): Promise<void> 
     localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify([]));
     localStorage.setItem(`sr12_mitra_downlines_${targetSlug}`, JSON.stringify([]));
   } catch {}
+
+  if (isDemoSessionActive()) {
+    notifyPosDataSync(targetSlug, ['downlines']);
+    return;
+  }
 
   try {
     await supabase.rpc('rpc_clear_store_downlines', {
@@ -672,6 +693,11 @@ export async function resetDownlineAccumulatedSpent(storeSlug?: string): Promise
     }));
     localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(resetList));
     localStorage.setItem(`sr12_mitra_downlines_${targetSlug}`, JSON.stringify(resetList));
+
+    if (isDemoSessionActive()) {
+      notifyPosDataSync(targetSlug, ['downlines']);
+      return;
+    }
 
     let rpcOk = false;
     try {
@@ -724,6 +750,11 @@ export async function deleteMarketerSale(orderId: string, storeSlug?: string): P
     localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(remaining));
     localStorage.setItem(`sr12_marketer_sales_${targetSlug}`, JSON.stringify(remaining));
   } catch {}
+
+  if (isDemoSessionActive()) {
+    notifyPosDataSync(targetSlug, ['downlines']);
+    return remaining;
+  }
 
   try {
     const { data, error } = await supabase.rpc('rpc_delete_marketer_sale', {
@@ -781,6 +812,11 @@ export async function clearAllMarketerSales(
     localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify([]));
     localStorage.setItem(`sr12_marketer_sales_${targetSlug}`, JSON.stringify([]));
   } catch {}
+
+  if (isDemoSessionActive()) {
+    notifyPosDataSync(targetSlug, ['downlines']);
+    return { cloudDeleted: true, remainingCount: 0 };
+  }
 
   // Unconditionally call SECURITY DEFINER RPCs (never rely on direct RLS DELETE returning an error)
   try {

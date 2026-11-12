@@ -37,7 +37,9 @@ export function App() {
     switchStore,
     isStoreAdminLoggedIn,
     isDistributorLoggedIn,
-    isDevMasterLoggedIn
+    isDevMasterLoggedIn,
+    isDemoSession,
+    enterDemoPos
   } = useApp();
 
   // Single-Store Mode: Aplikasi selalu menampilkan storefront katalog toko aktif
@@ -158,9 +160,9 @@ export function App() {
     return matchCat && matchSearch;
   });
 
-  // If user opened POS view, render the Olsera POS Suite (Protected by Authentication Guard)
+  // If user opened POS view, render the Olsera POS Suite (Protected by Authentication Guard or Safe Demo Session)
   if (isPosOpen) {
-    if (!isStoreAdminLoggedIn && !isDistributorLoggedIn && !isDevMasterLoggedIn) {
+    if (!isStoreAdminLoggedIn && !isDistributorLoggedIn && !isDevMasterLoggedIn && !isDemoSession) {
       return (
         <StoreAdminLoginModal
           isOpen={true}
@@ -220,7 +222,7 @@ export function App() {
       <HeroBanner />
 
       {/* 5b. Web Showcase / App Offer Banner (Hanya aktif di Web Utama Iklan) */}
-      {showAppPromo && <AppPromoShowcase variant="top" />}
+      {showAppPromo && <AppPromoShowcase variant="top" onEnterDemoPos={enterDemoPos} />}
 
       {/* 6. Catalog Controls: Tier Selector & Category Slider */}
       <section className="catalog-controls" id="catalogControlsSection">
@@ -255,7 +257,7 @@ export function App() {
       </main>
 
       {/* 7b. Bottom App Offer Section (Hanya aktif di Web Utama Iklan) */}
-      {showAppPromo && <AppPromoShowcase variant="bottom" />}
+      {showAppPromo && <AppPromoShowcase variant="bottom" onEnterDemoPos={enterDemoPos} />}
 
       {/* 8. Footer (Secret 5-click on copyright opens Developer Console) */}
       <Footer onSecretDevOpen={() => setIsDevConsoleOpen(true)} />

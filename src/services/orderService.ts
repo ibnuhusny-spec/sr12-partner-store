@@ -6,6 +6,7 @@ import {
   markOrdersDeleted,
   notifyPosDataSync
 } from './cleanupGuard';
+import { isDemoSessionActive } from './demoGuard';
 
 export async function createOrder(order: Order, storeSlug: string): Promise<{ success: boolean; message: string; remainingQuota?: number }> {
   const targetSlug = storeSlug || order.storeSlug || 'sr12-central';
@@ -16,6 +17,11 @@ export async function createOrder(order: Order, storeSlug: string): Promise<{ su
 
   // 1. Simpan ke local cache untuk responsivitas instan di perangkat ini
   saveLocalOrder(enriched);
+
+  if (isDemoSessionActive()) {
+    notifyPosDataSync(targetSlug, ['orders', 'cashflow', 'downlines']);
+    return { success: true, message: 'Mode Demo: Pesanan simulasi tercatat sementara di browser.' };
+  }
 
   // 2. Simpan secara permanen ke Supabase Cloud
   try {
@@ -118,6 +124,10 @@ export async function fetchStoreOrders(storeSlug: string): Promise<Order[]> {
   const targetSlug = storeSlug || 'sr12-central';
   const token = getActiveSessionToken(targetSlug);
 
+  if (isDemoSessionActive() && localStorage.getItem(`sr12_customer_orders_${targetSlug}`) !== null) {
+    return getLocalOrders(targetSlug);
+  }
+
   try {
     const { data, error } = await supabase.rpc('rpc_get_store_orders', {
       p_slug: targetSlug,
@@ -188,25 +198,27 @@ export async function updateOrderStatus(orderId: string, newStatus: string, stor
     } catch (e) {}
   }
 
-  // 2. Update di Supabase Cloud
-  try {
-    await supabase.rpc('rpc_update_order_status', {
-      p_slug: targetSlug,
-      p_order_id: orderId,
-      p_new_status: newStatus,
-      p_token: token
-    });
-    if (deleting) {
-      try {
-        await supabase.rpc('rpc_delete_marketer_sale', {
-          p_slug: targetSlug,
-          p_order_id: orderId,
-          p_token: token
-        });
-      } catch {}
+  // 2. Update di Supabase Cloud (dilewati saat Mode Demo)
+  if (!isDemoSessionActive()) {
+    try {
+      await supabase.rpc('rpc_update_order_status', {
+        p_slug: targetSlug,
+        p_order_id: orderId,
+        p_new_status: newStatus,
+        p_token: token
+      });
+      if (deleting) {
+        try {
+          await supabase.rpc('rpc_delete_marketer_sale', {
+            p_slug: targetSlug,
+            p_order_id: orderId,
+            p_token: token
+          });
+        } catch {}
+      }
+    } catch (e) {
+      console.warn('Error updating order status in Supabase:', e);
     }
-  } catch (e) {
-    console.warn('Error updating order status in Supabase:', e);
   }
 
   if (deleting) {
@@ -223,6 +235,11 @@ export async function deleteOrder(orderId: string, storeSlug?: string): Promise<
   // 1. Catat tombstone & bersihkan cache lokal
   markOrdersDeleted(targetSlug, [orderId], { alsoMarketerSales: true, alsoCashflow: true });
   const remaining = getLocalOrders(targetSlug);
+
+  if (isDemoSessionActive()) {
+    notifyPosDataSync(targetSlug, ['orders', 'cashflow', 'downlines']);
+    return remaining;
+  }
 
   // 2. Hapus di Supabase Cloud via SECURITY DEFINER RPC (+ fallback status batal)
   try {
@@ -285,6 +302,11 @@ export async function clearAllOrders(storeSlug?: string): Promise<void> {
     localStorage.setItem(`sr12_cashflow_${targetSlug}`, JSON.stringify([]));
     localStorage.removeItem('sr12_pos_transactions_v1');
   } catch {}
+
+  if (isDemoSessionActive()) {
+    notifyPosDataSync(targetSlug, ['orders', 'cashflow', 'downlines']);
+    return;
+  }
 
   // 2. Panggil RPC pembersih permanen di Supabase Cloud
   try {

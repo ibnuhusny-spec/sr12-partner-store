@@ -11,7 +11,7 @@ import { saveStoreProfileToCloud } from '../../services/storeService';
 import { normalizeWhatsAppNumber } from '../../services/orderService';
 
 export const PosSettingsView: React.FC = () => {
-  const { currentStore, refreshStores } = useApp();
+  const { currentStore, refreshStores, isDemoSession } = useApp();
   
   const [storeName, setStoreName] = useState(currentStore.storeName || STORE_CONFIG.storeName);
   const [storeTagline, setStoreTagline] = useState(currentStore.storeTagline || STORE_CONFIG.storeTagline);
@@ -29,10 +29,16 @@ export const PosSettingsView: React.FC = () => {
   const [originOptions, setOriginOptions] = useState<OngkirDestination[]>([]);
   const [isSearchingOrigin, setIsSearchingOrigin] = useState(false);
 
-  // Akun Login & Keamanan Toko
-  const [ownerEmail, setOwnerEmail] = useState(currentStore.ownerEmail || STORE_CONFIG.ownerEmail || 'admin@sr12.co.id');
-  const [adminPassword, setAdminPassword] = useState(currentStore.adminPassword || STORE_CONFIG.adminPassword || '');
-  const [storeAdminPin, setStoreAdminPin] = useState(currentStore.storeAdminPin || STORE_CONFIG.storeAdminPin || '1234');
+  // Akun Login & Keamanan Toko (disamarkan otomatis saat Mode Demo)
+  const [ownerEmail, setOwnerEmail] = useState(
+    isDemoSession ? 'demo@tokosr12.id' : (currentStore.ownerEmail || STORE_CONFIG.ownerEmail || 'admin@sr12.co.id')
+  );
+  const [adminPassword, setAdminPassword] = useState(
+    isDemoSession ? '' : (currentStore.adminPassword || STORE_CONFIG.adminPassword || '')
+  );
+  const [storeAdminPin, setStoreAdminPin] = useState(
+    isDemoSession ? '0000' : (currentStore.storeAdminPin || STORE_CONFIG.storeAdminPin || '1234')
+  );
   const [showPassword, setShowPassword] = useState(false);
 
   const [isSaved, setIsSaved] = useState(false);
@@ -130,6 +136,15 @@ export const PosSettingsView: React.FC = () => {
       storeAdminPin: storeAdminPin.trim() || currentStore.storeAdminPin,
       updatedAt: savedAt
     };
+
+    if (isDemoSession) {
+      const demoRes = await saveStoreProfileToCloud(updatedStore, currentStore.storeAdminPin);
+      setIsSaving(false);
+      setIsSaved(true);
+      setSaveNotice({ ok: demoRes.success, text: demoRes.message });
+      setTimeout(() => setIsSaved(false), 3500);
+      return;
+    }
 
     if (normalizedWa) setStoreWaNumber(normalizedWa);
     if (normalizedSupplierWa) setRecommenderWa(normalizedSupplierWa);
@@ -524,7 +539,20 @@ export const PosSettingsView: React.FC = () => {
           </div>
         </div>
 
-        {/* Card Keamanan & Akun Login Toko */}
+        {/* Card Keamanan & Akun Login Toko (terkunci di Mode Demo) */}
+        {isDemoSession ? (
+          <div style={{ background: '#0f172a', border: '1px solid rgba(245, 158, 11, 0.35)', borderRadius: '16px', padding: '18px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <Lock size={20} color="#fbbf24" style={{ flexShrink: 0 }} />
+            <div>
+              <div style={{ fontSize: '0.92rem', fontWeight: 800, color: '#fde68a' }}>
+                Pengaturan Akun &amp; Sinkron Cloud Dikunci di Mode Demo
+              </div>
+              <div style={{ fontSize: '0.78rem', color: '#cbd5e1', marginTop: '2px', lineHeight: 1.5 }}>
+                Untuk menjaga keamanan Web Contoh ini, perubahan Email, Password, PIN Admin, serta simpan permanen ke Cloud Supabase dinonaktifkan di Mode Demo. Fitur ini aktif penuh pada web milik Anda sendiri.
+              </div>
+            </div>
+          </div>
+        ) : (
         <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '16px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #1e293b', paddingBottom: '10px' }}>
             <Lock size={18} color="#fde68a" />
@@ -632,6 +660,7 @@ export const PosSettingsView: React.FC = () => {
             </div>
           </div>
         </div>
+        )}
 
         {saveNotice && (
           <div
