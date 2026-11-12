@@ -384,3 +384,280 @@ export async function redeemTokenVoucher(slug: string, code: string): Promise<{ 
   return { success: false, message: 'Gagal mengklaim voucher.' };
 }
 
+function sanitizeStoredWa(wa?: string | null): string {
+  const clean = (wa || '').trim();
+  return clean === '6281200001212' ? '' : clean;
+}
+
+/**
+ * Mengambil profil toko tunggal langsung dari Cloud Supabase (tabel `stores` atau fallback `store_profile`)
+ * sehingga semua HP pembeli otomatis menerima perubahan nomor WA, nama toko, level, & banner dari POS.
+ */
+export async function fetchSingleStoreProfile(slug: string): Promise<Partial<Store> | null> {
+  const safeSlug = (slug || 'sr12-central').toLowerCase().trim();
+
+  try {
+    const { data, error } = await supabase
+      .from('stores')
+      .select('id, slug, store_name, store_tagline, store_theme, hero_title, hero_subtitle, hero_banner_url, store_logo_text, store_logo_url, store_wa_number, store_city, store_owner, partner_tier, recommender_distributor, recommender_wa, recommender_slug, recommendation_code, fee_payer, updated_at')
+      .eq('slug', safeSlug)
+      .maybeSingle();
+
+    if (!error && data) {
+      return {
+        id: data.id,
+        slug: data.slug,
+        storeName: data.store_name || undefined,
+        storeTagline: cleanTaglineText(data.store_tagline, '') || undefined,
+        storeTheme: (data.store_theme as Store['storeTheme']) || undefined,
+        heroTitle: data.hero_title || data.store_name || undefined,
+        heroSubtitle: cleanTaglineText(data.hero_subtitle, '') || undefined,
+        heroBannerUrl: data.hero_banner_url || undefined,
+        storeLogoText: data.store_logo_text || undefined,
+        storeLogoUrl: data.store_logo_url || undefined,
+        storeWaNumber: sanitizeStoredWa(data.store_wa_number),
+        storeCity: data.store_city || undefined,
+        storeOwner: data.store_owner || undefined,
+        partnerTier: (data.partner_tier as Store['partnerTier']) || undefined,
+        recommenderDistributor: data.recommender_distributor || undefined,
+        recommenderWa: data.recommender_wa || undefined,
+        recommenderSlug: data.recommender_slug || undefined,
+        recommendationCode: data.recommendation_code || undefined,
+        feePayer: 'store',
+        updatedAt: data.updated_at || undefined
+      };
+    }
+  } catch (err) {
+    console.warn('[StoreService] Gagal baca tabel stores, mencoba store_profile:', err);
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('store_profile')
+      .select('*')
+      .eq('slug', safeSlug)
+      .maybeSingle();
+
+    if (!error && data) {
+      return {
+        id: data.id,
+        slug: data.slug,
+        storeName: data.store_name || undefined,
+        storeTagline: data.store_tagline || undefined,
+        storeTheme: (data.store_theme as Store['storeTheme']) || undefined,
+        heroTitle: data.hero_title || data.store_name || undefined,
+        heroSubtitle: data.hero_subtitle || undefined,
+        heroBannerUrl: data.hero_banner_url || undefined,
+        storeLogoText: data.store_logo_text || undefined,
+        storeLogoUrl: data.store_logo_url || undefined,
+        storeWaNumber: sanitizeStoredWa(data.store_wa_number),
+        storeCity: data.store_city || undefined,
+        storeOwner: data.store_owner || undefined,
+        partnerTier: (data.partner_tier as Store['partnerTier']) || undefined,
+        recommenderWa: data.recommender_wa || undefined,
+        feePayer: 'store',
+        updatedAt: data.updated_at || undefined
+      };
+    }
+  } catch {}
+
+  return null;
+}
+
+/**
+ * Menggabungkan profil toko lokal/env dengan profil terbaru dari Cloud Supabase.
+ */
+export function mergeStoreProfileWithCloud(baseStore: Store, cloudProfile: Partial<Store> | null): Store {
+  if (!cloudProfile) return baseStore;
+
+  let hasLocalCustom = false;
+  try {
+    hasLocalCustom = Boolean(localStorage.getItem('sr12_custom_store_profile'));
+  } catch {}
+
+  const cloudMs = cloudProfile.updatedAt ? Date.parse(cloudProfile.updatedAt) : 0;
+  const localMs = baseStore.updatedAt ? Date.parse(baseStore.updatedAt) : 0;
+
+  // Di HP pembeli (tidak punya cache lokal) atau jika data cloud lebih baru daripada cache lokal, pakai data cloud
+  const cloudWins = !hasLocalCustom || (localMs > 0 ? cloudMs >= localMs : Boolean(cloudProfile.storeWaNumber));
+
+  const pickField = <T>(cloudVal: T | undefined, baseVal: T): T => {
+    if (cloudVal === undefined || cloudVal === null || cloudVal === '') return baseVal;
+    return cloudWins || !baseVal ? cloudVal : baseVal;
+  };
+
+  return {
+    ...baseStore,
+    id: cloudProfile.id || baseStore.id,
+    storeName: pickField(cloudProfile.storeName, baseStore.storeName),
+    storeTagline: pickField(cloudProfile.storeTagline, baseStore.storeTagline),
+    storeTheme: pickField(cloudProfile.storeTheme, baseStore.storeTheme),
+    heroTitle: pickField(cloudProfile.heroTitle, baseStore.heroTitle),
+    heroSubtitle: pickField(cloudProfile.heroSubtitle, baseStore.heroSubtitle),
+    heroBannerUrl: pickField(cloudProfile.heroBannerUrl, baseStore.heroBannerUrl),
+    storeLogoText: pickField(cloudProfile.storeLogoText, baseStore.storeLogoText),
+    storeLogoUrl: pickField(cloudProfile.storeLogoUrl, baseStore.storeLogoUrl),
+    storeWaNumber: pickField(cloudProfile.storeWaNumber, baseStore.storeWaNumber),
+    storeCity: pickField(cloudProfile.storeCity, baseStore.storeCity),
+    storeOwner: pickField(cloudProfile.storeOwner, baseStore.storeOwner),
+    partnerTier: pickField(cloudProfile.partnerTier, baseStore.partnerTier),
+    recommenderWa: pickField(cloudProfile.recommenderWa, baseStore.recommenderWa),
+    feePayer: 'store',
+    updatedAt: cloudWins && cloudProfile.updatedAt ? cloudProfile.updatedAt : baseStore.updatedAt
+  };
+}
+
+/**
+ * Menyimpan perubahan profil toko dari POS Admin langsung ke Cloud Supabase
+ * agar otomatis terbaca di seluruh HP pembeli tanpa perlu edit Vercel.
+ */
+export async function saveStoreProfileToCloud(
+  store: Store,
+  previousPin?: string
+): Promise<{ success: boolean; message: string }> {
+  const safeSlug = (store.slug || 'sr12-central').toLowerCase().trim();
+  const token = getActiveSessionToken(safeSlug);
+
+  const cloudPayload = {
+    slug: safeSlug,
+    storeName: store.storeName,
+    storeTagline: store.storeTagline,
+    storeTheme: store.storeTheme || 'emerald',
+    heroTitle: store.heroTitle || store.storeName,
+    heroSubtitle: store.heroSubtitle || store.storeTagline,
+    heroBannerUrl: store.heroBannerUrl || '/assets/hero-banner.jpg',
+    storeLogoText: store.storeLogoText || 'SR12',
+    storeLogoUrl: store.storeLogoUrl || '/assets/sr12-logo.png',
+    storeWaNumber: store.storeWaNumber,
+    storeCity: store.storeCity,
+    storeOwner: store.storeOwner,
+    partnerTier: store.partnerTier || 'distributor',
+    recommenderWa: store.recommenderWa || '',
+    feePayer: 'store',
+    orderQuota: 999999,
+    ownerEmail: store.ownerEmail || undefined,
+    storeAdminPin: store.storeAdminPin || '1234'
+  };
+
+  let syncedStores = false;
+
+  try {
+    const { data: pubData, error: pubErr } = await supabase.rpc('rpc_publish_store', {
+      p_token: token,
+      p_store: cloudPayload
+    });
+    if (!pubErr && (!pubData || pubData.success !== false)) {
+      syncedStores = true;
+    }
+  } catch (err) {
+    console.warn('[StoreService] rpc_publish_store warning:', err);
+  }
+
+  try {
+    const { data: updData, error: updErr } = await supabase.rpc('rpc_update_store_profile', {
+      p_slug: safeSlug,
+      p_token: token,
+      p_profile: cloudPayload
+    });
+    if (!updErr && updData && updData.success) {
+      syncedStores = true;
+    }
+  } catch (err) {
+    console.warn('[StoreService] rpc_update_store_profile warning:', err);
+  }
+
+  // Upaya pembaruan kolom tambahan (partner_tier, recommender_wa) jika diizinkan RLS
+  try {
+    const { error: directErr } = await supabase
+      .from('stores')
+      .update({
+        partner_tier: cloudPayload.partnerTier,
+        recommender_wa: cloudPayload.recommenderWa,
+        store_wa_number: cloudPayload.storeWaNumber,
+        store_name: cloudPayload.storeName,
+        store_owner: cloudPayload.storeOwner,
+        store_city: cloudPayload.storeCity,
+        hero_banner_url: cloudPayload.heroBannerUrl,
+        updated_at: new Date().toISOString()
+      })
+      .eq('slug', safeSlug);
+    if (!directErr) syncedStores = true;
+  } catch {}
+
+  if (store.storeAdminPin && previousPin && store.storeAdminPin !== previousPin) {
+    try {
+      await supabase.rpc('rpc_update_store_pin', {
+        p_slug: safeSlug,
+        p_token: token,
+        p_old_pin: previousPin,
+        p_new_pin: store.storeAdminPin
+      });
+    } catch {}
+  }
+
+  if (syncedStores) {
+    return {
+      success: true,
+      message: 'Profil toko & nomor WhatsApp tersimpan di Cloud Supabase dan langsung aktif di semua HP pembeli!'
+    };
+  }
+
+  // Fallback jika Supabase menggunakan skema single-store (tabel `store_profile`)
+  const baseSingleRow = {
+    slug: safeSlug,
+    store_name: cloudPayload.storeName,
+    store_tagline: cloudPayload.storeTagline,
+    store_theme: cloudPayload.storeTheme,
+    hero_title: cloudPayload.heroTitle,
+    hero_subtitle: cloudPayload.heroSubtitle,
+    hero_banner_url: cloudPayload.heroBannerUrl,
+    store_logo_text: cloudPayload.storeLogoText,
+    store_logo_url: cloudPayload.storeLogoUrl,
+    store_wa_number: cloudPayload.storeWaNumber,
+    store_city: cloudPayload.storeCity,
+    store_owner: cloudPayload.storeOwner,
+    owner_email: cloudPayload.ownerEmail || null,
+    store_admin_pin: cloudPayload.storeAdminPin,
+    updated_at: new Date().toISOString()
+  };
+
+  try {
+    const { error: singleErr } = await supabase
+      .from('store_profile')
+      .upsert(
+        {
+          ...baseSingleRow,
+          partner_tier: cloudPayload.partnerTier,
+          recommender_wa: cloudPayload.recommenderWa
+        },
+        { onConflict: 'slug' }
+      );
+
+    if (!singleErr) {
+      return {
+        success: true,
+        message: 'Profil toko & nomor WhatsApp tersimpan di Cloud Supabase dan aktif di semua HP pembeli!'
+      };
+    }
+
+    // Jika tabel store_profile lama belum punya kolom partner_tier / recommender_wa, simpan kolom intinya
+    const { error: legacySingleErr } = await supabase
+      .from('store_profile')
+      .upsert(baseSingleRow, { onConflict: 'slug' });
+
+    if (!legacySingleErr) {
+      return {
+        success: true,
+        message: 'Profil toko & nomor WhatsApp tersimpan di Cloud Supabase!'
+      };
+    }
+  } catch (err) {
+    console.warn('[StoreService] store_profile fallback error:', err);
+  }
+
+  return {
+    success: false,
+    message: 'Pengaturan tersimpan di perangkat ini, namun belum berhasil sinkron ke Cloud Supabase.'
+  };
+}
+

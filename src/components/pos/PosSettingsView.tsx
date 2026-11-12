@@ -3,13 +3,15 @@ import { useApp } from '../../context/AppContext';
 import { PartnerTier, Store } from '../../types';
 import { STORE_CONFIG } from '../../config/storeConfig';
 import { getAllowedDownlineTiers, getStoreTierEconomics, SR12_TIERS } from '../../config/tiers';
-import { Settings, Image, Sparkles, Check, Save, Upload, RefreshCw, KeyRound, Mail, Lock, MapPin, Search, Award } from 'lucide-react';
-import { compressImageToBase64 } from '../../services/catalogService';
+import { Settings, Image, Sparkles, Check, Save, Upload, RefreshCw, KeyRound, Mail, Lock, MapPin, Search, Award, Cloud, Loader2 } from 'lucide-react';
+import { uploadProductImageFile } from '../../services/catalogService';
 import { searchOngkirDestinations, OngkirDestination } from '../../services/ongkirService';
 import { getStoreCashiers, saveStoreCashiers, getActiveCashier, setActiveCashier } from '../../services/posService';
+import { saveStoreProfileToCloud } from '../../services/storeService';
+import { normalizeWhatsAppNumber } from '../../services/orderService';
 
 export const PosSettingsView: React.FC = () => {
-  const { currentStore } = useApp();
+  const { currentStore, refreshStores } = useApp();
   
   const [storeName, setStoreName] = useState(currentStore.storeName || STORE_CONFIG.storeName);
   const [storeTagline, setStoreTagline] = useState(currentStore.storeTagline || STORE_CONFIG.storeTagline);
@@ -34,6 +36,8 @@ export const PosSettingsView: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
 
   const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveNotice, setSaveNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
   // Preset banner estetik SR12: Murni Alam, Daun Herbal, Kosmetik, Botani (Bebas dari gambar manusia / makhluk bernyawa)
@@ -72,7 +76,7 @@ export const PosSettingsView: React.FC = () => {
     }
   ];
 
-  // Upload foto banner manual langsung dari HP / Laptop (Konversi ke Base64 cepat)
+  // Upload foto banner ke Cloud Storage Supabase (dengan fallback Base64 kompresi otomatis)
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -84,9 +88,8 @@ export const PosSettingsView: React.FC = () => {
 
     setIsUploading(true);
     try {
-      // Kompres ukuran banner maksimal lebar 1600px dengan kualitas prima
-      const base64Url = await compressImageToBase64(file, 1600, 0.85);
-      setHeroBannerUrl(base64Url);
+      const uploadedUrl = await uploadProductImageFile(file, currentStore.slug, 'hero-banner');
+      setHeroBannerUrl(uploadedUrl);
     } catch (err) {
       console.error('Gagal memproses gambar banner:', err);
       alert('Gagal memproses gambar dari perangkat.');
@@ -98,26 +101,38 @@ export const PosSettingsView: React.FC = () => {
   const tierEcon = getStoreTierEconomics(partnerTier);
   const allowedCustomerTiers = getAllowedDownlineTiers(partnerTier);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
+    setSaveNotice(null);
+
+    const normalizedWa = storeWaNumber.trim() ? normalizeWhatsAppNumber(storeWaNumber) : '';
+    const normalizedSupplierWa = recommenderWa.trim() ? normalizeWhatsAppNumber(recommenderWa) : '';
+    const savedAt = new Date().toISOString();
+
     const updatedStore: Store = {
       ...currentStore,
-      storeName,
-      storeTagline,
-      heroTitle: storeName,
-      heroSubtitle: storeTagline,
+      storeName: storeName.trim(),
+      storeTagline: storeTagline.trim(),
+      heroTitle: storeName.trim(),
+      heroSubtitle: storeTagline.trim(),
       heroBannerUrl,
-      storeWaNumber,
-      storeCity,
+      storeWaNumber: normalizedWa,
+      storeCity: storeCity.trim(),
       originSubdistrictId,
       originLabel,
-      storeOwner,
+      storeOwner: storeOwner.trim(),
       partnerTier,
-      recommenderWa: recommenderWa.trim(),
+      recommenderWa: normalizedSupplierWa,
+      feePayer: 'store',
       ownerEmail: ownerEmail.trim().toLowerCase(),
       adminPassword: adminPassword.trim() || currentStore.adminPassword,
-      storeAdminPin: storeAdminPin.trim() || currentStore.storeAdminPin
+      storeAdminPin: storeAdminPin.trim() || currentStore.storeAdminPin,
+      updatedAt: savedAt
     };
+
+    if (normalizedWa) setStoreWaNumber(normalizedWa);
+    if (normalizedSupplierWa) setRecommenderWa(normalizedSupplierWa);
 
     try {
       localStorage.setItem('sr12_custom_store_profile', JSON.stringify(updatedStore));
@@ -135,11 +150,13 @@ export const PosSettingsView: React.FC = () => {
       }
     } catch {}
 
+    const cloudRes = await saveStoreProfileToCloud(updatedStore, currentStore.storeAdminPin);
+    await refreshStores();
+
+    setIsSaving(false);
     setIsSaved(true);
-    setTimeout(() => {
-      setIsSaved(false);
-      window.location.reload();
-    }, 1200);
+    setSaveNotice({ ok: cloudRes.success, text: cloudRes.message });
+    setTimeout(() => setIsSaved(false), 3500);
   };
 
   return (
@@ -295,13 +312,14 @@ export const PosSettingsView: React.FC = () => {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#cbd5e1', marginBottom: '6px' }}>
-                Nomor WhatsApp Toko:
+                Nomor WhatsApp Resmi Toko *
               </label>
               <input
                 type="text"
                 value={storeWaNumber}
                 onChange={(e) => setStoreWaNumber(e.target.value)}
-                placeholder="62812xxxxxxx"
+                placeholder="0812xxxxxxx atau 62812xxxxxxx"
+                required
                 style={{
                   width: '100%',
                   padding: '12px 14px',
@@ -615,17 +633,38 @@ export const PosSettingsView: React.FC = () => {
           </div>
         </div>
 
+        {saveNotice && (
+          <div
+            style={{
+              padding: '12px 14px',
+              borderRadius: '10px',
+              background: saveNotice.ok ? 'rgba(16, 185, 129, 0.14)' : 'rgba(245, 158, 11, 0.14)',
+              border: `1px solid ${saveNotice.ok ? '#10b981' : '#f59e0b'}`,
+              color: saveNotice.ok ? '#a7f3d0' : '#fde68a',
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            <Cloud size={17} color={saveNotice.ok ? '#34d399' : '#fbbf24'} />
+            <span>{saveNotice.text}</span>
+          </div>
+        )}
+
         <button
           type="submit"
+          disabled={isSaving}
           style={{
             padding: '14px 20px',
             borderRadius: '12px',
-            background: 'linear-gradient(135deg, #10b981, #059669)',
+            background: isSaving ? '#334155' : 'linear-gradient(135deg, #10b981, #059669)',
             color: '#ffffff',
             border: 'none',
             fontSize: '1rem',
             fontWeight: 800,
-            cursor: 'pointer',
+            cursor: isSaving ? 'wait' : 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -633,15 +672,20 @@ export const PosSettingsView: React.FC = () => {
             boxShadow: '0 4px 15px rgba(16, 185, 129, 0.4)'
           }}
         >
-          {isSaved ? (
+          {isSaving ? (
+            <>
+              <Loader2 size={20} className="spin" />
+              <span>Menyimpan ke Cloud Supabase...</span>
+            </>
+          ) : isSaved ? (
             <>
               <Check size={20} />
-              <span>Profil &amp; Banner Berhasil Disimpan!</span>
+              <span>Tersimpan &amp; Sinkron ke Cloud!</span>
             </>
           ) : (
             <>
               <Save size={20} />
-              <span>Simpan Perubahan Tampilan Toko</span>
+              <span>Simpan &amp; Terapkan ke Semua Perangkat</span>
             </>
           )}
         </button>

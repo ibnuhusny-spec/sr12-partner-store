@@ -19,11 +19,16 @@ CREATE TABLE IF NOT EXISTS store_profile (
   store_wa_number VARCHAR(30) NOT NULL,
   store_city VARCHAR(100) NOT NULL,
   store_owner VARCHAR(120) NOT NULL,
+  partner_tier VARCHAR(30) DEFAULT 'distributor',
+  recommender_wa VARCHAR(30),
   owner_email VARCHAR(150),
   store_admin_pin VARCHAR(20) DEFAULT '1234',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE store_profile ADD COLUMN IF NOT EXISTS partner_tier VARCHAR(30) DEFAULT 'distributor';
+ALTER TABLE store_profile ADD COLUMN IF NOT EXISTS recommender_wa VARCHAR(30);
 
 -- 2. TABEL: PRODUCTS (Katalog Produk & Stok Toko)
 CREATE TABLE IF NOT EXISTS products (

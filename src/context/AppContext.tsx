@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { CartItem, MitraDownline, Order, PartnerTier, Product, Store } from '../types';
-import { STORE_CONFIG } from '../config/storeConfig';
+import { getLatestLocalStoreConfig, STORE_CONFIG } from '../config/storeConfig';
+import { fetchSingleStoreProfile, mergeStoreProfileWithCloud } from '../services/storeService';
 import { supabase } from '../config/supabase';
 import { getProductTierPrice } from '../config/tiers';
 
@@ -78,7 +79,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [realtimeOrderAlert, setRealtimeOrderAlert] = useState<Order | null>(null);
   const [marketerReferral, setMarketerReferral] = useState<string | null>(null);
 
-  // Inisialisasi awal tema toko, query param referral, dan level kemitraan (tier)
+  // Inisialisasi awal tema toko, query param referral, level kemitraan (tier), & sinkronisasi profil cloud
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const refParam = params.get('ref');
@@ -96,16 +97,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     applyStoreTheme(STORE_CONFIG.storeTheme);
+    refreshStores();
   }, []);
 
   const refreshStores = async (): Promise<Store[]> => {
-    setPartnerStores([STORE_CONFIG]);
-    setCurrentStore(STORE_CONFIG);
-    setCloudStatus('online');
-    return [STORE_CONFIG];
+    const localBase = getLatestLocalStoreConfig();
+    try {
+      const cloudProfile = await fetchSingleStoreProfile(localBase.slug);
+      const merged = mergeStoreProfileWithCloud(localBase, cloudProfile);
+      setPartnerStores([merged]);
+      setCurrentStore(merged);
+      applyStoreTheme(merged.storeTheme);
+      document.title = `${merged.storeName} - Toko Resmi & Kemitraan SR12 Herbal`;
+      setCloudStatus(cloudProfile ? 'online' : 'online');
+      return [merged];
+    } catch {
+      setPartnerStores([localBase]);
+      setCurrentStore(localBase);
+      setCloudStatus('offline');
+      return [localBase];
+    }
   };
 
-  // Realtime Supabase Channel subscription untuk pesanan masuk & downline
+  // Realtime Supabase Channel subscription untuk pesanan masuk, downline, & profil toko
   useEffect(() => {
     const ordersChannel = supabase
       .channel(`public:orders:${currentStore.slug}`)
@@ -144,9 +158,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
       .subscribe();
 
+    const storesChannel = supabase
+      .channel(`public:stores:${currentStore.slug}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stores' }, (payload) => {
+        const updatedRow = payload.new as any;
+        if (!updatedRow || !updatedRow.slug || updatedRow.slug === currentStore.slug) {
+          refreshStores();
+        }
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(ordersChannel);
       supabase.removeChannel(downlinesChannel);
+      supabase.removeChannel(storesChannel);
     };
   }, [currentStore.slug]);
 

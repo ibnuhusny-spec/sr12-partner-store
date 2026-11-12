@@ -774,6 +774,8 @@ BEGIN
       store_city = EXCLUDED.store_city,
       store_owner = EXCLUDED.store_owner,
       partner_tier = EXCLUDED.partner_tier,
+      recommender_wa = COALESCE(NULLIF(EXCLUDED.recommender_wa, ''), stores.recommender_wa),
+      fee_payer = EXCLUDED.fee_payer,
       owner_email = COALESCE(EXCLUDED.owner_email, stores.owner_email),
       password_hash = COALESCE(EXCLUDED.password_hash, stores.password_hash),
       updated_at = NOW();
@@ -1104,6 +1106,8 @@ BEGIN
       store_wa_number = COALESCE(p_profile->>'storeWaNumber', p_profile->>'store_wa_number', store_wa_number),
       store_city = COALESCE(p_profile->>'storeCity', p_profile->>'store_city', store_city),
       store_owner = COALESCE(p_profile->>'storeOwner', p_profile->>'store_owner', store_owner),
+      partner_tier = COALESCE(p_profile->>'partnerTier', p_profile->>'partner_tier', partner_tier),
+      recommender_wa = COALESCE(p_profile->>'recommenderWa', p_profile->>'recommender_wa', recommender_wa),
       fee_payer = COALESCE(p_profile->>'feePayer', p_profile->>'fee_payer', fee_payer),
       updated_at = NOW()
   WHERE slug = p_slug;
