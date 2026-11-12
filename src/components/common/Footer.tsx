@@ -60,10 +60,12 @@ export const Footer: React.FC<FooterProps> = ({ onSecretDevOpen }) => {
               <MapPin size={15} color="#38bdf8" />
               <span>{currentStore.storeCity}</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Phone size={15} color="#34d399" />
-              <span>WhatsApp CS: {currentStore.storeWaNumber}</span>
-            </div>
+            {currentStore.storeWaNumber && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Phone size={15} color="#34d399" />
+                <span>WhatsApp CS: {currentStore.storeWaNumber}</span>
+              </div>
+            )}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Clock size={15} color="#f59e0b" />
               <span>Senin - Sabtu: 08.00 - 21.00 WIB</span>

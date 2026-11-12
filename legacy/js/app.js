@@ -14,7 +14,7 @@ const DEFAULT_PARTNER_STORES = [
     heroBannerUrl: 'assets/hero-banner.jpg',
     storeLogoText: 'SR12',
     storeLogoUrl: '',
-    storeWaNumber: '6281200001212',
+    storeWaNumber: '',
     storeCity: 'SR12 Official Central Hub',
     storeOwner: 'SR12 Official Central Hub',
     partnerTier: 'distributor',
@@ -4409,7 +4409,7 @@ function openShareStoreModal() {
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <span>📱 <b>Customer Care Resmi:</b></span>
-            <span style="font-family: monospace; font-weight: 700; color: #047857;">+${currentStore.storeWaNumber || '6281200001212'}</span>
+            <span style="font-family: monospace; font-weight: 700; color: #047857;">${currentStore.storeWaNumber ? `+${currentStore.storeWaNumber}` : '-'}</span>
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <span>📍 <b>Jaringan Pasokan:</b></span>

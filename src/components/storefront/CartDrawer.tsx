@@ -128,6 +128,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
       return;
     }
 
+    const cleanStorePhone = normalizeWhatsAppNumber(currentStore.storeWaNumber || '');
+    if (!cleanStorePhone) {
+      alert('Nomor WhatsApp Admin Toko belum diatur!\n\nSilakan atur "Nomor WhatsApp Toko" Anda terlebih dahulu di menu POS Admin → Banner & Profil Toko.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     const orderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
@@ -200,8 +206,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
     try {
       // 1. Format pesan WhatsApp & siapkan URL yang 100% valid
       const waMsg = formatWhatsAppOrderMessage(orderData, currentStore);
-      const cleanPhone = normalizeWhatsAppNumber(currentStore.storeWaNumber || '6281200001212');
-      const waUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(waMsg)}`;
+      const waUrl = `https://api.whatsapp.com/send?phone=${cleanStorePhone}&text=${encodeURIComponent(waMsg)}`;
 
       // 2. Salin otomatis ke clipboard sebagai proteksi ganda jika WA klien tidak otomatis mem-paste
       if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {

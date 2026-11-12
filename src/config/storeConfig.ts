@@ -24,7 +24,7 @@ export const STORE_CONFIG: Store = {
   heroBannerUrl: saved.heroBannerUrl || '/assets/hero-banner.jpg',
   storeLogoText: 'SR12',
   storeLogoUrl: '/assets/sr12-logo.png',
-  storeWaNumber: saved.storeWaNumber || import.meta.env.VITE_STORE_WA || '6281200001212',
+  storeWaNumber: saved.storeWaNumber || import.meta.env.VITE_STORE_WA || '',
   storeCity: saved.storeCity || import.meta.env.VITE_STORE_CITY || 'Jakarta',
   originSubdistrictId: saved.originSubdistrictId || Number(import.meta.env.VITE_STORE_ORIGIN_ID) || 17473,
   originLabel: saved.originLabel || 'Jakarta Barat (DKI Jakarta)',

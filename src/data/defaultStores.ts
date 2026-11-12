@@ -11,7 +11,7 @@ export const DEFAULT_PARTNER_STORES: Store[] = [
     heroBannerUrl: '/assets/hero-banner.jpg',
     storeLogoText: 'SR12',
     storeLogoUrl: '/assets/sr12-logo.png',
-    storeWaNumber: '6281200001212',
+    storeWaNumber: '',
     storeCity: 'Jakarta Pusat',
     storeOwner: 'SR12 Official Central Hub',
     partnerTier: 'distributor',
