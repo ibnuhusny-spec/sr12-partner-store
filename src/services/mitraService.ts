@@ -285,6 +285,41 @@ export async function verifyMitraDiscount(query: string, storeSlug: string): Pro
   return { found: false };
 }
 
+/** Tambahkan akumulasi omset HET ke cache lokal Marketer saat pembeli checkout via link affiliate ?ref= */
+export async function creditMarketerAffiliateTurnover(
+  storeSlug: string,
+  marketerCode: string,
+  hetAmount: number
+): Promise<boolean> {
+  const targetSlug = storeSlug || 'sr12-central';
+  const cleanCode = (marketerCode || '').trim().toUpperCase();
+  if (!cleanCode || hetAmount <= 0) return false;
+
+  try {
+    const list: MitraDownline[] = getLocalDownlines(targetSlug);
+    const idx = list.findIndex(m => m.partnerCode && m.partnerCode.toUpperCase() === cleanCode);
+    const today = new Date().toISOString().split('T')[0];
+
+    if (idx >= 0) {
+      list[idx] = {
+        ...list[idx],
+        accumulatedSpent90Days: (list[idx].accumulatedSpent90Days || 0) + hetAmount,
+        totalOrdersCount: (list[idx].totalOrdersCount || 0) + 1,
+        lastOrderDate: today
+      };
+      localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(list));
+      localStorage.setItem(`sr12_mitra_downlines_${targetSlug}`, JSON.stringify(list));
+    }
+
+    if (isDemoSessionActive()) {
+      notifyPosDataSync(targetSlug, ['downlines']);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function getLocalDownlines(storeSlug?: string): MitraDownline[] {
   try {
     if (storeSlug && storeSlug !== 'all') {

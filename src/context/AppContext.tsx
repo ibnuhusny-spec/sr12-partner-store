@@ -88,14 +88,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isPosOpen, setIsPosOpen] = useState<boolean>(false);
   const [cloudStatus, setCloudStatus] = useState<'online' | 'connecting' | 'offline'>('online');
   const [realtimeOrderAlert, setRealtimeOrderAlert] = useState<Order | null>(null);
-  const [marketerReferral, setMarketerReferral] = useState<string | null>(null);
+  const [marketerReferral, setMarketerReferral] = useState<string | null>(() => {
+    try {
+      const refFromUrl = new URLSearchParams(window.location.search).get('ref');
+      if (refFromUrl && refFromUrl.trim()) {
+        const clean = refFromUrl.trim().toUpperCase();
+        sessionStorage.setItem(`sr12_active_ref_${STORE_CONFIG.slug}`, clean);
+        return clean;
+      }
+      return sessionStorage.getItem(`sr12_active_ref_${STORE_CONFIG.slug}`);
+    } catch {
+      return null;
+    }
+  });
 
   // Inisialisasi awal tema toko, query param referral, level kemitraan (tier), & sinkronisasi profil cloud
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const refParam = params.get('ref');
-    if (refParam) {
-      setMarketerReferral(refParam.toUpperCase());
+    if (refParam && refParam.trim()) {
+      const cleanRef = refParam.trim().toUpperCase();
+      setMarketerReferral(cleanRef);
+      try {
+        sessionStorage.setItem(`sr12_active_ref_${STORE_CONFIG.slug}`, cleanRef);
+      } catch {}
     }
 
     const tierParam = params.get('tier');

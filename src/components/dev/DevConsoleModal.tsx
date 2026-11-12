@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { SafeModalOverlay } from '../common/SafeModalOverlay';
+import { SUPABASE_URL } from '../../config/supabase';
 import { fetchPendingStores, approveStoreApplication, deleteStore, topupStoreQuota } from '../../services/storeService';
 import { seedNewStoreCatalog } from '../../services/catalogService';
 import { PendingStore, Store } from '../../types';
@@ -658,7 +659,7 @@ export const DevConsoleModal: React.FC<DevConsoleModalProps> = ({ isOpen, onClos
               {activeTab === 'diagnostic' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div style={{ background: '#090d16', color: '#38bdf8', padding: '14px', borderRadius: '10px', fontFamily: 'monospace', fontSize: '0.75rem', maxHeight: '200px', overflowY: 'auto' }}>
-                    <div>[SUPABASE_STATUS]: ONLINE &bull; URL: https://roezaobiexlmhxpuvfds.supabase.co</div>
+                    <div>[SUPABASE_STATUS]: ONLINE &bull; URL: {SUPABASE_URL}</div>
                     <div>[ACTIVE_STORES_COUNT]: {partnerStores.length} stores loaded</div>
                     <div>[LOCALSTORAGE_KEY]: sr12_partner_stores_v3 (READY)</div>
                     <div>[SECURITY_RLS]: 21 RPCs Security Definer Enforced</div>
@@ -668,7 +669,7 @@ export const DevConsoleModal: React.FC<DevConsoleModalProps> = ({ isOpen, onClos
                     type="button"
                     onClick={() => {
                       navigator.clipboard.writeText(JSON.stringify({
-                        supabaseUrl: 'https://roezaobiexlmhxpuvfds.supabase.co',
+                        supabaseUrl: SUPABASE_URL,
                         storeCount: partnerStores.length,
                         activeStore: currentStore.slug,
                         timestamp: new Date().toISOString()

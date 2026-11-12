@@ -1,39 +1,124 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Product } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { SafeModalOverlay } from '../common/SafeModalOverlay';
 import { getProductTierPrice, SR12_TIERS } from '../../config/tiers';
 import { openWhatsAppUrl } from '../../services/orderService';
-import { X, MessageCircle, Copy, Share2, Check } from 'lucide-react';
+import { verifyMitraDiscount } from '../../services/mitraService';
+import { X, MessageCircle, Copy, Share2, Check, Award } from 'lucide-react';
 
 interface ShareModalProps {
   product: Product | null;
   onClose: () => void;
 }
 
+interface SavedAffiliate {
+  partnerCode: string;
+  name: string;
+}
+
 export const ShareModal: React.FC<ShareModalProps> = ({ product, onClose }) => {
-  const { currentStore, activeTier } = useApp();
+  const { currentStore, activeTier, verifiedMitra } = useApp();
   const [copied, setCopied] = useState(false);
+  const [copiedStoreAffiliate, setCopiedStoreAffiliate] = useState(false);
 
   const [isSharingImage, setIsSharingImage] = useState(false);
+  const storageKey = `sr12_marketer_affiliate_${currentStore.slug}`;
+
+  const [savedAffiliate, setSavedAffiliate] = useState<SavedAffiliate | null>(() => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [showAffiliateInput, setShowAffiliateInput] = useState(false);
+  const [affiliateQuery, setAffiliateQuery] = useState('');
+  const [affiliateError, setAffiliateError] = useState('');
+  const [isVerifyingAffiliate, setIsVerifyingAffiliate] = useState(false);
+
+  useEffect(() => {
+    if (!savedAffiliate && verifiedMitra?.tier === 'marketer' && verifiedMitra.partnerCode) {
+      const nextAff: SavedAffiliate = {
+        partnerCode: verifiedMitra.partnerCode.toUpperCase(),
+        name: verifiedMitra.name || verifiedMitra.partnerCode.toUpperCase()
+      };
+      setSavedAffiliate(nextAff);
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(nextAff));
+      } catch {}
+    }
+  }, [verifiedMitra, savedAffiliate, storageKey]);
 
   if (!product) return null;
 
-  // Hitung harga sesuai level tier yang sedang aktif (Konsumen, Marketer, Reseller, Sub Agen, dll)
-  const currentPrice = getProductTierPrice(product.het, activeTier);
-  const tierInfo = SR12_TIERS[activeTier];
-  const isDiscounted = activeTier !== 'konsumen' && activeTier !== 'marketer' && currentPrice < product.het;
+  const effectiveTier = savedAffiliate ? 'konsumen' : activeTier;
+  // Hitung harga sesuai level tier yang sedang aktif (link affiliate Marketer memakai HET agar komisi 15% + omset HET penuh)
+  const currentPrice = getProductTierPrice(product.het, effectiveTier);
+  const tierInfo = SR12_TIERS[effectiveTier];
+  const isDiscounted = effectiveTier !== 'konsumen' && effectiveTier !== 'marketer' && currentPrice < product.het;
 
-  // Format tautan singkat dan rapi dengan parameter tier jika bukan konsumen
-  // Contoh: https://sr12-partner-store.vercel.app/p?product=sr12-acne-total-tube-10g&store=sr12-central&tier=reseller
+  // Format tautan singkat dan rapi dengan parameter tier & referral marketer jika aktif
+  // Contoh: https://sr12-partner-store.vercel.app/p?product=sr12-acne-total-tube-10g&store=sr12-central&ref=MK-301
   const origin = window.location.origin;
-  const tierParam = activeTier !== 'konsumen' ? `&tier=${encodeURIComponent(activeTier)}` : '';
-  const shortShareLink = `${origin}/p?product=${encodeURIComponent(product.id)}&store=${encodeURIComponent(currentStore.slug)}${tierParam}`;
+  const tierParam = effectiveTier !== 'konsumen' ? `&tier=${encodeURIComponent(effectiveTier)}` : '';
+  const refParam = savedAffiliate ? `&ref=${encodeURIComponent(savedAffiliate.partnerCode)}` : '';
+  const shortShareLink = `${origin}/p?product=${encodeURIComponent(product.id)}&store=${encodeURIComponent(currentStore.slug)}${tierParam}${refParam}`;
+  const storeAffiliateLink = savedAffiliate ? `${origin}/?ref=${encodeURIComponent(savedAffiliate.partnerCode)}` : '';
   const directLink = shortShareLink;
+
+  const handleVerifyAffiliate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanInput = affiliateQuery.trim();
+    if (!cleanInput) {
+      setAffiliateError('Masukkan Kode Marketer atau No. WA yang terdaftar.');
+      return;
+    }
+
+    setIsVerifyingAffiliate(true);
+    setAffiliateError('');
+    try {
+      const res = await verifyMitraDiscount(cleanInput, currentStore.slug);
+      if (!res.found || !res.mitra?.partnerCode) {
+        setAffiliateError('Kode atau No. WA belum terdaftar di database Mitra toko ini.');
+        return;
+      }
+
+      if (res.mitra.tier !== 'marketer') {
+        const tierLabel = res.mitra.tier ? (SR12_TIERS[res.mitra.tier]?.name || res.mitra.tier) : 'Mitra';
+        setAffiliateError(`Akun ${res.mitra.name || res.mitra.partnerCode} berstatus ${tierLabel}. Link Affiliate Komisi 15% khusus untuk Mitra Marketer.`);
+        return;
+      }
+
+      const nextAff: SavedAffiliate = {
+        partnerCode: res.mitra.partnerCode.toUpperCase(),
+        name: res.mitra.name || res.mitra.partnerCode.toUpperCase()
+      };
+      setSavedAffiliate(nextAff);
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(nextAff));
+      } catch {}
+      setShowAffiliateInput(false);
+      setAffiliateQuery('');
+    } catch {
+      setAffiliateError('Gagal memverifikasi kode Marketer. Periksa koneksi Anda.');
+    } finally {
+      setIsVerifyingAffiliate(false);
+    }
+  };
+
+  const handleClearAffiliate = () => {
+    setSavedAffiliate(null);
+    setAffiliateError('');
+    try {
+      localStorage.removeItem(storageKey);
+    } catch {}
+  };
 
   const benefitsText = `✅ 100% Produk Herbal Terdaftar BPOM & Halal MUI\n✅ Formulasi Lembut & Aman Digunakan Tiap Hari\n✅ Garansi Keaslian Resmi Pabrik PT SR12`;
 
-  const promoCopywriting = `✨ *PROMO SPESIAL${activeTier !== 'konsumen' ? ` (${tierInfo.name.toUpperCase()})` : ''}: ${product.name.toUpperCase()}* ✨
+  const promoCopywriting = `✨ *PROMO SPESIAL${effectiveTier !== 'konsumen' ? ` (${tierInfo.name.toUpperCase()})` : ''}: ${product.name.toUpperCase()}* ✨
 ${product.summary || 'Produk perawatan kulit herbal berkualitas resmi SR12.'} 🌿
 
 ⭐ *Rating Pembeli:* 4.9 / 5.0 (Terbukti Berkhasiat)
@@ -244,10 +329,185 @@ Silakan klik tautan di atas untuk melihat katalog lengkap & langsung order via W
             </div>
           </div>
 
+          {/* Mode Link Affiliate Marketer (Komisi 15% + Omset HET) */}
+          {savedAffiliate ? (
+            <div
+              style={{
+                padding: '10px 12px',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #ecfdf5, #eef2ff)',
+                border: '1px solid #10b981',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                  <Award size={15} color="#059669" style={{ flexShrink: 0 }} />
+                  <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#065f46', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    Link Affiliate Aktif: {savedAffiliate.name} (#{savedAffiliate.partnerCode})
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleClearAffiliate}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#dc2626',
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  Nonaktifkan
+                </button>
+              </div>
+              <div style={{ fontSize: '0.7rem', color: '#047857', lineHeight: 1.35 }}>
+                Pembelian lewat link di bawah otomatis mencatat <b>Komisi 15%</b> &amp; menambah <b>Omset HET</b> Anda.
+              </div>
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '2px' }}>
+                <input
+                  type="text"
+                  readOnly
+                  value={storeAffiliateLink}
+                  style={{
+                    flex: 1,
+                    padding: '6px 9px',
+                    borderRadius: '7px',
+                    border: '1px solid #a7f3d0',
+                    fontSize: '0.72rem',
+                    background: '#ffffff',
+                    color: '#065f46'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(storeAffiliateLink);
+                    setCopiedStoreAffiliate(true);
+                    setTimeout(() => setCopiedStoreAffiliate(false), 2000);
+                  }}
+                  style={{
+                    background: '#059669',
+                    color: '#ffffff',
+                    padding: '6px 10px',
+                    borderRadius: '7px',
+                    fontSize: '0.71rem',
+                    fontWeight: 700,
+                    border: 'none',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  {copiedStoreAffiliate ? <Check size={12} /> : <Copy size={12} />}
+                  <span>{copiedStoreAffiliate ? 'Link Toko Tersalin' : 'Salin Link Toko'}</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div
+              style={{
+                padding: '9px 12px',
+                borderRadius: '10px',
+                background: '#f8fafc',
+                border: '1px dashed #94a3b8'
+              }}
+            >
+              {!showAffiliateInput ? (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <Award size={14} color="#6366f1" />
+                    Mitra Marketer? Sematkan kode Anda (Komisi 15%)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowAffiliateInput(true)}
+                    style={{
+                      background: '#4f46e5',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '7px',
+                      padding: '5px 10px',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    Buat Link Affiliate
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleVerifyAffiliate} style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#1e293b' }}>
+                      Masukkan Kode Marketer / No. WA Terdaftar:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAffiliateInput(false);
+                        setAffiliateError('');
+                      }}
+                      style={{ background: 'transparent', border: 'none', fontSize: '0.7rem', color: '#64748b', cursor: 'pointer' }}
+                    >
+                      Batal
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <input
+                      type="text"
+                      placeholder="Contoh: MK-301 atau 0812..."
+                      value={affiliateQuery}
+                      onChange={(e) => setAffiliateQuery(e.target.value)}
+                      style={{
+                        flex: 1,
+                        padding: '7px 10px',
+                        borderRadius: '7px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '0.78rem',
+                        color: '#0f172a',
+                        background: '#ffffff'
+                      }}
+                    />
+                    <button
+                      type="submit"
+                      disabled={isVerifyingAffiliate}
+                      style={{
+                        background: '#4f46e5',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '7px',
+                        padding: '7px 12px',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        cursor: isVerifyingAffiliate ? 'wait' : 'pointer',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {isVerifyingAffiliate ? 'Cek...' : 'Aktifkan'}
+                    </button>
+                  </div>
+                  {affiliateError && (
+                    <div style={{ fontSize: '0.71rem', color: '#dc2626', fontWeight: 600 }}>
+                      {affiliateError}
+                    </div>
+                  )}
+                </form>
+              )}
+            </div>
+          )}
+
           {/* Kotak Link Khusus Produk */}
           <div>
             <label style={{ fontSize: '0.75rem', fontWeight: 800, color: '#475569', display: 'block', marginBottom: '5px' }}>
-              Link Khusus Produk Ini:
+              {savedAffiliate ? `Link Affiliate Produk (#${savedAffiliate.partnerCode}):` : 'Link Khusus Produk Ini:'}
             </label>
             <div style={{ display: 'flex', gap: '6px' }}>
               <input

@@ -51,7 +51,9 @@ import {
   Phone,
   Gift,
   ShoppingBag,
-  Calendar
+  Calendar,
+  Copy,
+  Check
 } from 'lucide-react';
 
 export const PosDownlinesView: React.FC = () => {
@@ -69,6 +71,14 @@ export const PosDownlinesView: React.FC = () => {
   const [promoteModalMitra, setPromoteModalMitra] = useState<{ mitra: MitraDownline; evalData: MitraRankEvaluation; dueDateInfo: MitraDueDateInfo } | null>(null);
   const [selectedNewTier, setSelectedNewTier] = useState<PartnerTier>('reseller');
   const [selectedDueDate, setSelectedDueDate] = useState('');
+  const [copiedAffiliateCode, setCopiedAffiliateCode] = useState<string | null>(null);
+
+  const handleCopyAffiliateLink = (code: string) => {
+    const url = `${window.location.origin}/?ref=${encodeURIComponent(code.toUpperCase())}`;
+    navigator.clipboard.writeText(url);
+    setCopiedAffiliateCode(code.toUpperCase());
+    setTimeout(() => setCopiedAffiliateCode(null), 2000);
+  };
 
   // New downline form state
   const [partnerCode, setPartnerCode] = useState('');
@@ -249,6 +259,7 @@ export const PosDownlinesView: React.FC = () => {
   const getMitraOrders = (mitra: MitraDownline): Order[] =>
     orders.filter(o =>
       (o.partnerCode && o.partnerCode.toUpperCase() === mitra.partnerCode.toUpperCase()) ||
+      (mitra.tier === 'marketer' && o.marketerId && o.marketerId.toUpperCase() === mitra.partnerCode.toUpperCase()) ||
       (o.customerName && o.customerName.toLowerCase().trim() === mitra.name.toLowerCase().trim()) ||
       (mitra.phone && o.customerPhone && o.customerPhone.replace(/[^0-9]/g, '').endsWith(mitra.phone.replace(/[^0-9]/g, '').slice(-8)))
     );
@@ -303,19 +314,32 @@ export const PosDownlinesView: React.FC = () => {
     };
   };
 
-  // Evaluations mapping (memperhitungkan level toko, tanggal jatuh tempo 3 bulan, & omset HET)
+  // Evaluations mapping (memperhitungkan level toko, tanggal jatuh tempo 3 bulan, & omset HET affiliate)
   const evaluatedDownlines = downlines.map(m => {
     const pOrders = getMitraOrders(m);
-    const maxSingleOrderHet = pOrders.reduce((max, o) => Math.max(max, o.subtotalHet || o.grandTotal || 0), 0);
+    const marketerSalesList = m.tier === 'marketer'
+      ? sales.filter(s => s.marketerId.toUpperCase() === m.partnerCode.toUpperCase())
+      : [];
+    const salesOmsetHet = marketerSalesList.reduce((sum, s) => sum + (s.omsetHet || 0), 0);
+    const maxSaleHet = marketerSalesList.reduce((max, s) => Math.max(max, s.omsetHet || 0), 0);
+    const effectiveSpent = m.tier === 'marketer'
+      ? Math.max(m.accumulatedSpent90Days || 0, salesOmsetHet)
+      : (m.accumulatedSpent90Days || 0);
+    const effectiveMitra: MitraDownline = effectiveSpent !== m.accumulatedSpent90Days
+      ? { ...m, accumulatedSpent90Days: effectiveSpent }
+      : m;
+
+    const orderMaxHet = pOrders.reduce((max, o) => Math.max(max, o.subtotalHet || o.grandTotal || 0), 0);
+    const maxSingleOrderHet = Math.max(orderMaxHet, maxSaleHet);
     return {
-      mitra: m,
-      evalData: evaluateMitraRank(m.tier, m.accumulatedSpent90Days, {
+      mitra: effectiveMitra,
+      evalData: evaluateMitraRank(effectiveMitra.tier, effectiveSpent, {
         storeTier: currentStore.partnerTier,
-        mitra: m,
+        mitra: effectiveMitra,
         maxSingleOrderHet
       }),
-      bonusInfo: calculateMitraBonusAndDiscount(m, pOrders),
-      dueDateInfo: getMitraDueDateInfo(m)
+      bonusInfo: calculateMitraBonusAndDiscount(effectiveMitra, pOrders),
+      dueDateInfo: getMitraDueDateInfo(effectiveMitra)
     };
   });
 
@@ -1099,7 +1123,7 @@ export const PosDownlinesView: React.FC = () => {
                                 <span>{isCustomer ? 'Kirim Promo WA' : isWarning ? 'Ingatkan WA' : 'Chat WA'}</span>
                               </a>
 
-                              {/* Tombol Promosikan / Ubah Level */}
+                                {/* Tombol Promosikan / Ubah Level */}
                               <button
                                 type="button"
                                 onClick={() => {
@@ -1120,6 +1144,25 @@ export const PosDownlinesView: React.FC = () => {
                                 <Award size={13} />
                                 <span>{isCustomer ? (isPromotable ? 'Tawari Mitra 🚀' : 'Ubah Status') : (isPromotable ? 'Promosikan 🚀' : 'Ubah Level')}</span>
                               </button>
+
+                              {mitra.tier === 'marketer' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyAffiliateLink(mitra.partnerCode)}
+                                  className="mitra-pill-btn"
+                                  style={{
+                                    background: copiedAffiliateCode === mitra.partnerCode.toUpperCase() ? '#10b981' : '#4f46e5',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    padding: '6px 11px',
+                                    fontSize: '0.72rem'
+                                  }}
+                                  title={`Salin Link Toko Affiliate (${mitra.partnerCode})`}
+                                >
+                                  {copiedAffiliateCode === mitra.partnerCode.toUpperCase() ? <Check size={13} /> : <Copy size={13} />}
+                                  <span>{copiedAffiliateCode === mitra.partnerCode.toUpperCase() ? 'Tersalin!' : 'Link Affiliate'}</span>
+                                </button>
+                              )}
 
                               <button
                                 type="button"
@@ -1291,7 +1334,7 @@ export const PosDownlinesView: React.FC = () => {
                       </div>
 
                       {/* Card Action Buttons */}
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                         <a
                           href={waUrl}
                           target="_blank"
@@ -1332,6 +1375,26 @@ export const PosDownlinesView: React.FC = () => {
                           <Award size={13} />
                           <span>{isCustomer ? (isPromotable ? 'Tawari Mitra' : 'Ubah') : (isPromotable ? 'Promosikan' : 'Ubah Level')}</span>
                         </button>
+
+                        {mitra.tier === 'marketer' && (
+                          <button
+                            type="button"
+                            onClick={() => handleCopyAffiliateLink(mitra.partnerCode)}
+                            className="mitra-pill-btn"
+                            style={{
+                              flex: '1 1 100%',
+                              justifyContent: 'center',
+                              background: copiedAffiliateCode === mitra.partnerCode.toUpperCase() ? '#10b981' : '#4f46e5',
+                              color: '#ffffff',
+                              border: 'none',
+                              padding: '8px 10px',
+                              fontSize: '0.74rem'
+                            }}
+                          >
+                            {copiedAffiliateCode === mitra.partnerCode.toUpperCase() ? <Check size={13} /> : <Copy size={13} />}
+                            <span>{copiedAffiliateCode === mitra.partnerCode.toUpperCase() ? 'Link Affiliate Tersalin!' : `Salin Link Affiliate (${mitra.partnerCode})`}</span>
+                          </button>
+                        )}
 
                         <button
                           type="button"

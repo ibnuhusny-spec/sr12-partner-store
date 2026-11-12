@@ -235,3 +235,146 @@ WHERE EXISTS (
     AND o.order_id = ms.order_id
     AND (o.status ILIKE '%Dibatalkan%' OR o.status ILIKE '%Dihapus%')
 );
+
+-- ========================================================
+-- PATCH AFFILIATE MARKETER: AKUMULASI OMSET HET OTOMATIS
+-- Saat pembeli check out via link ?ref=KODE_MARKETER, omset HET otomatis
+-- menambah accumulated_spent_90_days milik Marketer (Rules 2026 naik ke Reseller).
+-- ========================================================
+CREATE OR REPLACE FUNCTION rpc_create_store_order(
+  p_slug TEXT,
+  p_order JSONB
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_order_id TEXT;
+  v_customer_name TEXT;
+  v_customer_phone TEXT;
+  v_customer_address TEXT;
+  v_tier TEXT;
+  v_tier_label TEXT;
+  v_items JSONB;
+  v_subtotal NUMERIC(12,2);
+  v_discount NUMERIC(12,2);
+  v_grand_total NUMERIC(12,2);
+  v_payment_method TEXT;
+  v_status TEXT;
+  v_order_source TEXT;
+  v_marketer_id TEXT;
+  v_remaining_quota INT := -1;
+  v_existing_id UUID;
+  v_date_only DATE := CURRENT_DATE;
+  v_month_period VARCHAR(7) := to_char(CURRENT_DATE, 'YYYY-MM');
+  v_comm_pct NUMERIC(5,2) := 0;
+  v_comm_amount NUMERIC(12,2) := 0;
+BEGIN
+  IF p_slug IS NULL OR TRIM(p_slug) = '' THEN
+    p_slug := 'sr12-central';
+  END IF;
+
+  IF p_order IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Payload data pesanan kosong.');
+  END IF;
+
+  v_order_id := COALESCE(p_order->>'id', p_order->>'order_id', 'ORD-' || floor(extract(epoch from now()))::text);
+  v_customer_name := COALESCE(p_order->>'customerName', p_order->>'customer_name', 'Pelanggan');
+  v_customer_phone := COALESCE(p_order->>'customerPhone', p_order->>'customer_phone', '-');
+  v_customer_address := COALESCE(p_order->>'customerAddress', p_order->>'customer_address', '-');
+  v_tier := COALESCE(p_order->>'tier', 'konsumen');
+  v_tier_label := COALESCE(p_order->>'tierLabel', p_order->>'tier_label', 'Konsumen Retail');
+  v_items := COALESCE(p_order->'items', p_order->'items_json', '[]'::jsonb);
+  v_subtotal := COALESCE((p_order->>'subtotalHet')::NUMERIC, (p_order->>'subtotal_het')::NUMERIC, (p_order->>'grandTotal')::NUMERIC, 0.00);
+  v_discount := COALESCE((p_order->>'discountAmount')::NUMERIC, (p_order->>'discount_amount')::NUMERIC, 0.00);
+  v_grand_total := COALESCE((p_order->>'grandTotal')::NUMERIC, (p_order->>'grand_total')::NUMERIC, 0.00);
+  v_payment_method := COALESCE(p_order->>'paymentMethod', p_order->>'payment_method', 'Ekspedisi Pengiriman');
+  v_status := COALESCE(p_order->>'status', 'Menunggu Konfirmasi');
+  v_order_source := COALESCE(p_order->>'orderSource', p_order->>'order_source', 'Online Web Store');
+
+  SELECT id INTO v_existing_id FROM orders WHERE store_slug = p_slug AND order_id = v_order_id LIMIT 1;
+
+  IF v_existing_id IS NOT NULL THEN
+    UPDATE orders
+    SET customer_name = v_customer_name,
+        customer_phone = v_customer_phone,
+        customer_address = v_customer_address,
+        tier = v_tier,
+        tier_label = v_tier_label,
+        items_json = v_items,
+        subtotal_het = v_subtotal,
+        discount_amount = v_discount,
+        grand_total = v_grand_total,
+        payment_method = v_payment_method,
+        status = v_status,
+        order_source = v_order_source
+    WHERE id = v_existing_id;
+  ELSE
+    INSERT INTO orders (
+      store_slug, order_id, order_date, customer_name, customer_phone, customer_address,
+      tier, tier_label, items_json, subtotal_het, discount_amount, grand_total,
+      payment_method, status, order_source
+    ) VALUES (
+      p_slug, v_order_id, NOW(), v_customer_name, v_customer_phone, v_customer_address,
+      v_tier, v_tier_label, v_items, v_subtotal, v_discount, v_grand_total,
+      v_payment_method, v_status, v_order_source
+    );
+
+    UPDATE stores
+    SET order_quota = GREATEST(0, order_quota - 1),
+        total_tx = COALESCE(total_tx, 0) + 1,
+        updated_at = NOW()
+    WHERE slug = p_slug
+    RETURNING order_quota INTO v_remaining_quota;
+  END IF;
+
+  v_marketer_id := NULLIF(TRIM(COALESCE(p_order->>'marketerId', p_order->>'marketer_id', '')), '');
+  DELETE FROM marketer_sales WHERE store_slug = p_slug AND order_id = v_order_id;
+
+  IF v_tier = 'marketer' OR v_marketer_id IS NOT NULL THEN
+    v_marketer_id := COALESCE(v_marketer_id, COALESCE(NULLIF(TRIM(p_order->>'partnerCode'), ''), 'MKT-WEB'));
+    v_comm_pct := 15.00;
+    v_comm_amount := ROUND(v_subtotal * 0.15);
+
+    INSERT INTO marketer_sales (
+      store_slug, order_id, marketer_id, order_date, month_period, customer_name,
+      customer_phone, customer_address, fulfillment_type, items_desc, omset_het,
+      commission_pct, commission_amount, paid_status, paid_date
+    ) VALUES (
+      p_slug, v_order_id, v_marketer_id, v_date_only, v_month_period, v_customer_name,
+      v_customer_phone, v_customer_address,
+      CASE WHEN v_payment_method ILIKE '%ambil%' THEN 'pickup' ELSE 'delivery' END,
+      COALESCE(
+        (SELECT STRING_AGG((it->>'quantity') || 'x ' || (it->>'name'), ', ') FROM jsonb_array_elements(v_items) AS it),
+        'Pesanan Produk SR12'
+      ),
+      v_subtotal,
+      v_comm_pct,
+      v_comm_amount,
+      CASE WHEN v_status IN ('Selesai', 'Lunas / Selesai', 'Lunas') THEN 'paid' ELSE 'unpaid' END,
+      CASE WHEN v_status IN ('Selesai', 'Lunas / Selesai', 'Lunas') THEN v_date_only ELSE NULL END
+    );
+
+    IF v_existing_id IS NULL AND v_marketer_id <> 'MKT-WEB' THEN
+      UPDATE mitra_downlines
+      SET accumulated_spent_90_days = COALESCE(accumulated_spent_90_days, 0) + v_subtotal,
+          total_orders_count = COALESCE(total_orders_count, 0) + 1,
+          last_order_date = v_date_only
+      WHERE store_slug = p_slug
+        AND UPPER(partner_code) = UPPER(v_marketer_id);
+    END IF;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'success', true,
+    'order_id', v_order_id,
+    'remaining_quota', v_remaining_quota,
+    'message', 'Pesanan berhasil diamankan di cloud dan kuota diperbarui.'
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION rpc_create_store_order(TEXT, JSONB) TO anon, authenticated, service_role;
+

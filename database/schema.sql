@@ -1492,6 +1492,16 @@ BEGIN
       CASE WHEN v_status IN ('Selesai', 'Lunas / Selesai', 'Lunas') THEN 'paid' ELSE 'unpaid' END,
       CASE WHEN v_status IN ('Selesai', 'Lunas / Selesai', 'Lunas') THEN v_date_only ELSE NULL END
     );
+
+    -- Tambahkan omset HET ke akumulasi belanja/jaringan Marketer (Rules 2026 naik level Reseller)
+    IF v_existing_id IS NULL AND v_marketer_id <> 'MKT-WEB' THEN
+      UPDATE mitra_downlines
+      SET accumulated_spent_90_days = COALESCE(accumulated_spent_90_days, 0) + v_subtotal,
+          total_orders_count = COALESCE(total_orders_count, 0) + 1,
+          last_order_date = v_date_only
+      WHERE store_slug = p_slug
+        AND UPPER(partner_code) = UPPER(v_marketer_id);
+    END IF;
   END IF;
 
   RETURN jsonb_build_object(

@@ -1,7 +1,13 @@
 import React, { useState, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { getProductTierPrice, SR12_TIERS } from '../../config/tiers';
-import { verifyMitraDiscount, getLocalDownlines, saveStoreDownline, appendLocalMarketerSale } from '../../services/mitraService';
+import {
+  verifyMitraDiscount,
+  getLocalDownlines,
+  saveStoreDownline,
+  appendLocalMarketerSale,
+  creditMarketerAffiliateTurnover
+} from '../../services/mitraService';
 import { createOrder, formatWhatsAppOrderMessage, normalizeWhatsAppNumber, openWhatsAppUrl } from '../../services/orderService';
 import { Order, OrderItemPayload, MarketerSale, PartnerTier } from '../../types';
 import { getStoreCatalog, saveStoreCatalog } from '../../services/catalogService';
@@ -263,9 +269,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
         if (finalTier === 'marketer' || targetMitra.tier === 'marketer') {
           commissionMarketerId =
             targetMitra.tier === 'marketer' ? targetMitra.partnerCode : (marketerReferral || targetMitra.partnerCode);
+        } else if (marketerReferral) {
+          commissionMarketerId = marketerReferral;
+          await creditMarketerAffiliateTurnover(currentStore.slug, marketerReferral, subtotalHet);
         }
       } else if (marketerReferral) {
         commissionMarketerId = marketerReferral;
+        await creditMarketerAffiliateTurnover(currentStore.slug, marketerReferral, subtotalHet);
       }
 
       if (commissionMarketerId) {
