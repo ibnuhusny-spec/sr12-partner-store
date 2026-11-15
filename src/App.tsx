@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from './context/AppContext';
 import { Product } from './types';
 import {
@@ -6,7 +6,8 @@ import {
   syncStoreCatalogFromCloud,
   updateStoreProduct,
   updateStoreProductStock,
-  resetStoreCatalogToMaster
+  resetStoreCatalogToMaster,
+  getDailyRotatedCatalog
 } from './services/catalogService';
 import { PlatformTopbar } from './components/common/PlatformTopbar';
 import { Navbar } from './components/common/Navbar';
@@ -156,14 +157,25 @@ export function App() {
 
   const categories = ['all', ...Array.from(new Set(products.map(p => p.category)))];
 
-  const filteredProducts = products.filter(p => {
-    const matchCat = selectedCategory === 'all' || p.category === selectedCategory;
-    const matchSearch = !searchQuery || 
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.summary.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchCat && matchSearch;
-  });
+  const filteredProducts = useMemo(() => {
+    const list = products.filter(p => {
+      const matchCat = selectedCategory === 'all' || p.category === selectedCategory;
+      const matchSearch = !searchQuery || 
+        p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.summary.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchCat && matchSearch;
+    });
+
+    // Jika pengunjung sedang mencari kata kunci tertentu, tampilkan urutan sesuai pencarian
+    if (searchQuery && searchQuery.trim().length > 0) {
+      return list;
+    }
+
+    // Rotasi Produk Harian: Memutar urutan produk setiap hari secara deterministik
+    // agar etalase produk di bagian depan selalu segar dan berganti setiap hari
+    return getDailyRotatedCatalog(list);
+  }, [products, selectedCategory, searchQuery]);
 
   // If user opened POS view, render the Olsera POS Suite (Protected by Authentication Guard or Safe Demo Session)
   if (isPosOpen) {

@@ -602,3 +602,47 @@ export function batchUpdateStoreProductStocks(
 
   return nextCatalog;
 }
+
+/**
+ * Memutar susunan tampilan produk di etalase toko secara deterministik setiap hari (YYYY-MM-DD).
+ * - Memberikan nuansa etalase toko yang selalu segar dan berganti setiap hari.
+ * - Tetap stabil sepanjang hari tersebut (tidak melompat acak antar refresh halaman).
+ * - Produk dengan stok ready (> 0) diprioritaskan di baris depan dibanding produk berstok 0.
+ */
+export function getDailyRotatedCatalog(list: Product[]): Product[] {
+  if (!list || list.length <= 1) return list;
+
+  const now = new Date();
+  const seedNum = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+
+  // Algoritma Mulberry32 (Deterministic Pseudo-Random Generator)
+  let s = seedNum;
+  const rng = () => {
+    s = (s + 0x6D2B79F5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+
+  const readyItems: Product[] = [];
+  const outOfStockItems: Product[] = [];
+
+  list.forEach(p => {
+    if (p.stock > 0) {
+      readyItems.push(p);
+    } else {
+      outOfStockItems.push(p);
+    }
+  });
+
+  const shuffle = (arr: Product[]) => {
+    const copy = [...arr];
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+  };
+
+  return [...shuffle(readyItems), ...shuffle(outOfStockItems)];
+}

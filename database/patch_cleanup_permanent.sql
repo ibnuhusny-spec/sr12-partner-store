@@ -241,6 +241,9 @@ WHERE EXISTS (
 -- Saat pembeli check out via link ?ref=KODE_MARKETER, omset HET otomatis
 -- menambah accumulated_spent_90_days milik Marketer (Rules 2026 naik ke Reseller).
 -- ========================================================
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS partner_code VARCHAR(50);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS marketer_id VARCHAR(50);
+
 CREATE OR REPLACE FUNCTION rpc_create_store_order(
   p_slug TEXT,
   p_order JSONB
@@ -257,6 +260,7 @@ DECLARE
   v_customer_address TEXT;
   v_tier TEXT;
   v_tier_label TEXT;
+  v_partner_code TEXT;
   v_items JSONB;
   v_subtotal NUMERIC(12,2);
   v_discount NUMERIC(12,2);
@@ -286,6 +290,8 @@ BEGIN
   v_customer_address := COALESCE(p_order->>'customerAddress', p_order->>'customer_address', '-');
   v_tier := COALESCE(p_order->>'tier', 'konsumen');
   v_tier_label := COALESCE(p_order->>'tierLabel', p_order->>'tier_label', 'Konsumen Retail');
+  v_partner_code := NULLIF(TRIM(COALESCE(p_order->>'partnerCode', p_order->>'partner_code', '')), '');
+  v_marketer_id := NULLIF(TRIM(COALESCE(p_order->>'marketerId', p_order->>'marketer_id', '')), '');
   v_items := COALESCE(p_order->'items', p_order->'items_json', '[]'::jsonb);
   v_subtotal := COALESCE((p_order->>'subtotalHet')::NUMERIC, (p_order->>'subtotal_het')::NUMERIC, (p_order->>'grandTotal')::NUMERIC, 0.00);
   v_discount := COALESCE((p_order->>'discountAmount')::NUMERIC, (p_order->>'discount_amount')::NUMERIC, 0.00);
@@ -303,6 +309,8 @@ BEGIN
         customer_address = v_customer_address,
         tier = v_tier,
         tier_label = v_tier_label,
+        partner_code = COALESCE(v_partner_code, partner_code),
+        marketer_id = COALESCE(v_marketer_id, marketer_id),
         items_json = v_items,
         subtotal_het = v_subtotal,
         discount_amount = v_discount,
@@ -314,11 +322,11 @@ BEGIN
   ELSE
     INSERT INTO orders (
       store_slug, order_id, order_date, customer_name, customer_phone, customer_address,
-      tier, tier_label, items_json, subtotal_het, discount_amount, grand_total,
+      tier, tier_label, partner_code, marketer_id, items_json, subtotal_het, discount_amount, grand_total,
       payment_method, status, order_source
     ) VALUES (
       p_slug, v_order_id, NOW(), v_customer_name, v_customer_phone, v_customer_address,
-      v_tier, v_tier_label, v_items, v_subtotal, v_discount, v_grand_total,
+      v_tier, v_tier_label, v_partner_code, v_marketer_id, v_items, v_subtotal, v_discount, v_grand_total,
       v_payment_method, v_status, v_order_source
     );
 
@@ -330,7 +338,6 @@ BEGIN
     RETURNING order_quota INTO v_remaining_quota;
   END IF;
 
-  v_marketer_id := NULLIF(TRIM(COALESCE(p_order->>'marketerId', p_order->>'marketer_id', '')), '');
   DELETE FROM marketer_sales WHERE store_slug = p_slug AND order_id = v_order_id;
 
   IF v_tier = 'marketer' OR v_marketer_id IS NOT NULL THEN

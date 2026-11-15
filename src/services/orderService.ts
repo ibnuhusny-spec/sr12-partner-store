@@ -143,6 +143,8 @@ export async function fetchStoreOrders(storeSlug: string): Promise<Order[]> {
             id: d.id,
             orderId: d.order_id,
             storeSlug: d.store_slug || targetSlug,
+            partnerCode: d.partner_code || d.partnerCode || undefined,
+            marketerId: d.marketer_id || d.marketerId || undefined,
             customerName: d.customer_name,
             customerPhone: d.customer_phone,
             customerAddress: d.customer_address,

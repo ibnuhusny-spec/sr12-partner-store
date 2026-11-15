@@ -210,8 +210,14 @@ export const PosTransactionsView: React.FC = () => {
                   </span>
                 </div>
 
-                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f8fafc', marginTop: '4px' }}>
-                  {o.customerName} &bull; <span style={{ color: '#94a3b8' }}>{o.tierLabel}</span>
+                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f8fafc', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <span>{o.customerName}</span>
+                  <span style={{ color: '#94a3b8' }}>&bull; {o.tierLabel}</span>
+                  {o.marketerId && (
+                    <span style={{ fontSize: '0.68rem', padding: '2px 7px', borderRadius: '4px', background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', fontWeight: 800 }}>
+                      💼 Afiliasi: {o.marketerId}
+                    </span>
+                  )}
                 </div>
                 <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
                   {o.items.length} item &bull; {o.items.map(it => it.name).join(', ')}

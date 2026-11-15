@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { getLocalOrders, clearAllOrders, fetchStoreOrders } from '../../services/orderService';
-import { getLocalDownlines, fetchStoreDownlines } from '../../services/mitraService';
+import { getLocalDownlines, fetchStoreDownlines, getLocalMarketerSales, fetchStoreMarketerSales } from '../../services/mitraService';
 import { exportReportsToCSV } from '../../services/posService';
 import { getStoreTierEconomics, SR12_TIERS } from '../../config/tiers';
-import { Order, MitraDownline, PartnerTier } from '../../types';
+import { Order, MitraDownline, PartnerTier, MarketerSale } from '../../types';
 import {
   Download,
   Trash2,
@@ -44,6 +44,7 @@ export const PosReportsView: React.FC = () => {
   const { currentStore } = useApp();
   const [orders, setOrders] = useState<Order[]>(() => getLocalOrders(currentStore.slug));
   const [downlines, setDownlines] = useState<MitraDownline[]>(() => getLocalDownlines(currentStore.slug));
+  const [marketerSales, setMarketerSales] = useState<MarketerSale[]>(() => getLocalMarketerSales(currentStore.slug));
   const [activeTab, setActiveTab] = useState<'daily_mitra' | 'all_orders'>('daily_mitra');
   const [period, setPeriod] = useState<'all' | 'today' | 'month'>('all');
   const [showProfitFormula, setShowProfitFormula] = useState(false);
@@ -52,15 +53,20 @@ export const PosReportsView: React.FC = () => {
     // 1. Instant local cache
     setOrders(getLocalOrders(currentStore.slug));
     setDownlines(getLocalDownlines(currentStore.slug));
+    setMarketerSales(getLocalMarketerSales(currentStore.slug));
 
     // 2. Cloud sync via Supabase
     try {
-      const [cloudOrders, cloudDownlines] = await Promise.all([
+      const [cloudOrders, cloudDownlines, cloudMarketerSales] = await Promise.all([
         fetchStoreOrders(currentStore.slug),
-        fetchStoreDownlines(currentStore.slug)
+        fetchStoreDownlines(currentStore.slug),
+        fetchStoreMarketerSales(currentStore.slug).catch(() => [])
       ]);
       setOrders(cloudOrders);
       setDownlines(cloudDownlines);
+      if (cloudMarketerSales && cloudMarketerSales.length > 0) {
+        setMarketerSales(cloudMarketerSales);
+      }
     } catch (e) {
       console.warn('Failed to fetch cloud reports data:', e);
     }
@@ -75,13 +81,18 @@ export const PosReportsView: React.FC = () => {
     const handleSyncDownlines = () => {
       fetchStoreDownlines(currentStore.slug).then(setDownlines).catch(console.error);
     };
+    const handleSyncMarketerSales = () => {
+      fetchStoreMarketerSales(currentStore.slug).then(setMarketerSales).catch(console.error);
+    };
 
     window.addEventListener('sr12:cloud_sync_orders', handleSyncOrders);
     window.addEventListener('sr12:cloud_sync_downlines', handleSyncDownlines);
+    window.addEventListener('sr12:cloud_sync_marketer_sales', handleSyncMarketerSales);
 
     return () => {
       window.removeEventListener('sr12:cloud_sync_orders', handleSyncOrders);
       window.removeEventListener('sr12:cloud_sync_downlines', handleSyncDownlines);
+      window.removeEventListener('sr12:cloud_sync_marketer_sales', handleSyncMarketerSales);
     };
   }, [currentStore.slug]);
 
@@ -120,6 +131,17 @@ export const PosReportsView: React.FC = () => {
   // Level kemitraan toko saat ini (Distributor, Agen, Sub Agen, Reseller)
   const { discountPct: storeDiscountPct, costPct: storeCostPct, label: storeTierLabel } = getStoreTierEconomics(currentStore.partnerTier);
 
+  // Fast lookup komisi penjualan Marketer berdasarkan orderId
+  const marketerSalesMap = useMemo(() => {
+    const map = new Map<string, MarketerSale>();
+    marketerSales.forEach(s => {
+      if (s.orderId) {
+        map.set(s.orderId, s);
+      }
+    });
+    return map;
+  }, [marketerSales]);
+
   // Daily Partner Aggregation: Cross-reference with registered downlines for 100% tier, discount, and profit sync
   const dailyPartnerSummaries = useMemo(() => {
     const map = new Map<string, DailyPartnerSummary>();
@@ -127,6 +149,10 @@ export const PosReportsView: React.FC = () => {
     filteredOrders.forEach(o => {
       const d = new Date(o.createdAt || o.orderDate || Date.now());
       const dateKey = !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : 'Hari Ini';
+
+      // Cross-reference data komisi penjualan Marketer
+      const mSale = marketerSalesMap.get(o.orderId);
+      const affiliateMarketerCode = o.marketerId || mSale?.marketerId;
 
       // Match partner in downlines database by partnerCode, phone, or name
       const matchedMitra = downlines.find(m =>
@@ -136,21 +162,30 @@ export const PosReportsView: React.FC = () => {
         (o.customerName && m.partnerCode.toUpperCase() === o.customerName.toUpperCase().trim())
       );
 
-      const partnerCode = matchedMitra?.partnerCode || o.partnerCode || (o.tier && o.tier !== 'konsumen' ? o.customerName : 'NON-MITRA');
-      const partnerName = matchedMitra?.name || o.customerName || 'Konsumen Retail';
+      const matchedAffiliateMarketer = affiliateMarketerCode 
+        ? downlines.find(m => m.partnerCode.toUpperCase() === affiliateMarketerCode.toUpperCase())
+        : undefined;
+
+      const partnerCode = matchedMitra?.partnerCode || o.partnerCode || (o.tier && o.tier !== 'konsumen' ? o.customerName : (affiliateMarketerCode ? `NON-MITRA (Ref: ${affiliateMarketerCode})` : 'NON-MITRA'));
+      const partnerName = matchedMitra?.name || (affiliateMarketerCode ? `${o.customerName || 'Konsumen'} (Ref: ${matchedAffiliateMarketer?.name || affiliateMarketerCode})` : (o.customerName || 'Konsumen Retail'));
       const tierKey = (matchedMitra?.tier || o.tier || 'konsumen') as PartnerTier;
-      const isMarketer = tierKey === 'marketer';
+      const isDirectMarketer = tierKey === 'marketer';
+
       // Marketer bayar Full HET (0% diskon langsung), 15% masuk gaji bulanan
-      const discountPct = isMarketer ? 0 : (SR12_TIERS[tierKey]?.discountPct ?? getDiscountPctByTier(tierKey));
+      const discountPct = isDirectMarketer ? 0 : (SR12_TIERS[tierKey]?.discountPct ?? getDiscountPctByTier(tierKey));
       const het = o.subtotalHet || o.grandTotal;
 
-      const discount = isMarketer
+      const discount = isDirectMarketer
         ? 0
         : ((o.discountAmount && o.discountAmount > 0)
           ? o.discountAmount
           : Math.round(het * (discountPct / 100)));
-      const netPaid = isMarketer ? het : ((o.grandTotal && o.discountAmount) ? o.grandTotal : (het - discount));
-      const marketerComm = isMarketer ? Math.round(het * 0.15) : 0;
+      const netPaid = isDirectMarketer ? het : ((o.grandTotal && o.discountAmount) ? o.grandTotal : (het - discount));
+
+      // Hak Gaji Marketer 15%: Berlaku untuk pembelian langsung oleh Marketer MAUPUN pesanan konsumen via link afiliasi
+      const marketerComm = (isDirectMarketer || Boolean(affiliateMarketerCode))
+        ? (mSale?.commissionAmount || Math.round(het * 0.15))
+        : 0;
 
       // Perhitungan Modal Kulakan Toko (HPP) & Keuntungan Bersih Pemilik Toko
       const storeHpp = Math.round(het * (storeCostPct / 100));
@@ -169,7 +204,11 @@ export const PosReportsView: React.FC = () => {
         existing.marketerCommission += marketerComm;
         existing.netProfit += netProfit;
       } else {
-        const tierLabel = SR12_TIERS[tierKey]?.name || o.tierLabel || (tierKey === 'konsumen' ? 'Non-Mitra (HET)' : tierKey.toUpperCase());
+        const defaultTierLabel = SR12_TIERS[tierKey]?.name || o.tierLabel || (tierKey === 'konsumen' ? 'Non-Mitra (HET)' : tierKey.toUpperCase());
+        const tierLabel = (affiliateMarketerCode && tierKey === 'konsumen')
+          ? `Non-Mitra (Afiliasi ${affiliateMarketerCode})`
+          : defaultTierLabel;
+
         map.set(groupKey, {
           date: dateKey,
           partnerCode: partnerCode || '-',
@@ -190,7 +229,7 @@ export const PosReportsView: React.FC = () => {
     });
 
     return Array.from(map.values()).sort((a, b) => b.date.localeCompare(a.date));
-  }, [filteredOrders, downlines, storeCostPct]);
+  }, [filteredOrders, downlines, storeCostPct, marketerSalesMap]);
 
   // Totals derived consistently from dailyPartnerSummaries
   const totalGMV = dailyPartnerSummaries.reduce((sum, s) => sum + s.totalPaid, 0);
@@ -200,9 +239,7 @@ export const PosReportsView: React.FC = () => {
   const totalGrossProfit = dailyPartnerSummaries.reduce((sum, s) => sum + s.grossProfit, 0);
   const totalMarketerCommission = dailyPartnerSummaries.reduce((sum, s) => sum + s.marketerCommission, 0);
   const totalNetProfit = dailyPartnerSummaries.reduce((sum, s) => sum + s.netProfit, 0);
-  const totalMitraOrdersCount = dailyPartnerSummaries
-    .filter(s => s.tier && s.tier !== 'konsumen')
-    .reduce((sum, s) => sum + s.orderCount, 0);
+  const totalOrdersCount = dailyPartnerSummaries.reduce((sum, s) => sum + s.orderCount, 0);
 
   const handleResetReports = async () => {
     if (orders.length === 0) {
@@ -260,20 +297,23 @@ export const PosReportsView: React.FC = () => {
         (o.customerName && m.name.toLowerCase().trim() === o.customerName.toLowerCase().trim())
       );
 
+      const mSale = marketerSalesMap.get(o.orderId);
+      const refMkt = o.marketerId || mSale?.marketerId;
       const resolvedTier = (matchedMitra?.tier || o.tier || 'konsumen') as PartnerTier;
-      const isMarketer = resolvedTier === 'marketer';
-      const discPct = isMarketer ? 0 : (SR12_TIERS[resolvedTier]?.discountPct ?? getDiscountPctByTier(resolvedTier));
+      const isDirectMarketer = resolvedTier === 'marketer';
+      const discPct = isDirectMarketer ? 0 : (SR12_TIERS[resolvedTier]?.discountPct ?? getDiscountPctByTier(resolvedTier));
       const het = o.subtotalHet || o.grandTotal;
-      const discount = isMarketer
+      const discount = isDirectMarketer
         ? 0
         : ((o.discountAmount && o.discountAmount > 0)
           ? o.discountAmount
           : Math.round(het * (discPct / 100)));
-      const netPaid = isMarketer ? het : ((o.grandTotal && o.discountAmount) ? o.grandTotal : (het - discount));
-      const mktComm = isMarketer ? Math.round(het * 0.15) : 0;
+      const netPaid = isDirectMarketer ? het : ((o.grandTotal && o.discountAmount) ? o.grandTotal : (het - discount));
+      const mktComm = (isDirectMarketer || Boolean(refMkt)) ? (mSale?.commissionAmount || Math.round(het * 0.15)) : 0;
       const storeHpp = Math.round(het * (storeCostPct / 100));
       const netProfit = (netPaid - storeHpp) - mktComm;
-      const tierLabel = SR12_TIERS[resolvedTier]?.name || o.tierLabel || (resolvedTier === 'konsumen' ? 'Non-Mitra (HET)' : resolvedTier.toUpperCase());
+      const defaultTierLabel = SR12_TIERS[resolvedTier]?.name || o.tierLabel || (resolvedTier === 'konsumen' ? 'Non-Mitra (HET)' : resolvedTier.toUpperCase());
+      const tierLabel = (refMkt && resolvedTier === 'konsumen') ? `Non-Mitra (Afiliasi ${refMkt})` : defaultTierLabel;
 
       return {
         'Tanggal': dateStr,
@@ -281,6 +321,7 @@ export const PosReportsView: React.FC = () => {
         'No Invoice': o.orderId,
         'Sumber Transaksi': o.orderSource || 'Kasir POS',
         'Kode Mitra': matchedMitra?.partnerCode || o.partnerCode || '-',
+        'Kode Marketer / Referral': refMkt || (isDirectMarketer ? (matchedMitra?.partnerCode || o.partnerCode || '-') : '-'),
         'Nama Pelanggan': matchedMitra?.name || o.customerName,
         'No WhatsApp': matchedMitra?.phone || o.customerPhone || '-',
         'Tier Kemitraan': tierLabel,
@@ -730,8 +771,8 @@ export const PosReportsView: React.FC = () => {
                         <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 900, color: '#38bdf8', fontSize: '0.88rem' }}>
                           Rp {s.totalPaid.toLocaleString('id-ID')}
                         </td>
-                        <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 900, color: isMarketer ? '#818cf8' : '#64748b' }}>
-                          {isMarketer ? `Rp ${s.marketerCommission.toLocaleString('id-ID')}` : '-'}
+                        <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 900, color: s.marketerCommission > 0 ? '#818cf8' : '#64748b' }}>
+                          {s.marketerCommission > 0 ? `Rp ${s.marketerCommission.toLocaleString('id-ID')}` : '-'}
                         </td>
                         <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 950, color: '#34d399', fontSize: '0.88rem' }}>
                           <span style={{
@@ -757,7 +798,7 @@ export const PosReportsView: React.FC = () => {
                     </td>
                     <td style={{ padding: '12px 14px', textAlign: 'center', color: '#94a3b8' }}>-</td>
                     <td style={{ padding: '12px 14px', textAlign: 'center', color: '#38bdf8' }}>
-                      {totalMitraOrdersCount}x
+                      {totalOrdersCount}x
                     </td>
                     <td style={{ padding: '12px 14px', textAlign: 'right', color: '#cbd5e1' }}>
                       Rp {totalSubtotalHet.toLocaleString('id-ID')}
@@ -836,9 +877,11 @@ export const PosReportsView: React.FC = () => {
                   filteredOrders.map(o => {
                     const het = o.subtotalHet || o.grandTotal;
                     const storeHpp = Math.round(het * (storeCostPct / 100));
-                    const isMarketer = o.tier === 'marketer';
-                    const mktComm = isMarketer ? Math.round(het * 0.15) : 0;
-                    const netPaid = isMarketer ? het : o.grandTotal;
+                    const mSale = marketerSalesMap.get(o.orderId);
+                    const refMkt = o.marketerId || mSale?.marketerId;
+                    const isDirectMarketer = o.tier === 'marketer';
+                    const mktComm = (isDirectMarketer || Boolean(refMkt)) ? (mSale?.commissionAmount || Math.round(het * 0.15)) : 0;
+                    const netPaid = isDirectMarketer ? het : o.grandTotal;
                     const netProfit = (netPaid - storeHpp) - mktComm;
 
                     return (
@@ -852,8 +895,15 @@ export const PosReportsView: React.FC = () => {
                           {o.partnerCode && (
                             <div style={{ fontSize: '0.7rem', color: '#38bdf8', fontWeight: 700 }}>#{o.partnerCode}</div>
                           )}
+                          {refMkt && (
+                            <div style={{ fontSize: '0.68rem', color: '#a5b4fc', fontWeight: 700, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                              💼 Ref Marketer: {refMkt}
+                            </div>
+                          )}
                         </td>
-                        <td style={{ padding: '12px 14px', color: '#cbd5e1' }}>{o.tierLabel || '-'}</td>
+                        <td style={{ padding: '12px 14px', color: '#cbd5e1' }}>
+                          {refMkt && o.tier === 'konsumen' ? `Konsumen (Afiliasi ${refMkt})` : (o.tierLabel || '-')}
+                        </td>
                         <td style={{ padding: '12px 14px', textAlign: 'right', color: '#cbd5e1' }}>
                           Rp {het.toLocaleString('id-ID')}
                         </td>
