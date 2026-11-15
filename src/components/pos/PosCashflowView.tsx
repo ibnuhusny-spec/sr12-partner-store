@@ -463,6 +463,46 @@ export const PosCashflowView: React.FC = () => {
                     type="button"
                     onClick={() => {
                       setFlowType('out');
+                      setCategory('Gaji & Komisi Marketer');
+                      setDescription('Transfer gaji / komisi penjualan hak Marketer');
+                    }}
+                    style={{
+                      background: category.includes('Marketer') ? '#818cf8' : '#0f172a',
+                      color: '#fff',
+                      border: '1px solid #334155',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Gaji &amp; Komisi Marketer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFlowType('out');
+                      setCategory('Kulakan Tambah Stok SR12 Pusat');
+                      setDescription('Transfer pembayaran kulakan restock barang ke SR12 Pusat');
+                    }}
+                    style={{
+                      background: category.includes('Kulakan') ? '#f59e0b' : '#0f172a',
+                      color: '#fff',
+                      border: '1px solid #334155',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Kulakan Stok SR12 Pusat
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFlowType('out');
                       setCategory('Tarik Kas (Setor Owner)');
                       setDescription('Setoran uang kas ke pemilik toko');
                     }}

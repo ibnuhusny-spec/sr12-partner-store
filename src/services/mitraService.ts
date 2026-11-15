@@ -733,8 +733,14 @@ export function appendLocalMarketerSale(sale: MarketerSale, storeSlug?: string):
   } catch {}
 }
 
-export function updateMarketerSalePaidStatus(orderId: string, newStatus: 'paid' | 'unpaid', storeSlug?: string): boolean {
+export async function updateMarketerSalePaidStatus(
+  orderId: string,
+  newStatus: 'paid' | 'unpaid',
+  storeSlug?: string
+): Promise<boolean> {
   const targetSlug = storeSlug || 'sr12-central';
+  const token = getActiveSessionToken(targetSlug);
+
   try {
     const list: MarketerSale[] = getLocalMarketerSales(targetSlug);
     const idx = list.findIndex(s => s.orderId === orderId);
@@ -747,10 +753,21 @@ export function updateMarketerSalePaidStatus(orderId: string, newStatus: 'paid' 
       }
       localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(list));
       localStorage.setItem(`sr12_marketer_sales_${targetSlug}`, JSON.stringify(list));
-      return true;
     }
   } catch {}
-  return false;
+
+  try {
+    await supabase.rpc('rpc_update_marketer_sale_paid_status', {
+      p_slug: targetSlug,
+      p_order_id: orderId,
+      p_status: newStatus,
+      p_token: token
+    });
+  } catch (err) {
+    console.warn('Network error updating marketer sale paid status in Supabase:', err);
+  }
+
+  return true;
 }
 
 export async function deleteStoreDownline(partnerCode: string, storeSlug?: string): Promise<MitraDownline[]> {

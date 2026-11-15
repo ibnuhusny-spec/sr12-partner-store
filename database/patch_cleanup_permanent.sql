@@ -175,6 +175,33 @@ $$;
 
 GRANT EXECUTE ON FUNCTION rpc_delete_marketer_sale(TEXT, TEXT, TEXT) TO anon, authenticated, service_role;
 
+CREATE OR REPLACE FUNCTION rpc_update_marketer_sale_paid_status(
+  p_slug TEXT,
+  p_order_id TEXT,
+  p_status TEXT,
+  p_token TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NOT _sr12_is_authorized_store_token(p_slug, p_token) THEN
+    RETURN jsonb_build_object('success', false, 'message', 'Akses ditolak.');
+  END IF;
+
+  UPDATE marketer_sales
+  SET paid_status = p_status,
+      paid_date = CASE WHEN p_status = 'paid' THEN CURRENT_DATE ELSE NULL END
+  WHERE store_slug = p_slug AND order_id = p_order_id;
+
+  RETURN jsonb_build_object('success', true, 'message', 'Status pembayaran komisi berhasil diperbarui.');
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION rpc_update_marketer_sale_paid_status(TEXT, TEXT, TEXT, TEXT) TO anon, authenticated, service_role;
+
 CREATE OR REPLACE FUNCTION rpc_clear_store_downlines(
   p_slug TEXT,
   p_token TEXT

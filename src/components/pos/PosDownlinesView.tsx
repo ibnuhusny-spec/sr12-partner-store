@@ -18,8 +18,9 @@ import {
   getLocalMarketerSales
 } from '../../services/mitraService';
 import { getLocalOrders, fetchStoreOrders } from '../../services/orderService';
+import { saveCashflowEntry, deleteCashflowEntry } from '../../services/posService';
 import { getAllowedDownlineTiers, SR12_TIERS } from '../../config/tiers';
-import { MitraDownline, MarketerSale, PartnerTier, Order } from '../../types';
+import { MitraDownline, MarketerSale, PartnerTier, Order, CashflowEntry } from '../../types';
 import {
   SR12_TIER_TARGETS,
   evaluateMitraRank,
@@ -192,10 +193,61 @@ export const PosDownlinesView: React.FC = () => {
     setPromoteModalMitra(null);
   };
 
-  const handleTogglePayrollStatus = (sale: MarketerSale) => {
+  const handleTogglePayrollStatus = async (sale: MarketerSale) => {
     const nextStatus = sale.paidStatus === 'paid' ? 'unpaid' : 'paid';
-    updateMarketerSalePaidStatus(sale.orderId, nextStatus, currentStore.slug);
+    await updateMarketerSalePaidStatus(sale.orderId, nextStatus, currentStore.slug);
     setSales(prev => prev.map(s => s.orderId === sale.orderId ? { ...s, paidStatus: nextStatus } : s));
+
+    // Sinkronisasi otomatis ke Buku Kas (Cashflow):
+    // Jika ditandai Lunas / Transfer -> Catat sebagai 🔴 Kas Keluar di Buku Kas
+    // Jika dikembalikan ke Pending -> Hapus catatan Kas Keluar tersebut
+    if (nextStatus === 'paid') {
+      const cashflowEntry: CashflowEntry = {
+        id: `CSH-MKT-${sale.orderId}`,
+        storeSlug: currentStore.slug,
+        date: new Date().toISOString(),
+        type: 'out',
+        category: 'Gaji & Komisi Marketer',
+        amount: sale.commissionAmount,
+        description: `Transfer Komisi 15% Marketer #${sale.marketerId} (Pesanan #${sale.orderId})`,
+        operator: 'Owner Toko'
+      };
+      await saveCashflowEntry(cashflowEntry, currentStore.slug);
+    } else {
+      await deleteCashflowEntry(`CSH-MKT-${sale.orderId}`, currentStore.slug);
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('sr12:cloud_sync_cashflow', { detail: { storeSlug: currentStore.slug } }));
+    }
+  };
+
+  const handlePayAllPending = async () => {
+    const unpaidSales = sales.filter(s => s.paidStatus !== 'paid');
+    if (unpaidSales.length === 0) return;
+    if (!confirm(`Konfirmasi pembayaran seluruh (${unpaidSales.length}) komisi pending senilai Rp ${totalCommissionUnpaid.toLocaleString('id-ID')}?\n\nSemua komisi akan ditandai LUNAS dan otomatis dicatat sebagai KAS KELUAR di Buku Kas toko.`)) {
+      return;
+    }
+
+    for (const sale of unpaidSales) {
+      await updateMarketerSalePaidStatus(sale.orderId, 'paid', currentStore.slug);
+      const cashflowEntry: CashflowEntry = {
+        id: `CSH-MKT-${sale.orderId}`,
+        storeSlug: currentStore.slug,
+        date: new Date().toISOString(),
+        type: 'out',
+        category: 'Gaji & Komisi Marketer',
+        amount: sale.commissionAmount,
+        description: `Transfer Komisi 15% Marketer #${sale.marketerId} (Pesanan #${sale.orderId})`,
+        operator: 'Owner Toko'
+      };
+      await saveCashflowEntry(cashflowEntry, currentStore.slug);
+    }
+
+    setSales(prev => prev.map(s => ({ ...s, paidStatus: 'paid', paidDate: new Date().toISOString().split('T')[0] })));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('sr12:cloud_sync_cashflow', { detail: { storeSlug: currentStore.slug } }));
+    }
   };
 
   const handleDeleteMitra = async (partnerCode: string, name: string) => {
@@ -237,6 +289,10 @@ export const PosDownlinesView: React.FC = () => {
     if (confirm(`Hapus catatan komisi #${sale.orderId} (${sale.customerName}) secara permanen?`)) {
       const remaining = await deleteMarketerSale(sale.orderId, currentStore.slug);
       setSales(remaining);
+      await deleteCashflowEntry(`CSH-MKT-${sale.orderId}`, currentStore.slug);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sr12:cloud_sync_cashflow', { detail: { storeSlug: currentStore.slug } }));
+      }
     }
   };
 
@@ -1430,9 +1486,34 @@ export const PosDownlinesView: React.FC = () => {
                 Dihitung otomatis dari pesanan yang masuk lewat link referral ?ref=KODE_MARKETER
               </p>
             </div>
-            <div style={{ fontSize: '0.8rem', background: '#0f172a', padding: '6px 12px', borderRadius: '8px', border: '1px solid #334155' }}>
-              <span style={{ color: '#94a3b8' }}>Total Belum Dibayar: </span>
-              <b style={{ color: '#f59e0b' }}>Rp {totalCommissionUnpaid.toLocaleString('id-ID')}</b>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <div style={{ fontSize: '0.8rem', background: '#0f172a', padding: '6px 12px', borderRadius: '8px', border: '1px solid #334155' }}>
+                <span style={{ color: '#94a3b8' }}>Total Belum Dibayar: </span>
+                <b style={{ color: '#f59e0b' }}>Rp {totalCommissionUnpaid.toLocaleString('id-ID')}</b>
+              </div>
+              {totalCommissionUnpaid > 0 && (
+                <button
+                  type="button"
+                  onClick={handlePayAllPending}
+                  style={{
+                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '7px 12px',
+                    borderRadius: '8px',
+                    fontSize: '0.78rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                  }}
+                  title="Tandai semua komisi pending menjadi LUNAS dan otomatis catat sebagai KAS KELUAR di Buku Kas"
+                >
+                  <CheckCircle2 size={13} />
+                  <span>Lunaskan Semua (Catat Kas Keluar)</span>
+                </button>
+              )}
             </div>
           </div>
 
