@@ -23,9 +23,14 @@ export function compressImageToBase64(file: File, maxWidth = 800, quality = 0.82
         let width = img.width;
         let height = img.height;
 
-        if (width > maxWidth) {
-          height = Math.round((height * maxWidth) / width);
-          width = maxWidth;
+        if (width > maxWidth || height > maxWidth) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxWidth) / height);
+            height = maxWidth;
+          }
         }
 
         canvas.width = width;
@@ -35,6 +40,8 @@ export function compressImageToBase64(file: File, maxWidth = 800, quality = 0.82
           resolve(event.target?.result as string);
           return;
         }
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
         ctx.drawImage(img, 0, 0, width, height);
         try {
           const webpData = canvas.toDataURL('image/webp', quality);
@@ -51,9 +58,73 @@ export function compressImageToBase64(file: File, maxWidth = 800, quality = 0.82
 }
 
 /**
+ * Kompres file gambar foto HP / gallery kamera ke WebP/JPEG Blob (~60KB - 120KB) dan Data URL.
+ * Menjamin foto HP berukuran besar (5MB - 25MB) langsung ringan dan tidak pernah gagal upload.
+ */
+export function compressImageToBlob(
+  file: File,
+  maxWidth = 800,
+  quality = 0.82
+): Promise<{ blob: Blob; dataUrl: string }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxWidth) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxWidth) / height);
+            height = maxWidth;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          const rawUrl = event.target?.result as string;
+          resolve({ blob: file, dataUrl: rawUrl });
+          return;
+        }
+
+        // Background putih untuk menghindari artefak transparansi
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            const dataUrl = canvas.toDataURL('image/jpeg', quality);
+            if (blob) {
+              resolve({ blob, dataUrl });
+            } else {
+              resolve({ blob: file, dataUrl });
+            }
+          },
+          'image/jpeg',
+          quality
+        );
+      };
+      img.onerror = () => reject(new Error('Format foto tidak terbaca. Silakan pilih foto JPG/PNG/WebP yang valid.'));
+    };
+    reader.onerror = () => reject(new Error('Gagal membaca file dari penyimpanan HP.'));
+  });
+}
+
+/**
  * Mengunggah file gambar produk:
- * Mencoba ke Cloud Storage Supabase, dan jika gagal (Failed to fetch/belum ada bucket),
- * OTOMATIS menggunakan kompresi Base64 lokal sehingga tidak akan pernah error 'Failed to fetch'!
+ * 1. Kompresi otomatis di browser/HP (dari 5MB-20MB menjadi JPEG ringan ~70KB).
+ * 2. Upload file terkompresi ke Cloud Storage Supabase (cepat & anti-timeout).
+ * 3. Jika koneksi bermasalah/offline, otomatis fallback ke Base64 terkompresi lokal.
  */
 export async function uploadProductImageFile(
   file: File,
@@ -62,27 +133,32 @@ export async function uploadProductImageFile(
 ): Promise<string> {
   const safeSlug = (storeSlug || 'sr12-central').toLowerCase();
 
-  if (file.size > 10 * 1024 * 1024) {
-    throw new Error('Ukuran file gambar maksimal 10 MB.');
+  // 1. Kompresi lokal di HP/perangkat
+  let compressed: { blob: Blob; dataUrl: string };
+  try {
+    compressed = await compressImageToBlob(file, 800, 0.82);
+  } catch (compErr) {
+    console.warn('[CatalogService] Kompresi canvas gagal, mencoba fallback FileReader langsung:', compErr);
+    const dataUrl = await compressImageToBase64(file, 800, 0.82);
+    return dataUrl;
   }
 
   if (isDemoSessionActive()) {
-    return await compressImageToBase64(file, 800, 0.82);
+    return compressed.dataUrl;
   }
 
+  // 2. Upload file JPEG yang sudah ringan (~70KB) ke Supabase Cloud Storage
   try {
-    const rawExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-    const cleanExt = ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(rawExt) ? rawExt : 'jpg';
     const cleanProdId = productId.replace(/[^a-zA-Z0-9_-]/g, '_');
-    const fileName = `${cleanProdId}_${Date.now()}.${cleanExt}`;
+    const fileName = `${cleanProdId}_${Date.now()}.jpg`;
     const filePath = `store_images/${safeSlug}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from(BUCKET_NAME)
-      .upload(filePath, file, {
+      .upload(filePath, compressed.blob, {
         cacheControl: '31536000',
         upsert: true,
-        contentType: file.type || `image/${cleanExt}`
+        contentType: 'image/jpeg'
       });
 
     if (!uploadError) {
@@ -90,13 +166,15 @@ export async function uploadProductImageFile(
       if (data && data.publicUrl) {
         return data.publicUrl;
       }
+    } else {
+      console.warn('[CatalogService] Supabase Storage uploadError:', uploadError.message);
     }
   } catch (cloudErr) {
-    console.warn('[CatalogService] Cloud Storage gagal, otomatis menggunakan kompresi Base64:', cloudErr);
+    console.warn('[CatalogService] Cloud Storage gagal, otomatis menggunakan Base64 terkompresi:', cloudErr);
   }
 
-  // Fallback andal: kompres gambar secara lokal
-  return await compressImageToBase64(file, 800, 0.82);
+  // 3. Fallback andal: kembalikan Data URL terkompresi (~70KB)
+  return compressed.dataUrl;
 }
 
 /**
@@ -256,19 +334,43 @@ export async function syncStoreCatalogFromCloud(storeSlug: string): Promise<Prod
       });
     }
 
-    // 4. Bangun katalog final dari Master SR12 Catalog dengan pengurangan stok akurat
+    // 4. Baca overrides lokal di perangkat ini untuk menjaga foto kustom & kustomisasi nama/harga
+    const localOverrides = getStoreOverrides(safeSlug);
+
+    // 5. Bangun katalog final dari Master SR12 Catalog dengan proteksi foto kustom & pengurangan stok akurat
     const masterCloned: Product[] = JSON.parse(JSON.stringify(SR12_MASTER_CATALOG));
     const finalCatalog = masterCloned.map(p => {
       const dbRow = dbProductMap.get(p.id) || dbProductMap.get(p.name.toLowerCase().trim());
-      const baseStock = (dbRow && typeof dbRow.stock === 'number') ? dbRow.stock : (p.stock ?? 50);
+      const ov = localOverrides[p.id] || localOverrides[p.sku];
+
+      // Prioritas stok: Cloud DB -> Overrides lokal -> Master default
+      const baseStock = (dbRow && typeof dbRow.stock === 'number')
+        ? dbRow.stock
+        : ((ov && typeof ov.stock === 'number') ? ov.stock : (p.stock ?? 50));
       const totalSold = soldQtyMap.get(p.id) || soldQtyMap.get(p.sku) || 0;
       const currentRemainingStock = Math.max(0, baseStock - totalSold);
 
+      // Prioritas gambar: Cloud DB image_url -> Overrides lokal image -> Master default image
+      // JANGAN PERNAH menimpa gambar kustom dengan dummy SVG jika user sudah pernah mengunggah foto!
+      const finalImage = (dbRow?.image_url && typeof dbRow.image_url === 'string' && dbRow.image_url.trim())
+        ? dbRow.image_url.trim()
+        : ((ov?.image && typeof ov.image === 'string' && ov.image.trim()) ? ov.image.trim() : p.image);
+
+      const finalHet = (dbRow?.het_price && Number(dbRow.het_price) > 0)
+        ? Number(dbRow.het_price)
+        : ((ov?.het && ov.het > 0) ? ov.het : p.het);
+
+      const finalName = dbRow?.name || ov?.name || p.name;
+      const finalSummary = ov?.summary || p.summary;
+
       return {
         ...p,
+        name: finalName,
         stock: currentRemainingStock,
-        ...(dbRow?.image_url ? { image: dbRow.image_url } : {}),
-        ...(dbRow?.het_price && dbRow.het_price > 0 ? { het: Number(dbRow.het_price), price: Number(dbRow.het_price) } : {})
+        image: finalImage,
+        het: finalHet,
+        price: finalHet,
+        summary: finalSummary
       };
     });
 
@@ -313,17 +415,7 @@ export function updateStoreProduct(storeSlug: string, updatedProduct: Product): 
 
   saveStoreCatalog(safeSlug, nextCatalog);
 
-  // Simpan ke Supabase PostgreSQL Database via RPC
-  saveProductToSupabaseDb(safeSlug, {
-    name: updatedProduct.name,
-    stock: updatedProduct.stock,
-    localId: updatedProduct.id,
-    sku: updatedProduct.sku,
-    category: updatedProduct.category,
-    het: updatedProduct.het,
-    image: updatedProduct.image
-  });
-
+  // 1. Simpan overrides lokal TERLEBIH DAHULU agar foto & kustomisasi langsung aman
   const currentOverrides = getStoreOverrides(safeSlug);
   currentOverrides[updatedProduct.id] = {
     name: updatedProduct.name,
@@ -336,9 +428,21 @@ export function updateStoreProduct(storeSlug: string, updatedProduct: Product): 
   };
   saveStoreOverrides(safeSlug, currentOverrides);
 
+  // 2. Simpan ke Supabase PostgreSQL Database via RPC
+  saveProductToSupabaseDb(safeSlug, {
+    name: updatedProduct.name,
+    stock: updatedProduct.stock,
+    localId: updatedProduct.id,
+    sku: updatedProduct.sku,
+    category: updatedProduct.category,
+    het: updatedProduct.het,
+    image: updatedProduct.image
+  });
+
+  // 3. Beri tanda skipCloudSync agar listener internal tidak menimpa katalog lokal
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('sr12:stock_updated', {
-      detail: { storeSlug: safeSlug, product: updatedProduct }
+      detail: { storeSlug: safeSlug, product: updatedProduct, skipCloudSync: true }
     }));
   }
 
@@ -370,7 +474,8 @@ export function updateStoreProductStock(storeSlug: string, productId: string, ne
       localId: targetProd.id,
       sku: targetProd.sku,
       category: targetProd.category,
-      het: targetProd.het
+      het: targetProd.het,
+      image: targetProd.image
     });
   }
 
@@ -383,7 +488,7 @@ export function updateStoreProductStock(storeSlug: string, productId: string, ne
 
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('sr12:stock_updated', {
-      detail: { storeSlug: safeSlug, productId, stock: newStock }
+      detail: { storeSlug: safeSlug, productId, stock: newStock, skipCloudSync: true }
     }));
   }
 

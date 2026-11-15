@@ -46,13 +46,13 @@ export const PosInventoryView: React.FC<PosInventoryViewProps> = ({
   
   // Modals state
   const [restockProduct, setRestockProduct] = useState<Product | null>(null);
-  const [restockQty, setRestockQty] = useState(50);
+  const [restockQty, setRestockQty] = useState<number | ''>(50);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [editForm, setEditForm] = useState<{
     name: string;
-    het: number;
-    stock: number;
-    weightGram: number;
+    het: number | '';
+    stock: number | '';
+    weightGram: number | '';
     image: string;
     summary: string;
   } | null>(null);
@@ -110,8 +110,9 @@ export const PosInventoryView: React.FC<PosInventoryViewProps> = ({
     const file = e.target.files?.[0];
     if (!file || !editForm || !editProduct) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Ukuran file gambar maksimal 5 MB!');
+    // Izinkan file foto HP hingga 25 MB karena dikompresi otomatis di memori browser
+    if (file.size > 25 * 1024 * 1024) {
+      alert('Ukuran file foto terlalu besar (maksimal 25 MB). Silakan pilih foto lain.');
       return;
     }
 
@@ -123,10 +124,11 @@ export const PosInventoryView: React.FC<PosInventoryViewProps> = ({
       setEditForm(prev => prev ? { ...prev, image: publicUrl } : null);
     } catch (err: any) {
       console.error('Image upload failed:', err);
-      setUploadError(err.message || 'Gagal mengunggah foto ke Cloud Supabase');
-      alert(`Gagal mengunggah foto: ${err.message || 'Terjadi kesalahan'}`);
+      setUploadError(err.message || 'Gagal memproses foto');
+      alert(`Gagal memproses foto: ${err.message || 'Terjadi kesalahan'}`);
     } finally {
       setIsUploadingImage(false);
+      e.target.value = '';
     }
   };
 
@@ -144,11 +146,11 @@ export const PosInventoryView: React.FC<PosInventoryViewProps> = ({
 
     const updated: Product = {
       ...editProduct,
-      name: editForm.name,
-      het: editForm.het,
-      price: editForm.het,
-      stock: editForm.stock,
-      weightGram: editForm.weightGram,
+      name: editForm.name.trim() || editProduct.name,
+      het: typeof editForm.het === 'number' && editForm.het >= 0 ? editForm.het : editProduct.het,
+      price: typeof editForm.het === 'number' && editForm.het >= 0 ? editForm.het : editProduct.het,
+      stock: typeof editForm.stock === 'number' && editForm.stock >= 0 ? editForm.stock : 0,
+      weightGram: typeof editForm.weightGram === 'number' && editForm.weightGram >= 0 ? editForm.weightGram : (editProduct.weightGram || 100),
       image: editForm.image,
       summary: editForm.summary
     };
@@ -164,14 +166,15 @@ export const PosInventoryView: React.FC<PosInventoryViewProps> = ({
 
   const handleSendRestockOrder = () => {
     if (!restockProduct) return;
-    const estCost = Math.round(restockProduct.het * (storeCostPct / 100)) * restockQty;
+    const finalQty = typeof restockQty === 'number' && restockQty > 0 ? restockQty : 10;
+    const estCost = Math.round(restockProduct.het * (storeCostPct / 100)) * finalQty;
     const waMsg = `*ORDER RESTOCK PRODUK SR12* 📦
 Dari: *${currentStore.storeName}* (${storeTierLabel} - ${currentStore.storeCity})
 Pemilik: ${currentStore.storeOwner}
 
 Produk: *${restockProduct.name}*
 SKU: ${restockProduct.sku}
-Jumlah Restock: *${restockQty} pcs*
+Jumlah Restock: *${finalQty} pcs*
 Estimasi Modal ${storeTierLabel} (${storeCostPct}% HET): Rp ${estCost.toLocaleString('id-ID')}
 
 Mohon segera diproses pengirimannya. Terima kasih! 🙏`;
@@ -670,12 +673,17 @@ Mohon segera diproses pengirimannya. Terima kasih! 🙏`;
                     )}
 
                     {/* Status Pill Cloud */}
-                    {editForm.image.includes('supabase.co') && (
+                    {editForm.image.includes('supabase.co') ? (
                       <div style={{ fontSize: '0.7rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700 }}>
                         <Check size={12} />
                         <span>Foto Tersimpan di Cloud Supabase (Aman &amp; Permanen)</span>
                       </div>
-                    )}
+                    ) : editForm.image.startsWith('data:') ? (
+                      <div style={{ fontSize: '0.7rem', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700 }}>
+                        <Check size={12} />
+                        <span>Foto Terkompresi &amp; Siap Disimpan ke Database</span>
+                      </div>
+                    ) : null}
 
                     {/* URL Input */}
                     <input
@@ -744,11 +752,14 @@ Mohon segera diproses pengirimannya. Terima kasih! 🙏`;
                   </label>
                   <input
                     type="number"
-                    required
-                    min={1000}
+                    min={0}
                     step={500}
-                    value={editForm.het}
-                    onChange={(e) => setEditForm({ ...editForm, het: Number(e.target.value) })}
+                    placeholder="0"
+                    value={editForm.het === '' ? '' : editForm.het}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEditForm({ ...editForm, het: val === '' ? '' : Math.max(0, parseInt(val, 10) || 0) });
+                    }}
                     style={{
                       width: '100%',
                       padding: '8px 12px',
@@ -768,10 +779,13 @@ Mohon segera diproses pengirimannya. Terima kasih! 🙏`;
                   </label>
                   <input
                     type="number"
-                    required
                     min={0}
-                    value={editForm.stock}
-                    onChange={(e) => setEditForm({ ...editForm, stock: Number(e.target.value) })}
+                    placeholder="0"
+                    value={editForm.stock === '' ? '' : editForm.stock}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEditForm({ ...editForm, stock: val === '' ? '' : Math.max(0, parseInt(val, 10) || 0) });
+                    }}
                     style={{
                       width: '100%',
                       padding: '8px 12px',
@@ -792,9 +806,13 @@ Mohon segera diproses pengirimannya. Terima kasih! 🙏`;
                 </label>
                 <input
                   type="number"
-                  min={10}
-                  value={editForm.weightGram}
-                  onChange={(e) => setEditForm({ ...editForm, weightGram: Number(e.target.value) })}
+                  min={0}
+                  placeholder="0"
+                  value={editForm.weightGram === '' ? '' : editForm.weightGram}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setEditForm({ ...editForm, weightGram: val === '' ? '' : Math.max(0, parseInt(val, 10) || 0) });
+                  }}
                   style={{
                     width: '100%',
                     padding: '8px 12px',
@@ -900,10 +918,14 @@ Mohon segera diproses pengirimannya. Terima kasih! 🙏`;
                 <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Jumlah Restock (pcs):</label>
                 <input
                   type="number"
-                  min={10}
+                  min={1}
                   step={10}
-                  value={restockQty}
-                  onChange={(e) => setRestockQty(Number(e.target.value))}
+                  placeholder="0"
+                  value={restockQty === '' ? '' : restockQty}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setRestockQty(val === '' ? '' : Math.max(0, parseInt(val, 10) || 0));
+                  }}
                   style={{ width: '100%', padding: '8px', borderRadius: '6px', background: '#0f172a', border: '1px solid #334155', color: '#fff', fontSize: '0.9rem' }}
                 />
               </div>
@@ -911,7 +933,7 @@ Mohon segera diproses pengirimannya. Terima kasih! 🙏`;
               <div style={{ background: '#0f172a', padding: '10px', borderRadius: '8px' }}>
                 <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Estimasi Modal {storeTierLabel} ({storeCostPct}% HET):</div>
                 <div style={{ fontSize: '1.1rem', fontWeight: 900, color: '#38bdf8' }}>
-                  Rp {(Math.round(restockProduct.het * (storeCostPct / 100)) * restockQty).toLocaleString('id-ID')}
+                  Rp {(Math.round(restockProduct.het * (storeCostPct / 100)) * (typeof restockQty === 'number' ? restockQty : 0)).toLocaleString('id-ID')}
                 </div>
               </div>
 

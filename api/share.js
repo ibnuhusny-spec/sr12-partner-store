@@ -1387,7 +1387,7 @@ async function fetchCustomProductImage(storeSlug, productKey) {
   try {
     const slug = (storeSlug || 'sr12-central').toLowerCase();
     const cleanKey = productKey.toLowerCase().trim();
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/products?store_slug=eq.${encodeURIComponent(slug)}&select=image_url,description,name,het_price&order=created_at.desc&limit=30`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/products?store_slug=eq.${encodeURIComponent(slug)}&select=image_url,description,name,het_price&order=created_at.desc&limit=200`, {
       headers: {
         'apikey': SUPABASE_KEY,
         'Authorization': `Bearer ${SUPABASE_KEY}`

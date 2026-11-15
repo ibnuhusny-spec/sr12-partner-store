@@ -80,7 +80,10 @@ export function App() {
     };
     fetchCloud();
 
-    const handleSync = () => {
+    const handleSync = (e?: any) => {
+      if (e?.detail?.skipCloudSync) {
+        return;
+      }
       fetchCloud();
     };
 
