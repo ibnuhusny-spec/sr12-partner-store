@@ -61,12 +61,14 @@ export const PosInventoryView: React.FC<PosInventoryViewProps> = ({
 
   useEffect(() => {
     setIsSyncing(true);
-    syncStoreCatalogFromCloud(currentStore.slug)
-      .then(refreshed => {
-        if (refreshed && typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('sr12:stock_updated', { detail: { storeSlug: currentStore.slug } }));
-        }
-      })
+      syncStoreCatalogFromCloud(currentStore.slug)
+        .then(refreshed => {
+          if (refreshed && typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('sr12:stock_updated', {
+              detail: { storeSlug: currentStore.slug, catalog: refreshed, skipCloudSync: true }
+            }));
+          }
+        })
       .catch(console.error)
       .finally(() => setIsSyncing(false));
   }, [currentStore.slug]);
@@ -344,7 +346,9 @@ Mohon segera diproses pengirimannya. Terima kasih! 🙏`;
               try {
                 const refreshed = await syncStoreCatalogFromCloud(currentStore.slug);
                 if (refreshed && typeof window !== 'undefined') {
-                  window.dispatchEvent(new CustomEvent('sr12:stock_updated', { detail: { storeSlug: currentStore.slug } }));
+                  window.dispatchEvent(new CustomEvent('sr12:stock_updated', {
+                    detail: { storeSlug: currentStore.slug, catalog: refreshed, skipCloudSync: true }
+                  }));
                 }
               } finally {
                 setIsSyncing(false);

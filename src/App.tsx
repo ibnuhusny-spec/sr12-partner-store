@@ -82,6 +82,10 @@ export function App() {
     fetchCloud();
 
     const handleSync = (e?: any) => {
+      if (e?.detail?.catalog && Array.isArray(e.detail.catalog)) {
+        if (isMounted) setProducts(e.detail.catalog);
+        return;
+      }
       if (e?.detail?.skipCloudSync) {
         return;
       }

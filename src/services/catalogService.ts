@@ -1,7 +1,6 @@
 import { Product } from '../types';
 import { SR12_MASTER_CATALOG } from '../data/sr12MasterCatalog';
 import { supabase, getActiveSessionToken } from '../config/supabase';
-import { fetchStoreOrders } from './orderService';
 import { isDemoSessionActive } from './demoGuard';
 
 const CATALOG_STORAGE_PREFIX = 'sr12_catalog_';
@@ -295,26 +294,7 @@ export async function syncStoreCatalogFromCloud(storeSlug: string): Promise<Prod
       .select('*')
       .eq('store_slug', safeSlug);
 
-    // 2. Ambil seluruh pesanan aktif toko dari Supabase RPC untuk menghitung pengurangan stok riil dari transaksi
-    const orders = await fetchStoreOrders(safeSlug);
-    const validOrders = (orders || []).filter(o => 
-      !o.status?.toLowerCase().includes('batal') && 
-      !o.status?.toLowerCase().includes('hapus')
-    );
-
-    // Hitung akumulasi quantity yang terjual per produk
-    const soldQtyMap = new Map<string, number>();
-    validOrders.forEach(ord => {
-      (ord.items || []).forEach((it: any) => {
-        const id = it.id || it.productId || it.product?.id;
-        const qty = it.quantity || it.qty || 1;
-        if (id) {
-          soldQtyMap.set(id, (soldQtyMap.get(id) || 0) + Number(qty));
-        }
-      });
-    });
-
-    // 3. Map database custom products
+    // 2. Map database custom products
     const dbProductMap = new Map<string, any>();
     if (Array.isArray(dbProducts)) {
       dbProducts.forEach(row => {
@@ -334,21 +314,23 @@ export async function syncStoreCatalogFromCloud(storeSlug: string): Promise<Prod
       });
     }
 
-    // 4. Baca overrides lokal di perangkat ini untuk menjaga foto kustom & kustomisasi nama/harga
+    // 3. Baca overrides lokal di perangkat ini untuk menjaga foto kustom & kustomisasi nama/harga
     const localOverrides = getStoreOverrides(safeSlug);
 
-    // 5. Bangun katalog final dari Master SR12 Catalog dengan proteksi foto kustom & pengurangan stok akurat
+    // 4. Bangun katalog final dari Master SR12 Catalog dengan proteksi foto kustom & stok riil akurat
     const masterCloned: Product[] = JSON.parse(JSON.stringify(SR12_MASTER_CATALOG));
     const finalCatalog = masterCloned.map(p => {
       const dbRow = dbProductMap.get(p.id) || dbProductMap.get(p.name.toLowerCase().trim());
       const ov = localOverrides[p.id] || localOverrides[p.sku];
 
       // Prioritas stok: Cloud DB -> Overrides lokal -> Master default
+      // CATATAN PENTING: Nilai stok di Cloud DB & Overrides lokal merupakan stok riil running-balance
+      // yang langsung dikurangi secara presisi pada setiap transaksi sukses.
+      // DILARANG mengurangkan lagi dengan pesanan historis agar tidak terjadi double-deduction (pengurangan ganda).
       const baseStock = (dbRow && typeof dbRow.stock === 'number')
         ? dbRow.stock
         : ((ov && typeof ov.stock === 'number') ? ov.stock : (p.stock ?? 50));
-      const totalSold = soldQtyMap.get(p.id) || soldQtyMap.get(p.sku) || 0;
-      const currentRemainingStock = Math.max(0, baseStock - totalSold);
+      const currentRemainingStock = Math.max(0, baseStock);
 
       // Prioritas gambar: Cloud DB image_url -> Overrides lokal image -> Master default image
       // JANGAN PERNAH menimpa gambar kustom dengan dummy SVG jika user sudah pernah mengunggah foto!
@@ -544,7 +526,7 @@ export function setAllStoreProductsStock(storeSlug: string, targetStock: number)
 
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('sr12:stock_updated', {
-      detail: { storeSlug: safeSlug, targetStock }
+      detail: { storeSlug: safeSlug, targetStock, skipCloudSync: true }
     }));
   }
 
@@ -596,7 +578,7 @@ export function batchUpdateStoreProductStocks(
 
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('sr12:stock_updated', {
-      detail: { storeSlug: safeSlug, updates }
+      detail: { storeSlug: safeSlug, updates, skipCloudSync: true }
     }));
   }
 
