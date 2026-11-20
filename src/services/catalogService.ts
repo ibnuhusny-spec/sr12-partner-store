@@ -8,6 +8,31 @@ const OVERRIDES_STORAGE_PREFIX = 'sr12_overrides_';
 const BUCKET_NAME = 'products';
 
 /**
+ * Cadangan URL foto riil resmi SR12 yang telah diunggah ke Supabase Cloud Storage.
+ * Digunakan sebagai proteksi permanen (self-healing) agar foto tidak pernah kembali ke dummy SVG.
+ */
+export const KNOWN_STORE_DEFAULT_IMAGES: Record<string, string> = {
+  'sr12-acne-total-tube-10g': 'https://roezaobiexlmhxpuvfds.supabase.co/storage/v1/object/public/products/store_images/sr12-central/sr12-acne-total-tube-10g_1794733052218.jpg',
+  'sr12-acne-cream-12-5g': 'https://roezaobiexlmhxpuvfds.supabase.co/storage/v1/object/public/products/store_images/sr12-central/sr12-acne-cream-12-5g_1794732901463.jpg'
+};
+
+/**
+ * Memeriksa apakah gambar merupakan foto produk asli (bukan ilustrasi / dummy SVG).
+ * Foto produk asli:
+ * - URL Supabase Storage / HTTPS / HTTP (misal https://roezaobiexlmhxpuvfds.supabase.co/...)
+ * - Data URL foto terkompresi (data:image/jpeg, data:image/png, data:image/webp)
+ * Dummy SVG / Ilustrasi bawaan:
+ * - data:image/svg+xml...
+ */
+export function isRealProductImage(img?: string | null): boolean {
+  if (!img || typeof img !== 'string') return false;
+  const trimmed = img.trim();
+  if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return false;
+  if (trimmed.startsWith('data:image/svg+xml')) return false;
+  return true;
+}
+
+/**
  * Kompres gambar ke Base64 (WebP/JPEG) ringan yang siap pakai di HP dan Desktop.
  */
 export function compressImageToBase64(file: File, maxWidth = 800, quality = 0.82): Promise<string> {
@@ -187,6 +212,10 @@ export async function saveProductToSupabaseDb(
   const safeSlug = (storeSlug || 'sr12-central').toLowerCase();
   try {
     const token = getActiveSessionToken(safeSlug);
+    // HANYA kirim image_url jika merupakan foto produk riil (bukan dummy SVG ilustrasi)
+    // Jika dummy SVG atau tidak valid, kirim undefined agar database TIDAK menimpa foto riil di Supabase
+    const cleanImageUrl = isRealProductImage(product.image) ? product.image!.trim() : undefined;
+
     await supabase.rpc('rpc_save_store_product', {
       p_slug: safeSlug,
       p_token: token,
@@ -194,7 +223,7 @@ export async function saveProductToSupabaseDb(
         name: product.name,
         stock: product.stock,
         het_price: product.het,
-        image_url: product.image,
+        image_url: cleanImageUrl,
         category: product.category,
         description: JSON.stringify({
           localId: product.localId || product.id,
@@ -247,12 +276,37 @@ export function saveStoreOverrides(
 export function getStoreCatalog(storeSlug: string): Product[] {
   const safeSlug = (storeSlug || 'sr12-central').toLowerCase();
   const storageKey = `${CATALOG_STORAGE_PREFIX}${safeSlug}`;
+  const overrides = getStoreOverrides(safeSlug);
 
   try {
     const raw = localStorage.getItem(storageKey);
     if (raw) {
       const parsed: Product[] = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        // Pemulihan otomatis (Self-Healing): jika ada foto riil di overrides atau known images
+        // tapi di cache lokal masih berupa SVG dummy, gantikan dengan foto riil!
+        let hasHealed = false;
+        const healed = parsed.map(p => {
+          const ov = overrides[p.id] || overrides[p.sku];
+          let bestImage = p.image;
+          if (isRealProductImage(ov?.image)) {
+            bestImage = ov!.image!.trim();
+          } else if (safeSlug === 'sr12-central' && KNOWN_STORE_DEFAULT_IMAGES[p.id]) {
+            bestImage = KNOWN_STORE_DEFAULT_IMAGES[p.id];
+          }
+
+          if (bestImage !== p.image) {
+            hasHealed = true;
+            return { ...p, image: bestImage };
+          }
+          return p;
+        });
+
+        if (hasHealed) {
+          saveStoreCatalog(safeSlug, healed);
+          return healed;
+        }
+
         return parsed;
       }
     }
@@ -261,19 +315,24 @@ export function getStoreCatalog(storeSlug: string): Product[] {
   }
 
   const cloned: Product[] = JSON.parse(JSON.stringify(SR12_MASTER_CATALOG));
-  const overrides = getStoreOverrides(safeSlug);
 
-  if (overrides && Object.keys(overrides).length > 0) {
-    const merged = cloned.map(p => {
-      const ov = overrides[p.id] || overrides[p.sku];
-      return ov ? { ...p, ...ov } : p;
-    });
-    saveStoreCatalog(safeSlug, merged);
-    return merged;
-  }
+  const merged = cloned.map(p => {
+    const ov = overrides[p.id] || overrides[p.sku];
+    let bestImage = p.image;
+    if (isRealProductImage(ov?.image)) {
+      bestImage = ov!.image!.trim();
+    } else if (safeSlug === 'sr12-central' && KNOWN_STORE_DEFAULT_IMAGES[p.id]) {
+      bestImage = KNOWN_STORE_DEFAULT_IMAGES[p.id];
+    }
+    return {
+      ...p,
+      ...(ov || {}),
+      image: bestImage
+    };
+  });
 
-  saveStoreCatalog(safeSlug, cloned);
-  return cloned;
+  saveStoreCatalog(safeSlug, merged);
+  return merged;
 }
 
 /**
@@ -294,7 +353,7 @@ export async function syncStoreCatalogFromCloud(storeSlug: string): Promise<Prod
       .select('*')
       .eq('store_slug', safeSlug);
 
-    // 2. Map database custom products
+    // 2. Map database custom products dengan proteksi foto riil
     const dbProductMap = new Map<string, any>();
     if (Array.isArray(dbProducts)) {
       dbProducts.forEach(row => {
@@ -305,11 +364,29 @@ export async function syncStoreCatalogFromCloud(storeSlug: string): Promise<Prod
             if (parsed && parsed.localId) localId = parsed.localId;
           } catch {}
         }
+
+        const putInMap = (key: string) => {
+          const existing = dbProductMap.get(key);
+          if (!existing) {
+            dbProductMap.set(key, row);
+          } else {
+            // Jika row yang sudah ada memiliki foto riil tetapi row baru adalah null atau dummy SVG,
+            // JANGAN pernah menimpa foto riil tersebut!
+            const existingHasRealImg = isRealProductImage(existing.image_url);
+            const rowHasRealImg = isRealProductImage(row.image_url);
+            if (existingHasRealImg && !rowHasRealImg) {
+              dbProductMap.set(key, { ...row, image_url: existing.image_url });
+            } else {
+              dbProductMap.set(key, row);
+            }
+          }
+        };
+
         if (localId) {
-          dbProductMap.set(localId, row);
+          putInMap(localId);
         }
         if (row.name) {
-          dbProductMap.set(row.name.toLowerCase().trim(), row);
+          putInMap(row.name.toLowerCase().trim());
         }
       });
     }
@@ -332,11 +409,30 @@ export async function syncStoreCatalogFromCloud(storeSlug: string): Promise<Prod
         : ((ov && typeof ov.stock === 'number') ? ov.stock : (p.stock ?? 50));
       const currentRemainingStock = Math.max(0, baseStock);
 
-      // Prioritas gambar: Cloud DB image_url -> Overrides lokal image -> Master default image
-      // JANGAN PERNAH menimpa gambar kustom dengan dummy SVG jika user sudah pernah mengunggah foto!
-      const finalImage = (dbRow?.image_url && typeof dbRow.image_url === 'string' && dbRow.image_url.trim())
-        ? dbRow.image_url.trim()
-        : ((ov?.image && typeof ov.image === 'string' && ov.image.trim()) ? ov.image.trim() : p.image);
+      // Prioritas gambar: Selalu utamakan Foto Riil (Real Product Image) di mana pun ditemukan
+      let finalImage = p.image;
+      if (isRealProductImage(dbRow?.image_url)) {
+        finalImage = dbRow.image_url.trim();
+      } else if (isRealProductImage(ov?.image)) {
+        finalImage = ov!.image!.trim();
+      } else if (safeSlug === 'sr12-central' && KNOWN_STORE_DEFAULT_IMAGES[p.id]) {
+        finalImage = KNOWN_STORE_DEFAULT_IMAGES[p.id];
+      } else if (isRealProductImage(p.image)) {
+        finalImage = p.image;
+      } else {
+        // Fallback jika belum ada foto riil sama sekali
+        finalImage = (dbRow?.image_url && typeof dbRow.image_url === 'string' && dbRow.image_url.trim())
+          ? dbRow.image_url.trim()
+          : ((ov?.image && typeof ov.image === 'string' && ov.image.trim()) ? ov.image.trim() : p.image);
+      }
+
+      // Kunci foto riil ke localOverrides agar cache lokal tidak pernah kehilangan foto
+      if (isRealProductImage(finalImage)) {
+        if (!localOverrides[p.id]) {
+          localOverrides[p.id] = {};
+        }
+        localOverrides[p.id].image = finalImage;
+      }
 
       const finalHet = (dbRow?.het_price && Number(dbRow.het_price) > 0)
         ? Number(dbRow.het_price)
@@ -356,7 +452,8 @@ export async function syncStoreCatalogFromCloud(storeSlug: string): Promise<Prod
       };
     });
 
-    // Update penyimpanan lokal
+    // Simpan overrides yang sudah diproteksi dan katalog ke penyimpanan lokal
+    saveStoreOverrides(safeSlug, localOverrides);
     saveStoreCatalog(safeSlug, finalCatalog);
     return finalCatalog;
   } catch (err) {
@@ -385,11 +482,23 @@ export function updateStoreProduct(storeSlug: string, updatedProduct: Product): 
   const safeSlug = (storeSlug || 'sr12-central').toLowerCase();
   const currentCatalog = getStoreCatalog(safeSlug);
 
+  // Proteksi: Jika updatedProduct.image adalah dummy SVG tetapi produk saat ini sudah punya foto riil, pertahankan foto riil!
+  const currentProd = currentCatalog.find(p => p.id === updatedProduct.id || p.sku === updatedProduct.sku);
+  let finalImage = updatedProduct.image;
+  if (!isRealProductImage(finalImage) && isRealProductImage(currentProd?.image)) {
+    finalImage = currentProd!.image;
+  }
+
+  const normalizedProduct = {
+    ...updatedProduct,
+    image: finalImage
+  };
+
   const nextCatalog = currentCatalog.map(p => {
-    if (p.id === updatedProduct.id || p.sku === updatedProduct.sku) {
+    if (p.id === normalizedProduct.id || p.sku === normalizedProduct.sku) {
       return {
         ...p,
-        ...updatedProduct
+        ...normalizedProduct
       };
     }
     return p;
@@ -399,32 +508,34 @@ export function updateStoreProduct(storeSlug: string, updatedProduct: Product): 
 
   // 1. Simpan overrides lokal TERLEBIH DAHULU agar foto & kustomisasi langsung aman
   const currentOverrides = getStoreOverrides(safeSlug);
-  currentOverrides[updatedProduct.id] = {
-    name: updatedProduct.name,
-    het: updatedProduct.het,
-    price: updatedProduct.het,
-    stock: updatedProduct.stock,
-    weightGram: updatedProduct.weightGram,
-    image: updatedProduct.image,
-    summary: updatedProduct.summary
+  currentOverrides[normalizedProduct.id] = {
+    name: normalizedProduct.name,
+    het: normalizedProduct.het,
+    price: normalizedProduct.het,
+    stock: normalizedProduct.stock,
+    weightGram: normalizedProduct.weightGram,
+    image: isRealProductImage(normalizedProduct.image)
+      ? normalizedProduct.image
+      : (currentOverrides[normalizedProduct.id]?.image || undefined),
+    summary: normalizedProduct.summary
   };
   saveStoreOverrides(safeSlug, currentOverrides);
 
   // 2. Simpan ke Supabase PostgreSQL Database via RPC
   saveProductToSupabaseDb(safeSlug, {
-    name: updatedProduct.name,
-    stock: updatedProduct.stock,
-    localId: updatedProduct.id,
-    sku: updatedProduct.sku,
-    category: updatedProduct.category,
-    het: updatedProduct.het,
-    image: updatedProduct.image
+    name: normalizedProduct.name,
+    stock: normalizedProduct.stock,
+    localId: normalizedProduct.id,
+    sku: normalizedProduct.sku,
+    category: normalizedProduct.category,
+    het: normalizedProduct.het,
+    image: isRealProductImage(normalizedProduct.image) ? normalizedProduct.image : undefined
   });
 
   // 3. Beri tanda skipCloudSync agar listener internal tidak menimpa katalog lokal
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('sr12:stock_updated', {
-      detail: { storeSlug: safeSlug, product: updatedProduct, skipCloudSync: true }
+      detail: { storeSlug: safeSlug, product: normalizedProduct, skipCloudSync: true }
     }));
   }
 
@@ -457,7 +568,7 @@ export function updateStoreProductStock(storeSlug: string, productId: string, ne
       sku: targetProd.sku,
       category: targetProd.category,
       het: targetProd.het,
-      image: targetProd.image
+      image: isRealProductImage(targetProd.image) ? targetProd.image : undefined
     });
   }
 
@@ -562,7 +673,8 @@ export function batchUpdateStoreProductStocks(
         localId: found.id,
         sku: found.sku,
         category: found.category,
-        het: found.het
+        het: found.het,
+        image: isRealProductImage(found.image) ? found.image : undefined
       });
     }
   });
