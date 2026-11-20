@@ -10,7 +10,7 @@ import {
 } from '../../services/posService';
 import { getLocalMarketerSales } from '../../services/mitraService';
 import { CashflowEntry } from '../../types';
-import { TrendingUp, TrendingDown, Plus, Wallet, Trash2, Coins, RefreshCw } from 'lucide-react';
+import { TrendingUp, TrendingDown, Plus, Wallet, Trash2, Coins, RefreshCw, Landmark } from 'lucide-react';
 
 interface PosCashflowViewProps {
   onSwitchTab?: (tab: string, subTab?: string) => void;
@@ -112,6 +112,14 @@ export const PosCashflowView: React.FC<PosCashflowViewProps> = ({ onSwitchTab })
     setShowAddModal(true);
   };
 
+  const handleOpenSetoranModalUsaha = () => {
+    setFlowType('in');
+    setCategory('Setoran Modal Usaha');
+    setAmount(1000000);
+    setDescription('Setoran modal awal usaha / investasi kas toko');
+    setShowAddModal(true);
+  };
+
   const totalIn = entries.filter(e => e.type === 'in').reduce((sum, e) => sum + e.amount, 0);
   const totalOut = entries.filter(e => e.type === 'out').reduce((sum, e) => sum + e.amount, 0);
   const netCash = totalIn - totalOut;
@@ -179,6 +187,28 @@ export const PosCashflowView: React.FC<PosCashflowViewProps> = ({ onSwitchTab })
           </button>
           <button
             type="button"
+            onClick={handleOpenSetoranModalUsaha}
+            style={{
+              background: 'linear-gradient(135deg, #059669, #047857)',
+              color: '#fff',
+              border: 'none',
+              padding: '8px 13px',
+              borderRadius: '8px',
+              fontSize: '0.8rem',
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(5, 150, 105, 0.3)'
+            }}
+            title="Catat setoran modal awal usaha / suntikan kas toko untuk belanja stok"
+          >
+            <Landmark size={15} />
+            <span>+ Setoran Modal Usaha</span>
+          </button>
+          <button
+            type="button"
             onClick={handleOpenBukaKasModal}
             style={{
               background: 'linear-gradient(135deg, #0284c7, #0369a1)',
@@ -197,7 +227,7 @@ export const PosCashflowView: React.FC<PosCashflowViewProps> = ({ onSwitchTab })
             title="Catat uang modal kas awal buka kasir hari ini"
           >
             <Wallet size={15} />
-            <span>+ Buka Kas (Modal Awal)</span>
+            <span>+ Buka Kas (Kasir)</span>
           </button>
           <button
             type="button"
@@ -341,7 +371,7 @@ export const PosCashflowView: React.FC<PosCashflowViewProps> = ({ onSwitchTab })
                     <Wallet size={36} style={{ margin: '0 auto 10px', opacity: 0.4 }} />
                     <p style={{ margin: 0, fontWeight: 700 }}>Belum ada mutasi buku kas untuk toko ini.</p>
                     <p style={{ margin: '4px 0 0', fontSize: '0.74rem' }}>
-                      Klik tombol <b>"+ Buka Kas (Modal Awal)"</b> atau lakukan transaksi di Kasir POS.
+                      Klik tombol <b>"+ Setoran Modal Usaha"</b>, <b>"+ Buka Kas (Kasir)"</b> atau lakukan transaksi di Kasir POS.
                     </p>
                   </td>
                 </tr>
@@ -373,6 +403,11 @@ export const PosCashflowView: React.FC<PosCashflowViewProps> = ({ onSwitchTab })
                     <td style={{ padding: '10px 14px', fontWeight: 700, color: '#f8fafc' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                         <span>{e.category}</span>
+                        {e.category.includes('Modal Usaha') && (
+                          <span style={{ fontSize: '0.66rem', fontWeight: 800, padding: '2px 6px', borderRadius: '4px', background: '#064e3b', color: '#6ee7b7', border: '1px solid #059669' }}>
+                            🏦 Modal Usaha
+                          </span>
+                        )}
                         {(e.category.includes('Marketer') || e.id.startsWith('CSH-MKT-')) && (
                           <span style={{ fontSize: '0.66rem', fontWeight: 800, padding: '2px 6px', borderRadius: '4px', background: '#312e81', color: '#c7d2fe', border: '1px solid #4338ca' }}>
                             💼 Gaji Marketer
@@ -424,7 +459,11 @@ export const PosCashflowView: React.FC<PosCashflowViewProps> = ({ onSwitchTab })
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px', background: '#1e293b', color: '#fff' }}>
             <div style={{ padding: '14px 18px', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800 }}>
-                {category.includes('Buka Kas') ? '🟢 Buka Kasir (Modal Awal)' : 'Catat Arus Kas Toko'}
+                {category.includes('Buka Kas')
+                  ? '🟢 Buka Kasir (Kas Awal)'
+                  : category.includes('Modal Usaha')
+                  ? '🏦 Setoran Modal Usaha Toko'
+                  : 'Catat Arus Kas Toko'}
               </h3>
               <button
                 type="button"
@@ -480,6 +519,27 @@ export const PosCashflowView: React.FC<PosCashflowViewProps> = ({ onSwitchTab })
                     type="button"
                     onClick={() => {
                       setFlowType('in');
+                      setCategory('Setoran Modal Usaha');
+                      if (!amount) setAmount(1000000);
+                      setDescription('Setoran modal awal usaha / investasi kas toko');
+                    }}
+                    style={{
+                      background: category.includes('Modal Usaha') ? '#059669' : '#0f172a',
+                      color: '#fff',
+                      border: '1px solid #334155',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    🏦 Setoran Modal Usaha
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFlowType('in');
                       setCategory('Modal Awal Kasir (Buka Kas)');
                       if (!amount) setAmount(100000);
                       setDescription('Modal awal uang kembalian buka kasir');
@@ -495,7 +555,7 @@ export const PosCashflowView: React.FC<PosCashflowViewProps> = ({ onSwitchTab })
                       cursor: 'pointer'
                     }}
                   >
-                    Buka Kas (Modal Awal)
+                    Buka Kas (Uang Kembalian)
                   </button>
                   <button
                     type="button"
