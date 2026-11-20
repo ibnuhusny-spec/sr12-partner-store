@@ -429,6 +429,7 @@ export async function fetchSingleStoreProfile(slug: string): Promise<Partial<Sto
         storeCity: data.store_city || undefined,
         storeOwner: data.store_owner || undefined,
         partnerTier: (data.partner_tier as Store['partnerTier']) || undefined,
+        marketerPaydayDate: (data as any).marketer_payday_date || (data as any).marketerPaydayDate ? Number((data as any).marketer_payday_date || (data as any).marketerPaydayDate) : undefined,
         recommenderDistributor: data.recommender_distributor || undefined,
         recommenderWa: data.recommender_wa || undefined,
         recommenderSlug: data.recommender_slug || undefined,
@@ -464,6 +465,7 @@ export async function fetchSingleStoreProfile(slug: string): Promise<Partial<Sto
         storeCity: data.store_city || undefined,
         storeOwner: data.store_owner || undefined,
         partnerTier: (data.partner_tier as Store['partnerTier']) || undefined,
+        marketerPaydayDate: (data as any).marketer_payday_date || (data as any).marketerPaydayDate ? Number((data as any).marketer_payday_date || (data as any).marketerPaydayDate) : undefined,
         recommenderWa: data.recommender_wa || undefined,
         feePayer: 'store',
         updatedAt: data.updated_at || undefined
@@ -511,6 +513,7 @@ export function mergeStoreProfileWithCloud(baseStore: Store, cloudProfile: Parti
     storeCity: pickField(cloudProfile.storeCity, baseStore.storeCity),
     storeOwner: pickField(cloudProfile.storeOwner, baseStore.storeOwner),
     partnerTier: pickField(cloudProfile.partnerTier, baseStore.partnerTier),
+    marketerPaydayDate: pickField(cloudProfile.marketerPaydayDate, baseStore.marketerPaydayDate),
     recommenderWa: pickField(cloudProfile.recommenderWa, baseStore.recommenderWa),
     feePayer: 'store',
     updatedAt: cloudWins && cloudProfile.updatedAt ? cloudProfile.updatedAt : baseStore.updatedAt
@@ -549,6 +552,7 @@ export async function saveStoreProfileToCloud(
     storeCity: store.storeCity,
     storeOwner: store.storeOwner,
     partnerTier: store.partnerTier || 'distributor',
+    marketerPaydayDate: store.marketerPaydayDate || 25,
     recommenderWa: store.recommenderWa || '',
     feePayer: 'store',
     orderQuota: 999999,
@@ -677,4 +681,36 @@ export async function saveStoreProfileToCloud(
     message: 'Pengaturan tersimpan di perangkat ini, namun belum berhasil sinkron ke Cloud Supabase.'
   };
 }
+
+/**
+ * Memperbarui tanggal gajian bulanan marketer (1 - 31) langsung dari POS
+ */
+export async function updateStorePaydayDate(storeSlug: string, paydayDate: number): Promise<boolean> {
+  const safeSlug = (storeSlug || 'sr12-central').toLowerCase();
+  const validDate = Math.min(31, Math.max(1, Math.round(paydayDate) || 25));
+
+  try {
+    const raw = localStorage.getItem('sr12_custom_store_profile');
+    const existing: Partial<Store> = raw ? JSON.parse(raw) : {};
+    existing.marketerPaydayDate = validDate;
+    existing.updatedAt = new Date().toISOString();
+    localStorage.setItem('sr12_custom_store_profile', JSON.stringify(existing));
+  } catch {}
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('sr12:store_profile_updated', {
+      detail: { storeSlug: safeSlug, marketerPaydayDate: validDate }
+    }));
+  }
+
+  try {
+    await supabase.from('stores').update({
+      marketer_payday_date: validDate,
+      updated_at: new Date().toISOString()
+    }).eq('slug', safeSlug);
+  } catch {}
+
+  return true;
+}
+
 

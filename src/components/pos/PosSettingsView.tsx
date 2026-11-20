@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { PartnerTier, Store } from '../../types';
 import { STORE_CONFIG } from '../../config/storeConfig';
 import { getAllowedDownlineTiers, getStoreTierEconomics, SR12_TIERS } from '../../config/tiers';
-import { Settings, Image, Sparkles, Check, Save, Upload, RefreshCw, KeyRound, Mail, Lock, MapPin, Search, Award, Cloud, Loader2 } from 'lucide-react';
+import { Settings, Image, Sparkles, Check, Save, Upload, RefreshCw, KeyRound, Mail, Lock, MapPin, Search, Award, Cloud, Loader2, Calendar } from 'lucide-react';
 import { uploadProductImageFile } from '../../services/catalogService';
 import { searchOngkirDestinations, OngkirDestination } from '../../services/ongkirService';
 import { getStoreCashiers, saveStoreCashiers, getActiveCashier, setActiveCashier } from '../../services/posService';
@@ -20,6 +20,7 @@ export const PosSettingsView: React.FC = () => {
   const [storeCity, setStoreCity] = useState(currentStore.storeCity || STORE_CONFIG.storeCity);
   const [storeOwner, setStoreOwner] = useState(currentStore.storeOwner || STORE_CONFIG.storeOwner);
   const [partnerTier, setPartnerTier] = useState<PartnerTier>(currentStore.partnerTier || STORE_CONFIG.partnerTier || 'distributor');
+  const [marketerPaydayDate, setMarketerPaydayDate] = useState<number>(currentStore.marketerPaydayDate || STORE_CONFIG.marketerPaydayDate || 25);
   const [recommenderWa, setRecommenderWa] = useState(currentStore.recommenderWa || '');
 
   // Lokasi Asal Gudang Toko (RajaOngkir Origin)
@@ -129,6 +130,7 @@ export const PosSettingsView: React.FC = () => {
       originLabel,
       storeOwner: storeOwner.trim(),
       partnerTier,
+      marketerPaydayDate: Math.min(31, Math.max(1, marketerPaydayDate || 25)),
       recommenderWa: normalizedSupplierWa,
       feePayer: 'store',
       ownerEmail: ownerEmail.trim().toLowerCase(),
@@ -446,6 +448,65 @@ export const PosSettingsView: React.FC = () => {
               </div>
               <div style={{ color: '#94a3b8', marginTop: '3px' }}>
                 • <b>Level Pembeli / Mitra yang Dilayani:</b> {allowedCustomerTiers.map(t => SR12_TIERS[t].name).join(', ')}
+              </div>
+            </div>
+          </div>
+
+          {/* Pengaturan Tanggal Pembayaran Gaji Marketer Bulanan */}
+          <div style={{ background: '#020617', padding: '16px', borderRadius: '12px', border: '1px solid #334155' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem', fontWeight: 800, color: '#818cf8', marginBottom: '4px' }}>
+              <Calendar size={16} color="#818cf8" />
+              <span>Jadwal Pembayaran Gaji Marketer Bulanan:</span>
+            </label>
+            <span style={{ fontSize: '0.74rem', color: '#94a3b8', display: 'block', marginBottom: '12px', lineHeight: 1.5 }}>
+              Tentukan tanggal pencairan komisi 15% untuk seluruh mitra Marketer binaan Anda (kebijakan toko). Tanggal ini otomatis sinkron ke Portal Cek Gaji Marketer dan pengingat WhatsApp.
+            </span>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '0.84rem', fontWeight: 700, color: '#f8fafc' }}>Setiap Tanggal:</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={31}
+                  value={marketerPaydayDate}
+                  onChange={(e) => setMarketerPaydayDate(Math.min(31, Math.max(1, parseInt(e.target.value, 10) || 1)))}
+                  style={{
+                    width: '76px',
+                    padding: '8px 10px',
+                    borderRadius: '8px',
+                    background: '#1e293b',
+                    border: '2px solid #818cf8',
+                    color: '#ffffff',
+                    fontSize: '1.05rem',
+                    fontWeight: 900,
+                    textAlign: 'center'
+                  }}
+                />
+                <span style={{ fontSize: '0.84rem', fontWeight: 700, color: '#94a3b8' }}>setiap bulan</span>
+              </div>
+
+              {/* Preset Buttons */}
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {[1, 10, 20, 25, 28, 30].map(d => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setMarketerPaydayDate(d)}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      background: marketerPaydayDate === d ? '#818cf8' : '#1e293b',
+                      color: marketerPaydayDate === d ? '#ffffff' : '#cbd5e1',
+                      border: marketerPaydayDate === d ? '1px solid #a5b4fc' : '1px solid #334155',
+                      fontSize: '0.76rem',
+                      fontWeight: 800,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Tgl {d}
+                  </button>
+                ))}
               </div>
             </div>
           </div>

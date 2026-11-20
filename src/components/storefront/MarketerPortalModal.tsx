@@ -343,7 +343,7 @@ export const MarketerPortalModal: React.FC<MarketerPortalModalProps> = ({ isOpen
                   }}
                 >
                   <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#065f46', textTransform: 'uppercase' }}>
-                    Siap Cair (Tanggal 25)
+                    Siap Cair (Tanggal {currentStore.marketerPaydayDate || 25})
                   </div>
                   <div style={{ fontSize: '1.35rem', fontWeight: 900, color: '#047857', marginTop: '4px' }}>
                     Rp {Number(report.summary.unpaidCommission || 0).toLocaleString('id-ID')}
@@ -555,7 +555,7 @@ export const MarketerPortalModal: React.FC<MarketerPortalModalProps> = ({ isOpen
                               }}
                             >
                               {isPaid ? <CheckCircle2 size={11} /> : <Clock size={11} />}
-                              <span>{isPaid ? 'Sudah Cair' : 'Menunggu Tgl 25'}</span>
+                              <span>{isPaid ? 'Sudah Cair' : `Menunggu Tgl ${currentStore.marketerPaydayDate || 25}`}</span>
                             </div>
                           </div>
                         </div>

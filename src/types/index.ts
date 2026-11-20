@@ -36,6 +36,7 @@ export interface Store {
   originLabel?: string;
   storeOwner: string;
   partnerTier: PartnerTier;
+  marketerPaydayDate?: number; // Tanggal gajian bulanan marketer (1 - 31, default: 25)
   recommenderDistributor?: string;
   recommenderWa?: string;
   recommenderSlug?: string;

@@ -20,7 +20,8 @@ import {
   Wallet,
   Sparkles,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  CreditCard
 } from 'lucide-react';
 
 interface DailyPartnerSummary {
@@ -40,7 +41,11 @@ interface DailyPartnerSummary {
   netProfit: number; // Keuntungan Bersih Pemilik Toko
 }
 
-export const PosReportsView: React.FC = () => {
+interface PosReportsViewProps {
+  onSwitchTab?: (tab: string, subTab?: string) => void;
+}
+
+export const PosReportsView: React.FC<PosReportsViewProps> = ({ onSwitchTab }) => {
   const { currentStore } = useApp();
   const [orders, setOrders] = useState<Order[]>(() => getLocalOrders(currentStore.slug));
   const [downlines, setDownlines] = useState<MitraDownline[]>(() => getLocalDownlines(currentStore.slug));
@@ -547,17 +552,50 @@ export const PosReportsView: React.FC = () => {
         </div>
 
         {/* 4. Hak Gaji Marketer 15% */}
-        <div style={{ background: 'rgba(99, 102, 241, 0.12)', border: '1.5px solid rgba(99, 102, 241, 0.4)', padding: '14px 16px', borderRadius: '12px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.74rem', color: '#a5b4fc', fontWeight: 800 }}>💼 Hak Gaji Marketer (15%)</span>
-            <DollarSign size={16} color="#818cf8" />
+        <div style={{ background: 'rgba(99, 102, 241, 0.12)', border: '1.5px solid rgba(99, 102, 241, 0.4)', padding: '14px 16px', borderRadius: '12px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.74rem', color: '#a5b4fc', fontWeight: 800 }}>💼 Hak Gaji Marketer (15%)</span>
+              <DollarSign size={16} color="#818cf8" />
+            </div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#818cf8', marginTop: '4px' }}>
+              Rp {totalMarketerCommission.toLocaleString('id-ID')}
+            </div>
+            <div style={{ fontSize: '0.7rem', color: '#c7d2fe', marginTop: '3px' }}>
+              Komisi bulanan 15% hak marketer
+            </div>
           </div>
-          <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#818cf8', marginTop: '4px' }}>
-            Rp {totalMarketerCommission.toLocaleString('id-ID')}
-          </div>
-          <div style={{ fontSize: '0.7rem', color: '#c7d2fe', marginTop: '3px' }}>
-            Komisi bulanan 15% hak marketer
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (onSwitchTab) {
+                onSwitchTab('downlines', 'payroll');
+              } else if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('sr12:switch_pos_tab', { detail: { tab: 'downlines', subTab: 'payroll' } }));
+              }
+            }}
+            style={{
+              marginTop: '10px',
+              width: '100%',
+              background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+              color: '#ffffff',
+              border: 'none',
+              padding: '7px 10px',
+              borderRadius: '8px',
+              fontSize: '0.74rem',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              boxShadow: '0 2px 8px rgba(99, 102, 241, 0.35)'
+            }}
+            title="Buka menu pembayaran &amp; pelunasan gaji marketer di Tab Mitra"
+          >
+            <CreditCard size={13} />
+            <span>Bayar / Lunaskan Gaji &rarr;</span>
+          </button>
         </div>
 
         {/* 5. KEUNTUNGAN BERSIH PEMILIK TOKO (NET PROFIT) - HIGHLIGHT */}

@@ -30,6 +30,7 @@ export function getLatestLocalStoreConfig(): Store {
     originLabel: saved.originLabel || 'Jakarta Barat (DKI Jakarta)',
     storeOwner: saved.storeOwner || import.meta.env.VITE_STORE_OWNER || 'Ibnu Husny',
     partnerTier: (saved.partnerTier as PartnerTier) || (import.meta.env.VITE_STORE_TIER as PartnerTier) || 'distributor',
+    marketerPaydayDate: saved.marketerPaydayDate ? Number(saved.marketerPaydayDate) : (Number(import.meta.env.VITE_MARKETER_PAYDAY_DATE) || 25),
     recommenderWa: saved.recommenderWa || '',
     feePayer: 'store',
     storeAdminPin: saved.storeAdminPin || import.meta.env.VITE_STORE_ADMIN_PIN || '1234',

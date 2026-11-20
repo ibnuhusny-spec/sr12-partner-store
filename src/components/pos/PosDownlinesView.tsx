@@ -17,6 +17,7 @@ import {
   getLocalDownlines,
   getLocalMarketerSales
 } from '../../services/mitraService';
+import { updateStorePaydayDate } from '../../services/storeService';
 import { getLocalOrders, fetchStoreOrders } from '../../services/orderService';
 import { saveCashflowEntry, deleteCashflowEntry } from '../../services/posService';
 import { getAllowedDownlineTiers, SR12_TIERS } from '../../config/tiers';
@@ -54,17 +55,35 @@ import {
   ShoppingBag,
   Calendar,
   Copy,
-  Check
+  Check,
+  CreditCard,
+  BookOpen
 } from 'lucide-react';
 
-export const PosDownlinesView: React.FC = () => {
+interface PosDownlinesViewProps {
+  onSwitchTab?: (tab: string, subTab?: string) => void;
+  initialSubTab?: 'downlines' | 'payroll';
+  onSubTabChange?: (subTab: 'downlines' | 'payroll') => void;
+}
+
+export const PosDownlinesView: React.FC<PosDownlinesViewProps> = ({
+  onSwitchTab,
+  initialSubTab = 'downlines',
+  onSubTabChange
+}) => {
   const { currentStore } = useApp();
-  const [activeTab, setActiveTab] = useState<'downlines' | 'payroll'>('downlines');
+  const [activeTab, setActiveTab] = useState<'downlines' | 'payroll'>(initialSubTab || 'downlines');
   const [downlines, setDownlines] = useState<MitraDownline[]>(() => getLocalDownlines(currentStore.slug));
   const [sales, setSales] = useState<MarketerSale[]>(() => getLocalMarketerSales(currentStore.slug));
   const [orders, setOrders] = useState<Order[]>(() => getLocalOrders(currentStore.slug));
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState<'all' | 'promotable' | 'warning' | 'agen' | 'sub_agen' | 'reseller' | 'marketer' | 'konsumen'>('all');
+
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveTab(initialSubTab);
+    }
+  }, [initialSubTab]);
 
   // Modal State
   const [showAddModal, setShowAddModal] = useState(false);
@@ -109,9 +128,13 @@ export const PosDownlinesView: React.FC = () => {
 
   const loadData = async () => {
     // 1. Tampilkan data lokal instan (0ms)
-    setDownlines(getLocalDownlines(currentStore.slug));
-    setSales(getLocalMarketerSales(currentStore.slug));
-    setOrders(getLocalOrders(currentStore.slug));
+    const localDl = getLocalDownlines(currentStore.slug);
+    const localSl = getLocalMarketerSales(currentStore.slug);
+    const localOrd = getLocalOrders(currentStore.slug);
+
+    setDownlines(localDl);
+    setSales(localSl);
+    setOrders(localOrd);
 
     // 2. Ambil data terbaru dari Supabase Cloud
     try {
@@ -123,11 +146,57 @@ export const PosDownlinesView: React.FC = () => {
       if (cloudDownlines) {
         setDownlines(cloudDownlines);
       }
-      if (cloudSales) {
-        setSales(cloudSales);
-      }
       if (cloudOrders) {
         setOrders(cloudOrders);
+      }
+
+      // 3. Rekonsiliasi otomatis: Pastikan setiap order aktif yang melibatkan Marketer tercatat di daftar komisi
+      const activeSales = cloudSales || localSl;
+      const activeOrders = cloudOrders || localOrd;
+      const existingOrderIds = new Set(activeSales.map(s => s.orderId));
+      let hasNewMissingSales = false;
+      const combinedSales = [...activeSales];
+
+      activeOrders.forEach(ord => {
+        const isCancelled = ord.status?.toLowerCase().includes('batal') || ord.status?.toLowerCase().includes('hapus');
+        if (isCancelled || !ord.orderId) return;
+
+        const isMarketer = ord.tier === 'marketer' || Boolean(ord.marketerId);
+        if (isMarketer && !existingOrderIds.has(ord.orderId)) {
+          const mCode = ord.marketerId || ord.partnerCode || 'MKT-001-MRS';
+          const subHet = ord.subtotalHet || ord.grandTotal || 0;
+          const comm = Math.round(subHet * 0.15);
+          const newSale: MarketerSale = {
+            storeSlug: currentStore.slug,
+            orderId: ord.orderId,
+            marketerId: mCode,
+            orderDate: (ord.createdAt || new Date().toISOString()).split('T')[0],
+            monthPeriod: (ord.createdAt || new Date().toISOString()).slice(0, 7),
+            customerName: ord.customerName || 'Konsumen',
+            customerPhone: ord.customerPhone || '-',
+            fulfillmentType: ord.orderSource?.includes('Kasir') ? 'pickup' : 'delivery',
+            itemsDesc: Array.isArray(ord.items) && ord.items.length > 0
+              ? ord.items.map((it: any) => `${it.quantity || 1}x ${it.name || 'Produk'}`).join(', ')
+              : 'Pesanan Produk SR12',
+            omsetHet: subHet,
+            commissionPct: 15,
+            commissionAmount: comm,
+            paidStatus: 'unpaid'
+          };
+          combinedSales.push(newSale);
+          existingOrderIds.add(ord.orderId);
+          hasNewMissingSales = true;
+        }
+      });
+
+      if (hasNewMissingSales) {
+        setSales(combinedSales);
+        try {
+          localStorage.setItem(`sr12_marketer_sales_${currentStore.slug}`, JSON.stringify(combinedSales));
+          localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(combinedSales));
+        } catch {}
+      } else if (cloudSales) {
+        setSales(cloudSales);
       }
     } catch (err) {
       console.warn('Cloud sync error in PosDownlinesView:', err);
@@ -248,6 +317,57 @@ export const PosDownlinesView: React.FC = () => {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('sr12:cloud_sync_cashflow', { detail: { storeSlug: currentStore.slug } }));
     }
+    alert(`Alhamdulillah! Seluruh (${unpaidSales.length}) komisi pending senilai Rp ${totalCommissionUnpaid.toLocaleString('id-ID')} berhasil dilunaskan dan otomatis tercatat sebagai KAS KELUAR di Buku Kas toko!`);
+  };
+
+  const handlePaySpecificMarketer = async (marketerId: string, marketerName: string, unpaidAmount: number) => {
+    const targetSales = sales.filter(s => s.marketerId.toUpperCase() === marketerId.toUpperCase() && s.paidStatus !== 'paid');
+    if (targetSales.length === 0) {
+      alert(`Tidak ada gaji pending untuk Marketer ${marketerName} (${marketerId}).`);
+      return;
+    }
+
+    if (!confirm(`Konfirmasi pelunasan gaji Marketer ${marketerName} (${marketerId}) sebesar Rp ${unpaidAmount.toLocaleString('id-ID')} (${targetSales.length} transaksi)?\n\nStatus komisi akan diubah menjadi LUNAS dan otomatis dicatat sebagai KAS KELUAR di Buku Kas toko.`)) {
+      return;
+    }
+
+    for (const sale of targetSales) {
+      await updateMarketerSalePaidStatus(sale.orderId, 'paid', currentStore.slug);
+      const cashflowEntry: CashflowEntry = {
+        id: `CSH-MKT-${sale.orderId}`,
+        storeSlug: currentStore.slug,
+        date: new Date().toISOString(),
+        type: 'out',
+        category: 'Gaji & Komisi Marketer',
+        amount: sale.commissionAmount,
+        description: `Transfer Gaji 15% Marketer #${sale.marketerId} (${sale.customerName || 'Pesanan'} #${sale.orderId})`,
+        operator: 'Owner Toko'
+      };
+      await saveCashflowEntry(cashflowEntry, currentStore.slug);
+    }
+
+    setSales(prev => prev.map(s => (s.marketerId.toUpperCase() === marketerId.toUpperCase() && s.paidStatus !== 'paid') ? { ...s, paidStatus: 'paid' as const, paidDate: new Date().toISOString().split('T')[0] } : s));
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('sr12:cloud_sync_cashflow', { detail: { storeSlug: currentStore.slug } }));
+    }
+
+    alert(`Alhamdulillah! Gaji Marketer ${marketerName} sebesar Rp ${unpaidAmount.toLocaleString('id-ID')} berhasil dilunaskan dan otomatis tercatat sebagai KAS KELUAR di Buku Kas toko!`);
+  };
+
+  const handleQuickChangePayday = async () => {
+    const currentDay = currentStore.marketerPaydayDate || 25;
+    const input = prompt(`Masukkan tanggal gajian bulanan untuk marketer toko "${currentStore.storeName}" (1 - 31):\n\nTanggal aktif saat ini: ${currentDay}`, String(currentDay));
+    if (input === null) return;
+    const num = parseInt(input, 10);
+    if (isNaN(num) || num < 1 || num > 31) {
+      alert('Tanggal gajian harus berupa angka antara 1 sampai 31!');
+      return;
+    }
+    await updateStorePaydayDate(currentStore.slug, num);
+    currentStore.marketerPaydayDate = num;
+    setDownlines(prev => [...prev]); // re-render
+    alert(`Jadwal pembayaran gaji marketer berhasil diubah menjadi setiap Tanggal ${num}!`);
   };
 
   const handleDeleteMitra = async (partnerCode: string, name: string) => {
@@ -387,6 +507,15 @@ export const PosDownlinesView: React.FC = () => {
 
     const orderMaxHet = pOrders.reduce((max, o) => Math.max(max, o.subtotalHet || o.grandTotal || 0), 0);
     const maxSingleOrderHet = Math.max(orderMaxHet, maxSaleHet);
+
+    const marketerUnpaidSales = m.tier === 'marketer'
+      ? sales.filter(s => s.marketerId.toUpperCase() === m.partnerCode.toUpperCase() && s.paidStatus !== 'paid')
+      : [];
+    const marketerUnpaidAmount = marketerUnpaidSales.reduce((sum, s) => sum + (s.commissionAmount || 0), 0);
+    const marketerPaidAmount = (m.tier === 'marketer'
+      ? sales.filter(s => s.marketerId.toUpperCase() === m.partnerCode.toUpperCase() && s.paidStatus === 'paid')
+      : []).reduce((sum, s) => sum + (s.commissionAmount || 0), 0);
+
     return {
       mitra: effectiveMitra,
       evalData: evaluateMitraRank(effectiveMitra.tier, effectiveSpent, {
@@ -395,7 +524,10 @@ export const PosDownlinesView: React.FC = () => {
         maxSingleOrderHet
       }),
       bonusInfo: calculateMitraBonusAndDiscount(effectiveMitra, pOrders),
-      dueDateInfo: getMitraDueDateInfo(effectiveMitra)
+      dueDateInfo: getMitraDueDateInfo(effectiveMitra, currentStore.marketerPaydayDate || 25),
+      marketerUnpaidAmount,
+      marketerPaidAmount,
+      marketerTotalCommission: marketerUnpaidAmount + marketerPaidAmount
     };
   });
 
@@ -484,7 +616,7 @@ export const PosDownlinesView: React.FC = () => {
           border: 'rgba(99, 102, 241, 0.4)',
           avatarBg: 'rgba(99, 102, 241, 0.15)',
           avatarColor: '#818cf8',
-          req: 'Bayar Full HET • Gaji Tgl 25'
+          req: `Bayar Full HET • Gaji Tgl ${currentStore.marketerPaydayDate || 25}`
         };
       case 'konsumen':
       default:
@@ -553,7 +685,10 @@ export const PosDownlinesView: React.FC = () => {
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab('payroll')}
+              onClick={() => {
+                setActiveTab('payroll');
+                if (onSubTabChange) onSubTabChange('payroll');
+              }}
               style={{
                 padding: '6px 14px',
                 borderRadius: '999px',
@@ -569,7 +704,19 @@ export const PosDownlinesView: React.FC = () => {
               }}
             >
               <DollarSign size={14} />
-              <span>Komisi ({sales.length})</span>
+              <span>Gaji &amp; Komisi Marketer ({sales.length})</span>
+              {totalCommissionUnpaid > 0 && (
+                <span style={{
+                  background: '#f59e0b',
+                  color: '#0f172a',
+                  padding: '1px 6px',
+                  borderRadius: '999px',
+                  fontSize: '0.66rem',
+                  fontWeight: 900
+                }}>
+                  Pending: Rp {totalCommissionUnpaid.toLocaleString('id-ID')}
+                </span>
+              )}
             </button>
           </div>
 
@@ -725,17 +872,65 @@ export const PosDownlinesView: React.FC = () => {
           </div>
         </div>
 
-        <div style={{ background: 'rgba(99, 102, 241, 0.12)', padding: '14px 16px', borderRadius: '12px', border: '1.5px solid rgba(99, 102, 241, 0.4)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.74rem', color: '#a5b4fc', fontWeight: 800 }}>💼 Total Gaji Marketer (15%)</span>
-            <DollarSign size={16} color="#818cf8" />
+        <div
+          onClick={() => {
+            setActiveTab('payroll');
+            if (onSubTabChange) onSubTabChange('payroll');
+          }}
+          style={{
+            background: 'rgba(99, 102, 241, 0.12)',
+            padding: '14px 16px',
+            borderRadius: '12px',
+            border: '1.5px solid rgba(99, 102, 241, 0.4)',
+            cursor: 'pointer',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between'
+          }}
+          title="Klik untuk membuka menu Pelunasan Gaji Marketer"
+        >
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.74rem', color: '#a5b4fc', fontWeight: 800 }}>💼 Total Gaji Marketer (15%)</span>
+              <DollarSign size={16} color="#818cf8" />
+            </div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#818cf8', marginTop: '4px' }}>
+              Rp {totalMarketerSalaries.toLocaleString('id-ID')}
+            </div>
+            <div style={{ fontSize: '0.7rem', color: '#c7d2fe', marginTop: '2px' }}>
+              {totalCommissionUnpaid > 0 ? (
+                <b style={{ color: '#fbbf24' }}>⏳ Rp {totalCommissionUnpaid.toLocaleString('id-ID')} belum dicairkan</b>
+              ) : (
+                '✓ Semua komisi sudah lunas'
+              )}
+            </div>
           </div>
-          <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#818cf8', marginTop: '4px' }}>
-            Rp {totalMarketerSalaries.toLocaleString('id-ID')}
-          </div>
-          <div style={{ fontSize: '0.7rem', color: '#c7d2fe', marginTop: '2px' }}>
-            Komisi bulanan 15% hak Marketer
-          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveTab('payroll');
+              if (onSubTabChange) onSubTabChange('payroll');
+            }}
+            style={{
+              marginTop: '10px',
+              background: 'linear-gradient(135deg, #10b981, #059669)',
+              color: '#ffffff',
+              border: 'none',
+              padding: '6px 10px',
+              borderRadius: '7px',
+              fontSize: '0.72rem',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '5px'
+            }}
+          >
+            <CheckCircle2 size={12} />
+            <span>{totalCommissionUnpaid > 0 ? 'Lunaskan Gaji Marketer &rarr;' : 'Lihat Rekap Gaji &rarr;'}</span>
+          </button>
         </div>
 
         <div style={{ background: 'rgba(16, 185, 129, 0.12)', padding: '14px 16px', borderRadius: '12px', border: '1.5px solid rgba(16, 185, 129, 0.4)' }}>
@@ -978,8 +1173,8 @@ export const PosDownlinesView: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredDownlines.map(({ mitra, evalData, bonusInfo, dueDateInfo }) => {
-                      const waUrl = generateMitraWaReminderUrl(mitra, currentStore.storeName, evalData);
+                    {filteredDownlines.map(({ mitra, evalData, bonusInfo, dueDateInfo, marketerUnpaidAmount, marketerPaidAmount, marketerTotalCommission }) => {
+                      const waUrl = generateMitraWaReminderUrl(mitra, currentStore.storeName, evalData, currentStore.marketerPaydayDate || 25);
                       const isPromotable = evalData.status === 'promotable';
                       const isWarning = evalData.status === 'warning';
                       const badgeStyle = getTierBadgeStyle(mitra.tier);
@@ -1202,22 +1397,65 @@ export const PosDownlinesView: React.FC = () => {
                               </button>
 
                               {mitra.tier === 'marketer' && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleCopyAffiliateLink(mitra.partnerCode)}
-                                  className="mitra-pill-btn"
-                                  style={{
-                                    background: copiedAffiliateCode === mitra.partnerCode.toUpperCase() ? '#10b981' : '#4f46e5',
-                                    color: '#ffffff',
-                                    border: 'none',
-                                    padding: '6px 11px',
-                                    fontSize: '0.72rem'
-                                  }}
-                                  title={`Salin Link Toko Affiliate (${mitra.partnerCode})`}
-                                >
-                                  {copiedAffiliateCode === mitra.partnerCode.toUpperCase() ? <Check size={13} /> : <Copy size={13} />}
-                                  <span>{copiedAffiliateCode === mitra.partnerCode.toUpperCase() ? 'Tersalin!' : 'Link Affiliate'}</span>
-                                </button>
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCopyAffiliateLink(mitra.partnerCode)}
+                                    className="mitra-pill-btn"
+                                    style={{
+                                      background: copiedAffiliateCode === mitra.partnerCode.toUpperCase() ? '#10b981' : '#4f46e5',
+                                      color: '#ffffff',
+                                      border: 'none',
+                                      padding: '6px 11px',
+                                      fontSize: '0.72rem'
+                                    }}
+                                    title={`Salin Link Toko Affiliate (${mitra.partnerCode})`}
+                                  >
+                                    {copiedAffiliateCode === mitra.partnerCode.toUpperCase() ? <Check size={13} /> : <Copy size={13} />}
+                                    <span>{copiedAffiliateCode === mitra.partnerCode.toUpperCase() ? 'Tersalin!' : 'Link Affiliate'}</span>
+                                  </button>
+
+                                  {(marketerUnpaidAmount || 0) > 0 ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handlePaySpecificMarketer(mitra.partnerCode, mitra.name, marketerUnpaidAmount || 0)}
+                                      className="mitra-pill-btn"
+                                      style={{
+                                        background: 'linear-gradient(135deg, #10b981, #059669)',
+                                        color: '#ffffff',
+                                        border: 'none',
+                                        padding: '6px 12px',
+                                        fontSize: '0.72rem',
+                                        fontWeight: 800,
+                                        boxShadow: '0 2px 6px rgba(16, 185, 129, 0.35)'
+                                      }}
+                                      title="Lunaskan komisi pending untuk marketer ini dan otomatis catat sebagai KAS KELUAR di Buku Kas"
+                                    >
+                                      <CheckCircle2 size={13} />
+                                      <span>Lunaskan Gaji (Rp {(marketerUnpaidAmount || 0).toLocaleString('id-ID')})</span>
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveTab('payroll');
+                                        if (onSubTabChange) onSubTabChange('payroll');
+                                      }}
+                                      className="mitra-pill-btn"
+                                      style={{
+                                        background: '#1e293b',
+                                        color: '#94a3b8',
+                                        border: '1px solid #334155',
+                                        padding: '6px 10px',
+                                        fontSize: '0.72rem'
+                                      }}
+                                      title="Lihat riwayat komisi dan pencairan gaji marketer"
+                                    >
+                                      <CheckCircle2 size={12} color="#34d399" />
+                                      <span>Gaji Lunas</span>
+                                    </button>
+                                  )}
+                                </>
                               )}
 
                               <button
@@ -1245,8 +1483,8 @@ export const PosDownlinesView: React.FC = () => {
 
               {/* 2. Mobile Card List (Ultra-Sleek Native App View on HP screens) */}
               <div className="hide-on-desktop" style={{ padding: '12px' }}>
-                {filteredDownlines.map(({ mitra, evalData, bonusInfo, dueDateInfo }) => {
-                  const waUrl = generateMitraWaReminderUrl(mitra, currentStore.storeName, evalData);
+                {filteredDownlines.map(({ mitra, evalData, bonusInfo, dueDateInfo, marketerUnpaidAmount, marketerPaidAmount, marketerTotalCommission }) => {
+                  const waUrl = generateMitraWaReminderUrl(mitra, currentStore.storeName, evalData, currentStore.marketerPaydayDate || 25);
                   const isPromotable = evalData.status === 'promotable';
                   const isWarning = evalData.status === 'warning';
                   const badgeStyle = getTierBadgeStyle(mitra.tier);
@@ -1389,6 +1627,82 @@ export const PosDownlinesView: React.FC = () => {
                         <span>{dueDateInfo.displayLine}</span>
                       </div>
 
+                      {/* Khusus Marketer: Status Gaji & Tombol Pelunasan Cepat di Mobile */}
+                      {mitra.tier === 'marketer' && (
+                        <div
+                          style={{
+                            background: (marketerUnpaidAmount || 0) > 0 ? 'rgba(245, 158, 11, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                            border: `1.5px solid ${(marketerUnpaidAmount || 0) > 0 ? '#f59e0b' : '#10b981'}`,
+                            borderRadius: '10px',
+                            padding: '10px 12px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '6px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <CreditCard size={14} color={(marketerUnpaidAmount || 0) > 0 ? '#f59e0b' : '#34d399'} />
+                              <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#f8fafc' }}>Gaji &amp; Komisi (15%)</span>
+                            </div>
+                            <span
+                              style={{
+                                fontSize: '0.7rem',
+                                padding: '2px 8px',
+                                borderRadius: '999px',
+                                fontWeight: 800,
+                                background: (marketerUnpaidAmount || 0) > 0 ? 'rgba(245, 158, 11, 0.25)' : 'rgba(16, 185, 129, 0.25)',
+                                color: (marketerUnpaidAmount || 0) > 0 ? '#f59e0b' : '#34d399'
+                              }}
+                            >
+                              {(marketerUnpaidAmount || 0) > 0 ? 'Belum Cair' : '✓ Lunas'}
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Total Hak Gaji:</span>
+                            <b style={{ fontSize: '0.88rem', color: '#38bdf8' }}>Rp {(marketerTotalCommission || 0).toLocaleString('id-ID')}</b>
+                          </div>
+
+                          {(marketerUnpaidAmount || 0) > 0 ? (
+                            <>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: '0.72rem', color: '#f59e0b', fontWeight: 700 }}>Pending Pelunasan:</span>
+                                <b style={{ fontSize: '0.92rem', color: '#f59e0b', fontWeight: 900 }}>Rp {(marketerUnpaidAmount || 0).toLocaleString('id-ID')}</b>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handlePaySpecificMarketer(mitra.partnerCode, mitra.name, marketerUnpaidAmount || 0)}
+                                style={{
+                                  marginTop: '4px',
+                                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  borderRadius: '8px',
+                                  padding: '9px 12px',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 800,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '6px',
+                                  cursor: 'pointer',
+                                  boxShadow: '0 2px 6px rgba(16, 185, 129, 0.35)'
+                                }}
+                              >
+                                <CheckCircle2 size={15} />
+                                <span>Lunaskan Gaji (Rp {(marketerUnpaidAmount || 0).toLocaleString('id-ID')}) &rarr; Kas Keluar</span>
+                              </button>
+                            </>
+                          ) : (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem', color: '#34d399' }}>
+                              <span>Semua gaji sudah dilunaskan (tercatat di Kas Keluar)</span>
+                              <Check size={14} />
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {/* Card Action Buttons */}
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                         <a
@@ -1479,9 +1793,23 @@ export const PosDownlinesView: React.FC = () => {
         <div style={{ background: '#1e293b', borderRadius: '14px', border: '1px solid #334155', overflow: 'hidden' }}>
           <div style={{ padding: '14px 18px', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
             <div>
-              <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: '#f8fafc' }}>
-                Rekap Gaji &amp; Komisi Marketer Bulanan (15% HET)
-              </h4>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: '#f8fafc' }}>
+                  Rekap Gaji &amp; Komisi Marketer Bulanan (15% HET)
+                </h4>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(56, 189, 248, 0.15)', border: '1px solid rgba(56, 189, 248, 0.35)', padding: '2px 8px', borderRadius: '6px', fontSize: '0.72rem', color: '#38bdf8' }}>
+                  <Calendar size={12} />
+                  <span>Jadwal Gajian: <b>Tgl {currentStore.marketerPaydayDate || 25}</b></span>
+                  <button
+                    type="button"
+                    onClick={handleQuickChangePayday}
+                    style={{ background: 'none', border: 'none', color: '#93c5fd', cursor: 'pointer', padding: '0 2px', textDecoration: 'underline', fontSize: '0.7rem' }}
+                    title="Ubah tanggal gajian toko"
+                  >
+                    (Ubah)
+                  </button>
+                </div>
+              </div>
               <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: '#94a3b8' }}>
                 Dihitung otomatis dari pesanan yang masuk lewat link referral ?ref=KODE_MARKETER
               </p>
@@ -1499,19 +1827,43 @@ export const PosDownlinesView: React.FC = () => {
                     background: 'linear-gradient(135deg, #10b981, #059669)',
                     color: '#fff',
                     border: 'none',
-                    padding: '7px 12px',
+                    padding: '8px 14px',
                     borderRadius: '8px',
-                    fontSize: '0.78rem',
+                    fontSize: '0.8rem',
                     fontWeight: 800,
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '5px'
+                    gap: '6px',
+                    boxShadow: '0 2px 8px rgba(16, 185, 129, 0.35)'
                   }}
                   title="Tandai semua komisi pending menjadi LUNAS dan otomatis catat sebagai KAS KELUAR di Buku Kas"
                 >
-                  <CheckCircle2 size={13} />
-                  <span>Lunaskan Semua (Catat Kas Keluar)</span>
+                  <CheckCircle2 size={14} />
+                  <span>Lunaskan Semua (Rp {totalCommissionUnpaid.toLocaleString('id-ID')})</span>
+                </button>
+              )}
+              {onSwitchTab && (
+                <button
+                  type="button"
+                  onClick={() => onSwitchTab('cashflow')}
+                  style={{
+                    background: '#0f172a',
+                    color: '#38bdf8',
+                    border: '1px solid #38bdf8',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                  title="Buka Tab Buku Kas untuk mengecek mutasi Kas Keluar"
+                >
+                  <BookOpen size={14} />
+                  <span>Lihat di Buku Kas &rarr;</span>
                 </button>
               )}
             </div>
@@ -1557,23 +1909,52 @@ export const PosDownlinesView: React.FC = () => {
                         Rp {s.commissionAmount.toLocaleString('id-ID')}
                       </td>
                       <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                        <button
-                          type="button"
-                          onClick={() => handleTogglePayrollStatus(s)}
-                          style={{
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontSize: '0.72rem',
-                            padding: '4px 10px',
-                            borderRadius: '999px',
-                            fontWeight: 800,
-                            background: s.paidStatus === 'paid' ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)',
-                            color: s.paidStatus === 'paid' ? '#34d399' : '#f59e0b'
-                          }}
-                          title="Klik untuk ubah status LUNAS / PENDING"
-                        >
-                          {s.paidStatus === 'paid' ? '✓ LUNAS' : '⏳ PENDING'}
-                        </button>
+                        {s.paidStatus === 'paid' ? (
+                          <button
+                            type="button"
+                            onClick={() => handleTogglePayrollStatus(s)}
+                            style={{
+                              border: '1px solid rgba(16, 185, 129, 0.4)',
+                              cursor: 'pointer',
+                              fontSize: '0.74rem',
+                              padding: '5px 12px',
+                              borderRadius: '999px',
+                              fontWeight: 800,
+                              background: 'rgba(16, 185, 129, 0.15)',
+                              color: '#34d399',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                            title="Lunas dan tercatat sebagai KAS KELUAR di Buku Kas. Klik untuk batalkan jika diperlukan."
+                          >
+                            <Check size={13} />
+                            <span>✓ LUNAS (Kas Keluar)</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleTogglePayrollStatus(s)}
+                            style={{
+                              border: 'none',
+                              cursor: 'pointer',
+                              fontSize: '0.74rem',
+                              padding: '6px 12px',
+                              borderRadius: '8px',
+                              fontWeight: 800,
+                              background: 'linear-gradient(135deg, #10b981, #059669)',
+                              color: '#ffffff',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              boxShadow: '0 2px 6px rgba(16, 185, 129, 0.35)'
+                            }}
+                            title="Klik untuk lunaskan komisi ini dan otomatis catat sebagai KAS KELUAR di Buku Kas"
+                          >
+                            <CreditCard size={13} />
+                            <span>Lunaskan (Kas Keluar)</span>
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => handleDeleteMarketerSale(s)}
@@ -1583,7 +1964,7 @@ export const PosDownlinesView: React.FC = () => {
                             background: 'rgba(239, 68, 68, 0.1)',
                             color: '#f87171',
                             borderRadius: '6px',
-                            padding: '4px 7px',
+                            padding: '5px 8px',
                             cursor: 'pointer',
                             verticalAlign: 'middle'
                           }}
@@ -1694,7 +2075,7 @@ export const PosDownlinesView: React.FC = () => {
               {/* Tanggal Batas Jatuh Tempo Evaluasi Target */}
               {tier === 'marketer' ? (
                 <div style={{ background: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.3)', borderRadius: '8px', padding: '9px 12px', fontSize: '0.75rem', color: '#cbd5e1' }}>
-                  💼 <b>Jadwal Gaji Marketer:</b> Marketer tidak memiliki batas target penurunan peringkat. Seluruh komisi 15% dibayarkan serentak pada <b>Tanggal 25 setiap bulannya</b>.
+                  💼 <b>Jadwal Gaji Marketer:</b> Marketer tidak memiliki batas target penurunan peringkat. Seluruh komisi 15% dibayarkan serentak pada <b>Tanggal {currentStore.marketerPaydayDate || 25} setiap bulannya</b>.
                 </div>
               ) : tier === 'konsumen' ? (
                 <div style={{ background: 'rgba(148, 163, 184, 0.1)', border: '1px solid rgba(148, 163, 184, 0.3)', borderRadius: '8px', padding: '9px 12px', fontSize: '0.75rem', color: '#94a3b8' }}>
@@ -1824,7 +2205,7 @@ export const PosDownlinesView: React.FC = () => {
                 </div>
               ) : selectedNewTier === 'marketer' ? (
                 <div style={{ background: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.3)', borderRadius: '8px', padding: '9px 12px', fontSize: '0.75rem', color: '#cbd5e1' }}>
-                  💼 <b>Jadwal Gaji Marketer:</b> Bebas batas penurunan jenjang. Seluruh komisi 15% dicairkan serentak pada <b>Tanggal 25 setiap bulannya</b>.
+                  💼 <b>Jadwal Gaji Marketer:</b> Bebas batas penurunan jenjang. Seluruh komisi 15% dicairkan serentak pada <b>Tanggal {currentStore.marketerPaydayDate || 25} setiap bulannya</b>.
                 </div>
               ) : (
                 <div style={{ background: 'rgba(148, 163, 184, 0.1)', border: '1px solid rgba(148, 163, 184, 0.3)', borderRadius: '8px', padding: '9px 12px', fontSize: '0.75rem', color: '#94a3b8' }}>
@@ -1903,7 +2284,7 @@ export const PosDownlinesView: React.FC = () => {
                 </div>
                 <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '0.76rem', color: '#cbd5e1', lineHeight: 1.6 }}>
                   <li>Marketer <b>membayar FULL sesuai harga HET</b> saat berbelanja di kasir atau toko online (tanpa potongan diskon 15% langsung).</li>
-                  <li>Potongan <b>15% dicatat sebagai gaji/komisi</b> yang diterima serentak pada <b>Tanggal 25 setiap bulannya</b>.</li>
+                  <li>Potongan <b>15% dicatat sebagai gaji/komisi</b> yang diterima serentak pada <b>Tanggal {currentStore.marketerPaydayDate || 25} setiap bulannya</b>.</li>
                   <li>Punya <b>kesempatan emas naik menjadi RESELLER</b> melalui <b>First Order Reseller Rp 500.000,- HET</b> (Rp 400.000,- net) ATAU jalur omset akumulasi <b>Rp 800.000,-</b> (dengan omset pribadi min Rp 300.000,- berturut-turut 3 bulan).</li>
                   <li style={{ color: '#34d399', fontWeight: 800 }}>Jika target Reseller belum tercapai, <b>Marketer TETAP MENJADI MITRA AKTIF</b> (tidak ada batas target evaluasi penurunan tingkat dan tidak pernah dikeluarkan dari kemitraan SR12).</li>
                 </ul>

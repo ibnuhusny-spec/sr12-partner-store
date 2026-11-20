@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { SafeModalOverlay } from '../common/SafeModalOverlay';
 import { Product, CashierOperator } from '../../types';
@@ -48,12 +48,35 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
   const safeCashierOwner = isDemoSession ? 'Kasir Demo' : currentStore.storeOwner;
   const safeCashierPin = isDemoSession ? '0000' : currentStore.storeAdminPin;
   const [activeTab, setActiveTab] = useState<'cashier' | 'transactions' | 'inventory' | 'cashflow' | 'reports' | 'downlines' | 'settings'>('cashier');
+  const [downlinesSubTab, setDownlinesSubTab] = useState<'downlines' | 'payroll'>('downlines');
   const [activeCashier, setActiveCashierState] = useState<CashierOperator>(() =>
     getActiveCashier(currentStore.slug, safeCashierOwner, safeCashierPin)
   );
   const [isClockedIn, setIsClockedIn] = useState(true);
   const [showCashierModal, setShowCashierModal] = useState(false);
   const [showLogoutConfirmModal, setShowLogoutConfirmModal] = useState(false);
+
+  const handleSwitchTab = (tab: any, subTab?: string) => {
+    if (tab === 'downlines' && subTab === 'payroll') {
+      setDownlinesSubTab('payroll');
+    }
+    setActiveTab(tab);
+  };
+
+  useEffect(() => {
+    const handleCustomSwitch = (e: any) => {
+      const targetTab = e?.detail?.tab;
+      const targetSubTab = e?.detail?.subTab;
+      if (targetTab) {
+        if (targetTab === 'downlines' && targetSubTab === 'payroll') {
+          setDownlinesSubTab('payroll');
+        }
+        setActiveTab(targetTab);
+      }
+    };
+    window.addEventListener('sr12:switch_pos_tab', handleCustomSwitch);
+    return () => window.removeEventListener('sr12:switch_pos_tab', handleCustomSwitch);
+  }, []);
 
   const handleMasterResetSimulation = async () => {
     if (window.confirm(`⚠️ PERINGATAN MASTER RESET:\n\nApakah Anda ingin MERESET SEMUA data toko "${currentStore.storeName}"?\n\n• Seluruh riwayat transaksi akan dihapus\n• Seluruh catatan buku kas akan dihapus\n• Seluruh riwayat mutasi stok akan dibersihkan\n• Seluruh mitra downline akan dikosongkan (0 mitra)\n• Seluruh komisi marketer akan dibersihkan\n• Stok produk akan dikembalikan ke Master SR12 (50 pcs)\n\nSimulasi akan bersih dan kembali ke kondisi awal.`)) {
@@ -426,9 +449,15 @@ export const PosLayout: React.FC<PosLayoutProps> = ({
             onResetCatalogToMaster={onResetCatalogToMaster}
           />
         )}
-        {activeTab === 'cashflow' && <PosCashflowView />}
-        {activeTab === 'reports' && <PosReportsView />}
-        {activeTab === 'downlines' && <PosDownlinesView />}
+        {activeTab === 'cashflow' && <PosCashflowView onSwitchTab={handleSwitchTab} />}
+        {activeTab === 'reports' && <PosReportsView onSwitchTab={handleSwitchTab} />}
+        {activeTab === 'downlines' && (
+          <PosDownlinesView
+            onSwitchTab={handleSwitchTab}
+            initialSubTab={downlinesSubTab}
+            onSubTabChange={setDownlinesSubTab}
+          />
+        )}
         {activeTab === 'settings' && <PosSettingsView />}
       </main>
 

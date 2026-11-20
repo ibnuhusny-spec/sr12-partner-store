@@ -372,9 +372,9 @@ export interface MitraDueDateInfo {
 
 /**
  * Menghitung tanggal batas akhir perhitungan penghasilan / evaluasi target omset mitra
- * Khusus Marketer menerima gaji serentak di hari yang sama setiap bulannya (Tanggal 25)
+ * Khusus Marketer menerima gaji serentak di hari yang sama setiap bulannya (Default: Tanggal 25)
  */
-export function getMitraDueDateInfo(mitra: MitraDownline): MitraDueDateInfo {
+export function getMitraDueDateInfo(mitra: MitraDownline, targetPaydayDay = 25): MitraDueDateInfo {
   const now = new Date();
 
   if (mitra.tier === 'konsumen') {
@@ -393,29 +393,30 @@ export function getMitraDueDateInfo(mitra: MitraDownline): MitraDueDateInfo {
   }
 
   if (mitra.tier === 'marketer') {
-    // Marketer menerima gaji serentak di hari yang sama setiap bulannya (Tanggal 25)
+    // Marketer menerima gaji serentak di hari yang sama setiap bulannya (dapat diatur per toko)
+    const payday = Math.min(31, Math.max(1, Math.round(targetPaydayDay) || 25));
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
     const currentDay = now.getDate();
 
-    let payDate = new Date(currentYear, currentMonth, 25);
-    if (currentDay > 25) {
-      payDate = new Date(currentYear, currentMonth + 1, 25);
+    let payDate = new Date(currentYear, currentMonth, payday);
+    if (currentDay > payday) {
+      payDate = new Date(currentYear, currentMonth + 1, payday);
     }
 
     const diffTime = payDate.getTime() - now.getTime();
     const daysRemaining = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-    const formattedPayDate = `25 ${months[payDate.getMonth()]} ${payDate.getFullYear()}`;
+    const formattedPayDate = `${payday} ${months[payDate.getMonth()]} ${payDate.getFullYear()}`;
 
     return {
       isMarketer: true,
       isCustomer: false,
-      dueDateStr: 'Tgl 25 Setiap Bulan',
+      dueDateStr: `Tgl ${payday} Setiap Bulan`,
       rawDate: payDate.toISOString().split('T')[0],
       daysRemaining,
       status: 'monthly_fixed',
-      badgeLabel: `💼 Gajian Tgl 25 (${daysRemaining === 0 ? 'Hari Ini!' : `Sisa ${daysRemaining} hr`})`,
+      badgeLabel: `💼 Gajian Tgl ${payday} (${daysRemaining === 0 ? 'Hari Ini!' : `Sisa ${daysRemaining} hr`})`,
       badgeColor: '#818cf8',
       badgeBg: 'rgba(99, 102, 241, 0.15)',
       displayLine: `Gaji Serentak: ${formattedPayDate} (${daysRemaining === 0 ? 'Hari Ini' : `Sisa ${daysRemaining} hari`})`
@@ -494,11 +495,13 @@ export function getMitraDueDateInfo(mitra: MitraDownline): MitraDueDateInfo {
 export function generateMitraWaReminderUrl(
   mitra: MitraDownline,
   storeName: string,
-  evaluation: MitraRankEvaluation
+  evaluation: MitraRankEvaluation,
+  targetPaydayDay = 25
 ): string {
   const cleanPhone = mitra.phone.replace(/[^0-9]/g, '');
   const phoneTarget = cleanPhone.startsWith('0') ? '62' + cleanPhone.slice(1) : cleanPhone;
-  const dueDateInfo = getMitraDueDateInfo(mitra);
+  const payday = Math.min(31, Math.max(1, Math.round(targetPaydayDay) || 25));
+  const dueDateInfo = getMitraDueDateInfo(mitra, payday);
 
   let message = '';
   const tierName = evaluation.currentTierConfig.name;
@@ -543,7 +546,7 @@ export function generateMitraWaReminderUrl(
       message = `Halo Kak *${mitra.name}* (Mitra Marketer SR12 ${mitra.partnerCode})! 🌿\n\n` +
         `Semangat terus berbisnis bersama *${storeName}*.\n` +
         `Akumulasi penjualan Kakak saat ini tercatat *${spentFormatted}*.\n` +
-        `🗓️ *Jadwal Pembayaran Gaji Bulanan:* Serentak tanggal 25 setiap bulan (${dueDateInfo.displayLine}).\n\n` +
+        `🗓️ *Jadwal Pembayaran Gaji Bulanan:* Serentak tanggal ${payday} setiap bulan (${dueDateInfo.displayLine}).\n\n` +
         `💡 *PELUANG NAIK LEVEL MENJADI RESELLER:*\n` +
         `Sebagai Marketer, Kakak punya kesempatan emas untuk naik tingkat menjadi *RESELLER RESMI SR12*:\n` +
         `• Cukup capai 1x order First Order Rp 500.000,- HET ATAU akumulasi Rp 800.000,- HET.\n` +

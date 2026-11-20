@@ -171,7 +171,14 @@ export async function fetchStoreCashflow(storeSlug: string): Promise<CashflowEnt
 export async function saveCashflowEntry(entry: CashflowEntry, storeSlug: string): Promise<CashflowEntry[]> {
   const safeSlug = (storeSlug || 'sr12-central').toLowerCase();
 
-  // Simpan mutasi arus kas ke Supabase Database table 'orders'
+  // 1. Simpan mutasi arus kas ke local storage secara instan (0ms latency)
+  try {
+    const localList = getStoredCashflow(safeSlug);
+    const dedupedLocal = [entry, ...localList.filter(e => e.id !== entry.id)];
+    localStorage.setItem(`sr12_cashflow_${safeSlug}`, JSON.stringify(dedupedLocal));
+  } catch {}
+
+  // 2. Simpan mutasi arus kas ke Supabase Database table 'orders'
   const orderPayload: any = {
     orderId: entry.id.startsWith('CSH-') ? entry.id : `CSH-${entry.id}`,
     storeSlug: safeSlug,

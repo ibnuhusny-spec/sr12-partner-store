@@ -8,10 +8,15 @@ import {
   deleteCashflowEntry,
   clearAllCashflow
 } from '../../services/posService';
+import { getLocalMarketerSales } from '../../services/mitraService';
 import { CashflowEntry } from '../../types';
 import { TrendingUp, TrendingDown, Plus, Wallet, Trash2, Coins, RefreshCw } from 'lucide-react';
 
-export const PosCashflowView: React.FC = () => {
+interface PosCashflowViewProps {
+  onSwitchTab?: (tab: string, subTab?: string) => void;
+}
+
+export const PosCashflowView: React.FC<PosCashflowViewProps> = ({ onSwitchTab }) => {
   const { currentStore } = useApp();
   const [entries, setEntries] = useState<CashflowEntry[]>(() => getStoredCashflow(currentStore.slug));
   const [isLoading, setIsLoading] = useState(false);
@@ -108,6 +113,11 @@ export const PosCashflowView: React.FC = () => {
   const totalIn = entries.filter(e => e.type === 'in').reduce((sum, e) => sum + e.amount, 0);
   const totalOut = entries.filter(e => e.type === 'out').reduce((sum, e) => sum + e.amount, 0);
   const netCash = totalIn - totalOut;
+
+  // Cek apakah ada komisi marketer yang pending belum dibayarkan
+  const unpaidMarketerSales = getLocalMarketerSales(currentStore.slug).filter(s => s.paidStatus !== 'paid');
+  const totalUnpaidMarketer = unpaidMarketerSales.reduce((sum, s) => sum + (s.commissionAmount || 0), 0);
+  const hasPaidMarketerSalary = entries.some(e => e.type === 'out' && (e.category.includes('Marketer') || e.id.startsWith('CSH-MKT-')));
 
   return (
     <div style={{ padding: '20px', background: '#0b1329', minHeight: 'calc(100vh - 65px)', color: '#f8fafc' }}>
@@ -216,6 +226,60 @@ export const PosCashflowView: React.FC = () => {
         </div>
       </div>
 
+      {/* Banner Peringatan Gaji Marketer Belum Dibayar (Jika Ada) */}
+      {totalUnpaidMarketer > 0 && (
+        <div style={{
+          background: 'rgba(99, 102, 241, 0.12)',
+          border: '1.5px solid rgba(99, 102, 241, 0.35)',
+          borderRadius: '12px',
+          padding: '12px 16px',
+          marginBottom: '16px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '10px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '1.3rem' }}>💼</span>
+            <div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#f8fafc' }}>
+                Gaji Marketer Belum Dicairkan: <span style={{ color: '#fbbf24', fontSize: '0.95rem' }}>Rp {totalUnpaidMarketer.toLocaleString('id-ID')}</span> ({unpaidMarketerSales.length} transaksi)
+              </div>
+              <p style={{ margin: '2px 0 0', fontSize: '0.74rem', color: '#94a3b8' }}>
+                Ketika Anda klik tombol "Lunaskan Gaji", total Kas Keluar di bawah akan otomatis bertambah dan saldo kasir berkurang secara presisi.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (onSwitchTab) {
+                onSwitchTab('downlines', 'payroll');
+              } else if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('sr12:switch_pos_tab', { detail: { tab: 'downlines', subTab: 'payroll' } }));
+              }
+            }}
+            style={{
+              background: 'linear-gradient(135deg, #10b981, #059669)',
+              color: '#ffffff',
+              border: 'none',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              fontSize: '0.76rem',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)'
+            }}
+          >
+            <span>Bayar / Lunaskan Gaji Sekarang &rarr;</span>
+          </button>
+        </div>
+      )}
+
       {/* Summary Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '20px' }}>
         <div style={{ background: '#1e293b', border: '1px solid #334155', padding: '14px', borderRadius: '10px' }}>
@@ -236,6 +300,11 @@ export const PosCashflowView: React.FC = () => {
           <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#f87171', marginTop: '4px' }}>
             Rp {totalOut.toLocaleString('id-ID')}
           </div>
+          {hasPaidMarketerSalary && (
+            <div style={{ fontSize: '0.68rem', color: '#a5b4fc', marginTop: '3px', fontWeight: 700 }}>
+              ✓ Termasuk pelunasan gaji marketer
+            </div>
+          )}
         </div>
 
         <div style={{ background: '#1e293b', border: '1px solid #38bdf8', padding: '14px', borderRadius: '10px' }}>
@@ -300,7 +369,14 @@ export const PosCashflowView: React.FC = () => {
                       </span>
                     </td>
                     <td style={{ padding: '10px 14px', fontWeight: 700, color: '#f8fafc' }}>
-                      {e.category}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        <span>{e.category}</span>
+                        {(e.category.includes('Marketer') || e.id.startsWith('CSH-MKT-')) && (
+                          <span style={{ fontSize: '0.66rem', fontWeight: 800, padding: '2px 6px', borderRadius: '4px', background: '#312e81', color: '#c7d2fe', border: '1px solid #4338ca' }}>
+                            💼 Gaji Marketer
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td style={{ padding: '10px 14px', color: '#94a3b8' }}>
                       {e.description || '-'}
