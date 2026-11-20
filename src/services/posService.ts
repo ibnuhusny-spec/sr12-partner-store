@@ -1,7 +1,8 @@
 import { CashflowEntry, CashierAttendanceLog, CashierOperator, StockMutation } from '../types';
 import { supabase, getActiveSessionToken } from '../config/supabase';
-import { fetchStoreOrders, createOrder, updateOrderStatus } from './orderService';
-import { filterDeletedCashflow, markCashflowDeleted, notifyPosDataSync } from './cleanupGuard';
+import { fetchStoreOrders, createOrder, updateOrderStatus, getLocalOrders } from './orderService';
+import { filterDeletedCashflow, markCashflowDeleted, notifyPosDataSync, unmarkCashflowDeleted } from './cleanupGuard';
+import { getLocalMarketerSales, fetchStoreMarketerSales, updateMarketerSalePaidStatus } from './mitraService';
 import { isDemoSessionActive } from './demoGuard';
 
 export function buildDefaultOwnerCashier(ownerName?: string, ownerPin?: string): CashierOperator {
@@ -79,13 +80,48 @@ export function setActiveCashier(storeSlug: string, cashier: CashierOperator): v
 
 /**
  * Membaca data buku kas dari memori lokal (0ms respon instan)
+ * Otomatis merekonsiliasi setiap komisi marketer yang sudah LUNAS agar selalu tercatat sebagai Kas Keluar
  */
 export function getStoredCashflow(storeSlug: string): CashflowEntry[] {
   try {
     const safeSlug = (storeSlug || 'sr12-central').toLowerCase();
     const raw = localStorage.getItem(`sr12_cashflow_${safeSlug}`);
     const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? filterDeletedCashflow(safeSlug, parsed) : [];
+    const baseList: CashflowEntry[] = Array.isArray(parsed) ? filterDeletedCashflow(safeSlug, parsed) : [];
+
+    // AUTO-RECONCILE (0ms): Pastikan seluruh marketer_sales dengan paidStatus === 'paid' selalu hadir di cashflow lokal
+    const existingIds = new Set(baseList.map(e => e.id));
+    const localSales = getLocalMarketerSales(safeSlug);
+    let hasNewPaidSales = false;
+
+    localSales.forEach(s => {
+      if (s.paidStatus === 'paid' && (s.commissionAmount || 0) > 0) {
+        const payoutId = `CSH-MKT-${s.orderId}`;
+        if (!existingIds.has(payoutId)) {
+          existingIds.add(payoutId);
+          baseList.push({
+            id: payoutId,
+            storeSlug: safeSlug,
+            date: s.paidDate || s.orderDate || new Date().toISOString(),
+            type: 'out',
+            category: 'Gaji & Komisi Marketer',
+            amount: s.commissionAmount,
+            description: `Pelunasan Komisi 15% Marketer #${s.marketerId} (Pesanan #${s.orderId} - ${s.customerName})`,
+            operator: 'Owner Toko'
+          });
+          hasNewPaidSales = true;
+        }
+      }
+    });
+
+    if (hasNewPaidSales) {
+      baseList.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      try {
+        localStorage.setItem(`sr12_cashflow_${safeSlug}`, JSON.stringify(baseList));
+      } catch {}
+    }
+
+    return baseList;
   } catch {
     return [];
   }
@@ -94,17 +130,21 @@ export function getStoredCashflow(storeSlug: string): CashflowEntry[] {
 /**
  * Mengambil data buku kas langsung dari Supabase Database (Single Source of Truth).
  * Otomatis menyinkronkan:
- * 1. Transaksi penjualan kasir POS offline
- * 2. Transaksi pesanan web toko yang sudah lunas
- * 3. Catatan kas masuk / kas keluar manual (seperti Buka Kas / Modal Awal, Operasional)
+ * 1. Transaksi penjualan kasir POS offline (Kas Masuk)
+ * 2. Transaksi pesanan web toko yang sudah lunas (Kas Masuk)
+ * 3. Seluruh pelunasan komisi 15% marketer yang berstatus LUNAS (Kas Keluar)
+ * 4. Catatan kas masuk / kas keluar manual (seperti Buka Kas / Modal Awal, Operasional)
  * Jika data direset/dikosongkan di satu perangkat, perangkat lain OTOMATIS BERSIH 100%.
  */
 export async function fetchStoreCashflow(storeSlug: string): Promise<CashflowEntry[]> {
   const safeSlug = (storeSlug || 'sr12-central').toLowerCase();
 
   try {
-    // 1. Ambil seluruh transaksi aktif toko dari Supabase RPC Database
-    const orders = await fetchStoreOrders(safeSlug);
+    // 1. Ambil transaksi aktif toko dan data komisi marketer dari Supabase Cloud / Fallback Lokal
+    const [orders, cloudSales] = await Promise.all([
+      fetchStoreOrders(safeSlug).catch(() => getLocalOrders(safeSlug)),
+      fetchStoreMarketerSales(safeSlug).catch(() => getLocalMarketerSales(safeSlug))
+    ]);
     
     // Filter HANYA transaksi yang aktif (TIDAK DIBATALKAN / TIDAK DIHAPUS)
     const activeOrders = (orders || []).filter(o => 
@@ -113,7 +153,9 @@ export async function fetchStoreCashflow(storeSlug: string): Promise<CashflowEnt
     );
 
     const cashList: CashflowEntry[] = [];
+    const addedIds = new Set<string>();
 
+    // 1. Catat penjualan kasir & manual cashflow dari orders
     activeOrders.forEach(ord => {
       const orderIdentifier = ord.orderId || ord.id || '';
       if (!orderIdentifier) return;
@@ -122,32 +164,69 @@ export async function fetchStoreCashflow(storeSlug: string): Promise<CashflowEnt
       const isManualOut = ord.orderSource === 'Kas Manual: out';
 
       if (isManualIn || isManualOut) {
-        cashList.push({
-          id: orderIdentifier,
-          storeSlug: safeSlug,
-          date: ord.createdAt || ord.orderDate || new Date().toISOString(),
-          type: isManualOut ? 'out' : 'in',
-          category: ord.customerName || 'Arus Kas Toko',
-          amount: ord.grandTotal || 0,
-          description: ord.customerAddress !== '-' ? (ord.customerAddress || '-') : (ord.customerName || '-'),
-          operator: ord.paymentMethod || 'Kasir Utama'
-        });
+        if (!addedIds.has(orderIdentifier)) {
+          addedIds.add(orderIdentifier);
+          cashList.push({
+            id: orderIdentifier,
+            storeSlug: safeSlug,
+            date: ord.createdAt || ord.orderDate || new Date().toISOString(),
+            type: isManualOut ? 'out' : 'in',
+            category: ord.customerName || 'Arus Kas Toko',
+            amount: ord.grandTotal || 0,
+            description: ord.customerAddress !== '-' ? (ord.customerAddress || '-') : (ord.customerName || '-'),
+            operator: ord.paymentMethod || 'Kasir Utama'
+          });
+        }
       } else if (
         ord.status === 'Lunas / Selesai' || 
         ord.status === 'Selesai' || 
         ord.status === 'Lunas' || 
         ord.orderSource?.includes('Kasir')
       ) {
-        cashList.push({
-          id: `CSH-ORD-${orderIdentifier}`,
-          storeSlug: safeSlug,
-          date: ord.createdAt || ord.orderDate || new Date().toISOString(),
-          type: 'in',
-          category: ord.orderSource?.includes('Kasir') ? 'Penjualan Kasir POS' : 'Pelunasan Pesanan Web',
-          amount: ord.grandTotal || ord.subtotalHet || 0,
-          description: `${ord.orderSource || 'Penjualan'} #${orderIdentifier} (${ord.customerName})`,
-          operator: 'Kasir POS'
-        });
+        const entryId = `CSH-ORD-${orderIdentifier}`;
+        if (!addedIds.has(entryId)) {
+          addedIds.add(entryId);
+          cashList.push({
+            id: entryId,
+            storeSlug: safeSlug,
+            date: ord.createdAt || ord.orderDate || new Date().toISOString(),
+            type: 'in',
+            category: ord.orderSource?.includes('Kasir') ? 'Penjualan Kasir POS' : 'Pelunasan Pesanan Web',
+            amount: ord.grandTotal || ord.subtotalHet || 0,
+            description: `${ord.orderSource || 'Penjualan'} #${orderIdentifier} (${ord.customerName})`,
+            operator: 'Kasir POS'
+          });
+        }
+      }
+    });
+
+    // 2. OTOMATIS CATAT SETIAP GAJI MARKETER YANG TELAH DILUNASKAN (PAID) KE KAS KELUAR
+    const activeSales = cloudSales && cloudSales.length > 0 ? cloudSales : getLocalMarketerSales(safeSlug);
+    activeSales.forEach(s => {
+      if (s.paidStatus === 'paid' && (s.commissionAmount || 0) > 0) {
+        const payoutId = `CSH-MKT-${s.orderId}`;
+        if (!addedIds.has(payoutId)) {
+          addedIds.add(payoutId);
+          cashList.push({
+            id: payoutId,
+            storeSlug: safeSlug,
+            date: s.paidDate || s.orderDate || new Date().toISOString(),
+            type: 'out',
+            category: 'Gaji & Komisi Marketer',
+            amount: s.commissionAmount,
+            description: `Pelunasan Komisi 15% Marketer #${s.marketerId} (Pesanan #${s.orderId} - ${s.customerName})`,
+            operator: 'Owner Toko'
+          });
+        }
+      }
+    });
+
+    // 3. Gabungkan juga entri lokal yang valid (misal manual cashflow yang belum tersinkronisasi)
+    const existingLocal = getStoredCashflow(safeSlug);
+    existingLocal.forEach(e => {
+      if (e.id && !addedIds.has(e.id)) {
+        addedIds.add(e.id);
+        cashList.push(e);
       }
     });
 
@@ -155,7 +234,7 @@ export async function fetchStoreCashflow(storeSlug: string): Promise<CashflowEnt
     cashList.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     const cleanCashList = filterDeletedCashflow(safeSlug, cashList);
 
-    // Timpa penyimpanan lokal dengan data mutlak dari Supabase Cloud
+    // Timpa penyimpanan lokal dengan data mutlak dari Supabase Cloud + Payroll Marketer
     localStorage.setItem(`sr12_cashflow_${safeSlug}`, JSON.stringify(cleanCashList));
     return cleanCashList;
   } catch (err) {
@@ -171,14 +250,17 @@ export async function fetchStoreCashflow(storeSlug: string): Promise<CashflowEnt
 export async function saveCashflowEntry(entry: CashflowEntry, storeSlug: string): Promise<CashflowEntry[]> {
   const safeSlug = (storeSlug || 'sr12-central').toLowerCase();
 
-  // 1. Simpan mutasi arus kas ke local storage secara instan (0ms latency)
+  // 1. Bersihkan dari tombstone jika sebelumnya pernah dihapus
+  unmarkCashflowDeleted(safeSlug, [entry.id]);
+
+  // 2. Simpan mutasi arus kas ke local storage secara instan (0ms latency)
   try {
     const localList = getStoredCashflow(safeSlug);
     const dedupedLocal = [entry, ...localList.filter(e => e.id !== entry.id)];
     localStorage.setItem(`sr12_cashflow_${safeSlug}`, JSON.stringify(dedupedLocal));
   } catch {}
 
-  // 2. Simpan mutasi arus kas ke Supabase Database table 'orders'
+  // 3. Simpan mutasi arus kas ke Supabase Database table 'orders'
   const orderPayload: any = {
     orderId: entry.id.startsWith('CSH-') ? entry.id : `CSH-${entry.id}`,
     storeSlug: safeSlug,
@@ -216,10 +298,24 @@ export async function saveCashflowEntry(entry: CashflowEntry, storeSlug: string)
  */
 export async function deleteCashflowEntry(id: string, storeSlug: string): Promise<CashflowEntry[]> {
   const safeSlug = (storeSlug || 'sr12-central').toLowerCase();
-  const cleanId = id.replace(/^CSH-ORD-/, '');
+  const cleanId = id.replace(/^CSH-ORD-/, '').replace(/^CSH-MKT-/, '');
   const token = getActiveSessionToken(safeSlug);
 
-  markCashflowDeleted(safeSlug, [id, cleanId]);
+  markCashflowDeleted(safeSlug, [id, cleanId, `CSH-MKT-${cleanId}`, `CSH-ORD-${cleanId}`]);
+
+  // Jika mutasi ini adalah pelunasan gaji marketer (CSH-MKT-...), ubah juga status komisinya kembali ke unpaid!
+  if (id.startsWith('CSH-MKT-')) {
+    try {
+      await updateMarketerSalePaidStatus(cleanId, 'unpaid', safeSlug);
+    } catch {}
+  }
+
+  // Hapus dari local storage instan
+  try {
+    const localList = getStoredCashflow(safeSlug);
+    const filtered = localList.filter(e => e.id !== id && e.id !== cleanId && e.id !== `CSH-MKT-${cleanId}`);
+    localStorage.setItem(`sr12_cashflow_${safeSlug}`, JSON.stringify(filtered));
+  } catch {}
 
   try {
     await updateOrderStatus(cleanId, 'Dibatalkan / Dihapus', safeSlug);

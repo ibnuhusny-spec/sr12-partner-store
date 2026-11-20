@@ -256,8 +256,8 @@ export function evaluateMitraRank(
   const remaining3MonthsMin = Math.max(0, cfg.accum3MonthsTarget - spentAmount);
   const remainingToPromo = promoTarget > 0 ? Math.max(0, promoTarget - spentAmount) : 0;
 
-  const progressMonthlyPct = cfg.minMonthlyTarget > 0 
-    ? Math.min(100, Math.round((spentAmount / cfg.minMonthlyTarget) * 100)) 
+  const progressMonthlyPct = cfg.minMonthlyTarget > 0
+    ? Math.min(100, Math.round((spentAmount / cfg.minMonthlyTarget) * 100))
     : 100;
 
   const progress3MonthsPct = cfg.accum3MonthsTarget > 0
@@ -346,8 +346,8 @@ export function evaluateMitraRank(
     shortMessage: nextCfg && promoTarget > 0
       ? `Kurang Rp ${remainingToPromo.toLocaleString('id-ID')} HET lagi untuk promosi naik ke ${nextCfg.name}.`
       : isFull3MonthsMet
-      ? `Target akumulasi 3 bulan tercapai aman!`
-      : `Target minimal bulanan tercapai! Sisa Rp ${remaining3MonthsMin.toLocaleString('id-ID')} lagi untuk melengkapi akumulasi 3 bulan.`,
+        ? `Target akumulasi 3 bulan tercapai aman!`
+        : `Target minimal bulanan tercapai! Sisa Rp ${remaining3MonthsMin.toLocaleString('id-ID')} lagi untuk melengkapi akumulasi 3 bulan.`,
     remainingMonthlyMin: 0,
     remaining3MonthsMin,
     remainingToPromo,
@@ -582,8 +582,8 @@ export function generateMitraWaReminderUrl(
       `Yuk segera restock produk best seller (Deodorant, Manjakani, Salimah, Sunscreen, Paket Glowing) hari ini. Hubungi kami untuk bantu proses order ya Kak. Semangat terus! 🔥`;
   } else {
     // Safe
-    const sisaPromo = evaluation.nextTierConfig && evaluation.remainingToPromo > 0 
-      ? `Tinggal *Rp ${evaluation.remainingToPromo.toLocaleString('id-ID')}* HET lagi untuk promosi ke *${evaluation.nextTierConfig.name}* (Diskon ${evaluation.nextTierConfig.discountPct}%)!` 
+    const sisaPromo = evaluation.nextTierConfig && evaluation.remainingToPromo > 0
+      ? `Tinggal *Rp ${evaluation.remainingToPromo.toLocaleString('id-ID')}* HET lagi untuk promosi ke *${evaluation.nextTierConfig.name}* (Diskon ${evaluation.nextTierConfig.discountPct}%)!`
       : 'Pertahankan prestasi hebat ini!';
 
     message = `Halo Kak *${mitra.name}* (Mitra SR12 ${mitra.partnerCode}) 🌿\n\n` +

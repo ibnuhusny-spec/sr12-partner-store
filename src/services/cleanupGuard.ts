@@ -219,6 +219,24 @@ export function markCashflowDeleted(storeSlug: string | undefined, cashflowIds: 
   });
 }
 
+/**
+ * Removes cashflow entry IDs from deletion tombstones when explicitly created or paid.
+ */
+export function unmarkCashflowDeleted(storeSlug: string | undefined, cashflowIds: string[]): void {
+  const slug = normalizeSlug(storeSlug);
+  const removeSet = new Set(cashflowIds.map(normalizeId).filter(Boolean));
+  if (removeSet.size === 0) return;
+
+  const tombstones = getTombstones(slug);
+  tombstones.deletedCashflowIds = tombstones.deletedCashflowIds.filter(
+    id => !removeSet.has(normalizeId(id))
+  );
+  tombstones.deletedOrderIds = tombstones.deletedOrderIds.filter(
+    id => !removeSet.has(normalizeId(id)) && !removeSet.has(normalizeId(`CSH-ORD-${id}`))
+  );
+  saveTombstones(slug, tombstones);
+}
+
 export function filterDeletedOrders(storeSlug: string | undefined, orders: Order[]): Order[] {
   const tombstones = getTombstones(storeSlug);
   const deletedSet = new Set(tombstones.deletedOrderIds.map(normalizeId));
