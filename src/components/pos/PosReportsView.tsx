@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { getLocalOrders, clearAllOrders, fetchStoreOrders } from '../../services/orderService';
 import { getLocalDownlines, fetchStoreDownlines, getLocalMarketerSales, fetchStoreMarketerSales } from '../../services/mitraService';
 import { exportReportsToCSV } from '../../services/posService';
+import { exportDailyPartnerSummaryToExcel, exportCompleteTransactionsToExcel } from '../../services/excelReportService';
 import { getStoreTierEconomics, SR12_TIERS } from '../../config/tiers';
 import { Order, MitraDownline, PartnerTier, MarketerSale } from '../../types';
 import {
@@ -258,7 +259,34 @@ export const PosReportsView: React.FC<PosReportsViewProps> = ({ onSwitchTab }) =
     }
   };
 
-  // Export 1: Daily Partner Sales Summary CSV
+  // Export 1: Daily Partner Sales Summary Excel (.xlsx) dengan Format Rapi, Warna, & Rekap Eksekutif
+  const handleExportDailyMitraExcel = async () => {
+    if (dailyPartnerSummaries.length === 0) {
+      alert('Belum ada data penjualan mitra untuk diekspor.');
+      return;
+    }
+
+    const periodLabel = period === 'today' ? 'Hari Ini' : (period === 'month' ? 'Bulan Ini' : 'Semua Periode');
+
+    try {
+      await exportDailyPartnerSummaryToExcel(
+        dailyPartnerSummaries,
+        {
+          storeName: currentStore.storeName,
+          partnerTier: currentStore.partnerTier,
+          storeCity: currentStore.storeCity,
+          storeOwner: currentStore.storeOwner,
+          slug: currentStore.slug
+        },
+        periodLabel
+      );
+    } catch (err: any) {
+      console.warn('Gagal export Excel modern, mengalihkan ke fallback CSV:', err);
+      handleExportDailyMitraCSV();
+    }
+  };
+
+  // Fallback CSV Export 1
   const handleExportDailyMitraCSV = () => {
     if (dailyPartnerSummaries.length === 0) {
       alert('Belum ada data penjualan mitra untuk diekspor.');
@@ -284,7 +312,85 @@ export const PosReportsView: React.FC<PosReportsViewProps> = ({ onSwitchTab }) =
     exportReportsToCSV(rows, `laporan-harian-mitra-${currentStore.slug}-${new Date().toISOString().split('T')[0]}.csv`);
   };
 
-  // Export 2: Complete Transaction-Level CSV
+  // Export 2: Complete Transaction-Level Excel (.xlsx)
+  const handleExportAllOrdersExcel = async () => {
+    if (filteredOrders.length === 0) {
+      alert('Belum ada transaksi untuk diekspor.');
+      return;
+    }
+
+    const periodLabel = period === 'today' ? 'Hari Ini' : (period === 'month' ? 'Bulan Ini' : 'Semua Periode');
+
+    const items = filteredOrders.map(o => {
+      const d = new Date(o.createdAt || o.orderDate || Date.now());
+      const dateStr = !isNaN(d.getTime()) ? d.toISOString().split('T')[0] : '-';
+      const timeStr = !isNaN(d.getTime()) ? d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-';
+
+      const matchedMitra = downlines.find(m =>
+        (o.partnerCode && m.partnerCode.toUpperCase() === o.partnerCode.toUpperCase()) ||
+        (o.customerPhone && o.customerPhone !== '-' && m.phone && m.phone.replace(/[^0-9]/g, '').endsWith(o.customerPhone.replace(/[^0-9]/g, '').slice(-8))) ||
+        (o.customerName && m.name.toLowerCase().trim() === o.customerName.toLowerCase().trim())
+      );
+
+      const mSale = marketerSalesMap.get(o.orderId);
+      const refMkt = o.marketerId || mSale?.marketerId;
+      const resolvedTier = (matchedMitra?.tier || o.tier || 'konsumen') as PartnerTier;
+      const isDirectMarketer = resolvedTier === 'marketer';
+      const discPct = isDirectMarketer ? 0 : (SR12_TIERS[resolvedTier]?.discountPct ?? getDiscountPctByTier(resolvedTier));
+      const het = o.subtotalHet || o.grandTotal;
+      const discount = isDirectMarketer
+        ? 0
+        : ((o.discountAmount && o.discountAmount > 0)
+          ? o.discountAmount
+          : Math.round(het * (discPct / 100)));
+      const netPaid = isDirectMarketer ? het : ((o.grandTotal && o.discountAmount) ? o.grandTotal : (het - discount));
+      const mktComm = (isDirectMarketer || Boolean(refMkt)) ? (mSale?.commissionAmount || Math.round(het * 0.15)) : 0;
+      const storeHpp = Math.round(het * (storeCostPct / 100));
+      const netProfit = (netPaid - storeHpp) - mktComm;
+      const defaultTierLabel = SR12_TIERS[resolvedTier]?.name || o.tierLabel || (resolvedTier === 'konsumen' ? 'Non-Mitra (HET)' : resolvedTier.toUpperCase());
+      const tierLabel = (refMkt && resolvedTier === 'konsumen') ? `Non-Mitra (Afiliasi ${refMkt})` : defaultTierLabel;
+
+      return {
+        date: dateStr,
+        time: timeStr,
+        invoice: o.orderId,
+        source: o.orderSource || 'Kasir POS',
+        partnerCode: matchedMitra?.partnerCode || o.partnerCode || '-',
+        marketerCode: refMkt || (isDirectMarketer ? (matchedMitra?.partnerCode || o.partnerCode || '-') : '-'),
+        customerName: matchedMitra?.name || o.customerName || 'Pelanggan',
+        customerPhone: matchedMitra?.phone || o.customerPhone || '-',
+        tierLabel,
+        discountPct: discPct,
+        het,
+        hpp: storeHpp,
+        discount,
+        netPaid,
+        marketerComm: mktComm,
+        netProfit,
+        paymentMethod: o.paymentMethod || 'Tunai',
+        status: o.status || 'Selesai'
+      };
+    });
+
+    try {
+      await exportCompleteTransactionsToExcel(
+        items,
+        {
+          storeName: currentStore.storeName,
+          partnerTier: currentStore.partnerTier,
+          storeCity: currentStore.storeCity,
+          storeOwner: currentStore.storeOwner,
+          slug: currentStore.slug
+        },
+        periodLabel
+      );
+    } catch (err: any) {
+      console.warn('Gagal export Excel transaksi, mengalihkan ke fallback CSV:', err);
+      handleExportAllOrdersCSV();
+    }
+  };
+
+  // Fallback CSV Export 2
   const handleExportAllOrdersCSV = () => {
     if (filteredOrders.length === 0) {
       alert('Belum ada transaksi untuk diekspor.');
@@ -389,7 +495,7 @@ export const PosReportsView: React.FC<PosReportsViewProps> = ({ onSwitchTab }) =
 
           <button
             type="button"
-            onClick={handleExportDailyMitraCSV}
+            onClick={handleExportDailyMitraExcel}
             style={{
               background: 'linear-gradient(135deg, #059669, #047857)',
               color: '#fff',
@@ -404,15 +510,15 @@ export const PosReportsView: React.FC<PosReportsViewProps> = ({ onSwitchTab }) =
               cursor: 'pointer',
               boxShadow: '0 2px 8px rgba(5, 150, 105, 0.3)'
             }}
-            title="Download file CSV rekapitulasi penjualan mitra harian"
+            title="Download file Excel (.xlsx) resmi rekapitulasi penjualan harian mitra dengan desain rapi & penuh warna"
           >
             <FileSpreadsheet size={14} />
-            <span>Download Rekap Harian Mitra (CSV)</span>
+            <span>Download Hasil Rekap Harian Mitra (Excel)</span>
           </button>
 
           <button
             type="button"
-            onClick={handleExportAllOrdersCSV}
+            onClick={handleExportAllOrdersExcel}
             style={{
               background: 'linear-gradient(135deg, #0284c7, #0369a1)',
               color: '#fff',
@@ -427,10 +533,10 @@ export const PosReportsView: React.FC<PosReportsViewProps> = ({ onSwitchTab }) =
               cursor: 'pointer',
               boxShadow: '0 2px 8px rgba(2, 132, 199, 0.3)'
             }}
-            title="Download file CSV seluruh transaksi pesanan lengkap"
+            title="Download file Excel (.xlsx) seluruh rincian transaksi pesanan lengkap"
           >
             <Download size={14} />
-            <span className="hide-on-mobile">Ekspor Semua Transaksi (CSV)</span>
+            <span className="hide-on-mobile">Ekspor Transaksi Lengkap (Excel)</span>
           </button>
         </div>
       </div>
