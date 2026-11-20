@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { SafeModalOverlay } from '../common/SafeModalOverlay';
 import {
   fetchStoreDownlines,
   saveStoreDownline,
+  saveStoreDownlinesBatch,
   fetchStoreMarketerSales,
   updateMitraTier,
   updateMitraLevelAndDueDate,
@@ -17,6 +18,11 @@ import {
   getLocalDownlines,
   getLocalMarketerSales
 } from '../../services/mitraService';
+import {
+  downloadMitraImportTemplate,
+  parseMitraExcelFile,
+  ParseMitraExcelResult
+} from '../../services/excelReportService';
 import { updateStorePaydayDate } from '../../services/storeService';
 import { getLocalOrders, fetchStoreOrders } from '../../services/orderService';
 import { saveCashflowEntry, deleteCashflowEntry } from '../../services/posService';
@@ -57,7 +63,11 @@ import {
   Copy,
   Check,
   CreditCard,
-  BookOpen
+  BookOpen,
+  FileUp,
+  Download,
+  FileSpreadsheet,
+  Loader2
 } from 'lucide-react';
 
 interface PosDownlinesViewProps {
@@ -109,6 +119,69 @@ export const PosDownlinesView: React.FC<PosDownlinesViewProps> = ({
   const [evaluationDueDate, setEvaluationDueDate] = useState('');
   const [bankName, setBankName] = useState('BCA');
   const [bankAccount, setBankAccount] = useState('');
+
+  // Excel Import state
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importResult, setImportResult] = useState<ParseMitraExcelResult | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [isSavingImport, setIsSavingImport] = useState(false);
+  const [importSuccessMsg, setImportSuccessMsg] = useState<string | null>(null);
+
+  const handleDownloadTemplate = async () => {
+    try {
+      await downloadMitraImportTemplate(currentStore.storeName);
+    } catch (err: any) {
+      console.error('Gagal unduh template Excel mitra:', err);
+      alert('Gagal mengunduh template Excel: ' + (err?.message || 'Error tidak diketahui'));
+    }
+  };
+
+  const handleTriggerFileInput = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    try {
+      const result = await parseMitraExcelFile(file, currentStore.slug, downlines);
+      setImportResult(result);
+      setShowImportModal(true);
+    } catch (err: any) {
+      console.error('Gagal membaca file Excel:', err);
+      alert('Gagal membaca file Excel mitra: ' + (err?.message || 'Format tidak sesuai'));
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleConfirmImport = async () => {
+    if (!importResult || importResult.validMitra.length === 0) return;
+
+    setIsSavingImport(true);
+    try {
+      const updatedList = await saveStoreDownlinesBatch(importResult.validMitra, currentStore.slug);
+      setDownlines(updatedList);
+      setShowImportModal(false);
+      const count = importResult.validMitra.length;
+      const newCount = importResult.previewRows.filter(r => !r.isExisting).length;
+      const updateCount = importResult.previewRows.filter(r => r.isExisting).length;
+      setImportSuccessMsg(`Alhamdulillah, berhasil mengimpor ${count} mitra (${newCount} baru, ${updateCount} diperbarui)!`);
+      setTimeout(() => setImportSuccessMsg(null), 5000);
+    } catch (err: any) {
+      console.error('Gagal menyimpan mitra:', err);
+      alert('Gagal menyimpan data mitra ke database: ' + (err?.message || 'Terjadi kesalahan sistem'));
+    } finally {
+      setIsSavingImport(false);
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -737,8 +810,54 @@ export const PosDownlinesView: React.FC<PosDownlinesViewProps> = ({
                 title="Tambah Mitra Resmi atau Pelanggan Baru"
               >
                 <UserPlus size={14} />
-                <span>+ Tambah Mitra / Langganan</span>
+                <span>+ Tambah Mitra</span>
               </button>
+
+              <button
+                type="button"
+                onClick={handleDownloadTemplate}
+                className="mitra-pill-btn"
+                style={{
+                  background: 'rgba(56, 189, 248, 0.12)',
+                  color: '#38bdf8',
+                  border: '1px solid rgba(56, 189, 248, 0.35)',
+                  padding: '7px 12px',
+                  fontSize: '0.78rem'
+                }}
+                title="Unduh template Excel resmi untuk input mitra (Marketer, Reseller, Sub Agen, Agen)"
+              >
+                <Download size={14} />
+                <span className="hide-on-mobile">Unduh Template</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleTriggerFileInput}
+                disabled={isImporting}
+                className="mitra-pill-btn"
+                style={{
+                  background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '7px 13px',
+                  fontSize: '0.78rem',
+                  boxShadow: '0 2px 8px rgba(2, 132, 199, 0.35)',
+                  opacity: isImporting ? 0.7 : 1,
+                  cursor: isImporting ? 'wait' : 'pointer'
+                }}
+                title="Import data mitra dari file Excel (.xlsx / .xls)"
+              >
+                {isImporting ? <Loader2 size={14} className="animate-spin" /> : <FileUp size={14} />}
+                <span>{isImporting ? 'Membaca...' : 'Import Excel'}</span>
+              </button>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx, .xls"
+                style={{ display: 'none' }}
+                onChange={handleFileSelected}
+              />
 
               <button
                 type="button"
@@ -1146,6 +1265,24 @@ export const PosDownlinesView: React.FC<PosDownlinesViewProps> = ({
                   style={{ padding: '8px 16px', background: '#059669', color: '#fff', border: 'none', fontSize: '0.82rem' }}
                 >
                   + Tambah Mitra / Pelanggan Baru
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadTemplate}
+                  className="mitra-pill-btn"
+                  style={{ padding: '8px 16px', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.4)', fontSize: '0.82rem' }}
+                >
+                  <Download size={14} style={{ display: 'inline', marginRight: '6px' }} />
+                  Unduh Template Excel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleTriggerFileInput}
+                  className="mitra-pill-btn"
+                  style={{ padding: '8px 16px', background: '#0284c7', color: '#fff', border: 'none', fontSize: '0.82rem' }}
+                >
+                  <FileUp size={14} style={{ display: 'inline', marginRight: '6px' }} />
+                  Import File Excel
                 </button>
                 <button
                   type="button"
@@ -2331,6 +2468,318 @@ export const PosDownlinesView: React.FC<PosDownlinesViewProps> = ({
                   <li style={{ color: '#fca5a5' }}>Agent yang tidak bisa mencapai minimal akumulasi omset selama 3 bulan, maka <b>memasuki bulan ke-4 status Mitra akan diturunkan ke tingkatan di bawahnya (Sub Agen)</b>.</li>
                 </ul>
               </div>
+            </div>
+          </div>
+        </SafeModalOverlay>
+      )}
+
+      {/* Toast Notifikasi Sukses Impor */}
+      {importSuccessMsg && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '24px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'linear-gradient(135deg, #065f46, #047857)',
+            color: '#ecfdf5',
+            padding: '12px 24px',
+            borderRadius: '12px',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px rgba(16, 185, 129, 0.4)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontSize: '0.88rem',
+            fontWeight: 700,
+            border: '1px solid #10b981'
+          }}
+        >
+          <CheckCircle2 size={20} color="#34d399" />
+          <span>{importSuccessMsg}</span>
+        </div>
+      )}
+
+      {/* Modal: Preview & Konfirmasi Import Mitra dari Excel */}
+      {showImportModal && importResult && (
+        <SafeModalOverlay onClose={() => !isSavingImport && setShowImportModal(false)}>
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: '860px',
+              width: '95%',
+              background: '#0f172a',
+              color: '#fff',
+              borderRadius: '16px',
+              border: '1.5px solid #334155',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              maxHeight: '90vh'
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: '16px 22px',
+                background: '#1e293b',
+                borderBottom: '1px solid #334155',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    background: 'rgba(16, 185, 129, 0.15)',
+                    padding: '8px',
+                    borderRadius: '10px',
+                    color: '#10b981'
+                  }}
+                >
+                  <FileSpreadsheet size={22} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 900, color: '#f8fafc' }}>
+                    Preview &amp; Konfirmasi Import Mitra
+                  </h3>
+                  <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '2px' }}>
+                    Menemukan <strong style={{ color: '#38bdf8' }}>{importResult.validMitra.length} mitra valid</strong> yang siap disimpan ke database
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={isSavingImport}
+                onClick={() => setShowImportModal(false)}
+                style={{
+                  color: '#94a3b8',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: isSavingImport ? 'not-allowed' : 'pointer',
+                  padding: '4px'
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '20px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Summary Cards */}
+              {(() => {
+                const newCount = importResult.previewRows.filter(r => !r.isExisting).length;
+                const updateCount = importResult.previewRows.filter(r => r.isExisting).length;
+                const marketerCount = importResult.validMitra.filter(m => m.tier === 'marketer').length;
+                const resellerCount = importResult.validMitra.filter(m => m.tier === 'reseller').length;
+                const subAgenCount = importResult.validMitra.filter(m => m.tier === 'sub_agen').length;
+                const agenCount = importResult.validMitra.filter(m => m.tier === 'agen').length;
+
+                return (
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                      gap: '10px'
+                    }}
+                  >
+                    <div style={{ background: '#1e293b', padding: '10px 14px', borderRadius: '10px', border: '1px solid #334155' }}>
+                      <div style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 700 }}>TOTAL MITRA</div>
+                      <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#38bdf8' }}>{importResult.validMitra.length}</div>
+                    </div>
+                    <div style={{ background: '#1e293b', padding: '10px 14px', borderRadius: '10px', border: '1px solid #059669' }}>
+                      <div style={{ fontSize: '0.68rem', color: '#34d399', fontWeight: 700 }}>MITRA BARU</div>
+                      <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#34d399' }}>+{newCount}</div>
+                    </div>
+                    <div style={{ background: '#1e293b', padding: '10px 14px', borderRadius: '10px', border: '1px solid #d97706' }}>
+                      <div style={{ fontSize: '0.68rem', color: '#fbbf24', fontWeight: 700 }}>UPDATE MITRA</div>
+                      <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#fbbf24' }}>{updateCount}</div>
+                    </div>
+                    <div style={{ background: '#1e293b', padding: '10px 14px', borderRadius: '10px', border: '1px solid #334155' }}>
+                      <div style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 700 }}>RINCIAN LEVEL</div>
+                      <div style={{ fontSize: '0.72rem', color: '#cbd5e1', marginTop: '2px', lineHeight: 1.4 }}>
+                        {marketerCount > 0 ? `Marketer: ${marketerCount} ` : ''}
+                        {resellerCount > 0 ? `Reseller: ${resellerCount} ` : ''}
+                        {subAgenCount > 0 ? `Sub Agen: ${subAgenCount} ` : ''}
+                        {agenCount > 0 ? `Agen: ${agenCount}` : ''}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Warning Skipped Rows */}
+              {importResult.skippedRows.length > 0 && (
+                <div
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.12)',
+                    border: '1px solid rgba(239, 68, 68, 0.35)',
+                    borderRadius: '10px',
+                    padding: '12px 14px',
+                    fontSize: '0.75rem',
+                    color: '#fca5a5'
+                  }}
+                >
+                  <div style={{ fontWeight: 800, marginBottom: '4px' }}>
+                    ⚠️ {importResult.skippedRows.length} Baris dilewati karena format tidak sesuai:
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: '18px', maxHeight: '70px', overflowY: 'auto' }}>
+                    {importResult.skippedRows.map((s, idx) => (
+                      <li key={idx}>
+                        Baris {s.rowNumber}: {s.reason}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Preview Table */}
+              <div
+                style={{
+                  border: '1px solid #334155',
+                  borderRadius: '10px',
+                  overflow: 'hidden',
+                  background: '#090f1d'
+                }}
+              >
+                <div style={{ maxHeight: '340px', overflowY: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.76rem' }}>
+                    <thead style={{ position: 'sticky', top: 0, background: '#1e293b', zIndex: 2 }}>
+                      <tr style={{ color: '#94a3b8', borderBottom: '1px solid #334155' }}>
+                        <th style={{ padding: '8px 12px' }}>No</th>
+                        <th style={{ padding: '8px 12px' }}>Status</th>
+                        <th style={{ padding: '8px 12px' }}>Kode Mitra</th>
+                        <th style={{ padding: '8px 12px' }}>Nama Mitra</th>
+                        <th style={{ padding: '8px 12px' }}>Level Tier</th>
+                        <th style={{ padding: '8px 12px' }}>No. WhatsApp</th>
+                        <th style={{ padding: '8px 12px' }}>Kota</th>
+                        <th style={{ padding: '8px 12px' }}>Rekening Bank</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importResult.previewRows.map((item, idx) => {
+                        const { mitra, isExisting } = item;
+                        const badge = getTierBadgeStyle(mitra.tier);
+                        return (
+                          <tr
+                            key={idx}
+                            style={{
+                              borderBottom: '1px solid #1e293b',
+                              background: idx % 2 === 0 ? 'rgba(15, 23, 42, 0.6)' : 'rgba(30, 41, 59, 0.4)'
+                            }}
+                          >
+                            <td style={{ padding: '8px 12px', color: '#64748b' }}>{idx + 1}</td>
+                            <td style={{ padding: '8px 12px' }}>
+                              <span
+                                style={{
+                                  background: isExisting ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.2)',
+                                  color: isExisting ? '#fbbf24' : '#34d399',
+                                  border: isExisting ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(16, 185, 129, 0.4)',
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  fontSize: '0.66rem',
+                                  fontWeight: 800
+                                }}
+                              >
+                                {isExisting ? 'UPDATE' : 'BARU'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '8px 12px', fontWeight: 800, color: '#38bdf8' }}>
+                              {mitra.partnerCode}
+                            </td>
+                            <td style={{ padding: '8px 12px', fontWeight: 700, color: '#f8fafc' }}>
+                              {mitra.name}
+                            </td>
+                            <td style={{ padding: '8px 12px' }}>
+                              <span
+                                style={{
+                                  background: badge.avatarBg,
+                                  color: badge.avatarColor,
+                                  border: `1px solid ${badge.border}`,
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  fontSize: '0.66rem',
+                                  fontWeight: 800
+                                }}
+                              >
+                                {badge.shortLabel}
+                              </span>
+                            </td>
+                            <td style={{ padding: '8px 12px', color: '#cbd5e1' }}>
+                              {mitra.phone}
+                            </td>
+                            <td style={{ padding: '8px 12px', color: '#94a3b8' }}>
+                              {mitra.city || '-'}
+                            </td>
+                            <td style={{ padding: '8px 12px', color: '#94a3b8' }}>
+                              {mitra.bankName ? `${mitra.bankName}: ${mitra.bankAccount || '-'}` : '-'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                padding: '14px 22px',
+                background: '#1e293b',
+                borderTop: '1px solid #334155',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                alignItems: 'center',
+                gap: '10px'
+              }}
+            >
+              <button
+                type="button"
+                disabled={isSavingImport}
+                onClick={() => setShowImportModal(false)}
+                style={{
+                  background: '#334155',
+                  color: '#cbd5e1',
+                  border: 'none',
+                  padding: '9px 16px',
+                  borderRadius: '8px',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  cursor: isSavingImport ? 'not-allowed' : 'pointer'
+                }}
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isSavingImport || importResult.validMitra.length === 0}
+                onClick={handleConfirmImport}
+                style={{
+                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '9px 20px',
+                  borderRadius: '8px',
+                  fontSize: '0.82rem',
+                  fontWeight: 800,
+                  cursor: isSavingImport ? 'wait' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)'
+                }}
+              >
+                {isSavingImport ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                <span>
+                  {isSavingImport
+                    ? 'Menyimpan ke Cloud & Offline...'
+                    : `Konfirmasi & Simpan ${importResult.validMitra.length} Mitra`}
+                </span>
+              </button>
             </div>
           </div>
         </SafeModalOverlay>

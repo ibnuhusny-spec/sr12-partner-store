@@ -1,4 +1,6 @@
 import writeExcelFile, { Cell, Row } from 'write-excel-file/browser';
+import { readSheet } from 'read-excel-file/browser';
+import { MitraDownline, PartnerTier } from '../types';
 
 export interface DailyPartnerSummaryItem {
   date: string;
@@ -564,4 +566,438 @@ export async function exportCompleteTransactionsToExcel(
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   }
+}
+
+export interface ParsedMitraRow {
+  mitra: MitraDownline;
+  isExisting: boolean;
+  rowNumber: number;
+}
+
+export interface ParseMitraExcelResult {
+  validMitra: MitraDownline[];
+  previewRows: ParsedMitraRow[];
+  skippedRows: Array<{ rowNumber: number; reason: string }>;
+  totalRead: number;
+}
+
+/**
+ * Mengunduh file template Excel resmi untuk import mitra baru
+ * (Marketer, Reseller, Sub Agen, Agen, Distributor)
+ */
+export async function downloadMitraImportTemplate(storeName = 'SR12 Official'): Promise<void> {
+  const fileName = 'template-import-mitra-sr12.xlsx';
+  const totalCols = 10;
+
+  const titleRow: Row = [
+    {
+      value: `TEMPLATE RESMI IMPORT DATA MITRA SR12`,
+      fontWeight: 'bold',
+      fontSize: 14,
+      textColor: '#064e3b',
+      backgroundColor: '#ecfdf5',
+      columnSpan: totalCols,
+      align: 'left',
+      alignVertical: 'center',
+      height: 26
+    },
+    ...Array(totalCols - 1).fill(null)
+  ];
+
+  const guideRow1: Row = [
+    {
+      value: `Petunjuk: Kolom bertanda (*) wajib diisi. Pilihan Level Kemitraan: Marketer, Reseller, Sub Agen, Agen, Distributor.`,
+      fontStyle: 'italic',
+      fontSize: 10,
+      textColor: '#334155',
+      backgroundColor: '#ecfdf5',
+      columnSpan: totalCols,
+      align: 'left',
+      alignVertical: 'center',
+      height: 18
+    },
+    ...Array(totalCols - 1).fill(null)
+  ];
+
+  const guideRow2: Row = [
+    {
+      value: `Aturan Diskon: Marketer (0% + Gaji 15%), Reseller (20%), Sub Agen (30%), Agen (40%), Distributor (50%). Jika Kode Mitra dikosongkan, sistem akan otomatis membuatkan kode.`,
+      fontSize: 9.5,
+      textColor: '#047857',
+      backgroundColor: '#ecfdf5',
+      columnSpan: totalCols,
+      align: 'left',
+      alignVertical: 'center',
+      height: 18
+    },
+    ...Array(totalCols - 1).fill(null)
+  ];
+
+  const spacerRow: Row = [];
+
+  const HEADER_STYLE = {
+    backgroundColor: '#047857',
+    textColor: '#ffffff',
+    fontWeight: 'bold' as const,
+    fontSize: 11,
+    align: 'center' as const,
+    alignVertical: 'center' as const,
+    borderColor: '#065f46',
+    borderStyle: 'thin' as const,
+    height: 26,
+    wrap: true
+  };
+
+  const headerRow: Row = [
+    { value: 'Kode Mitra', ...HEADER_STYLE },
+    { value: 'Nama Lengkap *', ...HEADER_STYLE },
+    { value: 'Nomor WhatsApp / HP *', ...HEADER_STYLE },
+    { value: 'Level Kemitraan *', ...HEADER_STYLE },
+    { value: 'Kota / Kabupaten *', ...HEADER_STYLE },
+    { value: 'Alamat Lengkap', ...HEADER_STYLE },
+    { value: 'Nama Bank', ...HEADER_STYLE },
+    { value: 'Nomor Rekening', ...HEADER_STYLE },
+    { value: 'Nama Pemilik Rekening', ...HEADER_STYLE },
+    { value: 'Status', ...HEADER_STYLE }
+  ];
+
+  const makeSampleRow = (
+    code: string,
+    name: string,
+    phone: string,
+    tier: string,
+    city: string,
+    addr: string,
+    bank: string,
+    norek: string,
+    holder: string,
+    tierBg: string,
+    tierColor: string,
+    isEven: boolean
+  ): Row => {
+    const rowBg = isEven ? '#ffffff' : '#f8fafc';
+    return [
+      { value: code, type: String, align: 'center', fontWeight: 'bold', backgroundColor: rowBg, textColor: '#0f172a', ...BASE_BORDER },
+      { value: name, type: String, align: 'left', backgroundColor: rowBg, textColor: '#0f172a', ...BASE_BORDER },
+      { value: phone, type: String, align: 'center', backgroundColor: rowBg, textColor: '#0f172a', ...BASE_BORDER },
+      { value: tier, type: String, align: 'center', fontWeight: 'bold', backgroundColor: tierBg, textColor: tierColor, ...BASE_BORDER },
+      { value: city, type: String, align: 'center', backgroundColor: rowBg, textColor: '#0f172a', ...BASE_BORDER },
+      { value: addr, type: String, align: 'left', backgroundColor: rowBg, textColor: '#475569', ...BASE_BORDER },
+      { value: bank, type: String, align: 'center', backgroundColor: rowBg, textColor: '#0f172a', ...BASE_BORDER },
+      { value: norek, type: String, align: 'center', backgroundColor: rowBg, textColor: '#0f172a', ...BASE_BORDER },
+      { value: holder, type: String, align: 'left', backgroundColor: rowBg, textColor: '#0f172a', ...BASE_BORDER },
+      { value: 'Aktif', type: String, align: 'center', fontWeight: 'bold', backgroundColor: rowBg, textColor: '#059669', ...BASE_BORDER }
+    ];
+  };
+
+  const sampleRows: Row[] = [
+    makeSampleRow('MKT-001-MRS', 'Ahmad Fauzi', '081234567891', 'Marketer', 'Maros', 'Jl. Poros Maros No. 10', 'BCA', '8291002341', 'Ahmad Fauzi', '#ede9fe', '#6b21a8', false),
+    makeSampleRow('RS-002-MAK', 'Dewi Sartika', '081234567892', 'Reseller', 'Makassar', 'Jl. Cendrawasih No. 25', 'BRI', '012301098765501', 'Dewi Sartika', '#fef3c7', '#92400e', true),
+    makeSampleRow('SUB-003-GOW', 'Hj. Nurul Hidayah', '081345678903', 'Sub Agen', 'Gowa', 'Jl. Sultan Hasanuddin No. 8', 'Mandiri', '1520098765432', 'Nurul Hidayah', '#e0f7fa', '#006064', false),
+    makeSampleRow('AG-004-BDG', 'dr. Rina Kusuma', '081345678904', 'Agen', 'Bandung', 'Jl. Buah Batu No. 120', 'BSI', '7123456789', 'Rina Kusuma', '#e0f2fe', '#0369a1', true)
+  ];
+
+  const notesHeaderRow: Row[] = [
+    spacerRow,
+    [
+      {
+        value: 'PANDUAN & KETENTUAN PENGISIAN LEVEL KEMITRAAN SR12:',
+        fontWeight: 'bold',
+        fontSize: 10,
+        textColor: '#064e3b',
+        backgroundColor: '#ecfdf5',
+        columnSpan: 8,
+        height: 20
+      },
+      ...Array(7).fill(null)
+    ],
+    [
+      {
+        value: '1. Marketer: Mendapatkan Komisi Bulanan 15% dari total omset HET. Harga pembelian di kasir/web adalah Full HET (0% diskon langsung).',
+        fontSize: 9,
+        textColor: '#334155',
+        columnSpan: 8
+      },
+      ...Array(7).fill(null)
+    ],
+    [
+      {
+        value: '2. Reseller: Mendapatkan diskon langsung 20% saat bertransaksi di kasir maupun toko online.',
+        fontSize: 9,
+        textColor: '#334155',
+        columnSpan: 8
+      },
+      ...Array(7).fill(null)
+    ],
+    [
+      {
+        value: '3. Sub Agen: Mendapatkan diskon langsung 30% dari HET.',
+        fontSize: 9,
+        textColor: '#334155',
+        columnSpan: 8
+      },
+      ...Array(7).fill(null)
+    ],
+    [
+      {
+        value: '4. Agen: Mendapatkan diskon langsung 40% dari HET.',
+        fontSize: 9,
+        textColor: '#334155',
+        columnSpan: 8
+      },
+      ...Array(7).fill(null)
+    ],
+    [
+      {
+        value: '5. Distributor: Mendapatkan diskon langsung 50% dari HET.',
+        fontSize: 9,
+        textColor: '#334155',
+        columnSpan: 8
+      },
+      ...Array(7).fill(null)
+    ],
+    [
+      {
+        value: 'Tips: Anda bisa langsung menghapus baris contoh data di atas atau mengeditnya dengan data mitra Anda yang sebenarnya.',
+        fontStyle: 'italic',
+        fontSize: 9,
+        textColor: '#047857',
+        columnSpan: 8
+      },
+      ...Array(7).fill(null)
+    ]
+  ];
+
+  const sheetData: Row[] = [
+    titleRow,
+    guideRow1,
+    guideRow2,
+    spacerRow,
+    headerRow,
+    ...sampleRows,
+    ...notesHeaderRow
+  ];
+
+  const columns = [
+    { width: 18 }, // Kode Mitra
+    { width: 28 }, // Nama Lengkap
+    { width: 22 }, // No WA / HP
+    { width: 20 }, // Level Kemitraan
+    { width: 20 }, // Kota
+    { width: 32 }, // Alamat
+    { width: 16 }, // Bank
+    { width: 22 }, // Rekening
+    { width: 24 }, // Pemilik
+    { width: 14 }  // Status
+  ];
+
+  try {
+    await writeExcelFile(sheetData, {
+      sheet: 'Template Mitra',
+      columns,
+      stickyRowsCount: 5,
+      orientation: 'landscape'
+    }).toFile(fileName);
+  } catch (err) {
+    console.warn('[ExcelService] Fallback toBlob() untuk download template:', err);
+    const blob = await writeExcelFile(sheetData, {
+      sheet: 'Template Mitra',
+      columns,
+      stickyRowsCount: 5,
+      orientation: 'landscape'
+    }).toBlob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+}
+
+/**
+ * Membaca dan memvalidasi file Excel (.xlsx) yang diunggah pengguna untuk diimport sebagai mitra baru
+ */
+export async function parseMitraExcelFile(
+  file: File,
+  storeSlug: string,
+  existingDownlines: MitraDownline[]
+): Promise<ParseMitraExcelResult> {
+  const sheetData = await readSheet(file);
+
+  if (!sheetData || sheetData.length === 0) {
+    throw new Error('File Excel kosong atau tidak dapat dibaca.');
+  }
+
+  // 1. Temukan baris header secara cerdas
+  let headerRowIndex = -1;
+  const colMap: Record<string, number> = {};
+
+  for (let r = 0; r < Math.min(sheetData.length, 15); r++) {
+    const row = sheetData[r];
+    if (!Array.isArray(row)) continue;
+    const rowStrs = row.map(c => String(c ?? '').toLowerCase().trim());
+    const hasName = rowStrs.some(s => s.includes('nama') || s.includes('name'));
+    const hasPhone = rowStrs.some(s => s.includes('hp') || s.includes('wa') || s.includes('telepon') || s.includes('phone'));
+    const hasTier = rowStrs.some(s => s.includes('level') || s.includes('tier') || s.includes('kemitraan'));
+
+    if ((hasName && hasPhone) || (hasName && hasTier)) {
+      headerRowIndex = r;
+      rowStrs.forEach((colName, colIdx) => {
+        if (colName.includes('kode') || colName.includes('partner code') || colName.includes('id')) {
+          colMap['partnerCode'] = colIdx;
+        } else if (colName.includes('nama') && !colName.includes('bank') && !colName.includes('pemilik') && !colName.includes('rekening')) {
+          colMap['name'] = colIdx;
+        } else if (colName.includes('hp') || colName.includes('wa') || colName.includes('telepon') || colName.includes('phone')) {
+          colMap['phone'] = colIdx;
+        } else if (colName.includes('level') || colName.includes('tier') || colName.includes('kemitraan')) {
+          colMap['tier'] = colIdx;
+        } else if (colName.includes('kota') || colName.includes('city') || colName.includes('kabupaten')) {
+          colMap['city'] = colIdx;
+        } else if (colName.includes('alamat') || colName.includes('address') || colName.includes('domisili')) {
+          colMap['address'] = colIdx;
+        } else if (colName.includes('bank') && !colName.includes('pemilik') && !colName.includes('rekening')) {
+          colMap['bankName'] = colIdx;
+        } else if (colName.includes('rekening') && !colName.includes('pemilik') && !colName.includes('atas nama')) {
+          colMap['bankAccount'] = colIdx;
+        } else if (colName.includes('pemilik') || colName.includes('atas nama') || colName.includes('holder')) {
+          colMap['bankHolder'] = colIdx;
+        } else if (colName.includes('status')) {
+          colMap['status'] = colIdx;
+        }
+      });
+      break;
+    }
+  }
+
+  if (headerRowIndex === -1) {
+    // Fallback: anggap baris 0 adalah header standar
+    headerRowIndex = 0;
+    colMap['partnerCode'] = 0;
+    colMap['name'] = 1;
+    colMap['phone'] = 2;
+    colMap['tier'] = 3;
+    colMap['city'] = 4;
+    colMap['address'] = 5;
+    colMap['bankName'] = 6;
+    colMap['bankAccount'] = 7;
+    colMap['bankHolder'] = 8;
+    colMap['status'] = 9;
+  }
+
+  const existingCodesMap = new Map(existingDownlines.map(m => [m.partnerCode.toUpperCase().trim(), m]));
+  const existingPhonesMap = new Map(existingDownlines.map(m => [m.phone.replace(/[^0-9]/g, '').slice(-8), m]));
+
+  const validMitra: MitraDownline[] = [];
+  const previewRows: ParsedMitraRow[] = [];
+  const skippedRows: Array<{ rowNumber: number; reason: string }> = [];
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const evalDate = new Date();
+  evalDate.setDate(evalDate.getDate() + 90);
+  const evalDueDateStr = evalDate.toISOString().split('T')[0];
+
+  let autoNumCounter = existingDownlines.length + 1;
+
+  for (let r = headerRowIndex + 1; r < sheetData.length; r++) {
+    const row = sheetData[r];
+    if (!Array.isArray(row)) continue;
+
+    const rawName = colMap['name'] !== undefined ? row[colMap['name']] : '';
+    const name = String(rawName ?? '').trim();
+
+    // Abaikan baris kosong atau baris panduan di bawah tabel
+    if (!name || name.toLowerCase().includes('panduan') || name.toLowerCase().includes('petunjuk')) {
+      continue;
+    }
+
+    const rawPhone = colMap['phone'] !== undefined ? row[colMap['phone']] : '';
+    let phone = String(rawPhone ?? '').trim().replace(/[^0-9+]/g, '');
+    if (phone.startsWith('+62')) phone = '0' + phone.slice(3);
+    else if (phone.startsWith('62')) phone = '0' + phone.slice(2);
+    else if (phone.startsWith('8')) phone = '0' + phone;
+
+    if (!phone || phone.length < 8) {
+      skippedRows.push({
+        rowNumber: r + 1,
+        reason: `Nomor HP/WA "${String(rawPhone)}" tidak valid (minimal 8 digit).`
+      });
+      continue;
+    }
+
+    // Normalisasi Level Kemitraan
+    const rawTier = colMap['tier'] !== undefined ? String(row[colMap['tier']] ?? '').toLowerCase().trim() : '';
+    let tier: PartnerTier = 'reseller';
+    if (rawTier.includes('market') || rawTier.includes('afilias') || rawTier.includes('mkt')) {
+      tier = 'marketer';
+    } else if (rawTier.includes('sub')) {
+      tier = 'sub_agen';
+    } else if (rawTier.includes('agen') || rawTier === 'ag') {
+      tier = 'agen';
+    } else if (rawTier.includes('distrib') || rawTier === 'dist') {
+      tier = 'distributor';
+    } else if (rawTier.includes('resell') || rawTier === 'rs') {
+      tier = 'reseller';
+    }
+
+    const city = colMap['city'] !== undefined ? String(row[colMap['city']] ?? '').trim() : '';
+    const safeCity = city || 'Maros';
+
+    const address = colMap['address'] !== undefined ? String(row[colMap['address']] ?? '').trim() : '';
+    const bankName = colMap['bankName'] !== undefined ? String(row[colMap['bankName']] ?? '').trim() : 'BCA';
+    const bankAccount = colMap['bankAccount'] !== undefined ? String(row[colMap['bankAccount']] ?? '').trim() : '-';
+    const bankHolder = colMap['bankHolder'] !== undefined ? String(row[colMap['bankHolder']] ?? '').trim() : name;
+
+    const rawStatus = colMap['status'] !== undefined ? String(row[colMap['status']] ?? '').toLowerCase().trim() : '';
+    const status: 'active' | 'inactive' = rawStatus.includes('non') || rawStatus.includes('inact') ? 'inactive' : 'active';
+
+    // Kode Mitra
+    let code = colMap['partnerCode'] !== undefined ? String(row[colMap['partnerCode']] ?? '').trim().toUpperCase() : '';
+    if (!code || code === '-' || code.length < 3) {
+      const prefix = tier === 'marketer' ? 'MKT' : tier === 'sub_agen' ? 'SUB' : tier === 'agen' ? 'AG' : tier === 'distributor' ? 'DIST' : 'RS';
+      const cityCode = safeCity.slice(0, 3).toUpperCase();
+      code = `${prefix}-${String(autoNumCounter).padStart(3, '0')}-${cityCode}`;
+      autoNumCounter++;
+    }
+
+    const phoneKey = phone.slice(-8);
+    const existingByCode = existingCodesMap.get(code);
+    const existingByPhone = existingPhonesMap.get(phoneKey);
+    const isExisting = Boolean(existingByCode || existingByPhone);
+
+    const mitra: MitraDownline = {
+      storeSlug,
+      partnerCode: code,
+      name,
+      phone,
+      city: safeCity,
+      address: address || undefined,
+      tier,
+      bankName: bankName || 'BCA',
+      bankAccount: bankAccount || '-',
+      bankHolder: bankHolder || name,
+      status,
+      accumulatedSpent90Days: existingByCode?.accumulatedSpent90Days || 0,
+      totalOrdersCount: existingByCode?.totalOrdersCount || 0,
+      joinDate: existingByCode?.joinDate || todayStr,
+      qualificationDate: existingByCode?.qualificationDate || todayStr,
+      evaluationDueDate: tier === 'marketer' ? undefined : evalDueDateStr
+    };
+
+    validMitra.push(mitra);
+    previewRows.push({
+      mitra,
+      isExisting,
+      rowNumber: r + 1
+    });
+  }
+
+  return {
+    validMitra,
+    previewRows,
+    skippedRows,
+    totalRead: validMitra.length + skippedRows.length
+  };
 }

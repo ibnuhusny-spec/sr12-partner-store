@@ -583,6 +583,77 @@ export async function saveStoreDownline(mitra: Partial<MitraDownline>, storeSlug
   }
 }
 
+/**
+ * Menyimpan banyak data mitra sekaligus hasil import file Excel ke database lokal & Supabase Cloud
+ */
+export async function saveStoreDownlinesBatch(
+  mitraList: MitraDownline[],
+  storeSlug: string
+): Promise<MitraDownline[]> {
+  const targetSlug = storeSlug || 'sr12-central';
+  const token = getActiveSessionToken(targetSlug);
+
+  const codesToUnmark = mitraList.map(m => m.partnerCode).filter(Boolean);
+  if (codesToUnmark.length > 0) {
+    unmarkDownlineDeleted(targetSlug, codesToUnmark);
+  }
+
+  // 1. Simpan ke local cache instan (0ms)
+  const currentList = getLocalDownlines(targetSlug);
+  const updatedList = [...currentList];
+
+  mitraList.forEach(m => {
+    const idx = updatedList.findIndex(existing => existing.partnerCode.toUpperCase() === m.partnerCode.toUpperCase());
+    if (idx >= 0) {
+      updatedList[idx] = { ...updatedList[idx], ...m };
+    } else {
+      updatedList.push(m);
+    }
+  });
+
+  try {
+    localStorage.setItem('sr12_mitra_downlines_v2', JSON.stringify(updatedList));
+    localStorage.setItem(`sr12_mitra_downlines_${targetSlug}`, JSON.stringify(updatedList));
+  } catch (e) {
+    console.warn('Error saving batch downlines to localStorage:', e);
+  }
+
+  // 2. Simpan secara paralel ke Supabase Cloud DB
+  const savePromises = mitraList.map(async (m) => {
+    try {
+      await supabase.rpc('rpc_save_store_downline', {
+        p_slug: targetSlug,
+        p_token: token,
+        p_mitra: {
+          id: m.partnerCode,
+          partner_code: m.partnerCode,
+          name: m.name,
+          phone: m.phone,
+          city: m.city,
+          tier: m.tier,
+          bankName: m.bankName,
+          bankAccount: m.bankAccount,
+          bankHolder: m.bankHolder || m.name,
+          status: m.status || 'active',
+          accumulatedSpent90Days: m.accumulatedSpent90Days || 0,
+          totalOrdersCount: m.totalOrdersCount || 0
+        }
+      });
+    } catch (err) {
+      console.warn(`Error cloud saving downline ${m.partnerCode}:`, err);
+    }
+  });
+
+  await Promise.all(savePromises);
+
+  // 3. Dispatch event agar seluruh komponen (POS Kasir, Laporan, dll) sinkron seketika
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('sr12:cloud_sync_downlines', { detail: { storeSlug: targetSlug } }));
+  }
+
+  return updatedList;
+}
+
 export async function updateMitraTier(partnerCode: string, newTier: PartnerTier, storeSlug: string): Promise<boolean> {
   return updateMitraLevelAndDueDate(partnerCode, newTier, undefined, storeSlug);
 }
