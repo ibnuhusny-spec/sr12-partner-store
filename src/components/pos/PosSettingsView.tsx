@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { PartnerTier, Store } from '../../types';
 import { STORE_CONFIG } from '../../config/storeConfig';
 import { getAllowedDownlineTiers, getStoreTierEconomics, SR12_TIERS } from '../../config/tiers';
-import { Settings, Image, Sparkles, Check, Save, Upload, RefreshCw, KeyRound, Mail, Lock, MapPin, Search, Award, Cloud, Loader2, Calendar } from 'lucide-react';
+import { Settings, Image, Sparkles, Check, Save, Upload, RefreshCw, KeyRound, Mail, Lock, MapPin, Search, Award, Cloud, Loader2, Calendar, BookOpen, ExternalLink } from 'lucide-react';
 import { uploadProductImageFile } from '../../services/catalogService';
 import { searchOngkirDestinations, OngkirDestination } from '../../services/ongkirService';
 import { getStoreCashiers, saveStoreCashiers, getActiveCashier, setActiveCashier } from '../../services/posService';
@@ -178,7 +178,7 @@ export const PosSettingsView: React.FC = () => {
 
   return (
     <div style={{ padding: '24px', maxWidth: '850px', margin: '0 auto', color: '#f8fafc', paddingBottom: '80px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
         <div style={{ background: 'rgba(16, 185, 129, 0.2)', padding: '10px', borderRadius: '12px', border: '1px solid rgba(52, 211, 153, 0.3)' }}>
           <Settings size={24} color="#34d399" />
         </div>
@@ -188,6 +188,57 @@ export const PosSettingsView: React.FC = () => {
             Sesuaikan nama toko, slogan, dan ganti banner etalase utama langsung dari dashboard kasir.
           </p>
         </div>
+      </div>
+
+      {/* Banner Pintasan Panduan Pemilik Toko */}
+      <div style={{
+        background: 'linear-gradient(135deg, rgba(6, 78, 59, 0.4), rgba(15, 23, 42, 0.8))',
+        border: '1.5px solid rgba(16, 185, 129, 0.4)',
+        borderRadius: '14px',
+        padding: '14px 18px',
+        marginBottom: '20px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '12px',
+        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ background: 'linear-gradient(135deg, #059669, #047857)', color: '#fff', padding: '10px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <BookOpen size={22} />
+          </div>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: '0.94rem', color: '#ecfdf5', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>Buku Panduan Operasional Pemilik Toko</span>
+              <span style={{ fontSize: '0.68rem', background: '#10b981', color: '#064e3b', padding: '1px 6px', borderRadius: '4px', fontWeight: 900 }}>BERGAMBAR</span>
+            </div>
+            <div style={{ fontSize: '0.75rem', color: '#a7f3d0', marginTop: '2px' }}>
+              8 urutan langkah wajib dari hari pertama buka toko, setting nomor WA, kelola stok, hingga gajian marketer.
+            </div>
+          </div>
+        </div>
+        <a
+          href="/panduan.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            background: 'linear-gradient(135deg, #10b981, #059669)',
+            color: '#fff',
+            padding: '9px 18px',
+            borderRadius: '8px',
+            fontSize: '0.8rem',
+            fontWeight: 800,
+            textDecoration: 'none',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            boxShadow: '0 2px 8px rgba(16, 185, 129, 0.35)'
+          }}
+        >
+          <span>Buka Panduan &amp; Cetak PDF</span>
+          <ExternalLink size={13} />
+        </a>
       </div>
 
       <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>

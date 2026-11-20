@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buku Panduan Operasional Pemilik Toko SR12 Herbal</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <style>
+    :root {
+      --primary: #059669;
+      --primary-dark: #065f46;
+      --primary-light: #ecfdf5;
+      --accent: #38bdf8;
+      --amber: #f59e0b;
+      --bg: #090f1d;
+      --surface: #0f172a;
+      --surface-card: #1e293b;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: #334155;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: #0b1329;
+      color: var(--text);
+      line-height: 1.6;
+      padding-bottom: 60px;
+    }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    /* Top Bar Header */
+    .header {
+      background: linear-gradient(135deg, #064e3b 0%, #065f46 60%, #047857 100%);
+      color: #fff;
+      padding: 30px 24px;
+      border-radius: 16px;
+      margin-bottom: 24px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .header-title h1 {
+      font-size: 1.6rem;
+      font-weight: 900;
+      margin-bottom: 4px;
+      letter-spacing: -0.5px;
+    }
+
+    .header-title p {
+      font-size: 0.88rem;
+      color: #d1fae5;
+    }
+
+    .badge-official {
+      display: inline-block;
+      background: #10b981;
+      color: #064e3b;
+      font-size: 0.72rem;
+      font-weight: 900;
+      padding: 3px 10px;
+      border-radius: 999px;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+
+    .btn-print {
+      background: #ffffff;
+      color: #065f46;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 800;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      transition: all 0.2s ease;
+    }
+
+    .btn-print:hover {
+      background: #f1f5f9;
+      transform: translateY(-1px);
+    }
+
+    /* Roadmap Flowchart */
+    .roadmap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 30px;
+    }
+
+    .roadmap h2 {
+      font-size: 1.1rem;
+      color: var(--accent);
+      margin-bottom: 14px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .flow-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+    }
+
+    .flow-card {
+      background: var(--surface-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .flow-num {
+      width: 28px;
+      height: 28px;
+      background: #0284c7;
+      color: #fff;
+      font-size: 0.82rem;
+      font-weight: 900;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .flow-text {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #e2e8f0;
+      line-height: 1.3;
+    }
+
+    /* Step Section */
+    .step-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      margin-bottom: 24px;
+      overflow: hidden;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .step-header {
+      background: var(--surface-card);
+      padding: 16px 22px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .step-badge {
+      background: #059669;
+      color: #fff;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .step-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #f8fafc;
+      flex: 1;
+    }
+
+    .step-content {
+      padding: 22px;
+      font-size: 0.88rem;
+      color: #cbd5e1;
+      line-height: 1.7;
+    }
+
+    .step-content ol, .step-content ul {
+      margin-left: 20px;
+      margin-bottom: 14px;
+    }
+
+    .step-content li {
+      margin-bottom: 8px;
+    }
+
+    /* Visual Mockup Box */
+    .mockup-box {
+      background: #020617;
+      border: 1.5px solid #334155;
+      border-radius: 12px;
+      padding: 16px;
+      margin: 16px 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.8rem;
+    }
+
+    .mockup-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid #1e293b;
+      color: #94a3b8;
+      font-size: 0.72rem;
+    }
+
+    .mockup-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ef4444;
+      display: inline-block;
+    }
+    .mockup-dot:nth-child(2) { background: #f59e0b; }
+    .mockup-dot:nth-child(3) { background: #10b981; }
+
+    /* Alert Boxes */
+    .alert {
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 0.82rem;
+      margin: 14px 0;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      line-height: 1.5;
+    }
+
+    .alert-warning {
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      color: #fde68a;
+    }
+
+    .alert-success {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #a7f3d0;
+    }
+
+    .alert-info {
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      color: #bae6fd;
+    }
+
+    /* Comparison Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      font-size: 0.82rem;
+    }
+
+    th, td {
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      text-align: left;
+    }
+
+    th {
+      background: var(--surface-card);
+      color: var(--accent);
+      font-weight: 800;
+    }
+
+    /* Button Pill in text */
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 0.74rem;
+      font-weight: 800;
+      background: #334155;
+      color: #fff;
+    }
+
+    .pill-green { background: #059669; }
+    .pill-blue { background: #0284c7; }
+    .pill-amber { background: #d97706; }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 30px 20px;
+      color: #64748b;
+      font-size: 0.78rem;
+      border-top: 1px solid var(--border);
+      margin-top: 40px;
+    }
+
+    /* Print Styles */
+    @media print {
+      body {
+        background: #ffffff !important;
+        color: #0f172a !important;
+        padding: 0 !important;
+      }
+      .header {
+        background: #064e3b !important;
+        color: #ffffff !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .btn-print, .no-print {
+        display: none !important;
+      }
+      .step-section, .roadmap {
+        background: #ffffff !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #0f172a !important;
+        box-shadow: none !important;
+        page-break-inside: avoid;
+      }
+      .step-header {
+        background: #f1f5f9 !important;
+        color: #0f172a !important;
+      }
+      .step-title {
+        color: #0f172a !important;
+      }
+      .step-content {
+        color: #334155 !important;
+      }
+      th {
+        background: #f8fafc !important;
+        color: #0f172a !important;
+      }
+      .mockup-box {
+        background: #f8fafc !important;
+        color: #0f172a !important;
+        border: 1px solid #cbd5e1 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+
+    <!-- Header Banner -->
+    <div class="header">
+      <div class="header-title">
+        <span class="badge-official">🌿 Buku Panduan Resmi SR12</span>
+        <h1>Panduan Operasional Pemilik Toko</h1>
+        <p>Petunjuk Lengkap &amp; Praktis Langkah Demi Langkah Mengoperasikan Toko Online &amp; POS Kasir</p>
+      </div>
+      <div>
+        <button type="button" class="btn-print" onclick="window.print()">
+          🖨️ Cetak / Simpan PDF
+        </button>
+      </div>
+    </div>
+
+    <!-- Alur Kerja Cepat (Roadmap) -->
+    <div class="roadmap">
+      <h2>📌 8 Urutan Langkah Pertama Pemilik Toko Baru:</h2>
+      <div class="flow-steps">
+        <div class="flow-card">
+          <div class="flow-num">1</div>
+          <div class="flow-text">Login Kasir POS Gudang (PIN: 123456)</div>
+        </div>
+        <div class="flow-card">
+          <div class="flow-num">2</div>
+          <div class="flow-text">Atur Nama Toko, No WA &amp; Level Toko</div>
+        </div>
+        <div class="flow-card">
+          <div class="flow-num">3</div>
+          <div class="flow-text">Sesuaikan Jumlah Stok Fisik Produk</div>
+        </div>
+        <div class="flow-card">
+          <div class="flow-num">4</div>
+          <div class="flow-text">Daftarkan Mitra Jaringan (Marketer &amp; Reseller)</div>
+        </div>
+        <div class="flow-card">
+          <div class="flow-num">5</div>
+          <div class="flow-text">Setor Modal Usaha &amp; Buka Kas Kasir</div>
+        </div>
+        <div class="flow-card">
+          <div class="flow-num">6</div>
+          <div class="flow-text">Mulai Melayani Transaksi Kasir &amp; Web</div>
+        </div>
+        <div class="flow-card">
+          <div class="flow-num">7</div>
+          <div class="flow-text">Cek Laporan Laba Bersih &amp; Unduh Excel</div>
+        </div>
+        <div class="flow-card">
+          <div class="flow-num">8</div>
+          <div class="flow-text">Bayar Gaji Marketer di Tanggal Gajian</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LANGKAH 1 -->
+    <div class="step-section">
+      <div class="step-header">
+        <span class="step-badge">Langkah 1</span>
+        <div class="step-title">🔑 Masuk ke Dashboard Kasir POS Gudang</div>
+      </div>
+      <div class="step-content">
+        <p>Sebagai pemilik toko, Anda memiliki kendali penuh atas toko online dan kasir gudang melalui Backoffice POS.</p>
+        
+        <ol>
+          <li>Buka link website toko online Anda melalui browser HP atau Laptop.</li>
+          <li>Di HP: Klik tombol menu <b>"Kasir"</b> di bilah bawah layar. Di Laptop/PC: Klik tombol <b>"Kasir POS"</b> di pojok kanan atas.</li>
+          <li>Masukkan <b>PIN Kasir Standar: <span class="pill pill-blue">123456</span></b> (atau PIN yang diberikan saat serah terima).</li>
+          <li>Dashboard Backoffice POS Toko Anda siap digunakan!</li>
+        </ol>
+
+        <div class="alert alert-info">
+          💡 <b>Tips:</b> Anda tidak perlu login berulang-ulang di perangkat yang sama karena sesi kasir akan otomatis tersimpan dengan aman di browser Anda.
+        </div>
+      </div>
+    </div>
+
+    <!-- LANGKAH 2 -->
+    <div class="step-section">
+      <div class="step-header">
+        <span class="step-badge">Langkah 2</span>
+        <div class="step-title">⚙️ Konfigurasi Identitas Toko &amp; WhatsApp (Wajib Pertama Kali)</div>
+      </div>
+      <div class="step-content">
+        <p><b>Ini adalah hal paling penting yang pertama kali harus dilakukan sebelum mulai berjualan.</b></p>
+        
+        <ol>
+          <li>Di menu atas Backoffice POS, klik tab <b>"Banner &amp; Profil Toko"</b>.</li>
+          <li>Isi formulir identitas toko Anda:
+            <ul>
+              <li><b>Nama Toko:</b> Contoh <i>"SR12 Herbal Alzam Store"</i> atau <i>"SR12 Maros Official"</i>.</li>
+              <li><b>Kota/Kabupaten:</b> Kota lokasi toko fisik/gudang Anda (misal: <i>Maros, Makassar, Jakarta, Bandung</i>).</li>
+              <li><b>Nama Pemilik Toko:</b> Nama lengkap Anda sebagai pemilik/penanggung jawab.</li>
+              <li><b>Nomor WhatsApp Toko:</b> Masukkan nomor WA Anda diawali format <code>08...</code> (Contoh: <code>081234567890</code>). <u>Ini adalah nomor tujuan saat pembeli memesan produk di toko online!</u></li>
+              <li><b>Level Kemitraan Toko Anda:</b> Pilih tingkat kemitraan Anda di SR12:
+                <ul>
+                  <li><b>Distributor Utama (Diskon 50% / Modal HPP 50%)</b></li>
+                  <li><b>Agen (Diskon 40% / Modal HPP 60%)</b></li>
+                  <li><b>Sub Agen (Diskon 30% / Modal HPP 70%)</b></li>
+                  <li><b>Reseller (Diskon 20% / Modal HPP 80%)</b></li>
+                </ul>
+                <div class="alert alert-warning" style="margin: 6px 0;">
+                  ⚠️ <b>Penting:</b> Pilihan level toko ini yang akan menentukan <b>Modal Kulakan Otomatis (HPP)</b> toko Anda di tab Laporan, sehingga Anda tidak perlu menghitung modal per produk secara manual.
+                </div>
+              </li>
+              <li><b>Tanggal Gajian Marketer:</b> Tentukan tanggal pembayaran komisi marketer setiap bulannya (Pilihan tgl 1 s/d 31, standar SR12: tanggal 25).</li>
+              <li><b>Nomor Rekening Toko:</b> Masukkan nama bank dan nomor rekening Anda (BCA / BRI / Mandiri / BSI) untuk pembayaran transfer pembeli.</li>
+              <li><b>Ganti Banner Toko:</b> Anda bisa mengunggah foto banner etalase toko sendiri atau memilih banner herbal alami yang sudah disediakan.</li>
+            </ul>
+          </li>
+          <li>Klik tombol hijau <b>"Simpan Perubahan Profil Toko"</b> di bagian bawah.</li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- LANGKAH 3 -->
+    <div class="step-section">
+      <div class="step-header">
+        <span class="step-badge">Langkah 3</span>
+        <div class="step-title">📦 Menyesuaikan Stok Barang di Gudang</div>
+      </div>
+      <div class="step-content">
+        <p>Seluruh produk resmi SR12 (sabun, toner, serum, krim, herbal, deodorant, madu, dll) <b>sudah otomatis ada di etalase Anda lengkap dengan foto, berat, dan harga HET resmi</b>.</p>
+        
+        <ol>
+          <li>Buka tab <b>"Inventori &amp; Stok"</b> di POS.</li>
+          <li>Periksa produk yang Anda miliki secara fisik:
+            <ul>
+              <li>Ketik angka stok aktual pada kolom produk (misal: Deodorant Spray isi <b>50</b> pcs, Acne Toner isi <b>20</b> pcs).</li>
+              <li>Jika stok habis, ketik <b>0</b>. Produk yang stoknya 0 akan otomatis diberi tanda "Habis" di toko online sehingga tidak bisa dipesan.</li>
+              <li>Gunakan tombol <b>"Set Semua Stok"</b> jika Anda ingin mengisi stok awal sama rata (misal semua diset 50 pcs) lalu mengoreksi sisanya.</li>
+            </ul>
+          </li>
+          <li><b>Order Restock ke Supplier:</b> Jika stok produk menipis, klik tombol <b>"Order Restock"</b> pada produk tersebut. Sistem akan otomatis menyusun draf pesan WhatsApp resmi siap kirim ke Distributor pembina Anda lengkap dengan jumlah dan estimasi modal kulakannya.</li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- LANGKAH 4 -->
+    <div class="step-section">
+      <div class="step-header">
+        <span class="step-badge">Langkah 4</span>
+        <div class="step-title">👥 Mendaftarkan Mitra Jaringan (Marketer, Reseller, Agen)</div>
+      </div>
+      <div class="step-content">
+        <p>Aplikasi ini memiliki sistem CRM Kemitraan Multi-Tier yang sangat canggih dan otomatis sesuai aturan resmi SR12.</p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Tingkat Mitra</th>
+              <th>Diskon Langsung</th>
+              <th>Sistem Komisi</th>
+              <th>Keterangan</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><b>Marketer</b></td>
+              <td>0% (Bayar Full HET)</td>
+              <td><b>15% Komisi</b> (Gaji Bulanan)</td>
+              <td>Punya link affiliate khusus. Tidak ada risiko penurunan level.</td>
+            </tr>
+            <tr>
+              <td><b>Reseller</b></td>
+              <td><b>20%</b> Potongan Langsung</td>
+              <td>-</td>
+              <td>Diskon otomatis terpotong saat belanja di kasir/web.</td>
+            </tr>
+            <tr>
+              <td><b>Sub Agen</b></td>
+              <td><b>30%</b> Potongan Langsung</td>
+              <td>-</td>
+              <td>Diskon 30% dari harga HET.</td>
+            </tr>
+            <tr>
+              <td><b>Agen</b></td>
+              <td><b>40%</b> Potongan Langsung</td>
+              <td>-</td>
+              <td>Khusus toko yang berstatus Distributor Utama.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h4 style="margin: 14px 0 6px; color: var(--accent);">Ada 2 Cara Input Mitra:</h4>
+        <ol>
+          <li><b>Cara 1 (Satu per satu):</b>
+            <br>Klik tombol hijau <b>"+ Tambah Mitra"</b> &rarr; Masukkan Nama, No WA (08...), Pilih Tingkat Kemitraan, Kota, dan Bank/Rekening &rarr; Klik Simpan.
+          </li>
+          <li><b>Cara 2 (Import Excel Masal):</b>
+            <br>Klik tombol biru <b>"Unduh Template"</b> &rarr; Buka file Excel <code>template-import-mitra-sr12.xlsx</code> di HP/Laptop &rarr; Isi nama-nama mitra Anda &rarr; Klik tombol <b>"Import Excel"</b> &rarr; Periksa pratinjau data &rarr; Klik <b>"Konfirmasi &amp; Simpan Mitra ke Database"</b>.
+          </li>
+        </ol>
+
+        <div class="alert alert-success">
+          ⭐ <b>Fitur Link Promosi Marketer (Affiliate):</b>
+          <br>Setiap mitra Marketer memiliki kode unik (misal: <code>MKT-001-MRS</code>). Berikan link promosi ke mereka:
+          <br><code>https://alamat-toko-anda.com/?ref=MKT-001-MRS</code>
+          <br>Setiap ada pembeli yang belanja lewat link tersebut, sistem otomatis mencatat <b>komisi 15%</b> untuk marketer tersebut!
+        </div>
+      </div>
+    </div>
+
+    <!-- LANGKAH 5 -->
+    <div class="step-section">
+      <div class="step-header">
+        <span class="step-badge">Langkah 5</span>
+        <div class="step-title">💰 Mengelola Buku Kas &amp; Modal Usaha</div>
+      </div>
+      <div class="step-content">
+        <p>Buku Kas mencatat seluruh uang fisik maupun saldo rekening yang masuk dan keluar dari toko Anda.</p>
+
+        <ol>
+          <li>Buka tab <b>"Buku Kas"</b> di Backoffice POS.</li>
+          <li><b>Menyetor Modal Usaha:</b>
+            <br>Saat Anda pertama kali menyuntikkan uang kas modal toko, klik tombol hijau <b>"+ Setoran Modal Usaha"</b> &rarr; Masukkan nominalnya (misal: <code>Rp 5.000.000</code>). Saldo kas toko Anda akan langsung bertambah.
+          </li>
+          <li><b>Buka Kas Kasir (Setiap Pagi):</b>
+            <br>Setiap pagi sebelum toko buka, klik tombol biru <b>"+ Buka Kas (Kasir)"</b> untuk mencatat uang kembalian receh di laci kasir (misal: <code>Rp 100.000</code>).
+          </li>
+          <li><b>Mencatat Kas Keluar:</b>
+            <br>Jika ada pengeluaran, klik tombol <b>"+ Tambah Arus Kas"</b> &rarr; Pilih <b>🔴 Kas Keluar</b>:
+            <ul>
+              <li><b>Kulakan Tambah Stok SR12:</b> Gunakan tombol cepat ini saat Anda mentransfer uang ke pabrik/distributor pusat untuk belanja barang restock.</li>
+              <li><b>Operasional Toko:</b> Untuk biaya beli plastik kresek, nota, lakban, pulsa, atau listrik.</li>
+            </ul>
+          </li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- LANGKAH 6 -->
+    <div class="step-section">
+      <div class="step-header">
+        <span class="step-badge">Langkah 6</span>
+        <div class="step-title">🛒 Melayani Transaksi Penjualan (Kasir &amp; Toko Online)</div>
+      </div>
+      <div class="step-content">
+        <h4 style="color: var(--accent); margin-bottom: 8px;">A. Penjualan Offline di Toko / Kasir:</h4>
+        <ol>
+          <li>Buka tab <b>"Kasir"</b>.</li>
+          <li>Pilih produk yang dibeli konsumen (klik produk atau ketik namanya di kolom pencarian).</li>
+          <li><b>PENTING: Pilih Level Pembeli:</b>
+            <br>Jika pembeli adalah <b>Konsumen Umum</b>, harga yang berlaku adalah Full HET.
+            <br>Jika pembeli adalah <b>Reseller</b> atau <b>Sub Agen</b>, pilih nama mitra tersebut di daftar. Sistem otomatis memotong diskon 20% atau 30% seketika!
+          </li>
+          <li>Pilih metode pembayaran (<b>Tunai / QRIS / Transfer Bank</b>).</li>
+          <li>Ketik uang yang diterima &rarr; Sistem menghitung uang kembalian secara otomatis.</li>
+          <li>Klik <b>"Proses Transaksi &amp; Cetak Struk"</b>. Struk bisa langsung dicetak ke printer Bluetooth mini atau dikirim via WhatsApp pembeli. Stok barang akan otomatis berkurang!</li>
+        </ol>
+
+        <h4 style="color: var(--accent); margin: 16px 0 8px;">B. Penjualan Online via Web:</h4>
+        <ol>
+          <li>Bagikan alamat website toko Anda ke status WhatsApp, bio Instagram, Facebook, atau TikTok.</li>
+          <li>Pembeli memilih barang dan melakukan Checkout di web.</li>
+          <li>Pemesanan akan otomatis tersusun menjadi pesan WhatsApp yang dikirimkan langsung ke nomor WA Toko Anda.</li>
+          <li>Anda tinggal mengirimkan total biaya + ongkir, menerima transfer, dan mengirimkan paket ke pembeli!</li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- LANGKAH 7 -->
+    <div class="step-section">
+      <div class="step-header">
+        <span class="step-badge">Langkah 7</span>
+        <div class="step-title">📊 Membaca Laporan Keuangan &amp; Keuntungan Bersih</div>
+      </div>
+      <div class="step-content">
+        <p>Anda tidak perlu pusing mempekerjakan akuntan. Tab <b>"Laporan"</b> secara otomatis mengkalkulasi kondisi keuangan toko Anda setiap saat:</p>
+
+        <div class="mockup-box">
+          <div class="mockup-header">
+            <span class="mockup-dot"></span>
+            <span class="mockup-dot"></span>
+            <span class="mockup-dot"></span>
+            <span>RINGKASAN KEUANGAN OTOMATIS (TAB LAPORAN)</span>
+          </div>
+          <div style="color: #38bdf8; font-weight: bold; margin-bottom: 6px;">1. Total Omset Net (GMV): Rp 1.500.000 (Total uang masuk dari penjualan)</div>
+          <div style="color: #94a3b8; margin-bottom: 6px;">2. Modal Kulakan Toko (HPP): Rp 750.000 (Modal barang kulakan sesuai level toko Anda)</div>
+          <div style="color: #fbbf24; margin-bottom: 6px;">3. Diskon Mitra Diberikan: Rp 120.000 (Potongan diskon yang dinikmati Reseller/Sub Agen)</div>
+          <div style="color: #818cf8; margin-bottom: 6px;">4. Hak Gaji Marketer: Rp 90.000 (Komisi 15% hak marketer yang wajib dibayar)</div>
+          <div style="color: #34d399; font-weight: bold; font-size: 0.92rem; border-top: 1px dashed #334155; padding-top: 8px;">
+            💰 Keuntungan Bersih Toko: Rp 660.000 (Laba murni bersih pemilik toko)
+          </div>
+        </div>
+
+        <p>Tersedia tombol <b>"Download Excel Lengkap"</b> dan <b>"Download Rekap Harian Mitra"</b> yang sudah ditata rapi, berwarna, dan siap cetak untuk arsip pembukuan Anda.</p>
+      </div>
+    </div>
+
+    <!-- LANGKAH 8 -->
+    <div class="step-section">
+      <div class="step-header">
+        <span class="step-badge">Langkah 8</span>
+        <div class="step-title">💼 Membayar Gaji Marketer di Tanggal Gajian</div>
+      </div>
+      <div class="step-content">
+        <p>Setiap penjualan yang berasal dari link promosi Marketer akan dicatat sebagai <b>Hak Gaji Marketer (15%)</b>.</p>
+
+        <ol>
+          <li>Saat tiba tanggal gajian (misal tanggal 25), buka tab <b>"Mitra &amp; Downline"</b>.</li>
+          <li>Klik sub-tab <b>"Gaji &amp; Komisi Marketer"</b>.</li>
+          <li>Anda akan melihat daftar komisi marketer yang berstatus <span class="pill pill-amber">Pending</span>.</li>
+          <li>Transfer komisi tersebut ke nomor rekening masing-masing marketer yang tertera di layar.</li>
+          <li>Klik tombol <b>"Lunas"</b> pada baris transaksi tersebut.</li>
+        </ol>
+
+        <div class="alert alert-success">
+          ✨ <b>Otomatis Masuk Buku Kas:</b> Ketika Anda mengklik tombol "Lunas", sistem akan otomatis mencatat pengeluaran tersebut ke tab <b>Buku Kas</b> sebagai <b>Kas Keluar (Kategori: Gaji &amp; Komisi Marketer)</b>, sehingga saldo kas toko Anda tetap cocok dan akurat!
+        </div>
+      </div>
+    </div>
+
+    <!-- Tanya Jawab (FAQ) -->
+    <div class="step-section">
+      <div class="step-header">
+        <span class="step-badge">FAQ</span>
+        <div class="step-title">❓ Pertanyaan Sering Diajukan Pemilik Toko</div>
+      </div>
+      <div class="step-content">
+        <p><b>Q: Bagaimana jika internet tiba-tiba mati saat sedang transaksi di kasir?</b><br>
+        A: Aplikasi ini dibuat dengan teknologi <i>Offline-First</i>. Anda tetap bisa melayani penjualan kasir dan mencatat mutasi saat internet mati. Data akan otomatis disinkronkan ke cloud begitu internet terhubung kembali.</p>
+        <br>
+        <p><b>Q: Bagaimana jika saya ingin mengganti nomor WhatsApp atau Nama Toko?</b><br>
+        A: Anda bisa menggantinya kapan saja di tab <b>"Banner &amp; Profil Toko"</b> lalu klik Simpan.</p>
+        <br>
+        <p><b>Q: Printer apa yang cocok untuk mencetak struk kasir?</b><br>
+        A: Anda bisa menggunakan semua jenis printer thermal Bluetooth standar ukuran 58mm atau 80mm yang umum dijual di marketplace (seperti Panda, Iware, Zywell, VSC, dll).</p>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <p><b>SR12 Herbal Ecosystem &copy; 2026</b> &bull; Panduan Resmi Pengoperasian Toko Mitra &amp; Distributor</p>
+      <p style="margin-top: 4px;">Dibuat untuk mempermudah digitalisasi seluruh jaringan kemitraan SR12 di seluruh Indonesia.</p>
+    </div>
+
+  </div>
+
+</body>
+</html>
