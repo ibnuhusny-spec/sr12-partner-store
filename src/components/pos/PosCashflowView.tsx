@@ -52,11 +52,13 @@ export const PosCashflowView: React.FC<PosCashflowViewProps> = ({ onSwitchTab })
     window.addEventListener('sr12:cloud_sync_cashflow', handleSync);
     window.addEventListener('sr12:cloud_sync_orders', handleSync);
     window.addEventListener('sr12:cloud_sync_downlines', handleSync);
+    window.addEventListener('sr12:cloud_sync_marketer_sales', handleSync);
 
     return () => {
       window.removeEventListener('sr12:cloud_sync_cashflow', handleSync);
       window.removeEventListener('sr12:cloud_sync_orders', handleSync);
       window.removeEventListener('sr12:cloud_sync_downlines', handleSync);
+      window.removeEventListener('sr12:cloud_sync_marketer_sales', handleSync);
     };
   }, [currentStore.slug]);
 

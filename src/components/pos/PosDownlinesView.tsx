@@ -361,6 +361,8 @@ export const PosDownlinesView: React.FC<PosDownlinesViewProps> = ({
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('sr12:cloud_sync_cashflow', { detail: { storeSlug: currentStore.slug } }));
+      window.dispatchEvent(new CustomEvent('sr12:cloud_sync_marketer_sales', { detail: { storeSlug: currentStore.slug } }));
+      window.dispatchEvent(new CustomEvent('sr12:cloud_sync_downlines', { detail: { storeSlug: currentStore.slug } }));
     }
   };
 
@@ -389,6 +391,8 @@ export const PosDownlinesView: React.FC<PosDownlinesViewProps> = ({
     setSales(prev => prev.map(s => ({ ...s, paidStatus: 'paid', paidDate: new Date().toISOString().split('T')[0] })));
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('sr12:cloud_sync_cashflow', { detail: { storeSlug: currentStore.slug } }));
+      window.dispatchEvent(new CustomEvent('sr12:cloud_sync_marketer_sales', { detail: { storeSlug: currentStore.slug } }));
+      window.dispatchEvent(new CustomEvent('sr12:cloud_sync_downlines', { detail: { storeSlug: currentStore.slug } }));
     }
     alert(`Alhamdulillah! Seluruh (${unpaidSales.length}) komisi pending senilai Rp ${totalCommissionUnpaid.toLocaleString('id-ID')} berhasil dilunaskan dan otomatis tercatat sebagai KAS KELUAR di Buku Kas toko!`);
   };
@@ -423,6 +427,8 @@ export const PosDownlinesView: React.FC<PosDownlinesViewProps> = ({
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('sr12:cloud_sync_cashflow', { detail: { storeSlug: currentStore.slug } }));
+      window.dispatchEvent(new CustomEvent('sr12:cloud_sync_marketer_sales', { detail: { storeSlug: currentStore.slug } }));
+      window.dispatchEvent(new CustomEvent('sr12:cloud_sync_downlines', { detail: { storeSlug: currentStore.slug } }));
     }
 
     alert(`Alhamdulillah! Gaji Marketer ${marketerName} sebesar Rp ${unpaidAmount.toLocaleString('id-ID')} berhasil dilunaskan dan otomatis tercatat sebagai KAS KELUAR di Buku Kas toko!`);

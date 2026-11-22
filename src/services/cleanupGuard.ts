@@ -224,7 +224,15 @@ export function markCashflowDeleted(storeSlug: string | undefined, cashflowIds: 
  */
 export function unmarkCashflowDeleted(storeSlug: string | undefined, cashflowIds: string[]): void {
   const slug = normalizeSlug(storeSlug);
-  const removeSet = new Set(cashflowIds.map(normalizeId).filter(Boolean));
+  const expanded: string[] = [];
+  for (const rawId of cashflowIds) {
+    if (!rawId) continue;
+    expanded.push(rawId);
+    expanded.push(rawId.replace(/^CSH-MKT-/i, ''));
+    expanded.push(rawId.replace(/^CSH-ORD-/i, ''));
+    expanded.push(rawId.replace(/^CSH-/i, ''));
+  }
+  const removeSet = new Set(expanded.map(normalizeId).filter(Boolean));
   if (removeSet.size === 0) return;
 
   const tombstones = getTombstones(slug);
@@ -289,7 +297,11 @@ export function filterDeletedCashflow(
   const orderSet = new Set(tombstones.deletedOrderIds.map(normalizeId));
   return entries.filter(e => {
     const cid = normalizeId(e.id);
-    const stripped = cid.replace(/^CSH-ORD-/, '');
+    if (cid.startsWith('csh-mkt-')) {
+      const cleanOrderId = cid.replace(/^csh-mkt-/, '');
+      return !cashSet.has(cid) && !orderSet.has(cleanOrderId);
+    }
+    const stripped = cid.replace(/^csh-ord-/, '');
     return !cashSet.has(cid) && !orderSet.has(cid) && !orderSet.has(stripped);
   });
 }

@@ -775,7 +775,35 @@ export async function fetchStoreMarketerSales(storeSlug: string): Promise<Market
         }))
         .filter(s => isActualMarketerSale(s));
 
-      const mapped = filterDeletedMarketerSales(targetSlug, rawMapped, cancelledIds);
+      const cloudMapped = filterDeletedMarketerSales(targetSlug, rawMapped, cancelledIds);
+
+      // REKONSILIASI DUA ARAH: Jangan menimpa data lokal!
+      // Gabungkan cloudMapped dengan localSales sehingga penjualan kasir offline & status Lunas tidak hilang
+      const localSales = getLocalMarketerSales(targetSlug);
+      const salesMap = new Map<string, MarketerSale>();
+
+      cloudMapped.forEach(s => {
+        if (s && s.orderId) salesMap.set(s.orderId, s);
+      });
+
+      localSales.forEach(ls => {
+        if (!ls || !ls.orderId) return;
+        const existing = salesMap.get(ls.orderId);
+        if (!existing) {
+          salesMap.set(ls.orderId, ls);
+        } else {
+          // Prioritaskan status 'paid' jika salah satu (cloud atau local) sudah lunas
+          const isPaid = ls.paidStatus === 'paid' || existing.paidStatus === 'paid';
+          salesMap.set(ls.orderId, {
+            ...existing,
+            ...ls,
+            paidStatus: isPaid ? 'paid' : 'unpaid',
+            paidDate: isPaid ? (ls.paidDate || existing.paidDate || new Date().toISOString().split('T')[0]) : undefined
+          });
+        }
+      });
+
+      const mapped = filterDeletedMarketerSales(targetSlug, Array.from(salesMap.values()), cancelledIds);
 
       try {
         localStorage.setItem(`sr12_marketer_sales_${targetSlug}`, JSON.stringify(mapped));
@@ -812,6 +840,7 @@ export async function updateMarketerSalePaidStatus(
   const targetSlug = storeSlug || 'sr12-central';
   const token = getActiveSessionToken(targetSlug);
 
+  let currentSale: MarketerSale | undefined;
   try {
     const list: MarketerSale[] = getLocalMarketerSales(targetSlug);
     const idx = list.findIndex(s => s.orderId === orderId);
@@ -822,6 +851,7 @@ export async function updateMarketerSalePaidStatus(
       } else {
         delete list[idx].paidDate;
       }
+      currentSale = list[idx];
       localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(list));
       localStorage.setItem(`sr12_marketer_sales_${targetSlug}`, JSON.stringify(list));
     }
@@ -836,6 +866,28 @@ export async function updateMarketerSalePaidStatus(
     });
   } catch (err) {
     console.warn('Network error updating marketer sale paid status in Supabase:', err);
+  }
+
+  // Jika data penjualan marketer ada, pastikan juga tersimpan di tabel cloud marketer_sales
+  if (currentSale) {
+    try {
+      await supabase.from('marketer_sales').upsert({
+        store_slug: targetSlug,
+        order_id: currentSale.orderId,
+        marketer_id: currentSale.marketerId,
+        order_date: currentSale.orderDate,
+        month_period: currentSale.monthPeriod,
+        customer_name: currentSale.customerName,
+        customer_phone: currentSale.customerPhone || '-',
+        fulfillment_type: currentSale.fulfillmentType || 'pickup',
+        items_desc: currentSale.itemsDesc || 'Produk SR12',
+        omset_het: currentSale.omsetHet,
+        commission_pct: currentSale.commissionPct || 15,
+        commission_amount: currentSale.commissionAmount,
+        paid_status: newStatus,
+        paid_date: newStatus === 'paid' ? (currentSale.paidDate || new Date().toISOString().split('T')[0]) : null
+      }, { onConflict: 'store_slug, order_id' });
+    } catch {}
   }
 
   return true;
