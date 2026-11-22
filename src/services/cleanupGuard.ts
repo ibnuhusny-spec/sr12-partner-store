@@ -135,6 +135,25 @@ export function markOrdersDeleted(
 }
 
 /**
+ * Unmarks order IDs from tombstones so they can be safely displayed and recovered.
+ */
+export function unmarkOrdersDeleted(storeSlug: string | undefined, orderIds: string[]): void {
+  const slug = normalizeSlug(storeSlug);
+  const cleanIds = orderIds.map(normalizeId).filter(Boolean);
+  if (cleanIds.length === 0) return;
+
+  const removeSet = new Set(cleanIds);
+  const tombstones = getTombstones(slug);
+  tombstones.deletedOrderIds = tombstones.deletedOrderIds.filter(id => !removeSet.has(normalizeId(id)));
+  tombstones.deletedMarketerOrderIds = (tombstones.deletedMarketerOrderIds || []).filter(id => !removeSet.has(normalizeId(id)));
+  tombstones.deletedCashflowIds = (tombstones.deletedCashflowIds || []).filter(id => {
+    const nid = normalizeId(id);
+    return !removeSet.has(nid) && !removeSet.has(nid.replace(/^csh-ord-/, ''));
+  });
+  saveTombstones(slug, tombstones);
+}
+
+/**
  * Records deleted marketer commission order IDs so they never reappear after clearing commission history.
  */
 export function markMarketerSalesDeleted(storeSlug: string | undefined, orderIds: string[]): void {

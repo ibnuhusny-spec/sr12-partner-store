@@ -4,6 +4,8 @@ import {
   filterDeletedOrders,
   isOrderDeletedStatus,
   markOrdersDeleted,
+  unmarkOrdersDeleted,
+  unmarkCashflowDeleted,
   notifyPosDataSync
 } from './cleanupGuard';
 import { isDemoSessionActive } from './demoGuard';
@@ -60,36 +62,61 @@ export async function createOrder(order: Order, storeSlug: string): Promise<{ su
 
 function saveLocalOrder(order: Order) {
   try {
-    const raw = localStorage.getItem('sr12_customer_orders');
-    const list: Order[] = raw ? JSON.parse(raw) : [];
-    const existingIdx = list.findIndex(o => o.orderId === order.orderId);
-    if (existingIdx >= 0) {
-      list[existingIdx] = order;
-    } else {
-      list.unshift(order);
-    }
-    localStorage.setItem('sr12_customer_orders', JSON.stringify(list));
-    if (order.storeSlug) {
-      localStorage.setItem(`sr12_customer_orders_${order.storeSlug}`, JSON.stringify(list));
+    const storeKey = order.storeSlug ? `sr12_customer_orders_${order.storeSlug}` : null;
+    const targetKeys = ['sr12_customer_orders', storeKey].filter(Boolean) as string[];
+    for (const key of targetKeys) {
+      const raw = localStorage.getItem(key);
+      const list: Order[] = raw ? JSON.parse(raw) : [];
+      const existingIdx = list.findIndex(o => o.orderId === order.orderId || o.id === order.orderId);
+      if (existingIdx >= 0) {
+        list[existingIdx] = order;
+      } else {
+        list.unshift(order);
+      }
+      localStorage.setItem(key, JSON.stringify(list));
     }
   } catch (e) {}
 }
 
 export function getLocalOrders(storeSlug?: string): Order[] {
   try {
+    let ordersList: Order[] = [];
     if (storeSlug && storeSlug !== 'all') {
       const rawStore = localStorage.getItem(`sr12_customer_orders_${storeSlug}`);
       if (rawStore !== null) {
         const parsed = JSON.parse(rawStore);
-        return Array.isArray(parsed) ? filterDeletedOrders(storeSlug, parsed) : [];
+        if (Array.isArray(parsed)) ordersList = parsed;
       }
     }
-    const raw = localStorage.getItem('sr12_customer_orders');
-    const list: Order[] = raw ? JSON.parse(raw) : [];
-    const scoped = (!storeSlug || storeSlug === 'all')
-      ? list
-      : list.filter(o => !o.storeSlug || o.storeSlug === storeSlug || o.storeSlug === 'all');
-    return filterDeletedOrders(storeSlug, scoped);
+    if (ordersList.length === 0) {
+      const raw = localStorage.getItem('sr12_customer_orders');
+      const list: Order[] = raw ? JSON.parse(raw) : [];
+      ordersList = (!storeSlug || storeSlug === 'all')
+        ? list
+        : list.filter(o => !o.storeSlug || o.storeSlug === storeSlug || o.storeSlug === 'all');
+    }
+
+    // Auto-heal: Pulihkan order riil yang memiliki barang/transaksi kasir jika sempat terstatus batal karena aksi kas
+    let healed = false;
+    ordersList = ordersList.map(o => {
+      const hasRealItems = (Array.isArray(o.items) && o.items.length > 0) || Boolean(o.orderSource?.includes('Kasir'));
+      if (hasRealItems && isOrderDeletedStatus(o.status)) {
+        healed = true;
+        unmarkOrdersDeleted(storeSlug, [o.orderId, o.id || '']);
+        unmarkCashflowDeleted(storeSlug, [o.orderId, o.id || '']);
+        return { ...o, status: 'Lunas / Selesai' };
+      }
+      return o;
+    });
+
+    if (healed && storeSlug) {
+      try {
+        localStorage.setItem(`sr12_customer_orders_${storeSlug}`, JSON.stringify(ordersList));
+        localStorage.setItem('sr12_customer_orders', JSON.stringify(ordersList));
+      } catch {}
+    }
+
+    return filterDeletedOrders(storeSlug, ordersList);
   } catch {
     return [];
   }
@@ -135,6 +162,17 @@ export async function fetchStoreOrders(storeSlug: string): Promise<Order[]> {
     });
 
     if (!error && Array.isArray(data)) {
+      // Auto-heal: Pulihkan order riil yang memiliki transaksi kasir / barang belanjaan jika sempat terstatus batal
+      for (const d of data) {
+        const hasRealItems = (Array.isArray(d.items_json) && d.items_json.length > 0) || Boolean(d.order_source?.includes('Kasir'));
+        if (hasRealItems && isOrderDeletedStatus(d.status)) {
+          d.status = 'Lunas / Selesai';
+          unmarkOrdersDeleted(targetSlug, [d.order_id, d.id]);
+          unmarkCashflowDeleted(targetSlug, [d.order_id, d.id]);
+          updateOrderStatus(d.order_id, 'Lunas / Selesai', targetSlug).catch(() => {});
+        }
+      }
+
       const mapped: Order[] = filterDeletedOrders(
         targetSlug,
         data

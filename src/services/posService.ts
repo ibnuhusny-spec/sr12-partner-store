@@ -309,6 +309,7 @@ export async function fetchStoreCashflow(storeSlug: string): Promise<CashflowEnt
  */
 export async function saveCashflowEntry(entry: CashflowEntry, storeSlug: string): Promise<CashflowEntry[]> {
   const safeSlug = (storeSlug || 'sr12-central').toLowerCase();
+  const isMarketerPayout = entry.id.startsWith('CSH-MKT-');
   const cleanId = entry.id.replace(/^CSH-ORD-/, '').replace(/^CSH-MKT-/, '').replace(/^CSH-/, '');
 
   // 1. Bersihkan dari tombstone jika sebelumnya pernah dihapus
@@ -329,29 +330,38 @@ export async function saveCashflowEntry(entry: CashflowEntry, storeSlug: string)
     localStorage.setItem(`sr12_cashflow_${safeSlug}`, JSON.stringify(dedupedLocal));
   } catch {}
 
-  // 3. Simpan mutasi arus kas ke Supabase Database table 'orders'
-  const orderPayload: any = {
-    orderId: entry.id.startsWith('CSH-') ? entry.id : `CSH-${entry.id}`,
-    storeSlug: safeSlug,
-    customerName: entry.category,
-    customerPhone: '-',
-    customerAddress: entry.description || '-',
-    tier: 'konsumen',
-    tierLabel: 'Buku Kas',
-    items: [],
-    subtotalHet: entry.amount,
-    discountAmount: 0,
-    grandTotal: entry.amount,
-    paymentMethod: entry.operator || 'Kasir Utama',
-    status: 'Lunas / Selesai',
-    orderSource: `Kas Manual: ${entry.type}`,
-    createdAt: entry.date || new Date().toISOString()
-  };
+  // 3. Jika ini pelunasan gaji marketer (CSH-MKT-...):
+  // Pastikan status komisi marketer di database & lokal tercatat 'paid'
+  if (isMarketerPayout) {
+    try {
+      await updateMarketerSalePaidStatus(cleanId, 'paid', safeSlug);
+    } catch {}
+  } else {
+    // Untuk mutasi manual (seperti Setoran Modal Usaha, Buka Kas, Biaya Operasional),
+    // simpan mutasi arus kas ke Supabase Database table 'orders'
+    const orderPayload: any = {
+      orderId: entry.id.startsWith('CSH-') ? entry.id : `CSH-${entry.id}`,
+      storeSlug: safeSlug,
+      customerName: entry.category,
+      customerPhone: '-',
+      customerAddress: entry.description || '-',
+      tier: 'konsumen',
+      tierLabel: 'Buku Kas',
+      items: [],
+      subtotalHet: entry.amount,
+      discountAmount: 0,
+      grandTotal: entry.amount,
+      paymentMethod: entry.operator || 'Kasir Utama',
+      status: 'Lunas / Selesai',
+      orderSource: `Kas Manual: ${entry.type}`,
+      createdAt: entry.date || new Date().toISOString()
+    };
 
-  try {
-    await createOrder(orderPayload, safeSlug);
-  } catch (err) {
-    console.warn('[PosService] Warning saving cashflow order to Supabase:', err);
+    try {
+      await createOrder(orderPayload, safeSlug);
+    } catch (err) {
+      console.warn('[PosService] Warning saving cashflow order to Supabase:', err);
+    }
   }
 
   const freshList = await fetchStoreCashflow(safeSlug);
@@ -367,45 +377,47 @@ export async function saveCashflowEntry(entry: CashflowEntry, storeSlug: string)
  */
 export async function deleteCashflowEntry(id: string, storeSlug: string): Promise<CashflowEntry[]> {
   const safeSlug = (storeSlug || 'sr12-central').toLowerCase();
-  const cleanId = id.replace(/^CSH-ORD-/, '').replace(/^CSH-MKT-/, '');
-  const token = getActiveSessionToken(safeSlug);
+  const isMarketerPayout = id.startsWith('CSH-MKT-');
+  const cleanId = id.replace(/^CSH-ORD-/, '').replace(/^CSH-MKT-/, '').replace(/^CSH-/, '');
 
-  markCashflowDeleted(safeSlug, [id, cleanId, `CSH-MKT-${cleanId}`, `CSH-ORD-${cleanId}`]);
-
-  // Jika mutasi ini adalah pelunasan gaji marketer (CSH-MKT-...), ubah juga status komisinya kembali ke unpaid!
-  if (id.startsWith('CSH-MKT-')) {
+  if (isMarketerPayout) {
+    // 1. Jika ini pelunasan gaji marketer:
+    // Kembalikan status komisi ke 'unpaid'! DILARANG KERAS membatalkan pesanan belanja pembeli!
     try {
       await updateMarketerSalePaidStatus(cleanId, 'unpaid', safeSlug);
     } catch {}
+
+    markCashflowDeleted(safeSlug, [id, `CSH-MKT-${cleanId}`]);
+
+    try {
+      const localList = getStoredCashflow(safeSlug);
+      const filtered = localList.filter(e => e.id !== id && e.id !== `CSH-MKT-${cleanId}`);
+      localStorage.setItem(`sr12_cashflow_${safeSlug}`, JSON.stringify(filtered));
+    } catch {}
+
+    const freshList = await fetchStoreCashflow(safeSlug);
+    notifyPosDataSync(safeSlug, ['cashflow', 'downlines']);
+    return freshList;
   }
 
-  // Hapus dari local storage instan
+  // 2. Untuk mutasi kas manual / non-marketer:
+  markCashflowDeleted(safeSlug, [id, `CSH-${cleanId}`]);
+
   try {
     const localList = getStoredCashflow(safeSlug);
-    const filtered = localList.filter(e => e.id !== id && e.id !== cleanId && e.id !== `CSH-MKT-${cleanId}`);
+    const filtered = localList.filter(e => e.id !== id && e.id !== `CSH-${cleanId}`);
     localStorage.setItem(`sr12_cashflow_${safeSlug}`, JSON.stringify(filtered));
   } catch {}
 
-  try {
-    await updateOrderStatus(cleanId, 'Dibatalkan / Dihapus', safeSlug);
-    if (id !== cleanId) {
+  // Jika mutasi kas manual di cloud, tandai batal mutasi manual tersebut (BUKAN pesanan belanja pelanggan)
+  if (id.startsWith('CSH-') && !id.startsWith('CSH-ORD-')) {
+    try {
       await updateOrderStatus(id, 'Dibatalkan / Dihapus', safeSlug);
-    }
-    if (!isDemoSessionActive()) {
-      try {
-        await supabase.rpc('rpc_delete_marketer_sale', {
-          p_slug: safeSlug,
-          p_order_id: cleanId,
-          p_token: token
-        });
-      } catch {}
-    }
-  } catch (err) {
-    console.warn('[PosService] Warning deleting cashflow order in Supabase:', err);
+    } catch {}
   }
 
   const freshList = await fetchStoreCashflow(safeSlug);
-  notifyPosDataSync(safeSlug, ['cashflow', 'orders', 'downlines']);
+  notifyPosDataSync(safeSlug, ['cashflow']);
   return freshList;
 }
 
@@ -414,23 +426,16 @@ export async function deleteCashflowEntry(id: string, storeSlug: string): Promis
  */
 export async function clearAllCashflow(storeSlug: string): Promise<void> {
   const safeSlug = (storeSlug || 'sr12-central').toLowerCase();
-  const token = getActiveSessionToken(safeSlug);
 
   const idsToClear = new Set<string>(getStoredCashflow(safeSlug).map(e => e.id).filter(Boolean));
-  const targetOrders: string[] = [];
+  const manualCashOrders: string[] = [];
 
   try {
     const orders = await fetchStoreOrders(safeSlug);
     for (const o of orders) {
-      if (
-        o.orderSource?.startsWith('Kas Manual') ||
-        o.orderSource?.includes('Kasir') ||
-        o.status?.includes('Lunas') ||
-        o.status?.includes('Selesai')
-      ) {
+      if (o.orderSource?.startsWith('Kas Manual')) {
         idsToClear.add(o.orderId);
-        idsToClear.add(`CSH-ORD-${o.orderId}`);
-        targetOrders.push(o.orderId);
+        manualCashOrders.push(o.orderId);
       }
     }
   } catch (err) {
@@ -441,23 +446,14 @@ export async function clearAllCashflow(storeSlug: string): Promise<void> {
   localStorage.setItem(`sr12_cashflow_${safeSlug}`, JSON.stringify([]));
 
   try {
-    for (const oid of targetOrders) {
+    for (const oid of manualCashOrders) {
       await updateOrderStatus(oid, 'Dibatalkan / Dihapus', safeSlug);
-      if (!isDemoSessionActive()) {
-        try {
-          await supabase.rpc('rpc_delete_marketer_sale', {
-            p_slug: safeSlug,
-            p_order_id: oid,
-            p_token: token
-          });
-        } catch {}
-      }
     }
   } catch (err) {
     console.warn('[PosService] Warning clearing cashflow in Supabase:', err);
   }
 
-  notifyPosDataSync(safeSlug, ['cashflow', 'orders', 'downlines']);
+  notifyPosDataSync(safeSlug, ['cashflow']);
 }
 
 /**
