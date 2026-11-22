@@ -201,6 +201,7 @@ export const PosCashierView: React.FC<PosCashierViewProps> = ({
         orderId: trxId,
         storeSlug: currentStore.slug,
         partnerCode: targetMitra ? targetMitra.partnerCode : (selectedDownlineCode || undefined),
+        marketerId: finalBuyerTier === 'marketer' ? (targetMitra ? targetMitra.partnerCode : (selectedDownlineCode || 'MKT-001-MRS')) : undefined,
         customerName: custName,
         customerPhone: custPhone,
         customerAddress: 'Transaksi Kasir Langsung di Toko / Gudang',
@@ -258,31 +259,33 @@ export const PosCashierView: React.FC<PosCashierViewProps> = ({
       }
 
       // 6. TERHUBUNG KE MITRA / DOWNLINE: Perbarui akumulasi omset HET & hitung komisi Marketer
+      const marketerCode = targetMitra?.partnerCode || (finalBuyerTier === 'marketer' ? (selectedDownlineCode || 'MKT-001-MRS') : undefined);
+
       if (targetMitra) {
         targetMitra.accumulatedSpent90Days = (targetMitra.accumulatedSpent90Days || 0) + subtotalHet;
         targetMitra.totalOrdersCount = (targetMitra.totalOrdersCount || 0) + 1;
         targetMitra.lastOrderDate = new Date().toISOString().split('T')[0];
         await saveStoreDownline(targetMitra, currentStore.slug);
+      }
 
-        // Jika transaksi dicatat untuk Marketer, catat komisi 15% di Payroll
-        if (finalBuyerTier === 'marketer') {
-          const mSale: MarketerSale = {
-            storeSlug: currentStore.slug,
-            orderId: trxId,
-            marketerId: targetMitra.partnerCode,
-            orderDate: new Date().toISOString().split('T')[0],
-            monthPeriod: new Date().toISOString().slice(0, 7),
-            customerName: custName,
-            customerPhone: custPhone,
-            fulfillmentType: 'pickup',
-            itemsDesc: posCart.map(l => `${l.qty}x ${l.product.name}`).join(', '),
-            omsetHet: subtotalHet,
-            commissionPct: 15,
-            commissionAmount: Math.round(subtotalHet * 0.15),
-            paidStatus: 'unpaid'
-          };
-          appendLocalMarketerSale(mSale, currentStore.slug);
-        }
+      // Jika transaksi dicatat untuk Marketer, catat komisi 15% di Payroll
+      if (finalBuyerTier === 'marketer') {
+        const mSale: MarketerSale = {
+          storeSlug: currentStore.slug,
+          orderId: trxId,
+          marketerId: marketerCode || 'MKT-001-MRS',
+          orderDate: new Date().toISOString().split('T')[0],
+          monthPeriod: new Date().toISOString().slice(0, 7),
+          customerName: custName,
+          customerPhone: custPhone,
+          fulfillmentType: 'pickup',
+          itemsDesc: posCart.map(l => `${l.qty}x ${l.product.name}`).join(', '),
+          omsetHet: subtotalHet,
+          commissionPct: 15,
+          commissionAmount: Math.round(subtotalHet * 0.15),
+          paidStatus: 'unpaid'
+        };
+        appendLocalMarketerSale(mSale, currentStore.slug);
       }
 
       // 7. Simpan juga ke cache struk transaksi kasir

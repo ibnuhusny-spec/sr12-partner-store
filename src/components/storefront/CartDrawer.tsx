@@ -276,6 +276,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, onUpdat
       } else if (marketerReferral) {
         commissionMarketerId = marketerReferral;
         await creditMarketerAffiliateTurnover(currentStore.slug, marketerReferral, subtotalHet);
+      } else if (finalTier === 'marketer') {
+        commissionMarketerId = 'MKT-001-MRS';
       }
 
       if (commissionMarketerId) {

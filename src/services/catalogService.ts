@@ -291,7 +291,7 @@ export function getStoreCatalog(storeSlug: string): Product[] {
           let bestImage = p.image;
           if (isRealProductImage(ov?.image)) {
             bestImage = ov!.image!.trim();
-          } else if (safeSlug === 'sr12-central' && KNOWN_STORE_DEFAULT_IMAGES[p.id]) {
+          } else if (KNOWN_STORE_DEFAULT_IMAGES[p.id]) {
             bestImage = KNOWN_STORE_DEFAULT_IMAGES[p.id];
           }
 
@@ -321,7 +321,7 @@ export function getStoreCatalog(storeSlug: string): Product[] {
     let bestImage = p.image;
     if (isRealProductImage(ov?.image)) {
       bestImage = ov!.image!.trim();
-    } else if (safeSlug === 'sr12-central' && KNOWN_STORE_DEFAULT_IMAGES[p.id]) {
+    } else if (KNOWN_STORE_DEFAULT_IMAGES[p.id]) {
       bestImage = KNOWN_STORE_DEFAULT_IMAGES[p.id];
     }
     return {
@@ -415,7 +415,7 @@ export async function syncStoreCatalogFromCloud(storeSlug: string): Promise<Prod
         finalImage = dbRow.image_url.trim();
       } else if (isRealProductImage(ov?.image)) {
         finalImage = ov!.image!.trim();
-      } else if (safeSlug === 'sr12-central' && KNOWN_STORE_DEFAULT_IMAGES[p.id]) {
+      } else if (KNOWN_STORE_DEFAULT_IMAGES[p.id]) {
         finalImage = KNOWN_STORE_DEFAULT_IMAGES[p.id];
       } else if (isRealProductImage(p.image)) {
         finalImage = p.image;

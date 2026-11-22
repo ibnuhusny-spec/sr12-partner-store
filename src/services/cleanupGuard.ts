@@ -198,7 +198,7 @@ export function unmarkDownlineDeleted(storeSlug: string | undefined, partnerCode
 }
 
 /**
- * Records deleted cashflow entry IDs and maps order-backed entries to deletedOrderIds too.
+ * Records deleted cashflow entry IDs.
  */
 export function markCashflowDeleted(storeSlug: string | undefined, cashflowIds: string[]): void {
   const slug = normalizeSlug(storeSlug);
@@ -207,15 +207,12 @@ export function markCashflowDeleted(storeSlug: string | undefined, cashflowIds: 
 
   const tombstones = getTombstones(slug);
   tombstones.deletedCashflowIds = mergeUniqueIds(tombstones.deletedCashflowIds, cleanIds);
-  const derivedOrderIds = cleanIds.map(id => id.replace(/^CSH-ORD-/, ''));
-  tombstones.deletedOrderIds = mergeUniqueIds(tombstones.deletedOrderIds, derivedOrderIds);
   saveTombstones(slug, tombstones);
 
   const cashSet = new Set(cleanIds);
-  const orderSet = new Set(derivedOrderIds);
   removeFromJsonList<CashflowEntry>(`sr12_cashflow_${slug}`, c => {
     const cid = normalizeId(c.id);
-    return cashSet.has(cid) || orderSet.has(cid.replace(/^CSH-ORD-/, ''));
+    return cashSet.has(cid);
   });
 }
 
@@ -242,6 +239,9 @@ export function unmarkCashflowDeleted(storeSlug: string | undefined, cashflowIds
   tombstones.deletedOrderIds = tombstones.deletedOrderIds.filter(
     id => !removeSet.has(normalizeId(id)) && !removeSet.has(normalizeId(`CSH-ORD-${id}`))
   );
+  tombstones.deletedMarketerOrderIds = (tombstones.deletedMarketerOrderIds || []).filter(
+    id => !removeSet.has(normalizeId(id))
+  );
   saveTombstones(slug, tombstones);
 }
 
@@ -262,7 +262,6 @@ export function filterDeletedMarketerSales(
   cancelledOrderIds?: Set<string>
 ): MarketerSale[] {
   const tombstones = getTombstones(storeSlug);
-  const deletedOrderSet = new Set(tombstones.deletedOrderIds.map(normalizeId));
   const deletedSaleSet = new Set(tombstones.deletedMarketerOrderIds.map(normalizeId));
   const cancelledUpperSet = new Set(
     Array.from(cancelledOrderIds || []).map(normalizeId).filter(Boolean)
@@ -271,7 +270,7 @@ export function filterDeletedMarketerSales(
   return sales.filter(s => {
     const oid = normalizeId(s.orderId);
     if (!oid) return false;
-    return !deletedOrderSet.has(oid) && !deletedSaleSet.has(oid) && !cancelledUpperSet.has(oid);
+    return !deletedSaleSet.has(oid) && !cancelledUpperSet.has(oid);
   });
 }
 
@@ -294,13 +293,12 @@ export function filterDeletedCashflow(
 ): CashflowEntry[] {
   const tombstones = getTombstones(storeSlug);
   const cashSet = new Set(tombstones.deletedCashflowIds.map(normalizeId));
-  const orderSet = new Set(tombstones.deletedOrderIds.map(normalizeId));
   return entries.filter(e => {
     const cid = normalizeId(e.id);
     if (cid.startsWith('csh-mkt-')) {
-      const cleanOrderId = cid.replace(/^csh-mkt-/, '');
-      return !cashSet.has(cid) && !orderSet.has(cleanOrderId);
+      return !cashSet.has(cid);
     }
+    const orderSet = new Set(tombstones.deletedOrderIds.map(normalizeId));
     const stripped = cid.replace(/^csh-ord-/, '');
     return !cashSet.has(cid) && !orderSet.has(cid) && !orderSet.has(stripped);
   });

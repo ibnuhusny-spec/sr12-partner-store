@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { SafeModalOverlay } from '../common/SafeModalOverlay';
 import {
@@ -20,6 +20,7 @@ export const PosCashflowView: React.FC<PosCashflowViewProps> = ({ onSwitchTab })
   const { currentStore } = useApp();
   const [entries, setEntries] = useState<CashflowEntry[]>(() => getStoredCashflow(currentStore.slug));
   const [isLoading, setIsLoading] = useState(false);
+  const [salesRev, setSalesRev] = useState(0);
   const [showAddModal, setShowAddModal] = useState(false);
   const [flowType, setFlowType] = useState<'in' | 'out'>('in');
   const [category, setCategory] = useState('');
@@ -28,6 +29,7 @@ export const PosCashflowView: React.FC<PosCashflowViewProps> = ({ onSwitchTab })
 
   const loadData = async () => {
     // 1. Instan dari cache lokal
+    setSalesRev(r => r + 1);
     setEntries(getStoredCashflow(currentStore.slug));
 
     // 2. Sinkronkan dengan Supabase Cloud Storage
@@ -35,6 +37,7 @@ export const PosCashflowView: React.FC<PosCashflowViewProps> = ({ onSwitchTab })
       setIsLoading(true);
       const cloud = await fetchStoreCashflow(currentStore.slug);
       setEntries(cloud);
+      setSalesRev(r => r + 1);
     } catch (e) {
       console.warn('Gagal sinkronisasi cloud cashflow:', e);
     } finally {
@@ -46,6 +49,7 @@ export const PosCashflowView: React.FC<PosCashflowViewProps> = ({ onSwitchTab })
     loadData();
 
     const handleSync = () => {
+      setSalesRev(r => r + 1);
       fetchStoreCashflow(currentStore.slug).then(setEntries).catch(console.error);
     };
 
@@ -122,14 +126,43 @@ export const PosCashflowView: React.FC<PosCashflowViewProps> = ({ onSwitchTab })
     setShowAddModal(true);
   };
 
-  const totalIn = entries.filter(e => e.type === 'in').reduce((sum, e) => sum + e.amount, 0);
-  const totalOut = entries.filter(e => e.type === 'out').reduce((sum, e) => sum + e.amount, 0);
+  // Auto-reconciliation: Pastikan setiap komisi marketer yang sudah berstatus LUNAS selalu hadir di daftar buku kas
+  const displayedEntries = useMemo(() => {
+    const list = [...entries];
+    const existingIds = new Set(list.map(e => e.id));
+    const paidSales = getLocalMarketerSales(currentStore.slug).filter(
+      s => s.paidStatus === 'paid' && (s.commissionAmount || 0) > 0
+    );
+
+    paidSales.forEach(s => {
+      const payoutId = `CSH-MKT-${s.orderId}`;
+      if (!existingIds.has(payoutId)) {
+        existingIds.add(payoutId);
+        list.push({
+          id: payoutId,
+          storeSlug: currentStore.slug,
+          date: s.paidDate || s.orderDate || new Date().toISOString(),
+          type: 'out',
+          category: 'Gaji & Komisi Marketer',
+          amount: s.commissionAmount,
+          description: `Pelunasan Komisi 15% Marketer #${s.marketerId} (Pesanan #${s.orderId} - ${s.customerName || 'Konsumen'})`,
+          operator: 'Owner Toko'
+        });
+      }
+    });
+
+    list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return list;
+  }, [entries, currentStore.slug, salesRev]);
+
+  const totalIn = displayedEntries.filter(e => e.type === 'in').reduce((sum, e) => sum + e.amount, 0);
+  const totalOut = displayedEntries.filter(e => e.type === 'out').reduce((sum, e) => sum + e.amount, 0);
   const netCash = totalIn - totalOut;
 
   // Cek apakah ada komisi marketer yang pending belum dibayarkan
   const unpaidMarketerSales = getLocalMarketerSales(currentStore.slug).filter(s => s.paidStatus !== 'paid');
   const totalUnpaidMarketer = unpaidMarketerSales.reduce((sum, s) => sum + (s.commissionAmount || 0), 0);
-  const hasPaidMarketerSalary = entries.some(e => e.type === 'out' && (e.category.includes('Marketer') || e.id.startsWith('CSH-MKT-')));
+  const hasPaidMarketerSalary = displayedEntries.some(e => e.type === 'out' && (e.category.includes('Marketer') || e.id.startsWith('CSH-MKT-')));
 
   return (
     <div style={{ padding: '20px', background: '#0b1329', minHeight: 'calc(100vh - 65px)', color: '#f8fafc' }}>
@@ -367,7 +400,7 @@ export const PosCashflowView: React.FC<PosCashflowViewProps> = ({ onSwitchTab })
               </tr>
             </thead>
             <tbody>
-              {entries.length === 0 ? (
+              {displayedEntries.length === 0 ? (
                 <tr>
                   <td colSpan={6} style={{ padding: '36px', textAlign: 'center', color: '#64748b' }}>
                     <Wallet size={36} style={{ margin: '0 auto 10px', opacity: 0.4 }} />
@@ -378,7 +411,7 @@ export const PosCashflowView: React.FC<PosCashflowViewProps> = ({ onSwitchTab })
                   </td>
                 </tr>
               ) : (
-                entries.map(e => (
+                displayedEntries.map(e => (
                   <tr key={e.id} style={{ borderBottom: '1px solid #334155' }}>
                     <td style={{ padding: '10px 14px', color: '#94a3b8', whiteSpace: 'nowrap' }}>
                       {new Date(e.date).toLocaleDateString('id-ID', {
