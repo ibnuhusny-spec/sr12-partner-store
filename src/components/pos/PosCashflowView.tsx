@@ -126,19 +126,26 @@ export const PosCashflowView: React.FC<PosCashflowViewProps> = ({ onSwitchTab })
     setShowAddModal(true);
   };
 
-  // Auto-reconciliation: Pastikan setiap komisi marketer yang sudah berstatus LUNAS selalu hadir di daftar buku kas
+  // Auto-reconciliation: Pastikan status gaji marketer akurat secara real-time di Buku Kas
   const displayedEntries = useMemo(() => {
     const list = [...entries];
-    const existingIds = new Set(list.map(e => e.id));
-    const paidSales = getLocalMarketerSales(currentStore.slug).filter(
+    const localSales = getLocalMarketerSales(currentStore.slug);
+    const paidSales = localSales.filter(
       s => s.paidStatus === 'paid' && (s.commissionAmount || 0) > 0
     );
+
+    // Kunci penting: Jika ada komisi yang berstatus UNPAID, pastikan baris Kas Keluar-nya disaring keluar
+    const unpaidPayoutIds = new Set(
+      localSales.filter(s => s.paidStatus !== 'paid').map(s => `CSH-MKT-${s.orderId}`)
+    );
+    const filteredList = list.filter(e => !unpaidPayoutIds.has(e.id));
+    const existingIds = new Set(filteredList.map(e => e.id));
 
     paidSales.forEach(s => {
       const payoutId = `CSH-MKT-${s.orderId}`;
       if (!existingIds.has(payoutId)) {
         existingIds.add(payoutId);
-        list.push({
+        filteredList.push({
           id: payoutId,
           storeSlug: currentStore.slug,
           date: s.paidDate || s.orderDate || new Date().toISOString(),
@@ -151,8 +158,8 @@ export const PosCashflowView: React.FC<PosCashflowViewProps> = ({ onSwitchTab })
       }
     });
 
-    list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    return list;
+    filteredList.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return filteredList;
   }, [entries, currentStore.slug, salesRev]);
 
   const totalIn = displayedEntries.filter(e => e.type === 'in').reduce((sum, e) => sum + e.amount, 0);

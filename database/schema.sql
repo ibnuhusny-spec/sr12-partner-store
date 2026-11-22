@@ -1059,11 +1059,6 @@ BEGIN
   IF v_canonical ILIKE '%Dibatalkan%' OR v_canonical ILIKE '%Dihapus%' THEN
     DELETE FROM marketer_sales
     WHERE store_slug = p_slug AND order_id = p_order_id;
-  ELSE
-    UPDATE marketer_sales
-    SET paid_status = CASE WHEN v_canonical = 'Lunas / Selesai' THEN 'paid' ELSE 'unpaid' END,
-        paid_date = CASE WHEN v_canonical = 'Lunas / Selesai' THEN CURRENT_DATE ELSE NULL END
-    WHERE store_slug = p_slug AND order_id = p_order_id;
   END IF;
 
   RETURN jsonb_build_object('success', true, 'status', v_canonical, 'message', 'Status pesanan berhasil diperbarui secara aman.');
@@ -1528,8 +1523,8 @@ BEGIN
       v_subtotal,
       v_comm_pct,
       v_comm_amount,
-      CASE WHEN v_status IN ('Selesai', 'Lunas / Selesai', 'Lunas') THEN 'paid' ELSE 'unpaid' END,
-      CASE WHEN v_status IN ('Selesai', 'Lunas / Selesai', 'Lunas') THEN v_date_only ELSE NULL END
+      'unpaid',
+      NULL
     );
 
     -- Tambahkan omset HET ke akumulasi belanja/jaringan Marketer (Rules 2026 naik level Reseller)

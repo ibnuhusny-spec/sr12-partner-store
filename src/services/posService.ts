@@ -210,18 +210,19 @@ export async function fetchStoreCashflow(storeSlug: string): Promise<CashflowEnt
       if (s && s.orderId) salesMap.set(s.orderId, s);
     });
 
-    // Gabungkan dengan penjualan lokal (status 'paid' dari perangkat manapun selalu diprioritaskan)
+    // Gabungkan dengan penjualan lokal (status terkini dari perangkat ini selalu dihormati)
     (localSales || []).forEach(s => {
       if (!s || !s.orderId) return;
       const existing = salesMap.get(s.orderId);
       if (!existing) {
         salesMap.set(s.orderId, s);
-      } else if (s.paidStatus === 'paid') {
+      } else {
+        const finalStatus = s.paidStatus || existing.paidStatus || 'unpaid';
         salesMap.set(s.orderId, {
           ...existing,
           ...s,
-          paidStatus: 'paid',
-          paidDate: s.paidDate || existing.paidDate || new Date().toISOString().split('T')[0]
+          paidStatus: finalStatus,
+          paidDate: finalStatus === 'paid' ? (s.paidDate || existing.paidDate || new Date().toISOString().split('T')[0]) : undefined
         });
       }
     });

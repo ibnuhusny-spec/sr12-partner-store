@@ -792,13 +792,13 @@ export async function fetchStoreMarketerSales(storeSlug: string): Promise<Market
         if (!existing) {
           salesMap.set(ls.orderId, ls);
         } else {
-          // Prioritaskan status 'paid' jika salah satu (cloud atau local) sudah lunas
-          const isPaid = ls.paidStatus === 'paid' || existing.paidStatus === 'paid';
+          // Status dari perangkat ini (localSales) merefleksikan aksi terkini user
+          const finalStatus = ls.paidStatus || existing.paidStatus || 'unpaid';
           salesMap.set(ls.orderId, {
             ...existing,
             ...ls,
-            paidStatus: isPaid ? 'paid' : 'unpaid',
-            paidDate: isPaid ? (ls.paidDate || existing.paidDate || new Date().toISOString().split('T')[0]) : undefined
+            paidStatus: finalStatus,
+            paidDate: finalStatus === 'paid' ? (ls.paidDate || existing.paidDate || new Date().toISOString().split('T')[0]) : undefined
           });
         }
       });
