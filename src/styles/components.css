@@ -814,19 +814,36 @@
 
 /* Thermal receipt printable styling */
 @media print {
-  body * {
-    visibility: hidden;
+  @page {
+    margin: 0mm !important;
+    size: auto;
   }
-  #thermalReceiptArea, #thermalReceiptArea * {
-    visibility: visible;
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  body * {
+    visibility: hidden !important;
+  }
+  #thermalReceiptArea,
+  #thermalReceiptArea * {
+    visibility: visible !important;
+    color: #000000 !important;
+    background: #ffffff !important;
   }
   #thermalReceiptArea {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 80mm;
-    margin: 0;
-    padding: 10px;
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 58mm !important;
+    margin: 0 auto !important;
+    padding: 3mm 1mm !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
   }
 }
 

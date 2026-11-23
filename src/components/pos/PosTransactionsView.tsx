@@ -2,13 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { Order } from '../../types';
 import { useApp } from '../../context/AppContext';
 import { getLocalOrders, fetchStoreOrders, updateOrderStatus, deleteOrder, clearAllOrders } from '../../services/orderService';
-import { CheckCircle2, Clock, Trash2, RefreshCw } from 'lucide-react';
+import { CheckCircle2, Clock, Trash2, RefreshCw, Printer } from 'lucide-react';
+import { PosReceiptModal } from './PosReceiptModal';
+import { orderToReceiptTrx } from '../../utils/receiptPrinter';
 
 export const PosTransactionsView: React.FC = () => {
   const { currentStore } = useApp();
   const [orders, setOrders] = useState<Order[]>(() => getLocalOrders(currentStore.slug));
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'done'>('all');
+  const [selectedReceiptOrder, setSelectedReceiptOrder] = useState<Order | null>(null);
 
   useEffect(() => {
     loadOrders();
@@ -256,6 +259,28 @@ export const PosTransactionsView: React.FC = () => {
 
                 <button
                   type="button"
+                  onClick={() => setSelectedReceiptOrder(o)}
+                  style={{
+                    background: 'rgba(56, 189, 248, 0.12)',
+                    color: '#38bdf8',
+                    border: '1px solid rgba(56, 189, 248, 0.35)',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    fontSize: '0.76rem',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    cursor: 'pointer'
+                  }}
+                  title="Cetak atau kirim ulang struk pembayaran pesanan ini"
+                >
+                  <Printer size={14} />
+                  <span>Cetak Struk</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => handleDeleteOrder(o.orderId)}
                   style={{
                     background: 'rgba(239, 68, 68, 0.1)',
@@ -273,6 +298,14 @@ export const PosTransactionsView: React.FC = () => {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Modal Cetak Ulang Struk Pembayaran */}
+      {selectedReceiptOrder && (
+        <PosReceiptModal
+          trx={orderToReceiptTrx(selectedReceiptOrder)}
+          onClose={() => setSelectedReceiptOrder(null)}
+        />
       )}
     </div>
   );
