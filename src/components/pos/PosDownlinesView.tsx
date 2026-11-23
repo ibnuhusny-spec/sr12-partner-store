@@ -337,10 +337,16 @@ export const PosDownlinesView: React.FC<PosDownlinesViewProps> = ({
 
   const handleTogglePayrollStatus = async (sale: MarketerSale) => {
     const nextStatus = sale.paidStatus === 'paid' ? 'unpaid' : 'paid';
-    await updateMarketerSalePaidStatus(sale.orderId, nextStatus, currentStore.slug);
-    setSales(prev => prev.map(s => s.orderId === sale.orderId ? { ...s, paidStatus: nextStatus } : s));
+    const nextDate = nextStatus === 'paid' ? (sale.paidDate || new Date().toISOString().split('T')[0]) : undefined;
+    const updatedSale: MarketerSale = { ...sale, paidStatus: nextStatus, paidDate: nextDate };
 
-    // Sinkronisasi otomatis ke Buku Kas (Cashflow):
+    // 1. Update UI state secara instan (0ms optimistic UI update)
+    setSales(prev => prev.map(s => s.orderId === sale.orderId ? updatedSale : s));
+
+    // 2. Simpan status komisi di lokal & database
+    await updateMarketerSalePaidStatus(sale.orderId, nextStatus, currentStore.slug, updatedSale);
+
+    // 3. Sinkronisasi otomatis ke Buku Kas (Cashflow):
     // Jika ditandai Lunas / Transfer -> Catat sebagai 🔴 Kas Keluar di Buku Kas
     // Jika dikembalikan ke Pending -> Hapus catatan Kas Keluar tersebut
     if (nextStatus === 'paid') {
@@ -351,7 +357,7 @@ export const PosDownlinesView: React.FC<PosDownlinesViewProps> = ({
         type: 'out',
         category: 'Gaji & Komisi Marketer',
         amount: sale.commissionAmount,
-        description: `Transfer Komisi 15% Marketer #${sale.marketerId} (Pesanan #${sale.orderId})`,
+        description: `Pelunasan Komisi 15% Marketer #${sale.marketerId} (Pesanan #${sale.orderId} - ${sale.customerName || 'Konsumen'})`,
         operator: 'Owner Toko'
       };
       await saveCashflowEntry(cashflowEntry, currentStore.slug);
@@ -373,8 +379,12 @@ export const PosDownlinesView: React.FC<PosDownlinesViewProps> = ({
       return;
     }
 
+    const todayStr = new Date().toISOString().split('T')[0];
+    setSales(prev => prev.map(s => ({ ...s, paidStatus: 'paid', paidDate: todayStr })));
+
     for (const sale of unpaidSales) {
-      await updateMarketerSalePaidStatus(sale.orderId, 'paid', currentStore.slug);
+      const updatedSale = { ...sale, paidStatus: 'paid' as const, paidDate: todayStr };
+      await updateMarketerSalePaidStatus(sale.orderId, 'paid', currentStore.slug, updatedSale);
       const cashflowEntry: CashflowEntry = {
         id: `CSH-MKT-${sale.orderId}`,
         storeSlug: currentStore.slug,
@@ -388,7 +398,6 @@ export const PosDownlinesView: React.FC<PosDownlinesViewProps> = ({
       await saveCashflowEntry(cashflowEntry, currentStore.slug);
     }
 
-    setSales(prev => prev.map(s => ({ ...s, paidStatus: 'paid', paidDate: new Date().toISOString().split('T')[0] })));
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('sr12:cloud_sync_cashflow', { detail: { storeSlug: currentStore.slug } }));
       window.dispatchEvent(new CustomEvent('sr12:cloud_sync_marketer_sales', { detail: { storeSlug: currentStore.slug } }));
@@ -408,8 +417,12 @@ export const PosDownlinesView: React.FC<PosDownlinesViewProps> = ({
       return;
     }
 
+    const todayStr = new Date().toISOString().split('T')[0];
+    setSales(prev => prev.map(s => (s.marketerId.toUpperCase() === marketerId.toUpperCase() && s.paidStatus !== 'paid') ? { ...s, paidStatus: 'paid' as const, paidDate: todayStr } : s));
+
     for (const sale of targetSales) {
-      await updateMarketerSalePaidStatus(sale.orderId, 'paid', currentStore.slug);
+      const updatedSale = { ...sale, paidStatus: 'paid' as const, paidDate: todayStr };
+      await updateMarketerSalePaidStatus(sale.orderId, 'paid', currentStore.slug, updatedSale);
       const cashflowEntry: CashflowEntry = {
         id: `CSH-MKT-${sale.orderId}`,
         storeSlug: currentStore.slug,

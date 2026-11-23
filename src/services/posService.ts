@@ -3,7 +3,6 @@ import { supabase, getActiveSessionToken } from '../config/supabase';
 import { fetchStoreOrders, createOrder, updateOrderStatus, getLocalOrders } from './orderService';
 import { filterDeletedCashflow, markCashflowDeleted, notifyPosDataSync, unmarkCashflowDeleted } from './cleanupGuard';
 import { getLocalMarketerSales, fetchStoreMarketerSales, updateMarketerSalePaidStatus } from './mitraService';
-import { isDemoSessionActive } from './demoGuard';
 
 export function buildDefaultOwnerCashier(ownerName?: string, ownerPin?: string): CashierOperator {
   return {

@@ -835,7 +835,8 @@ export function appendLocalMarketerSale(sale: MarketerSale, storeSlug?: string):
 export async function updateMarketerSalePaidStatus(
   orderId: string,
   newStatus: 'paid' | 'unpaid',
-  storeSlug?: string
+  storeSlug?: string,
+  fallbackSale?: MarketerSale
 ): Promise<boolean> {
   const targetSlug = storeSlug || 'sr12-central';
   const token = getActiveSessionToken(targetSlug);
@@ -852,9 +853,16 @@ export async function updateMarketerSalePaidStatus(
         delete list[idx].paidDate;
       }
       currentSale = list[idx];
-      localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(list));
-      localStorage.setItem(`sr12_marketer_sales_${targetSlug}`, JSON.stringify(list));
+    } else if (fallbackSale) {
+      currentSale = {
+        ...fallbackSale,
+        paidStatus: newStatus,
+        paidDate: newStatus === 'paid' ? (fallbackSale.paidDate || new Date().toISOString().split('T')[0]) : undefined
+      };
+      list.push(currentSale);
     }
+    localStorage.setItem('sr12_marketer_sales_v1', JSON.stringify(list));
+    localStorage.setItem(`sr12_marketer_sales_${targetSlug}`, JSON.stringify(list));
   } catch {}
 
   try {
